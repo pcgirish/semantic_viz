@@ -18,3 +18,9 @@ export type { ClusterProposal, CheckedClusters, ImportEdge } from "./checker.js"
 export { parseJsonResponse, stripCodeFence } from "./json-response.js";
 export { runInterpreter } from "./orchestrate.js";
 export type { RunInterpreterOptions } from "./orchestrate.js";
+export { runPassD } from "./pass-d.js";
+export type { PassDResult, RunPassDOptions } from "./pass-d.js";
+export type { PassDContext } from "./prompts/pass-d.js";
+export { rankInspectQueue } from "./rank.js";
+export type { RankedEntry, RankInspectQueueOptions } from "./rank.js";
+export type { RankCandidate } from "./prompts/rank.js";
