@@ -13,10 +13,11 @@ and [`docs/implement-serve.md`](docs/implement-serve.md) for milestones.
 
 Static-analysis-only pipeline is complete end to end: you can point `scv` at
 a real repo, extract it, serve it, and browse it as a live tile map in the
-browser today. The Interpreter's leaf-semantics pass (A4) is implemented but
-not yet wired into `scv analyze`; clustering/architecture narration (A5/A6)
-and the Differ are not built yet — semantics/cost fields render as explicit
-"not yet available" states in the UI until that wiring lands.
+browser today. The Interpreter's leaf-semantics pass (A4) and clustering +
+architecture-narration passes (A5) are implemented but not yet wired into
+`scv analyze`; the Differ and risk narration (A6) are not built yet —
+semantics/cost fields render as explicit "not yet available" states in the
+UI until that wiring lands.
 
 | Package | What it does | Status |
 |---|---|---|
@@ -27,8 +28,8 @@ and the Differ are not built yet — semantics/cost fields render as explicit
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles, complexity glyphs, dependency-highlight links | Implemented |
 | `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray | Implemented |
-| `packages/interpreter` | Pass A (leaf semantics via `Provider`: `ollama`, `anthropic`, `claude-cli`) + content cache | A4 implemented, not wired into `scv analyze` |
-| Interpreter Pass B/C/D, Differ | Clustering, architecture narration, risk narration, snapshot diffing (delta/replay mode) | Not yet built (A5/A6) |
+| `packages/interpreter` | Pass A (leaf semantics via `Provider`: `ollama`, `anthropic`, `claude-cli`) + content cache; Pass B (import-cohesion clustering + deterministic checker) + Pass C (architecture narration) | A4 + A5 implemented, not wired into `scv analyze` |
+| Interpreter Pass D, Differ | Risk narration, snapshot diffing (delta/replay mode) | Not yet built (A6) |
 
 A disposable Python prototype of the *full* pipeline (extract → interpret →
 diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
