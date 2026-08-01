@@ -3,7 +3,15 @@ import type { DefFact, Fact, FileFacts, ImportFact } from "./facts.js";
 import { moduleQualname } from "./qualname.js";
 import { normalizeSource, shortHash, sloc } from "./hash.js";
 import { langForFile } from "./grammars/registry.js";
+import type { ManifestInfo } from "./manifest.js";
+import type { FileChurn } from "./vcs.js";
 import type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "./symbol-graph.js";
+
+const PYTHON_STDLIB = new Set([
+  "os", "sys", "time", "json", "typing", "dataclasses", "pathlib", "hashlib",
+  "asyncio", "collections", "functools", "re", "abc", "itertools", "logging",
+  "datetime", "math", "random", "subprocess", "io", "contextlib", "enum",
+]);
 
 interface UnitBuild {
   fact: DefFact;
@@ -23,7 +31,12 @@ function resolveRelativeModule(fromFile: string, moduleSpecifier: string): strin
   return joined.split(path.sep).join(".");
 }
 
-export function resolveGraph(files: FileFacts[], knownModules: Set<string>): SymbolGraph {
+export function resolveGraph(
+  files: FileFacts[],
+  knownModules: Set<string>,
+  manifest: ManifestInfo,
+  churn: Map<string, FileChurn>,
+): SymbolGraph {
   const unitsByQualname = new Map<string, UnitBuild>();
   const childrenOf = new Map<string, string[]>();
 
@@ -67,6 +80,7 @@ export function resolveGraph(files: FileFacts[], knownModules: Set<string>): Sym
       kids.push(unitId(qualname));
       childrenOf.set(parent, kids);
     }
+    const fileChurn = churn.get(fact.file) ?? null;
     units.push({
       id: unitId(qualname),
       kind: fact.unitKind,
@@ -81,6 +95,17 @@ export function resolveGraph(files: FileFacts[], knownModules: Set<string>): Sym
       returns: fact.returns,
       bases: fact.bases,
       hash: { struct: shortHash(`${fact.unitKind}:${qualname}:${fact.params.map((p) => p.name).join(",")}`), text: shortHash(normalizeSource(fact.text)) },
+      metrics: {
+        fanIn: 0,
+        fanOut: 0,
+        churn: fileChurn ? fileChurn.added + fileChurn.deleted : 0,
+        commits: fileChurn ? fileChurn.commits : 0,
+      },
+      authors: fileChurn
+        ? [...fileChurn.authors.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, lines]) => ({ name, lines }))
+        : [],
     });
   }
   for (const u of units) {
@@ -89,6 +114,7 @@ export function resolveGraph(files: FileFacts[], knownModules: Set<string>): Sym
 
   const edges: SymbolEdge[] = [];
   let edgeSeq = 0;
+  const externalReachedBy = new Map<string, Set<string>>();
 
   // imports: binding -> resolved module qualname (if it's a repo module)
   for (const ff of files) {
@@ -140,6 +166,12 @@ export function resolveGraph(files: FileFacts[], knownModules: Set<string>): Sym
           confidence: 0.3,
           evidence: { file: ff.file, line: imp.line },
         });
+        const topLevel = imp.module.split(".")[0]!;
+        if (!(manifest.ecosystem === "pypi" && PYTHON_STDLIB.has(topLevel))) {
+          const reachedBy = externalReachedBy.get(topLevel) ?? new Set<string>();
+          reachedBy.add(moduleUnit.id);
+          externalReachedBy.set(topLevel, reachedBy);
+        }
       }
     }
 
@@ -195,6 +227,28 @@ export function resolveGraph(files: FileFacts[], knownModules: Set<string>): Sym
     }
   }
 
-  const externals: SymbolExternal[] = [];
+  const unitsById = new Map(units.map((u) => [u.id, u]));
+  for (const e of edges) {
+    const fromUnit = unitsById.get(e.from);
+    if (fromUnit) fromUnit.metrics.fanOut++;
+    const toUnit = unitsById.get(e.to);
+    if (toUnit) toUnit.metrics.fanIn++;
+  }
+
+  const externals: SymbolExternal[] = [...externalReachedBy.entries()]
+    .map(([name, reachedBy]) => {
+      const version = manifest.pinned.get(name) ?? null;
+      return {
+        id: version ? `x:${manifest.ecosystem}:${name}@${version}` : `x:${manifest.ecosystem}:${name}`,
+        ecosystem: manifest.ecosystem ?? "unknown",
+        name,
+        version,
+        direct: manifest.pinned.has(name),
+        depth: 1,
+        reachedBy: [...reachedBy].sort(),
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+
   return { units, edges, externals };
 }
