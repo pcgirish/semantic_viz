@@ -7,9 +7,9 @@ import type { SymbolGraph } from "./symbol-graph.js";
 export function extractRepo(root: string): SymbolGraph {
   const files = parseRepoFiles(root);
   const knownModules = knownModulesOf(files);
-  const manifest = parseManifests(root);
+  const manifests = parseManifests(root);
   const churn = churnByFile(root);
-  return resolveGraph(files, knownModules, manifest, churn);
+  return resolveGraph(files, knownModules, manifests, churn);
 }
 
 export type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "./symbol-graph.js";

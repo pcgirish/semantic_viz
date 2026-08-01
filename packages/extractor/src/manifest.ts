@@ -6,6 +6,11 @@ export interface ManifestInfo {
   pinned: Map<string, string | null>;
 }
 
+export interface RepoManifests {
+  pypi: ManifestInfo | null;
+  npm: ManifestInfo | null;
+}
+
 function parseRequirementsTxt(text: string): Map<string, string | null> {
   const pinned = new Map<string, string | null>();
   for (const rawLine of text.split("\n")) {
@@ -62,7 +67,7 @@ function parsePyprojectToml(text: string): Map<string, string | null> {
   return pinned;
 }
 
-export function parseManifests(root: string): ManifestInfo {
+function parsePypiManifest(root: string): ManifestInfo | null {
   const requirementsPath = path.join(root, "requirements.txt");
   if (existsSync(requirementsPath)) {
     return { ecosystem: "pypi", pinned: parseRequirementsTxt(readFileSync(requirementsPath, "utf-8")) };
@@ -71,9 +76,18 @@ export function parseManifests(root: string): ManifestInfo {
   if (existsSync(pyprojectPath)) {
     return { ecosystem: "pypi", pinned: parsePyprojectToml(readFileSync(pyprojectPath, "utf-8")) };
   }
+  return null;
+}
+
+function parseNpmManifest(root: string): ManifestInfo | null {
   const packageJsonPath = path.join(root, "package.json");
   if (existsSync(packageJsonPath)) {
     return { ecosystem: "npm", pinned: parsePackageJson(readFileSync(packageJsonPath, "utf-8")) };
   }
-  return { ecosystem: null, pinned: new Map() };
+  return null;
+}
+
+/** Reads whichever of pyproject.toml/requirements.txt and package.json are present at the repo root. */
+export function parseManifests(root: string): RepoManifests {
+  return { pypi: parsePypiManifest(root), npm: parseNpmManifest(root) };
 }
