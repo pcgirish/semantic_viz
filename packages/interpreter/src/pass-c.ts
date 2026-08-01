@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Provider } from "./provider.js";
 import { passCPrompt } from "./prompts/pass-c.js";
 import type { ClusterProposal } from "./checker.js";
-import { parseJsonResponse } from "./json-response.js";
+import { interpretJsonWithRetry } from "./retry.js";
 
 const PassCResponseSchema = z.object({
   why: z.string(),
@@ -35,10 +35,12 @@ export async function runPassC(options: RunPassCOptions): Promise<PassCResult> {
 
   for (const [name, files] of Object.entries(clusters)) {
     const prompt = passCPrompt(name, files, oneLiners);
-    const { text } = await provider.interpret(prompt);
-
-    const parsed = parseJsonResponse(text, `pass C: cluster "${name}"`);
-    const response = PassCResponseSchema.parse(parsed);
+    const response = await interpretJsonWithRetry({
+      provider,
+      prompt,
+      label: `pass C: cluster "${name}"`,
+      schema: PassCResponseSchema,
+    });
     layers.push({ name, files, why: response.why, confidence: response.confidence, source: "llm" });
   }
 

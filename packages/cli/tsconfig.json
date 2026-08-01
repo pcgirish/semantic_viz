@@ -5,5 +5,5 @@
     "rootDir": "./src"
   },
   "include": ["src"],
-  "references": [{ "path": "../schema" }, { "path": "../extractor" }]
+  "references": [{ "path": "../schema" }, { "path": "../extractor" }, { "path": "../interpreter" }, { "path": "../differ" }]
 }
