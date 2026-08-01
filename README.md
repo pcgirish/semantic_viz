@@ -68,17 +68,20 @@ npm run build --workspace packages/cli
 node packages/cli/dist/bin.js analyze /path/to/repo
 
 # 2. serve it over HTTP
-npm run dev --workspace packages/server
+npm run build --workspace packages/server
+node packages/server/dist/bin.js /path/to/repo
 
 # 3. run the UI (proxies /api to the server above)
 npm run dev --workspace packages/ui
 ```
 
 Open the UI dev server URL in a browser. You get a layered tile map of the
-repo's units (modules/classes/functions), sized by SLOC and shaped by
-complexity. Click a tile to select it and open the inspector tray;
-double-click to drill into it (double-click empty canvas to ascend back out);
-hover to highlight what it depends on vs. what depends on it.
+repo's units (modules/classes/functions), each tile labeled with its name and
+sloc/fan-in/fan-out, sized by SLOC and shaped by complexity. Scroll to zoom
+(anchored at the cursor) and drag to pan — real repos lay out wide and flat,
+so zoom is how you read it. Click a tile to select it and open the inspector
+tray; double-click to drill into it (double-click empty canvas to ascend back
+out); hover to highlight what it depends on vs. what depends on it.
 
 `semantics` (what/how/when/where/why) and `cost.estimate` show as "not yet
 available — no Interpreter pass has run" until `packages/interpreter` exists.
