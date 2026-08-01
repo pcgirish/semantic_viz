@@ -212,7 +212,10 @@ export function resolveGraph(
           evidence: { file: ff.file, line: imp.line },
         });
         if (!imp.module.startsWith(".") && fileEcosystem) {
-          const topLevel = imp.module.split(".")[0]!.split("/")[0]!;
+          const withoutSubpath = imp.module.startsWith("@")
+            ? imp.module.split("/").slice(0, 2).join("/")
+            : imp.module.split("/")[0]!;
+          const topLevel = withoutSubpath.split(".")[0]!;
           const isStdlib =
             (fileEcosystem === "pypi" && PYTHON_STDLIB.has(topLevel)) ||
             (fileEcosystem === "npm" && (imp.module.startsWith("node:") || NODE_BUILTINS.has(topLevel)));

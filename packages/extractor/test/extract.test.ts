@@ -134,6 +134,16 @@ describe("extractRepo excludes Node builtin modules from externals", () => {
   it("still lists a genuine third-party import as an external", () => {
     expect(graph.externals.find((x) => x.name === "zod")).toBeDefined();
   });
+
+  it("collapses a deep-path import to its package name", () => {
+    expect(graph.externals.find((x) => x.name === "elkjs")).toBeDefined();
+    expect(graph.externals.find((x) => x.name === "elkjs/lib/elk-api")).toBeUndefined();
+  });
+
+  it("preserves the full name of a scoped (@scope/pkg) import", () => {
+    expect(graph.externals.find((x) => x.name === "@tailwindcss/vite")).toBeDefined();
+    expect(graph.externals.find((x) => x.name === "@tailwindcss")).toBeUndefined();
+  });
 });
 
 describe("extractRepo on a repo with both Python and TypeScript manifests", () => {
