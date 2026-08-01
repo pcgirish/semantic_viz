@@ -1,7 +1,8 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
-import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
+import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
 import type { Snapshot } from "@scv/schema";
 import { App } from "../src/App.js";
+import { useAppStore } from "../src/store.js";
 
 function makeSnapshot(): Snapshot {
   return {
@@ -31,6 +32,10 @@ function makeSnapshot(): Snapshot {
 }
 
 describe("App", () => {
+  beforeEach(() => {
+    useAppStore.setState(useAppStore.getInitialState());
+  });
+
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
@@ -59,6 +64,30 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/could not load/i)).toBeInTheDocument();
+    });
+  });
+
+  it("clicking a tile shows that unit in the inspector tray", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeSnapshot()),
+      }),
+    );
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    expect(screen.getByText(/nothing selected/i)).toBeInTheDocument();
+
+    fireEvent.click(container.querySelector('.tile[data-id="u:a"]')!);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/nothing selected/i)).toBeNull();
     });
   });
 });

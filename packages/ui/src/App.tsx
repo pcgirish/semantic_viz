@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Snapshot } from "@scv/schema";
 import { CanvasHost } from "./CanvasHost.js";
+import { Inspector } from "./Inspector.js";
+import { useAppStore } from "./store.js";
 
 export type AppProps = {
   /** Full snapshot URL, e.g. /api/snapshot/:sha (implement-serve.md's API table). */
@@ -11,6 +13,7 @@ type LoadState = { status: "loading" } | { status: "error" } | { status: "loaded
 
 export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const selection = useAppStore((s) => s.selection);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,5 +37,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   if (state.status === "loading") return <div>Loading…</div>;
   if (state.status === "error") return <div>Could not load snapshot.</div>;
 
-  return <CanvasHost units={state.snapshot.units} edges={state.snapshot.edges} />;
+  const { units, edges } = state.snapshot;
+  const selectedUnit = units.find((u) => u.id === selection) ?? null;
+
+  return (
+    <div className="app">
+      <CanvasHost units={units} edges={edges} />
+      <Inspector unit={selectedUnit} units={units} edges={edges} />
+    </div>
+  );
 }
