@@ -8,6 +8,8 @@ import {
   createProvider,
   loadInterpreterConfig,
   runInterpreter,
+  writeInterpreterConfig,
+  type InterpreterConfig,
   type Provider,
 } from "@scv/interpreter";
 import { headRev } from "./rev.js";
@@ -19,6 +21,10 @@ export interface RunAnalyzeOptions {
   scvDir?: string;
   /** Overrides the provider resolved from `<scvDir>/config.yaml`; primarily for tests. */
   provider?: Provider;
+  /** Provider name to persist to `<scvDir>/config.yaml` before resolving, e.g. for first-run setup. */
+  providerName?: InterpreterConfig["provider"];
+  model?: string;
+  effort?: InterpreterConfig["effort"];
   promptRev?: string;
 }
 
@@ -38,6 +44,16 @@ function readSource(root: string) {
 export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyzeResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
   mkdirSync(scvDir, { recursive: true });
+
+  if (options.providerName || options.model || options.effort) {
+    const current = loadInterpreterConfig(scvDir);
+    writeInterpreterConfig(scvDir, {
+      provider: options.providerName ?? current.provider,
+      model: options.model ?? current.model,
+      effort: options.effort ?? current.effort,
+    });
+  }
+
   const graph = extractRepo(options.root);
   const rev = headRev(options.root);
   const structural = toSnapshot(graph, { root: options.root, rev });

@@ -22,15 +22,24 @@ const DEFAULT_EFFORT = "low";
 export class ClaudeCliProvider implements Provider {
   readonly name = "claude-cli";
   readonly model: string;
-  private readonly effort: string;
+  readonly effortLevel: string;
 
   constructor(options: ClaudeCliProviderOptions = {}) {
     this.model = options.model ?? DEFAULT_MODEL;
-    this.effort = options.effort ?? DEFAULT_EFFORT;
+    this.effortLevel = options.effort ?? DEFAULT_EFFORT;
   }
 
   async interpret(prompt: string, context?: ProviderContext): Promise<ProviderResult> {
-    const args = ["-p", prompt, "--output-format", "json", "--model", this.model, "--effort", this.effort];
+    const args = [
+      "-p",
+      prompt,
+      "--output-format",
+      "json",
+      "--model",
+      this.model,
+      "--effort",
+      this.effortLevel,
+    ];
     if (context?.system) {
       args.push("--append-system-prompt", context.system);
     }
