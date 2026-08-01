@@ -17,8 +17,9 @@ function fakeProvider(response: object): Provider {
 }
 
 describe("rankInspectQueue", () => {
-  it("returns candidates re-ordered per the LLM's ranked unit id list", async () => {
-    const provider = fakeProvider({ ranked: ["u:2", "u:1"] });
+  it("returns candidates re-ordered per the LLM's ranked 1-indexed position list", async () => {
+    // candidate #1 is u:1, #2 is u:2 — ranked [2, 1] means "u:2 first, then u:1"
+    const provider = fakeProvider({ ranked: [2, 1] });
 
     const result = await rankInspectQueue({ candidates, provider, promptRev: "p1" });
 
@@ -36,8 +37,14 @@ describe("rankInspectQueue", () => {
     expect(provider.interpret).not.toHaveBeenCalled();
   });
 
-  it("throws a clear error when the LLM omits or invents a unit id", async () => {
-    const provider = fakeProvider({ ranked: ["u:1"] });
+  it("throws a clear error when the LLM omits or invents a position", async () => {
+    const provider = fakeProvider({ ranked: [1] });
+
+    await expect(rankInspectQueue({ candidates, provider, promptRev: "p1" })).rejects.toThrow(/rank/i);
+  });
+
+  it("throws a clear error when the LLM returns a position out of range", async () => {
+    const provider = fakeProvider({ ranked: [1, 99] });
 
     await expect(rankInspectQueue({ candidates, provider, promptRev: "p1" })).rejects.toThrow(/rank/i);
   });

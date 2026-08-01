@@ -38,7 +38,7 @@ function makeSnapshot(units: Unit[], edges: Edge[] = [], sha = "aaa1111"): Snaps
   };
 }
 
-function providerReturning(byUnit: Record<string, object>, rankOrder: string[]): Provider {
+function providerReturning(byUnit: Record<string, object>, rankOrder: number[]): Provider {
   return {
     name: "fake",
     model: "fake-model",
@@ -64,7 +64,7 @@ describe("runDifferWithRisk", () => {
           confidence: 0.7,
         },
       },
-      ["u:py:src.a#f"],
+      [1],
     );
 
     const delta = await runDifferWithRisk(a, b, provider, "p1");
@@ -84,7 +84,7 @@ describe("runDifferWithRisk", () => {
         n1: { axes: { functionality: 0.6, availability: 0.6, scalability: 0.1, performance: 0.1, security: 0.1 }, why: "w1", confidence: 0.8 },
         n2: { axes: { functionality: 0.2, availability: 0.2, scalability: 0.2, performance: 0.2, security: 0.2 }, why: "w2", confidence: 0.5 },
       },
-      ["u:2", "u:1"],
+      [2, 1],
     );
 
     const delta = await runDifferWithRisk(a, b, provider, "p1");
