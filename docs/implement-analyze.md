@@ -4,13 +4,13 @@
 
 ## Stack
 
-**TypeScript on Node 20+, for v1.**
+**TypeScript on Node 24+, for v1.**
 
 | Concern | Choice | Why |
 |---|---|---|
 | Parsing | `tree-sitter` (native Node bindings, not WASM) | Canonical grammars; native bindings parse 50k LOC in seconds |
 | Grammars | `tree-sitter-{python,typescript,go,java,rust}` | One npm dep per language, loaded through a registry |
-| LLM | `@anthropic-ai/sdk` | Batch API for Pass A, prompt caching for Pass B/C context |
+| LLM | Provider interface over `ollama` (local, default) and `@anthropic-ai/sdk` | One call-shape for both; Batch API + prompt caching on Anthropic, no batching/caching on Ollama — see below |
 | Cache + index | `better-sqlite3` | Synchronous, embedded, one file, no daemon |
 | Schema | `zod` → generated JSON Schema | One definition, runtime validation and published contract |
 | CLI | `commander` + `ora` | Unremarkable on purpose |
@@ -24,6 +24,17 @@ Rust is the better answer for the extractor in isolation: faster, single static 
 The dominant risk here is **semantic quality, not parse throughput**. Almost all iteration will be on prompts, clustering constraints, and risk formulas, and every one of those cycles is slower in a compiled language. Meanwhile 50k LOC parses in seconds under Node, and repos where that matters are not the v1 target.
 
 One language across analyzer, server, and UI also means one toolchain, one test runner, one type definition of the schema shared by producer and consumer.
+
+### LLM provider
+
+The Interpreter calls a `Provider` interface (`interpret(prompt, context) -> {text, tokens}`), not the Anthropic SDK directly. Two implementations ship in v1:
+
+| Provider | Use case | Notes |
+|---|---|---|
+| `ollama` (default) | Local, offline, no API cost | Talks to a local `ollama serve`; no Batch API, no prompt caching — Pass B/C context is resent per call, so it's slower per unit |
+| `anthropic` | Cloud, best quality, Batch API for Pass A | Requires an API key; not free |
+
+Selected via `.scv/config.yaml` (`interpreter.provider`). Prompt templates and the `scv/1` schema are provider-agnostic; `provenance.interpreter.provider` and `.model` record which one produced a snapshot, since quality/confidence differ by model and mixing providers across a replay should be visible, not silent. Cache keys include `provider` + `model` alongside `prompt_rev` so switching providers never serves stale cross-provider results.
 
 **Escape hatch.** The Extractor is isolated behind a process boundary and emits SymbolGraph JSON on stdout. Swapping in a Rust binary is a drop-in replacement that touches nothing else. Trigger for doing it: p95 cold extract exceeding 60s on a target repo. That is a real milestone (A7), not a someday.
 
@@ -79,7 +90,7 @@ Ongoing: a git hook or `scv analyze --pr <n>` on merge keeps HEAD current increm
 | **A1** | `schema` package, JSON Schema, fixtures | Validator green on the `orderly` snapshot + delta; visualizer can build against it |
 | **A2** | Extractor: tree-sitter host, Python + TypeScript grammars, resolver | SymbolGraph for a 50k-LOC repo in <30 s, ≥90% reference resolution |
 | **A3** | Manifests, externals, git churn and authors | Depends-on view data complete with depth and `reached_by` |
-| **A4** | Interpreter Pass A + content cache | Re-run after a one-file edit costs ≤1% of a cold run |
+| **A4** | Interpreter Pass A + content cache + `Provider` interface (`ollama` default, `anthropic`) | Re-run after a one-file edit costs ≤1% of a cold run; Pass A produces equivalent-shape output against both providers on the `orderly` fixture |
 | **A5** | Interpreter Pass B/C + deterministic checker | Modularity beats the directory baseline on 3 repos; `orderly` reproduces the ops cluster (`admin_tasks` grouped with `scripts`) from source alone |
 | **A6** | Differ, rollup, Pass D risk | **`orderly` inspect queue returns 7/7 against `task/RL-114.deltas.json` with an LLM in the loop**; spot-check 20 real PRs against human ranking |
 | **A7** | Go + Java grammars via the plugin path only | Zero changes under `extractor/src`. If throughput now fails A2's bar, extract the Rust binary here |
