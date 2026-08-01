@@ -1,8 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const execFileMock = vi.fn();
+const stdinEndMock = vi.fn();
 vi.mock("node:child_process", () => ({
-  execFile: (...args: unknown[]) => execFileMock(...args),
+  execFile: (...args: unknown[]) => {
+    execFileMock(...args);
+    return { stdin: { end: stdinEndMock } };
+  },
 }));
 
 const { ClaudeCliProvider } = await import("../src/providers/claude-cli.js");
@@ -16,6 +20,7 @@ function mockResult(stdout: object) {
 describe("ClaudeCliProvider", () => {
   beforeEach(() => {
     execFileMock.mockReset();
+    stdinEndMock.mockReset();
   });
 
   it("shells out to `claude -p` with --output-format json, defaulting to sonnet at low effort", async () => {
@@ -71,6 +76,15 @@ describe("ClaudeCliProvider", () => {
 
     const provider = new ClaudeCliProvider();
     await expect(provider.interpret("prompt")).rejects.toThrow(/command not found/);
+  });
+
+  it("closes stdin so the subprocess never blocks waiting for input", async () => {
+    mockResult({ result: "ok", usage: { input_tokens: 1, output_tokens: 1 } });
+
+    const provider = new ClaudeCliProvider();
+    await provider.interpret("prompt");
+
+    expect(stdinEndMock).toHaveBeenCalledOnce();
   });
 
   it("exposes provider name and model, defaulting to sonnet", () => {
