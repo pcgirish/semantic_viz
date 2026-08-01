@@ -120,10 +120,11 @@ describe("V2 exit criteria (implement-serve.md)", () => {
     expect(elapsed).toBeLessThan(50);
   });
 
-  // implement-serve.md is explicit that <5% is the real-code target and is "not met on
-  // adversarial random graphs" even by the reference implementation (7.7%/8.3% on its own
-  // 200/400-node synthetic cases). This asserts we're in that same documented ballpark,
-  // not the unmet <5% figure — orderly (real code, above) is where <5% is actually required.
+  // implement-serve.md's reference implementation hits 7.7%/8.3% on its own 200/400-node
+  // synthetic cases with dummy-node expansion + port spreading (fixes #2/#3). With those
+  // now implemented here too, this repo measures 5.85%/6.52% on the same shapes — inside
+  // the documented ballpark and closer to (though not yet under) the real-code-only <5%
+  // target. Thresholds below bracket the measured value, not the unmet 5% figure.
   it("synthetic 200-node graph: crossing ratio in the documented ballpark, relayout under 100ms", () => {
     const { units, edges } = makeSyntheticLayeredGraph(200, 193, 10);
     const start = performance.now();
@@ -135,16 +136,22 @@ describe("V2 exit criteria (implement-serve.md)", () => {
     const crossings = countCrossings(scene);
     const crossingRatio = maxPairs > 0 ? crossings / maxPairs : 0;
 
-    expect(crossingRatio).toBeLessThan(0.15);
+    expect(crossingRatio).toBeLessThan(0.08);
     expect(elapsed).toBeLessThan(100);
   });
 
-  it("synthetic 400-node graph: relayout under 100ms", () => {
+  it("synthetic 400-node graph: crossing ratio in the documented ballpark, relayout under 100ms", () => {
     const { units, edges } = makeSyntheticLayeredGraph(400, 400, 15);
     const start = performance.now();
     const scene = buildScene(units, edges);
     const elapsed = performance.now() - start;
 
+    const linkCount = scene.links.length;
+    const maxPairs = (linkCount * (linkCount - 1)) / 2;
+    const crossings = countCrossings(scene);
+    const crossingRatio = maxPairs > 0 ? crossings / maxPairs : 0;
+
+    expect(crossingRatio).toBeLessThan(0.08);
     expect(elapsed).toBeLessThan(100);
     expect(scene.nodes).toHaveLength(400);
   });
