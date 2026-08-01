@@ -1,9 +1,10 @@
 import type { Edge, Unit } from "@scv/schema";
 import { rank } from "./rank.js";
+import { expand } from "./expand.js";
 import { order } from "./order.js";
 import { seed } from "./seed.js";
 import { place } from "./place.js";
-import { route } from "./route.js";
+import { route, type RouteChain } from "./route.js";
 import type { Scene, SceneNode } from "./scene.js";
 
 export type BuildSceneOptions = {
@@ -31,11 +32,15 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
     edges.map((e) => ({ from: e.from, to: e.to })),
   );
 
-  const initialRows = order(
+  const { unitIds: expandedIds, edges: expandedEdges, chains, dummyRank } = expand(
     unitIds,
     ranks,
     edges.map((e) => ({ from: e.from, to: e.to })),
   );
+  const allRanks = new Map(ranks);
+  for (const [id, r] of dummyRank) allRanks.set(id, r);
+
+  const initialRows = order(expandedIds, allRanks, expandedEdges);
 
   const priorX = new Map<string, number>();
   if (options.priorScene) {
@@ -46,10 +51,13 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
   const sloc = new Map(units.map((u) => [u.id, u.loc.sloc]));
   const boxes = place(rows, sloc);
 
-  const links = route(
-    edges.map((e) => ({ id: e.id, from: e.from, to: e.to, kind: e.kind })),
-    boxes,
-  );
+  // One route chain per input edge (not per expand.ts chain-dedup) — route.ts does its
+  // own (from, to) bundling, keyed by the edge's original endpoints, not the dummy path.
+  const routeChains: RouteChain[] = edges.map((e) => {
+    const c = chains.find((ch) => ch.from === e.from && ch.to === e.to)!;
+    return { from: c.from, to: c.to, nodes: c.nodes, id: e.id, ids: [e.id], kind: e.kind, back: c.back };
+  });
+  const links = route(routeChains, boxes);
 
   const nodes: SceneNode[] = units
     .filter((u) => boxes.has(u.id))
