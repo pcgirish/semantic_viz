@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { SymbolUnit } from "@scv/extractor";
 import type { Provider } from "./provider.js";
 import { passAPrompt } from "./prompts/pass-a.js";
-import { parseJsonResponse } from "./json-response.js";
+import { interpretJsonWithRetry } from "./retry.js";
 
 const PortSchema = z.object({
   name: z.string(),
@@ -58,10 +58,12 @@ export interface RunPassAOptions {
 export async function runPassA(options: RunPassAOptions): Promise<PassAResult> {
   const { unit, source, provider } = options;
   const prompt = passAPrompt(unit, source);
-  const { text } = await provider.interpret(prompt);
-
-  const parsed = parseJsonResponse(text, `pass A: ${unit.qualname}`);
-  const response = PassAResponseSchema.parse(parsed);
+  const response = await interpretJsonWithRetry({
+    provider,
+    prompt,
+    label: `pass A: ${unit.qualname}`,
+    schema: PassAResponseSchema,
+  });
 
   return {
     semantics: {

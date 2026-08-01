@@ -2,12 +2,21 @@ import { z } from "zod";
 import type { Provider } from "./provider.js";
 import { rankPrompt } from "./prompts/rank.js";
 import type { RankCandidate } from "./prompts/rank.js";
-import { parseJsonResponse } from "./json-response.js";
-
-const RankResponseSchema = z.object({ ranked: z.array(z.number()) });
+import { interpretJsonWithRetry } from "./retry.js";
 
 export interface RankedEntry extends RankCandidate {
   rank: number;
+}
+
+function rankResponseSchema(candidateCount: number) {
+  return z.object({ ranked: z.array(z.number()) }).refine(
+    ({ ranked }) => {
+      const expected = new Set(Array.from({ length: candidateCount }, (_, i) => i + 1));
+      const got = new Set(ranked);
+      return got.size === expected.size && [...expected].every((n) => got.has(n));
+    },
+    { message: `ranked list must be an exact permutation of 1-${candidateCount}` },
+  );
 }
 
 export interface RankInspectQueueOptions {
@@ -30,18 +39,12 @@ export async function rankInspectQueue(options: RankInspectQueueOptions): Promis
   if (candidates.length === 0) return [];
 
   const prompt = rankPrompt(candidates);
-  const { text } = await provider.interpret(prompt);
-
-  const parsed = parseJsonResponse(text, "rank inspect queue");
-  const response = RankResponseSchema.parse(parsed);
-
-  const expected = new Set(candidates.map((_, i) => i + 1));
-  const got = new Set(response.ranked);
-  if (got.size !== expected.size || [...expected].some((n) => !got.has(n))) {
-    throw new Error(
-      `rank inspect queue: provider's ranked list does not match candidate numbers 1-${candidates.length} exactly (got ${response.ranked.join(", ")})`,
-    );
-  }
+  const response = await interpretJsonWithRetry({
+    provider,
+    prompt,
+    label: "rank inspect queue",
+    schema: rankResponseSchema(candidates.length),
+  });
 
   return response.ranked.map((position, i) => ({ ...candidates[position - 1]!, rank: i + 1 }));
 }

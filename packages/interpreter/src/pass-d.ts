@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Provider } from "./provider.js";
 import { passDPrompt } from "./prompts/pass-d.js";
 import type { PassDContext } from "./prompts/pass-d.js";
-import { parseJsonResponse } from "./json-response.js";
+import { interpretJsonWithRetry } from "./retry.js";
 
 const RiskAxesResponseSchema = z.object({
   functionality: z.number().min(0).max(1),
@@ -36,10 +36,12 @@ export interface RunPassDOptions {
 export async function runPassD(options: RunPassDOptions): Promise<PassDResult> {
   const { context, provider } = options;
   const prompt = passDPrompt(context);
-  const { text } = await provider.interpret(prompt);
-
-  const parsed = parseJsonResponse(text, `pass D: ${context.qualname}`);
-  const response = PassDResponseSchema.parse(parsed);
+  const response = await interpretJsonWithRetry({
+    provider,
+    prompt,
+    label: `pass D: ${context.qualname}`,
+    schema: PassDResponseSchema,
+  });
 
   return {
     score: Math.max(...Object.values(response.axes)),
