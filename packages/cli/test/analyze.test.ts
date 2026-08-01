@@ -68,4 +68,20 @@ describe("runAnalyze", () => {
     expect(lifted?.semantics?.what).toBe("does a thing");
     expect(written.snapshot.units.some((u) => u.kind === "system")).toBe(true);
   });
+
+  it("caches Pass A calls across runs against unchanged content, producing identical semantic hashes", async () => {
+    const provider1 = fakeProvider();
+    const first = await runAnalyze({ root: orderlyRoot, scvDir, provider: provider1 });
+    const callsAfterFirst = (provider1.interpret as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    const provider2 = fakeProvider();
+    const second = await runAnalyze({ root: orderlyRoot, scvDir, provider: provider2 });
+
+    expect(provider2.interpret).not.toHaveBeenCalled();
+    expect(callsAfterFirst).toBeGreaterThan(0);
+
+    const hash = (s: typeof first.snapshot) =>
+      s.units.filter((u) => u.kind === "function").map((u) => u.hash.semantic);
+    expect(hash(second.snapshot)).toEqual(hash(first.snapshot));
+  });
 });
