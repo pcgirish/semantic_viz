@@ -89,7 +89,7 @@ function parsePyprojectToml(text: string): Map<string, string | null> {
   return pinned;
 }
 
-/** Merges pinned maps found across a repo, deepest (root-most) files applied last so they win on name conflicts. */
+/** Merges pinned maps found across a repo; root-most (shallowest path) files are applied last, so they win on name conflicts. */
 function mergePinned(entries: { file: string; pinned: Map<string, string | null> }[]): Map<string, string | null> {
   const byDepth = [...entries].sort((a, b) => b.file.split(path.sep).length - a.file.split(path.sep).length);
   const merged = new Map<string, string | null>();

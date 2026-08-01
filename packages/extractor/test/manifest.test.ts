@@ -98,3 +98,12 @@ describe("parseManifests on a repo with manifests only in subdirectories", () =>
     expect(manifest.npm?.pinned.has("not-a-real-dep")).toBe(false);
   });
 });
+
+describe("parseManifests when the same package is pinned differently at two depths", () => {
+  const conflictingRoot = fileURLToPath(new URL("./fixtures/conflicting-manifests", import.meta.url));
+
+  it("prefers the root-level manifest's version", () => {
+    const manifest = parseManifests(conflictingRoot);
+    expect(manifest.npm?.pinned.get("zod")).toBe("^3.0.0");
+  });
+});

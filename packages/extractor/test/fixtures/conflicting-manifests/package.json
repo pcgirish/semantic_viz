@@ -1,0 +1,7 @@
+{
+  "name": "conflicting-root",
+  "version": "0.1.0",
+  "dependencies": {
+    "zod": "^3.0.0"
+  }
+}
