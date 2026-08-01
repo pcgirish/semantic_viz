@@ -74,6 +74,22 @@ describe("buildScene", () => {
     expect(orderOf(second)).toEqual(orderOf(first));
   });
 
+  it("carries name and fan-in/fan-out onto each scene node so a skin can render a label", () => {
+    const units = [
+      makeUnit({ id: "a", name: "alpha", loc: { files: [], sloc: 42 } }),
+      makeUnit({ id: "b", name: "beta" }),
+      makeUnit({ id: "c", name: "gamma" }),
+    ];
+    const edges = [makeEdge({ id: "e1", from: "a", to: "b" }), makeEdge({ id: "e2", from: "c", to: "a" })];
+
+    const scene = buildScene(units, edges);
+    const a = scene.nodes.find((n) => n.id === "a")!;
+    expect(a.name).toBe("alpha");
+    expect(a.sloc).toBe(42);
+    expect(a.fanOut).toBe(1);
+    expect(a.fanIn).toBe(1);
+  });
+
   it("is a pure function: same input yields the same output", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "c" })];
     const edges = [makeEdge({ id: "e1", from: "a", to: "b" }), makeEdge({ id: "e2", from: "a", to: "c" })];

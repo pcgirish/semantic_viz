@@ -10,6 +10,11 @@ export type SceneNode = {
   sides: 3 | 4 | 6 | 0; // 0 = circle (13+ complexity bucket)
   heat: number;
   ring: boolean;
+  // Display fields: a skin renders text from the Scene alone, never a raw Unit (docs/serve.md#1).
+  name: string;
+  sloc: number;
+  fanIn: number;
+  fanOut: number;
 };
 
 export type EdgeKindState = "current" | "added" | "removed" | "reweighted";
