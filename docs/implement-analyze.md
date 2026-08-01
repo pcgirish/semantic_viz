@@ -27,12 +27,13 @@ One language across analyzer, server, and UI also means one toolchain, one test 
 
 ### LLM provider
 
-The Interpreter calls a `Provider` interface (`interpret(prompt, context) -> {text, tokens}`), not the Anthropic SDK directly. Two implementations ship in v1:
+The Interpreter calls a `Provider` interface (`interpret(prompt, context) -> {text, tokens}`), not the Anthropic SDK directly. Three implementations ship in v1:
 
 | Provider | Use case | Notes |
 |---|---|---|
 | `ollama` (default) | Local, offline, no API cost | Talks to a local `ollama serve`; no Batch API, no prompt caching — Pass B/C context is resent per call, so it's slower per unit |
-| `anthropic` | Cloud, best quality, Batch API for Pass A | Requires an API key; not free |
+| `anthropic` | Cloud, best quality, Batch API for Pass A | Requires an API key; metered, not free |
+| `claude-cli` | Cloud quality without metered API cost, for dev/eval | Shells out to the `claude` CLI (`claude -p "<prompt>" --output-format json`), authenticated via Pro/Max subscription OAuth rather than `ANTHROPIC_API_KEY` — usage draws down plan quota, not per-token billing. No Batch API, no prompt caching, one subprocess per call, so slower and less parallel than `anthropic`. Model and token accounting come from whatever the CLI resolves and reports at call time, not a pinned model string. Intended for interpreter development and `scv eval` runs against the fixture corpus, not for production snapshot generation |
 
 Selected via `.scv/config.yaml` (`interpreter.provider`). Prompt templates and the `scv/1` schema are provider-agnostic; `provenance.interpreter.provider` and `.model` record which one produced a snapshot, since quality/confidence differ by model and mixing providers across a replay should be visible, not silent. Cache keys include `provider` + `model` alongside `prompt_rev` so switching providers never serves stale cross-provider results.
 
@@ -90,7 +91,7 @@ Ongoing: a git hook or `scv analyze --pr <n>` on merge keeps HEAD current increm
 | **A1** | `schema` package, JSON Schema, fixtures | Validator green on the `orderly` snapshot + delta; visualizer can build against it |
 | **A2** | Extractor: tree-sitter host, Python + TypeScript grammars, resolver | SymbolGraph for a 50k-LOC repo in <30 s, ≥90% reference resolution |
 | **A3** | Manifests, externals, git churn and authors | Depends-on view data complete with depth and `reached_by` |
-| **A4** | Interpreter Pass A + content cache + `Provider` interface (`ollama` default, `anthropic`) | Re-run after a one-file edit costs ≤1% of a cold run; Pass A produces equivalent-shape output against both providers on the `orderly` fixture |
+| **A4** | Interpreter Pass A + content cache + `Provider` interface (`ollama` default, `anthropic`, `claude-cli`) | Re-run after a one-file edit costs ≤1% of a cold run; Pass A produces equivalent-shape output across providers on the `orderly` fixture |
 | **A5** | Interpreter Pass B/C + deterministic checker | Modularity beats the directory baseline on 3 repos; `orderly` reproduces the ops cluster (`admin_tasks` grouped with `scripts`) from source alone |
 | **A6** | Differ, rollup, Pass D risk | **`orderly` inspect queue returns 7/7 against `task/RL-114.deltas.json` with an LLM in the loop**; spot-check 20 real PRs against human ranking |
 | **A7** | Go + Java grammars via the plugin path only | Zero changes under `extractor/src`. If throughput now fails A2's bar, extract the Rust binary here |
