@@ -93,3 +93,76 @@ describe("extractRepo on a TypeScript sample", () => {
     expect(callEdge!.confidence).toBe(1);
   });
 });
+
+describe("extractRepo excludes Python stdlib modules from externals", () => {
+  const pyStdlibRoot = fileURLToPath(new URL("./fixtures/py-stdlib-imports", import.meta.url));
+  const graph = extractRepo(pyStdlibRoot);
+
+  it.each([
+    "decimal", "uuid", "secrets", "unittest", "hmac", "ssl", "smtplib",
+    "urllib", "fcntl", "email", "fractions", "ipaddress", "tempfile",
+    "contextvars", "argparse",
+  ])("does not list '%s' as an external", (mod) => {
+    expect(graph.externals.find((x) => x.name === mod)).toBeUndefined();
+  });
+
+  it("still lists a genuine third-party import as an external", () => {
+    expect(graph.externals.find((x) => x.name === "requests")).toBeDefined();
+  });
+});
+
+describe("extractRepo on a TypeScript repo with an unresolved relative import", () => {
+  const brokenRelativeRoot = fileURLToPath(new URL("./fixtures/ts-broken-relative-import", import.meta.url));
+  const graph = extractRepo(brokenRelativeRoot);
+
+  it("does not record a blank-name external", () => {
+    const blank = graph.externals.find((x) => x.name === "");
+    expect(blank).toBeUndefined();
+  });
+});
+
+describe("extractRepo excludes Node builtin modules from externals", () => {
+  const nodeBuiltinsRoot = fileURLToPath(new URL("./fixtures/ts-node-builtins", import.meta.url));
+  const graph = extractRepo(nodeBuiltinsRoot);
+
+  it.each(["node:path", "node:fs", "node:crypto"])("does not list '%s' as an external", (mod) => {
+    expect(graph.externals.find((x) => x.name === mod)).toBeUndefined();
+    const bare = mod.replace("node:", "");
+    expect(graph.externals.find((x) => x.name === bare)).toBeUndefined();
+  });
+
+  it("still lists a genuine third-party import as an external", () => {
+    expect(graph.externals.find((x) => x.name === "zod")).toBeDefined();
+  });
+
+  it("collapses a deep-path import to its package name", () => {
+    expect(graph.externals.find((x) => x.name === "elkjs")).toBeDefined();
+    expect(graph.externals.find((x) => x.name === "elkjs/lib/elk-api")).toBeUndefined();
+  });
+
+  it("preserves the full name of a scoped (@scope/pkg) import", () => {
+    expect(graph.externals.find((x) => x.name === "@tailwindcss/vite")).toBeDefined();
+    expect(graph.externals.find((x) => x.name === "@tailwindcss")).toBeUndefined();
+  });
+});
+
+describe("extractRepo on a repo with both Python and TypeScript manifests", () => {
+  const mixedRoot = fileURLToPath(new URL("./fixtures/mixed-lang-repo", import.meta.url));
+  const graph = extractRepo(mixedRoot);
+
+  it("tags a Python import as pypi and a TypeScript import as npm", () => {
+    const fastapi = graph.externals.find((x) => x.name === "fastapi");
+    const vite = graph.externals.find((x) => x.name === "vite");
+    expect(fastapi?.ecosystem).toBe("pypi");
+    expect(vite?.ecosystem).toBe("npm");
+  });
+
+  it("resolves direct/version from the matching per-language manifest", () => {
+    const fastapi = graph.externals.find((x) => x.name === "fastapi");
+    const vite = graph.externals.find((x) => x.name === "vite");
+    expect(fastapi?.direct).toBe(true);
+    expect(fastapi?.version).toBe("0.110.0");
+    expect(vite?.direct).toBe(true);
+    expect(vite?.version).toBe("^5.0.0");
+  });
+});

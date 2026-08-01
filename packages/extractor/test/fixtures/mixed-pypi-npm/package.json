@@ -1,0 +1,7 @@
+{
+  "name": "mixed-sample-frontend",
+  "version": "0.1.0",
+  "dependencies": {
+    "vite": "^5.0.0"
+  }
+}
