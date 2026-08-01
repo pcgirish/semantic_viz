@@ -34,7 +34,7 @@ function extractProjectDependenciesArray(text: string): string | null {
   const afterProject = text.slice(projectMatch.index + projectMatch[0].length);
   const nextTableMatch = /^\[.+\]\s*$/m.exec(afterProject);
   const projectBody = nextTableMatch ? afterProject.slice(0, nextTableMatch.index) : afterProject;
-  const depsMatch = /dependencies\s*=\s*\[([\s\S]*?)\]/.exec(projectBody);
+  const depsMatch = /dependencies\s*=\s*\[([\s\S]*?)^\s*\]/m.exec(projectBody);
   return depsMatch ? depsMatch[1]! : null;
 }
 

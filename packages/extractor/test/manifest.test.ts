@@ -52,4 +52,15 @@ describe("parseManifests on a pyproject.toml (uv) repo", () => {
     const manifest = parseManifests(pyprojectRoot);
     expect(manifest.pinned.has("pytest")).toBe(false);
   });
+
+  it("strips extras (e.g. sqlalchemy[asyncio]) from the dependency name", () => {
+    const manifest = parseManifests(pyprojectRoot);
+    expect(manifest.pinned.has("sqlalchemy")).toBe(true);
+    expect(manifest.pinned.has("sqlalchemy[asyncio]")).toBe(false);
+  });
+
+  it("reads every dependency in the array, not just up to the first ']'", () => {
+    const manifest = parseManifests(pyprojectRoot);
+    expect(manifest.pinned.size).toBe(3);
+  });
 });
