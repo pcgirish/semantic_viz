@@ -34,6 +34,17 @@ export function CanvasHost({ units, edges }: CanvasHostProps): JSX.Element {
     const scene = buildScene(units, edges);
     const gated = scene.links.length > scene.nodes.length * 1.6;
 
+    if (scene.nodes.length > 0) {
+      const pad = 24;
+      const minX = Math.min(...scene.nodes.map((n) => n.x)) - pad;
+      const minY = Math.min(...scene.nodes.map((n) => n.y)) - pad;
+      const maxX = Math.max(...scene.nodes.map((n) => n.x + n.w)) + pad;
+      const maxY = Math.max(...scene.nodes.map((n) => n.y + n.h)) + pad;
+      svg.setAttribute("viewBox", `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
+    } else {
+      svg.setAttribute("viewBox", "0 0 1 1");
+    }
+
     const linkLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
     svg.appendChild(linkLayer);
@@ -77,6 +88,7 @@ export function CanvasHost({ units, edges }: CanvasHostProps): JSX.Element {
   return (
     <svg
       ref={svgRef}
+      className="canvas"
       data-testid="canvas-svg"
       onDoubleClick={() => ascend()}
       width="100%"

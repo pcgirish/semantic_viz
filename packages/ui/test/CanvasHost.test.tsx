@@ -89,6 +89,18 @@ describe("CanvasHost", () => {
     expect(hoveredTile.classList.contains("dim")).toBe(false);
   });
 
+  it("sets a viewBox fitted to the scene's bounds so nodes off the origin are visible", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
+    render(<CanvasHost units={units} edges={edges} />);
+    const svg = screen.getByTestId("canvas-svg");
+    const viewBox = svg.getAttribute("viewBox");
+    expect(viewBox).not.toBeNull();
+    const [, , w, h] = viewBox!.split(" ").map(Number);
+    expect(w).toBeGreaterThan(0);
+    expect(h).toBeGreaterThan(0);
+  });
+
   it("mouse leave clears the hover highlight", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
     const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
