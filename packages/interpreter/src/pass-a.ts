@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SymbolUnit } from "@scv/extractor";
 import type { Provider } from "./provider.js";
 import { passAPrompt } from "./prompts/pass-a.js";
+import { parseJsonResponse } from "./json-response.js";
 
 const PortSchema = z.object({
   name: z.string(),
@@ -46,12 +47,6 @@ export interface PassAResult {
   tags: string[];
 }
 
-/** Strips a ```json ... ``` (or bare ```) fence some models wrap JSON in despite instructions not to. */
-function stripCodeFence(text: string): string {
-  const match = /^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/.exec(text.trim());
-  return match ? match[1]! : text;
-}
-
 export interface RunPassAOptions {
   unit: SymbolUnit;
   source: string;
@@ -65,13 +60,7 @@ export async function runPassA(options: RunPassAOptions): Promise<PassAResult> {
   const prompt = passAPrompt(unit, source);
   const { text } = await provider.interpret(prompt);
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripCodeFence(text));
-  } catch {
-    throw new Error(`pass A: provider returned non-JSON output for ${unit.qualname}: ${text.slice(0, 200)}`);
-  }
-
+  const parsed = parseJsonResponse(text, `pass A: ${unit.qualname}`);
   const response = PassAResponseSchema.parse(parsed);
 
   return {
