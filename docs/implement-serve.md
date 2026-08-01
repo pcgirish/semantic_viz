@@ -6,7 +6,7 @@
 
 | Concern | Choice | Why |
 |---|---|---|
-| Server | **Fastify** on Node 20+ | Same runtime as the analyzer; serves the built SPA and the JSON API from one process |
+| Server | **Fastify** on Node 24+ | Same runtime as the analyzer; serves the built SPA and the JSON API from one process |
 | Index | `better-sqlite3` | Shared with the analyzer — `.scv/index.sqlite`, one file, no daemon |
 | UI | **React 18 + TypeScript + Vite** | |
 | 2D rendering | **SVG** to ~800 nodes, **Canvas 2D** above | SVG gives free hit-testing and CSS transitions; Canvas is the escape valve. Both consume `Scene`, so the switch is invisible |

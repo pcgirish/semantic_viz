@@ -24,6 +24,7 @@ The first question is the bulk of the product. The second is what makes people o
 | Languages analyzed | Polyglot from day one — tree-sitter grammar per language, one uniform IR |
 | Delivery | `scv` CLI + localhost web UI (`scv serve`) |
 | Static vs. LLM | Static analysis owns symbols and edges as ground truth. The Interpreter owns meaning: purpose, cross-file and cross-directory grouping, risk narration |
+| LLM provider | Pluggable — Ollama (local, default) or Anthropic (cloud), same prompts and schema; see [`implement-analyze.md`](implement-analyze.md#stack) |
 | Rendering | 2D first. 3D is a *skin* over the same layout engine, never a fork |
 | Store | `.scv/` (gitignored), with a deterministic subset made checked-in-able later |
 | Implementation | TypeScript end-to-end for v1 — see [`implement-analyze.md`](implement-analyze.md#stack) for why, and for the escape hatch |
@@ -67,7 +68,7 @@ The UnitGraph schema is the **sole** contract between analyzer and visualizer. B
   "rev": { "sha": "bed04b3", "kind": "commit|pr|tag", "pr": 412,
            "ts": "…", "author": "j.moreau", "author_kind": "human|agent|baseline" },
   "provenance": { "extractor": "scv-ts/0.1.0",
-                  "interpreter": { "model": "…", "prompt_rev": "p7" } },
+                  "interpreter": { "provider": "anthropic|ollama", "model": "…", "prompt_rev": "p7" } },
   "units": [ Unit ], "edges": [ Edge ], "externals": [ External ]
 }
 ```
