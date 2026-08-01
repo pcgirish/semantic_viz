@@ -167,7 +167,8 @@ export function resolveGraph(
     const importFacts = ff.facts.filter((f): f is ImportFact => f.kind === "import");
     const bindingTargets = new Map<string, string>(); // binding -> resolved qualname (module or symbol)
     const fileLang = langForFile(ff.file);
-    const fileEcosystem: "pypi" | "npm" | null = fileLang === "python" ? "pypi" : fileLang === "typescript" ? "npm" : null;
+    const fileEcosystem: "pypi" | "npm" | null =
+      fileLang === "python" ? "pypi" : fileLang === "typescript" || fileLang === "javascript" ? "npm" : null;
 
     for (const imp of importFacts) {
       const relativeModule = resolveRelativeModule(ff.file, imp.module);

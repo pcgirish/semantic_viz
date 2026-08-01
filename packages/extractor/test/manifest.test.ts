@@ -77,3 +77,33 @@ describe("parseManifests on a repo with both pyproject.toml and package.json", (
     expect(manifest.npm?.pinned.get("vite")).toBe("^5.0.0");
   });
 });
+
+describe("parseManifests on a repo with manifests only in subdirectories", () => {
+  const nestedRoot = fileURLToPath(new URL("./fixtures/nested-manifests", import.meta.url));
+
+  it("finds a pyproject.toml under backend/", () => {
+    const manifest = parseManifests(nestedRoot);
+    expect(manifest.pypi?.ecosystem).toBe("pypi");
+    expect(manifest.pypi?.pinned.get("fastapi")).toBe("0.110.0");
+  });
+
+  it("finds a package.json under frontend/", () => {
+    const manifest = parseManifests(nestedRoot);
+    expect(manifest.npm?.ecosystem).toBe("npm");
+    expect(manifest.npm?.pinned.get("vite")).toBe("^5.0.0");
+  });
+
+  it("does not descend into node_modules", () => {
+    const manifest = parseManifests(nestedRoot);
+    expect(manifest.npm?.pinned.has("not-a-real-dep")).toBe(false);
+  });
+});
+
+describe("parseManifests when the same package is pinned differently at two depths", () => {
+  const conflictingRoot = fileURLToPath(new URL("./fixtures/conflicting-manifests", import.meta.url));
+
+  it("prefers the root-level manifest's version", () => {
+    const manifest = parseManifests(conflictingRoot);
+    expect(manifest.npm?.pinned.get("zod")).toBe("^3.0.0");
+  });
+});
