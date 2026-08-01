@@ -6,7 +6,7 @@ import type { Snapshot, Unit, Edge } from "@scv/schema";
 function makeUnit(overrides: Partial<Unit> = {}): Unit {
   return {
     id: "u:py:src.a#f",
-    kind: "function",
+    kind: "module",
     name: "a",
     qualname: "src.a",
     lang: "python",
@@ -111,6 +111,20 @@ describe("runDifferWithRisk", () => {
     const system = makeUnit({ id: "u:sys:orderly", kind: "system", qualname: "orderly", children: [] });
     const a = makeSnapshot([]);
     const b = makeSnapshot([layer, system]);
+    const provider = providerReturning({}, []);
+
+    const delta = await runDifferWithRisk(a, b, provider, "p1");
+
+    expect(delta.unit_deltas.every((d) => d.risk.source === "formula")).toBe(true);
+    expect(delta.inspect_queue).toEqual([]);
+    expect(provider.interpret).not.toHaveBeenCalled();
+  });
+
+  it("never narrates or ranks function/class units — the inspect queue surfaces module-level risk only", async () => {
+    const fn = makeUnit({ id: "u:fn:x", kind: "function", qualname: "src.a.f", children: [] });
+    const cls = makeUnit({ id: "u:cls:y", kind: "class", qualname: "src.a.C", children: [] });
+    const a = makeSnapshot([]);
+    const b = makeSnapshot([fn, cls]);
     const provider = providerReturning({}, []);
 
     const delta = await runDifferWithRisk(a, b, provider, "p1");

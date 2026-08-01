@@ -2,12 +2,17 @@ import { runPassD, rankInspectQueue, type Provider } from "@scv/interpreter";
 import type { Delta, Snapshot, UnitDelta } from "@scv/schema";
 import { runDiffer } from "./diff.js";
 
-/** layer/system units are LLM-invented groupings, not code — their identity churns whenever Pass B/C reclusters, which is not a risk a human should be asked to inspect. */
-const NON_NARRATABLE_KINDS = new Set(["layer", "system"]);
+/**
+ * The inspect queue surfaces module-level risk, not every function/class delta underneath it —
+ * a human reviewing a PR thinks in terms of "the rate limiter module", not each of its methods.
+ * layer/system units are excluded too: they're LLM-invented groupings whose identity churns
+ * whenever Pass B/C reclusters, which is not a risk a human should be asked to inspect.
+ */
+const NARRATABLE_KINDS = new Set(["module"]);
 
-/** Triggers Pass D — a unit's semantics changed (or it was added/removed, which is always a semantics change) but was skipped for a text/struct-only reformat, and it's a real code unit, not a clustering artifact. */
+/** Triggers Pass D — a unit's semantics changed (or it was added/removed, which is always a semantics change) but was skipped for a text/struct-only reformat, and it's a module, not a finer-grained unit or a clustering artifact. */
 function needsRiskNarration(delta: UnitDelta): boolean {
-  if (NON_NARRATABLE_KINDS.has(delta.kind)) return false;
+  if (!NARRATABLE_KINDS.has(delta.kind)) return false;
   return delta.status === "added" || delta.status === "removed" || delta.fields.includes("semantics");
 }
 
