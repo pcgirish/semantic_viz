@@ -60,4 +60,43 @@ describe("CanvasHost", () => {
     fireEvent.doubleClick(svg);
     expect(useAppStore.getState().focus).toBeNull();
   });
+
+  it("hovering a tile marks its outgoing edges depends-on and incoming edges used-by, with different classes", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "c" })];
+    const edges: Edge[] = [
+      { id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e2", from: "c", to: "a", kind: "calls", weight: 1, source: "static", confidence: 1 },
+    ];
+    const { container } = render(<CanvasHost units={units} edges={edges} />);
+    fireEvent.mouseEnter(container.querySelector('.tile[data-id="a"]')!);
+
+    const depLink = container.querySelector('.lk[data-from="a"][data-to="b"]')!;
+    const userLink = container.querySelector('.lk[data-from="c"][data-to="a"]')!;
+    expect(depLink.classList.contains("depends-on")).toBe(true);
+    expect(userLink.classList.contains("used-by")).toBe(true);
+    expect(depLink.classList.contains("used-by")).toBe(false);
+  });
+
+  it("hovering a tile dims unrelated nodes and links", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "unrelated" })];
+    const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
+    const { container } = render(<CanvasHost units={units} edges={edges} />);
+    fireEvent.mouseEnter(container.querySelector('.tile[data-id="a"]')!);
+
+    const unrelatedTile = container.querySelector('.tile[data-id="unrelated"]')!;
+    const hoveredTile = container.querySelector('.tile[data-id="a"]')!;
+    expect(unrelatedTile.classList.contains("dim")).toBe(true);
+    expect(hoveredTile.classList.contains("dim")).toBe(false);
+  });
+
+  it("mouse leave clears the hover highlight", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
+    const { container } = render(<CanvasHost units={units} edges={edges} />);
+    const tileA = container.querySelector('.tile[data-id="a"]')!;
+    fireEvent.mouseEnter(tileA);
+    fireEvent.mouseLeave(tileA);
+
+    expect(container.querySelector('.tile[data-id="b"]')!.classList.contains("dim")).toBe(false);
+  });
 });
