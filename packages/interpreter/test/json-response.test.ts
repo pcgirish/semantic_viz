@@ -17,4 +17,16 @@ describe("parseJsonResponse", () => {
   it("throws a labeled error on non-JSON", () => {
     expect(() => parseJsonResponse("not json", "pass X")).toThrow(/pass x/i);
   });
+
+  it("strips a fence even when the model adds trailing prose after the closing ```", () => {
+    expect(parseJsonResponse('```json\n{"a":1}\n```\n\nLet me know if you need anything else!', "label")).toEqual({ a: 1 });
+  });
+
+  it("strips a fence even when the model adds leading prose before the opening ```", () => {
+    expect(parseJsonResponse('Here is the JSON:\n\n```json\n{"a":1}\n```', "label")).toEqual({ a: 1 });
+  });
+
+  it("extracts JSON from an unclosed fence (response truncated mid-stream)", () => {
+    expect(parseJsonResponse('```json\n{"a":1,"b":[1,2,3]}', "label")).toEqual({ a: 1, b: [1, 2, 3] });
+  });
 });
