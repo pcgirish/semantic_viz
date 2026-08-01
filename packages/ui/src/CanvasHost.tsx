@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { buildScene } from "@scv/layout";
 import { tilesSkin } from "@scv/skin-tiles";
@@ -14,12 +14,17 @@ export type CanvasHostProps = {
  * node()/link() renderers (docs/serve.md#1 — layout produces the Scene, the skin draws
  * it, nothing else computes positions). Click selects, double-click drills; double-click
  * on empty canvas ascends (docs/serve.md#4, "Current" view navigation).
+ *
+ * Hovering a unit highlights its depends_on (outgoing) and users (incoming) edges in
+ * distinct classes and dims everything else (docs/serve.md#5 — "Direction is a distinct
+ * visual question from connection").
  */
 export function CanvasHost({ units, edges }: CanvasHostProps): JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null);
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
+  const [hover, setHover] = useState<string | null>(null);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -34,11 +39,27 @@ export function CanvasHost({ units, edges }: CanvasHostProps): JSX.Element {
     svg.appendChild(linkLayer);
     svg.appendChild(nodeLayer);
 
+    const related = new Set<string>();
+    if (hover) {
+      related.add(hover);
+      for (const l of scene.links) {
+        if (l.from === hover) related.add(l.to);
+        if (l.to === hover) related.add(l.from);
+      }
+    }
+
     for (const l of scene.links) {
-      linkLayer.appendChild(tilesSkin.link(l, { gated }));
+      const el = tilesSkin.link(l, { gated });
+      if (hover) {
+        if (l.from === hover) el.classList.add("depends-on");
+        else if (l.to === hover) el.classList.add("used-by");
+        else el.classList.add("dim");
+      }
+      linkLayer.appendChild(el);
     }
     for (const n of scene.nodes) {
       const el = tilesSkin.node(n);
+      if (hover && !related.has(n.id)) el.classList.add("dim");
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         select(n.id);
@@ -47,9 +68,11 @@ export function CanvasHost({ units, edges }: CanvasHostProps): JSX.Element {
         e.stopPropagation();
         drill(n.id);
       });
+      el.addEventListener("mouseenter", () => setHover(n.id));
+      el.addEventListener("mouseleave", () => setHover((h) => (h === n.id ? null : h)));
       nodeLayer.appendChild(el);
     }
-  }, [units, edges, select, drill]);
+  }, [units, edges, select, drill, hover]);
 
   return (
     <svg
