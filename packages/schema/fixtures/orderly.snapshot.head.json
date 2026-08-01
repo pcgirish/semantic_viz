@@ -1,0 +1,4638 @@
+{
+  "schema": "scv/1",
+  "snapshot_id": "c6224c3b281f0cda",
+  "repo": {
+    "root": "orderly",
+    "vcs": "git"
+  },
+  "rev": {
+    "sha": "bc3450f",
+    "kind": "commit",
+    "author": "orderly fixture",
+    "ts": "2026-07-21T11:45:09-04:00",
+    "message": "Merge branch 'fix/test-coverage-fixture'",
+    "author_kind": "fixture"
+  },
+  "provenance": {
+    "extractor": "scv-py/0.1.0",
+    "interpreter": {
+      "model": "hand-authored/fixture",
+      "prompt_rev": "p1"
+    }
+  },
+  "units": [
+    {
+      "id": "u:sys:orderly",
+      "kind": "system",
+      "name": "orderly",
+      "qualname": "orderly",
+      "lang": "python",
+      "parent": null,
+      "children": [
+        "u:layer:edge",
+        "u:layer:domain",
+        "u:layer:infra",
+        "u:layer:support",
+        "u:layer:ops",
+        "u:layer:tests",
+        "u:flow:d3c489f9",
+        "u:flow:87d90a10"
+      ],
+      "loc": {
+        "files": [
+          "__init__.py",
+          "migrations/0001_initial_schema.py",
+          "migrations/0002_add_order_status.py",
+          "scripts/backfill.py",
+          "scripts/cleanup.py",
+          "src/__init__.py",
+          "src/admin_tasks.py",
+          "src/api/__init__.py",
+          "src/api/middleware/__init__.py",
+          "src/api/middleware/rate_limiter.py",
+          "src/api/routes.py",
+          "src/auth/__init__.py",
+          "src/config.py",
+          "src/db/__init__.py",
+          "src/db/connection.py",
+          "src/orders/__init__.py",
+          "src/orders/create_order.py",
+          "src/orders/get_order.py",
+          "src/orders/pricing.py",
+          "src/orders/repo.py",
+          "src/payments/__init__.py",
+          "src/payments/stripe_client.py",
+          "src/utils/__init__.py",
+          "src/utils/events.py",
+          "src/utils/logging.py",
+          "tests/__init__.py",
+          "tests/integration/__init__.py",
+          "tests/integration/test_orders.py",
+          "tests/test_rate_limiter.py"
+        ],
+        "sloc": 123
+      },
+      "semantics": {
+        "what": "A FastAPI order-taking service: accepts orders on a public HTTP API, prices them, persists them, and charges a card.",
+        "how": "Six semantic layers. Requests enter through a rate-limited, token-authenticated router, drop into the orders domain, and fan out to Postgres and Stripe.",
+        "when": "Per inbound HTTP request; migrations and scripts run out-of-band.",
+        "where": "One deployable process plus Redis and Postgres.",
+        "why": "Sells things. Everything else in the tree exists to make that request path correct, bounded, and observable.",
+        "confidence": 0.88,
+        "source": "llm"
+      },
+      "tags": [
+        "service",
+        "public-api"
+      ],
+      "metrics": {
+        "sloc": 123,
+        "modules": 29,
+        "layers": 6
+      },
+      "hash": {
+        "struct": "c83d40f60cc3"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "C"
+      }
+    },
+    {
+      "id": "u:layer:domain",
+      "kind": "layer",
+      "name": "Order domain",
+      "qualname": "domain",
+      "lang": "python",
+      "parent": "u:sys:orderly",
+      "children": [
+        "u:py:src.orders#m",
+        "u:py:src.orders.create_order#m",
+        "u:py:src.orders.get_order#m",
+        "u:py:src.orders.repo#m",
+        "u:py:src.orders.pricing#m",
+        "u:py:src.payments#m",
+        "u:py:src.payments.stripe_client#m"
+      ],
+      "loc": {
+        "files": [
+          "src/orders/__init__.py",
+          "src/orders/create_order.py",
+          "src/orders/get_order.py",
+          "src/orders/pricing.py",
+          "src/orders/repo.py",
+          "src/payments/__init__.py",
+          "src/payments/stripe_client.py"
+        ],
+        "start": null,
+        "end": null,
+        "sloc": 44
+      },
+      "semantics": {
+        "what": "Order lifecycle and the money that makes it real.",
+        "how": "create_order prices, persists, charges, and compensates on failure; get_order reads.",
+        "when": "Downstream of the edge layer, never called directly.",
+        "where": "src/orders, src/payments",
+        "why": "The only place business rules are allowed to live.",
+        "confidence": 0.9,
+        "source": "llm"
+      },
+      "tags": [
+        "core"
+      ],
+      "metrics": {
+        "sloc": 44,
+        "modules": 7
+      },
+      "hash": {
+        "struct": "f959c36a3ae4"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "B"
+      }
+    },
+    {
+      "id": "u:layer:edge",
+      "kind": "layer",
+      "name": "API edge",
+      "qualname": "edge",
+      "lang": "python",
+      "parent": "u:sys:orderly",
+      "children": [
+        "u:py:src.api.routes#m",
+        "u:py:src.api.middleware.rate_limiter#m",
+        "u:py:src.api.middleware#m",
+        "u:py:src.auth#m",
+        "u:py:src.api#m"
+      ],
+      "loc": {
+        "files": [
+          "src/api/__init__.py",
+          "src/api/middleware/__init__.py",
+          "src/api/middleware/rate_limiter.py",
+          "src/api/routes.py",
+          "src/auth/__init__.py"
+        ],
+        "start": null,
+        "end": null,
+        "sloc": 37
+      },
+      "semantics": {
+        "what": "Everything that touches an untrusted request before the domain sees it.",
+        "how": "FastAPI router with two dependencies in order \u2014 rate limit, then token auth.",
+        "when": "Every public request.",
+        "where": "src/api, src/auth",
+        "why": "One place where admission control lives, so a policy change is one diff and not a grep.",
+        "confidence": 0.91,
+        "source": "llm"
+      },
+      "tags": [
+        "auth-boundary",
+        "public-api"
+      ],
+      "metrics": {
+        "sloc": 37,
+        "modules": 5
+      },
+      "hash": {
+        "struct": "4b97e91c3f67"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "B"
+      }
+    },
+    {
+      "id": "u:layer:infra",
+      "kind": "layer",
+      "name": "Infrastructure",
+      "qualname": "infra",
+      "lang": "python",
+      "parent": "u:sys:orderly",
+      "children": [
+        "u:py:src.db#m",
+        "u:py:src.db.connection#m",
+        "u:py:src.config#m"
+      ],
+      "loc": {
+        "files": [
+          "src/config.py",
+          "src/db/__init__.py",
+          "src/db/connection.py"
+        ],
+        "start": null,
+        "end": null,
+        "sloc": 14
+      },
+      "semantics": {
+        "what": "Database access and process settings.",
+        "how": "Thin async query helpers; environment-backed settings object read at import.",
+        "when": "DB on every persisted operation; config once at boot.",
+        "where": "src/db, src/config",
+        "why": "Keeps connection and environment concerns out of domain code.",
+        "confidence": 0.87,
+        "source": "llm"
+      },
+      "tags": [
+        "shared"
+      ],
+      "metrics": {
+        "sloc": 14,
+        "modules": 3
+      },
+      "hash": {
+        "struct": "14b980968360"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "B"
+      }
+    },
+    {
+      "id": "u:layer:ops",
+      "kind": "layer",
+      "name": "Operations",
+      "qualname": "ops",
+      "lang": "python",
+      "parent": "u:sys:orderly",
+      "children": [
+        "u:py:migrations.0001_initial_schema#m",
+        "u:py:migrations.0002_add_order_status#m",
+        "u:py:scripts.backfill#m",
+        "u:py:scripts.cleanup#m",
+        "u:py:src.admin_tasks#m"
+      ],
+      "loc": {
+        "files": [
+          "migrations/0001_initial_schema.py",
+          "migrations/0002_add_order_status.py",
+          "scripts/backfill.py",
+          "scripts/cleanup.py",
+          "src/admin_tasks.py"
+        ],
+        "start": null,
+        "end": null,
+        "sloc": 14
+      },
+      "semantics": {
+        "what": "Schema migrations and one-off maintenance jobs.",
+        "how": "Numbered upgrade/downgrade pairs; standalone run() entry points.",
+        "when": "Deploy time and on demand, never in the request path.",
+        "where": "migrations/, scripts/, src/admin_tasks.py",
+        "why": "Grouped by how they run, not by where they sit. src/admin_tasks.py is in src/ but imports scripts.backfill and has no importers of its own, so directory-shaped grouping would have hidden it inside the application.",
+        "confidence": 0.62,
+        "source": "llm"
+      },
+      "tags": [
+        "out-of-band",
+        "llm-grouped"
+      ],
+      "metrics": {
+        "sloc": 14,
+        "modules": 5
+      },
+      "hash": {
+        "struct": "1972b1076b9c"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "B"
+      }
+    },
+    {
+      "id": "u:layer:support",
+      "kind": "layer",
+      "name": "Support",
+      "qualname": "support",
+      "lang": "python",
+      "parent": "u:sys:orderly",
+      "children": [
+        "u:py:src.utils#m",
+        "u:py:src.utils.logging#m",
+        "u:py:src.utils.events#m"
+      ],
+      "loc": {
+        "files": [
+          "src/utils/__init__.py",
+          "src/utils/events.py",
+          "src/utils/logging.py"
+        ],
+        "start": null,
+        "end": null,
+        "sloc": 6
+      },
+      "semantics": {
+        "what": "Structured logging and a domain event emitter.",
+        "how": "structlog logger; emit() is still a stub.",
+        "when": "Ambient \u2014 called from anywhere.",
+        "where": "src/utils",
+        "why": "Cross-cutting concerns that would otherwise be copy-pasted.",
+        "confidence": 0.84,
+        "source": "llm"
+      },
+      "tags": [
+        "cross-cutting"
+      ],
+      "metrics": {
+        "sloc": 6,
+        "modules": 3
+      },
+      "hash": {
+        "struct": "54a4e1c79c3e"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "B"
+      }
+    },
+    {
+      "id": "u:layer:tests",
+      "kind": "layer",
+      "name": "Tests",
+      "qualname": "tests",
+      "lang": "python",
+      "parent": "u:sys:orderly",
+      "children": [
+        "u:py:tests#m",
+        "u:py:tests.test_rate_limiter#m",
+        "u:py:tests.integration#m",
+        "u:py:tests.integration.test_orders#m"
+      ],
+      "loc": {
+        "files": [
+          "tests/__init__.py",
+          "tests/integration/__init__.py",
+          "tests/integration/test_orders.py",
+          "tests/test_rate_limiter.py"
+        ],
+        "start": null,
+        "end": null,
+        "sloc": 8
+      },
+      "semantics": {
+        "what": "Unit tests for the limiter, integration tests for orders.",
+        "how": "pytest.",
+        "when": "CI.",
+        "where": "tests/",
+        "why": "Coverage of the limiter is good; coverage of the wiring is not.",
+        "confidence": 0.93,
+        "source": "llm"
+      },
+      "tags": [
+        "coverage-gap"
+      ],
+      "metrics": {
+        "sloc": 8,
+        "modules": 4
+      },
+      "hash": {
+        "struct": "2660ed5b8eb6"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "B"
+      }
+    },
+    {
+      "id": "u:flow:87d90a10",
+      "kind": "api_flow",
+      "name": "GET /public/orders/{id}",
+      "qualname": "GET /public/orders/{order_id}",
+      "lang": "python",
+      "parent": "u:sys:orderly",
+      "children": [],
+      "route": "GET /public/orders/{order_id}",
+      "steps": [
+        "u:py:src.api.routes#m",
+        "u:py:src.api.middleware.rate_limiter.rate_limit.check#f",
+        "u:py:src.auth.verify_token#f",
+        "u:py:src.orders.get_order.get_order#f",
+        "u:py:src.orders.repo.find_order#f"
+      ],
+      "loc": {
+        "files": [
+          "src/api/middleware/rate_limiter.py",
+          "src/api/routes.py",
+          "src/auth/__init__.py",
+          "src/orders/get_order.py",
+          "src/orders/repo.py"
+        ],
+        "sloc": 29
+      },
+      "semantics": {
+        "what": "Single-order read.",
+        "how": "Same guard chain, then one indexed lookup.",
+        "when": "Per GET.",
+        "where": "src/api \u2192 src/orders",
+        "why": "The guard chain authenticates but does not authorise: any valid token can read any order id.",
+        "confidence": 0.79,
+        "source": "llm"
+      },
+      "tags": [
+        "hot-path",
+        "public-api",
+        "idor-risk"
+      ],
+      "metrics": {
+        "hops": 5,
+        "sloc": 29
+      },
+      "hash": {
+        "struct": "4351bc5c2f19"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "C"
+      }
+    },
+    {
+      "id": "u:flow:d3c489f9",
+      "kind": "api_flow",
+      "name": "POST /public/orders",
+      "qualname": "POST /public/orders",
+      "lang": "python",
+      "parent": "u:sys:orderly",
+      "children": [],
+      "route": "POST /public/orders",
+      "steps": [
+        "u:py:src.api.routes#m",
+        "u:py:src.api.middleware.rate_limiter.rate_limit.check#f",
+        "u:py:src.auth.verify_token#f",
+        "u:py:src.orders.create_order.create_order#f",
+        "u:py:src.orders.pricing.price_items#f",
+        "u:py:src.orders.repo.insert_order#f",
+        "u:py:src.payments.charge#f",
+        "u:py:src.utils.events.emit#f"
+      ],
+      "loc": {
+        "files": [
+          "src/api/middleware/rate_limiter.py",
+          "src/api/routes.py",
+          "src/auth/__init__.py",
+          "src/orders/create_order.py",
+          "src/orders/pricing.py",
+          "src/orders/repo.py",
+          "src/payments/__init__.py",
+          "src/utils/events.py"
+        ],
+        "sloc": 42
+      },
+      "semantics": {
+        "what": "The write path from public HTTP to a charged, persisted order.",
+        "how": "Two router dependencies, then six sequential domain steps.",
+        "when": "Per POST.",
+        "where": "src/api \u2192 src/orders \u2192 src/payments",
+        "why": "Every hop is blocking and none of them has a timeout. The path touches Redis, Postgres, and Stripe in series, so its tail latency is the sum of three external systems.",
+        "confidence": 0.81,
+        "source": "llm"
+      },
+      "tags": [
+        "hot-path",
+        "public-api"
+      ],
+      "metrics": {
+        "hops": 8,
+        "sloc": 42
+      },
+      "hash": {
+        "struct": "20bad69f53ed"
+      },
+      "provenance": {
+        "source": "llm",
+        "pass": "C"
+      }
+    },
+    {
+      "id": "u:py:__init__#m",
+      "kind": "module",
+      "name": "__init__",
+      "qualname": "__init__",
+      "lang": "python",
+      "parent": null,
+      "children": [],
+      "loc": {
+        "files": [
+          "__init__.py"
+        ],
+        "start": 1,
+        "end": 0,
+        "sloc": 0
+      },
+      "metrics": {
+        "sloc": 0,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 0,
+        "commits": 1
+      },
+      "hash": {
+        "text": "da39a3ee5e6b",
+        "struct": "66673287205e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 0
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:migrations.0001_initial_schema#m",
+      "kind": "module",
+      "name": "0001_initial_schema",
+      "qualname": "migrations.0001_initial_schema",
+      "lang": "python",
+      "parent": "u:layer:ops",
+      "children": [
+        "u:py:migrations.0001_initial_schema.upgrade#f",
+        "u:py:migrations.0001_initial_schema.downgrade#f"
+      ],
+      "loc": {
+        "files": [
+          "migrations/0001_initial_schema.py"
+        ],
+        "start": 1,
+        "end": 6,
+        "sloc": 4
+      },
+      "metrics": {
+        "sloc": 4,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "9a7ca6d302e9",
+        "struct": "202d1fbd5414",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:migrations.0001_initial_schema.downgrade#f",
+      "kind": "function",
+      "name": "downgrade",
+      "qualname": "migrations.0001_initial_schema.downgrade",
+      "lang": "python",
+      "parent": "u:py:migrations.0001_initial_schema#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "migrations/0001_initial_schema.py"
+        ],
+        "start": 5,
+        "end": 6,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "54d73933a99c",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:migrations.0001_initial_schema.upgrade#f",
+      "kind": "function",
+      "name": "upgrade",
+      "qualname": "migrations.0001_initial_schema.upgrade",
+      "lang": "python",
+      "parent": "u:py:migrations.0001_initial_schema#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "migrations/0001_initial_schema.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "ad71bc4f24f2",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:migrations.0002_add_order_status#m",
+      "kind": "module",
+      "name": "0002_add_order_status",
+      "qualname": "migrations.0002_add_order_status",
+      "lang": "python",
+      "parent": "u:layer:ops",
+      "children": [
+        "u:py:migrations.0002_add_order_status.upgrade#f",
+        "u:py:migrations.0002_add_order_status.downgrade#f"
+      ],
+      "loc": {
+        "files": [
+          "migrations/0002_add_order_status.py"
+        ],
+        "start": 1,
+        "end": 6,
+        "sloc": 4
+      },
+      "metrics": {
+        "sloc": 4,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "9a7ca6d302e9",
+        "struct": "202d1fbd5414",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:migrations.0002_add_order_status.downgrade#f",
+      "kind": "function",
+      "name": "downgrade",
+      "qualname": "migrations.0002_add_order_status.downgrade",
+      "lang": "python",
+      "parent": "u:py:migrations.0002_add_order_status#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "migrations/0002_add_order_status.py"
+        ],
+        "start": 5,
+        "end": 6,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "54d73933a99c",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:migrations.0002_add_order_status.upgrade#f",
+      "kind": "function",
+      "name": "upgrade",
+      "qualname": "migrations.0002_add_order_status.upgrade",
+      "lang": "python",
+      "parent": "u:py:migrations.0002_add_order_status#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "migrations/0002_add_order_status.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "ad71bc4f24f2",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:scripts.backfill#m",
+      "kind": "module",
+      "name": "backfill",
+      "qualname": "scripts.backfill",
+      "lang": "python",
+      "parent": "u:layer:ops",
+      "children": [
+        "u:py:scripts.backfill.run#f"
+      ],
+      "loc": {
+        "files": [
+          "scripts/backfill.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 2,
+        "commits": 1
+      },
+      "hash": {
+        "text": "03446393d9b1",
+        "struct": "0bff53f6b528",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:scripts.backfill.run#f",
+      "kind": "function",
+      "name": "run",
+      "qualname": "scripts.backfill.run",
+      "lang": "python",
+      "parent": "u:py:scripts.backfill#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "scripts/backfill.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 2,
+        "commits": 1
+      },
+      "hash": {
+        "text": "03446393d9b1",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:scripts.cleanup#m",
+      "kind": "module",
+      "name": "cleanup",
+      "qualname": "scripts.cleanup",
+      "lang": "python",
+      "parent": "u:layer:ops",
+      "children": [
+        "u:py:scripts.cleanup.run#f"
+      ],
+      "loc": {
+        "files": [
+          "scripts/cleanup.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 2,
+        "commits": 1
+      },
+      "hash": {
+        "text": "03446393d9b1",
+        "struct": "0bff53f6b528",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:scripts.cleanup.run#f",
+      "kind": "function",
+      "name": "run",
+      "qualname": "scripts.cleanup.run",
+      "lang": "python",
+      "parent": "u:py:scripts.cleanup#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "scripts/cleanup.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 2,
+        "commits": 1
+      },
+      "hash": {
+        "text": "03446393d9b1",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src#m",
+      "kind": "module",
+      "name": "src",
+      "qualname": "src",
+      "lang": "python",
+      "parent": null,
+      "children": [],
+      "loc": {
+        "files": [
+          "src/__init__.py"
+        ],
+        "start": 1,
+        "end": 0,
+        "sloc": 0
+      },
+      "metrics": {
+        "sloc": 0,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 0,
+        "commits": 1
+      },
+      "hash": {
+        "text": "da39a3ee5e6b",
+        "struct": "66673287205e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 0
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.admin_tasks#m",
+      "kind": "module",
+      "name": "admin_tasks",
+      "qualname": "src.admin_tasks",
+      "lang": "python",
+      "parent": "u:layer:ops",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/admin_tasks.py"
+        ],
+        "start": 1,
+        "end": 3,
+        "sloc": 2
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 1,
+        "churn": 3,
+        "commits": 1
+      },
+      "hash": {
+        "text": "f16c31d2b0b6",
+        "struct": "286fe076f7e3",
+        "semantic": "3fb62b1c01ed"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "semantics": {
+        "what": "Shim that imports the backfill job into the src package.",
+        "how": "from scripts.backfill import run.",
+        "when": "On demand.",
+        "where": "src/admin_tasks.py",
+        "why": "Sits in src/ but belongs to ops. Nothing imports it back, which is why it clusters with scripts/ rather than with the application.",
+        "confidence": 0.58,
+        "source": "llm"
+      },
+      "tags": [
+        "out-of-band",
+        "llm-grouped",
+        "orphan"
+      ]
+    },
+    {
+      "id": "u:py:src.api#m",
+      "kind": "module",
+      "name": "api",
+      "qualname": "src.api",
+      "lang": "python",
+      "parent": "u:layer:edge",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/api/__init__.py"
+        ],
+        "start": 1,
+        "end": 0,
+        "sloc": 0
+      },
+      "metrics": {
+        "sloc": 0,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 0,
+        "commits": 1
+      },
+      "hash": {
+        "text": "da39a3ee5e6b",
+        "struct": "66673287205e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 0
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.api.middleware#m",
+      "kind": "module",
+      "name": "middleware",
+      "qualname": "src.api.middleware",
+      "lang": "python",
+      "parent": "u:layer:edge",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/api/middleware/__init__.py"
+        ],
+        "start": 1,
+        "end": 0,
+        "sloc": 0
+      },
+      "metrics": {
+        "sloc": 0,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 0,
+        "commits": 1
+      },
+      "hash": {
+        "text": "da39a3ee5e6b",
+        "struct": "66673287205e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 0
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.api.middleware.rate_limiter#m",
+      "kind": "module",
+      "name": "rate_limiter",
+      "qualname": "src.api.middleware.rate_limiter",
+      "lang": "python",
+      "parent": "u:layer:edge",
+      "children": [
+        "u:py:src.api.middleware.rate_limiter.rate_limit#f",
+        "u:py:src.api.middleware.rate_limiter.bucket_key#f"
+      ],
+      "loc": {
+        "files": [
+          "src/api/middleware/rate_limiter.py"
+        ],
+        "start": 1,
+        "end": 24,
+        "sloc": 21
+      },
+      "metrics": {
+        "sloc": 21,
+        "fan_in": 2,
+        "fan_out": 2,
+        "churn": 24,
+        "commits": 1
+      },
+      "hash": {
+        "text": "18043e6942d7",
+        "struct": "2500056efe46",
+        "semantic": "57ebd2780de6"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 24
+        }
+      ],
+      "semantics": {
+        "what": "Redis-backed fixed-window rate limiter, keyed per API token and tier.",
+        "how": "INCR a minute-bucketed key; set a 60s TTL on first hit; raise 429 with Retry-After past the limit.",
+        "when": "First dependency on every public route, ahead of auth.",
+        "where": "src/api/middleware/rate_limiter.py",
+        "why": "The in-process throttle it replaced could not bound a client spread across instances.",
+        "confidence": 0.86,
+        "source": "llm"
+      },
+      "tags": [
+        "new",
+        "auth-boundary",
+        "no-fallback"
+      ],
+      "cost": {
+        "estimate": "2 Redis round-trips per request",
+        "confidence": 0.86
+      }
+    },
+    {
+      "id": "u:py:src.api.middleware.rate_limiter.bucket_key#f",
+      "kind": "function",
+      "name": "bucket_key",
+      "qualname": "src.api.middleware.rate_limiter.bucket_key",
+      "lang": "python",
+      "parent": "u:py:src.api.middleware.rate_limiter#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/api/middleware/rate_limiter.py"
+        ],
+        "start": 23,
+        "end": 24,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "tier",
+            "type": "str",
+            "source": "static"
+          },
+          {
+            "name": "token",
+            "type": "str",
+            "source": "static"
+          }
+        ],
+        "out": [
+          {
+            "name": "return",
+            "type": "str",
+            "source": "static"
+          }
+        ],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 24,
+        "commits": 1
+      },
+      "hash": {
+        "text": "9511e2c72185",
+        "struct": "a5db9b854f9d",
+        "semantic": "af01dca3e8ee"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 24
+        }
+      ],
+      "semantics": {
+        "what": "Builds the Redis key for the current minute window.",
+        "how": "rl:{tier}:{token}:{epoch_minute}.",
+        "when": "Once per request.",
+        "where": "rate_limiter.py:24",
+        "why": "Fixed windows, not sliding \u2014 a client can send 2\u00d7 the limit across a boundary.",
+        "confidence": 0.88,
+        "source": "llm"
+      },
+      "tags": [
+        "new"
+      ]
+    },
+    {
+      "id": "u:py:src.api.middleware.rate_limiter.rate_limit#f",
+      "kind": "function",
+      "name": "rate_limit",
+      "qualname": "src.api.middleware.rate_limiter.rate_limit",
+      "lang": "python",
+      "parent": "u:py:src.api.middleware.rate_limiter#m",
+      "children": [
+        "u:py:src.api.middleware.rate_limiter.rate_limit.check#f"
+      ],
+      "loc": {
+        "files": [
+          "src/api/middleware/rate_limiter.py"
+        ],
+        "start": 9,
+        "end": 21,
+        "sloc": 13
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "tier",
+            "type": "str",
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "HTTPException"
+        ],
+        "async": false
+      },
+      "cost": {
+        "complexity": 3,
+        "io": [
+          "net",
+          "stdout"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 13,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 24,
+        "commits": 1
+      },
+      "hash": {
+        "text": "18c4a4e0774d",
+        "struct": "6ca056d17724",
+        "semantic": "2d9ece29d4eb"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 24
+        }
+      ],
+      "semantics": {
+        "what": "Factory that binds a tier to a dependency callable.",
+        "how": "Reads {tier}_per_min off settings.rate_limit once, closes over it.",
+        "when": "Import time, once per tier.",
+        "where": "rate_limiter.py:9",
+        "why": "Reading the limit at import means a config change needs a restart, not a reload.",
+        "confidence": 0.9,
+        "source": "llm"
+      },
+      "tags": [
+        "new"
+      ]
+    },
+    {
+      "id": "u:py:src.api.middleware.rate_limiter.rate_limit.check#f",
+      "kind": "function",
+      "name": "check",
+      "qualname": "src.api.middleware.rate_limiter.rate_limit.check",
+      "lang": "python",
+      "parent": "u:py:src.api.middleware.rate_limiter.rate_limit#f",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/api/middleware/rate_limiter.py"
+        ],
+        "start": 11,
+        "end": 20,
+        "sloc": 10
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "request",
+            "type": "Request",
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "HTTPException"
+        ],
+        "async": true
+      },
+      "cost": {
+        "complexity": 3,
+        "io": [
+          "net",
+          "stdout"
+        ],
+        "confidence": 0.86,
+        "source": "static",
+        "estimate": "2 Redis round-trips, blocking"
+      },
+      "metrics": {
+        "sloc": 10,
+        "fan_in": 0,
+        "fan_out": 1,
+        "churn": 24,
+        "commits": 1
+      },
+      "hash": {
+        "text": "a224c89f8fb9",
+        "struct": "d007da69a897",
+        "semantic": "425e899facc9"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 24
+        }
+      ],
+      "semantics": {
+        "what": "The per-request check. Increments the bucket and raises 429 past the limit.",
+        "how": "store.incr(key); on first hit sets a 60s expiry; compares the count to the tier limit.",
+        "when": "Before auth, on every public request.",
+        "where": "rate_limiter.py:11",
+        "why": "This is the whole limiter. Neither Redis call is wrapped, so an unreachable Redis turns every public request into a 500 rather than degrading to unlimited.",
+        "confidence": 0.86,
+        "source": "llm"
+      },
+      "tags": [
+        "no-fallback",
+        "hot-path"
+      ]
+    },
+    {
+      "id": "u:py:src.api.routes#m",
+      "kind": "module",
+      "name": "routes",
+      "qualname": "src.api.routes",
+      "lang": "python",
+      "parent": "u:layer:edge",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/api/routes.py"
+        ],
+        "start": 1,
+        "end": 10,
+        "sloc": 8
+      },
+      "metrics": {
+        "sloc": 8,
+        "fan_in": 0,
+        "fan_out": 4,
+        "churn": 14,
+        "commits": 3
+      },
+      "hash": {
+        "text": "592732f51e0d",
+        "struct": "dfafb1ff1a0d",
+        "semantic": "1588d0991b82"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 10
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 2
+        }
+      ],
+      "semantics": {
+        "what": "The public route table. Two endpoints: POST /public/orders, GET /public/orders/{id}.",
+        "how": "APIRouter with prefix /public and two Depends() \u2014 rate_limit(\"public\") then verify_token.",
+        "when": "Import time builds the table; per-request the dependency chain runs.",
+        "where": "src/api/routes.py",
+        "why": "A single declaration of what is publicly reachable and what guards it.",
+        "confidence": 0.94,
+        "source": "llm"
+      },
+      "tags": [
+        "public-api",
+        "contract"
+      ],
+      "cost": {
+        "estimate": "O(1) dispatch",
+        "confidence": 0.9
+      }
+    },
+    {
+      "id": "u:py:src.auth#m",
+      "kind": "module",
+      "name": "auth",
+      "qualname": "src.auth",
+      "lang": "python",
+      "parent": "u:layer:edge",
+      "children": [
+        "u:py:src.auth.verify_token#f",
+        "u:py:src.auth._lookup#f"
+      ],
+      "loc": {
+        "files": [
+          "src/auth/__init__.py"
+        ],
+        "start": 1,
+        "end": 14,
+        "sloc": 8
+      },
+      "metrics": {
+        "sloc": 8,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 14,
+        "commits": 1
+      },
+      "hash": {
+        "text": "70c21579acd8",
+        "struct": "cf3ba3785b04",
+        "semantic": "620a878b61af"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 14
+        }
+      ],
+      "semantics": {
+        "what": "Bearer-style token check against a hard-coded set.",
+        "how": "Reads x-api-token, raises 401 if absent or unknown.",
+        "when": "Second dependency on every public route.",
+        "where": "src/auth/__init__.py",
+        "why": "Minimum viable identity. The in-memory token set is a fixture, not a design.",
+        "confidence": 0.92,
+        "source": "llm"
+      },
+      "tags": [
+        "auth-boundary",
+        "stub"
+      ]
+    },
+    {
+      "id": "u:py:src.auth._lookup#f",
+      "kind": "function",
+      "name": "_lookup",
+      "qualname": "src.auth._lookup",
+      "lang": "python",
+      "parent": "u:py:src.auth#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/auth/__init__.py"
+        ],
+        "start": 10,
+        "end": 11,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "token",
+            "type": "str",
+            "source": "static"
+          }
+        ],
+        "out": [
+          {
+            "name": "return",
+            "type": "bool",
+            "source": "static"
+          }
+        ],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 14,
+        "commits": 1
+      },
+      "hash": {
+        "text": "406a4194c74c",
+        "struct": "af4d02aa12a1",
+        "semantic": "37ce5b1ea101"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 14
+        }
+      ],
+      "semantics": {
+        "what": "Membership test against a module-level set.",
+        "how": "token in _KNOWN_TOKENS.",
+        "when": "Per authenticated request.",
+        "where": "auth/__init__.py:10",
+        "why": "Fixture-grade. A real store goes behind this one function.",
+        "confidence": 0.9,
+        "source": "llm"
+      },
+      "tags": [
+        "stub"
+      ]
+    },
+    {
+      "id": "u:py:src.auth.verify_token#f",
+      "kind": "function",
+      "name": "verify_token",
+      "qualname": "src.auth.verify_token",
+      "lang": "python",
+      "parent": "u:py:src.auth#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/auth/__init__.py"
+        ],
+        "start": 4,
+        "end": 7,
+        "sloc": 4
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "request",
+            "type": "Request",
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "HTTPException"
+        ],
+        "async": false
+      },
+      "cost": {
+        "complexity": 3,
+        "io": [
+          "net"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 4,
+        "fan_in": 0,
+        "fan_out": 1,
+        "churn": 14,
+        "commits": 1
+      },
+      "hash": {
+        "text": "a8ae67287f00",
+        "struct": "e2169283e75f",
+        "semantic": "90e8d06548fe"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 14
+        }
+      ],
+      "semantics": {
+        "what": "Rejects requests without a known token.",
+        "how": "Header lookup, then a set membership test.",
+        "when": "After the rate limiter, on every public request.",
+        "where": "auth/__init__.py:4",
+        "why": "Runs second, so unauthenticated traffic is rate-limited before it is rejected \u2014 an anonymous flood consumes the anon bucket, not the auth path.",
+        "confidence": 0.92,
+        "source": "llm"
+      },
+      "tags": [
+        "auth-boundary"
+      ]
+    },
+    {
+      "id": "u:py:src.config#m",
+      "kind": "module",
+      "name": "config",
+      "qualname": "src.config",
+      "lang": "python",
+      "parent": "u:layer:infra",
+      "children": [
+        "u:py:src.config.Settings#c"
+      ],
+      "loc": {
+        "files": [
+          "src/config.py"
+        ],
+        "start": 1,
+        "end": 14,
+        "sloc": 9
+      },
+      "metrics": {
+        "sloc": 9,
+        "fan_in": 2,
+        "fan_out": 1,
+        "churn": 16,
+        "commits": 3
+      },
+      "hash": {
+        "text": "f9b0deccc0ed",
+        "struct": "f3a70af864ba",
+        "semantic": "c55784773354"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 5
+        },
+        {
+          "name": "j.moreau",
+          "lines": 1
+        }
+      ],
+      "semantics": {
+        "what": "Process settings read from the environment at import.",
+        "how": "Class attributes, with a nested rate_limit block added by RL-114.",
+        "when": "Once, at import.",
+        "where": "src/config.py",
+        "why": "Fails loudly at boot on a missing variable rather than quietly at request time.",
+        "confidence": 0.9,
+        "source": "llm"
+      },
+      "tags": [
+        "config",
+        "boot-critical"
+      ]
+    },
+    {
+      "id": "u:py:src.config.Settings#c",
+      "kind": "class",
+      "name": "Settings",
+      "qualname": "src.config.Settings",
+      "lang": "python",
+      "parent": "u:py:src.config#m",
+      "children": [
+        "u:py:src.config.Settings.rate_limit#c"
+      ],
+      "loc": {
+        "files": [
+          "src/config.py"
+        ],
+        "start": 4,
+        "end": 11,
+        "sloc": 7
+      },
+      "signature": null,
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "env",
+          "net",
+          "redis"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 7,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 16,
+        "commits": 3
+      },
+      "hash": {
+        "text": "6991f6183c87",
+        "struct": null,
+        "semantic": "af676f3a0dc7"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 5
+        },
+        {
+          "name": "j.moreau",
+          "lines": 1
+        }
+      ],
+      "semantics": {
+        "what": "Port, database URL, and the nested rate-limit block.",
+        "how": "os.environ at class-body evaluation \u2014 a missing DATABASE_URL or RATE_LIMIT_REDIS_URL raises at import.",
+        "when": "Boot.",
+        "where": "config.py:4",
+        "why": "public_per_min was lowered from 100 to 60 by hand after a capacity review. The inline comment is the only record of that reasoning anywhere in the repository.",
+        "confidence": 0.9,
+        "source": "llm"
+      },
+      "tags": [
+        "boot-critical",
+        "human-tuned"
+      ]
+    },
+    {
+      "id": "u:py:src.config.Settings.rate_limit#c",
+      "kind": "class",
+      "name": "rate_limit",
+      "qualname": "src.config.Settings.rate_limit",
+      "lang": "python",
+      "parent": "u:py:src.config.Settings#c",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/config.py"
+        ],
+        "start": 8,
+        "end": 11,
+        "sloc": 4
+      },
+      "signature": null,
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "env",
+          "redis"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 4,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 16,
+        "commits": 3
+      },
+      "hash": {
+        "text": "720b9a8fb8e7",
+        "struct": null,
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 5
+        },
+        {
+          "name": "j.moreau",
+          "lines": 1
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.db#m",
+      "kind": "module",
+      "name": "db",
+      "qualname": "src.db",
+      "lang": "python",
+      "parent": "u:layer:infra",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/db/__init__.py"
+        ],
+        "start": 1,
+        "end": 0,
+        "sloc": 0
+      },
+      "metrics": {
+        "sloc": 0,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 0,
+        "commits": 1
+      },
+      "hash": {
+        "text": "da39a3ee5e6b",
+        "struct": "66673287205e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 0
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.db.connection#m",
+      "kind": "module",
+      "name": "connection",
+      "qualname": "src.db.connection",
+      "lang": "python",
+      "parent": "u:layer:infra",
+      "children": [
+        "u:py:src.db.connection.execute#f",
+        "u:py:src.db.connection.fetch_one#f"
+      ],
+      "loc": {
+        "files": [
+          "src/db/connection.py"
+        ],
+        "start": 1,
+        "end": 9,
+        "sloc": 5
+      },
+      "metrics": {
+        "sloc": 5,
+        "fan_in": 1,
+        "fan_out": 1,
+        "churn": 9,
+        "commits": 1
+      },
+      "hash": {
+        "text": "86e0a1bc8cf4",
+        "struct": "d734422a4021",
+        "semantic": "d0bcb5d5ebca"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        }
+      ],
+      "semantics": {
+        "what": "Async query helpers.",
+        "how": "execute/fetch_one, both NotImplementedError.",
+        "when": "Every persisted read or write.",
+        "where": "src/db/connection.py",
+        "why": "One seam for pooling and instrumentation later.",
+        "confidence": 0.88,
+        "source": "llm"
+      },
+      "tags": [
+        "stub"
+      ]
+    },
+    {
+      "id": "u:py:src.db.connection.execute#f",
+      "kind": "function",
+      "name": "execute",
+      "qualname": "src.db.connection.execute",
+      "lang": "python",
+      "parent": "u:py:src.db.connection#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/db/connection.py"
+        ],
+        "start": 4,
+        "end": 5,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "query",
+            "type": null,
+            "source": "static"
+          },
+          {
+            "name": "*args",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "NotImplementedError"
+        ],
+        "async": true
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "db"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 2,
+        "fan_out": 0,
+        "churn": 9,
+        "commits": 1
+      },
+      "hash": {
+        "text": "2ad491d93cf5",
+        "struct": "98c358affdd8",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.db.connection.fetch_one#f",
+      "kind": "function",
+      "name": "fetch_one",
+      "qualname": "src.db.connection.fetch_one",
+      "lang": "python",
+      "parent": "u:py:src.db.connection#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/db/connection.py"
+        ],
+        "start": 8,
+        "end": 9,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "query",
+            "type": null,
+            "source": "static"
+          },
+          {
+            "name": "*args",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "NotImplementedError"
+        ],
+        "async": true
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "db"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 9,
+        "commits": 1
+      },
+      "hash": {
+        "text": "8e98b5b7959e",
+        "struct": "98c358affdd8",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.orders#m",
+      "kind": "module",
+      "name": "orders",
+      "qualname": "src.orders",
+      "lang": "python",
+      "parent": "u:layer:domain",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/orders/__init__.py"
+        ],
+        "start": 1,
+        "end": 1,
+        "sloc": 1
+      },
+      "metrics": {
+        "sloc": 1,
+        "fan_in": 1,
+        "fan_out": 2,
+        "churn": 1,
+        "commits": 1
+      },
+      "hash": {
+        "text": "bb5672980612",
+        "struct": "7d51d98eb475",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 1
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.orders.create_order#m",
+      "kind": "module",
+      "name": "create_order",
+      "qualname": "src.orders.create_order",
+      "lang": "python",
+      "parent": "u:layer:domain",
+      "children": [
+        "u:py:src.orders.create_order.create_order#f",
+        "u:py:src.orders.create_order.parse#f"
+      ],
+      "loc": {
+        "files": [
+          "src/orders/create_order.py"
+        ],
+        "start": 1,
+        "end": 24,
+        "sloc": 19
+      },
+      "metrics": {
+        "sloc": 19,
+        "fan_in": 1,
+        "fan_out": 4,
+        "churn": 24,
+        "commits": 1
+      },
+      "hash": {
+        "text": "be81c71cbcb6",
+        "struct": "d3156381f84e",
+        "semantic": "67cc1ca55712"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 24
+        }
+      ],
+      "semantics": {
+        "what": "The write path: parse, price, insert, charge, emit, respond 201.",
+        "how": "On a failed charge it deletes the row it just wrote and raises 402.",
+        "when": "POST /public/orders.",
+        "where": "src/orders/create_order.py",
+        "why": "The compensating delete is the only consistency mechanism. If the process dies between insert and charge, the row survives unpaid and nothing reconciles it.",
+        "confidence": 0.82,
+        "source": "llm"
+      },
+      "tags": [
+        "hot-path",
+        "core",
+        "compensating-write"
+      ],
+      "cost": {
+        "estimate": "2 DB round-trips + 1 Stripe call, serial",
+        "confidence": 0.82
+      }
+    },
+    {
+      "id": "u:py:src.orders.create_order.create_order#f",
+      "kind": "function",
+      "name": "create_order",
+      "qualname": "src.orders.create_order.create_order",
+      "lang": "python",
+      "parent": "u:py:src.orders.create_order#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/orders/create_order.py"
+        ],
+        "start": 9,
+        "end": 20,
+        "sloc": 12
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "req",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "HTTPException"
+        ],
+        "async": true
+      },
+      "cost": {
+        "complexity": 3,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 12,
+        "fan_in": 0,
+        "fan_out": 6,
+        "churn": 24,
+        "commits": 1
+      },
+      "hash": {
+        "text": "43e196315e0e",
+        "struct": "48927c8ddd39",
+        "semantic": "7a68dc4983f0"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 24
+        }
+      ],
+      "semantics": {
+        "what": "Handler for order creation.",
+        "how": "parse \u2192 price \u2192 insert \u2192 charge \u2192 emit \u2192 201; rollback + 402 on charge failure.",
+        "when": "Per POST.",
+        "where": "create_order.py:9",
+        "why": "Six sequential steps with one compensating branch. The emit at the end is a no-op, so a confirmed order publishes nothing.",
+        "confidence": 0.82,
+        "source": "llm"
+      },
+      "tags": [
+        "hot-path",
+        "core",
+        "compensating-write"
+      ]
+    },
+    {
+      "id": "u:py:src.orders.create_order.parse#f",
+      "kind": "function",
+      "name": "parse",
+      "qualname": "src.orders.create_order.parse",
+      "lang": "python",
+      "parent": "u:py:src.orders.create_order#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/orders/create_order.py"
+        ],
+        "start": 23,
+        "end": 24,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "body",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "NotImplementedError"
+        ],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 24,
+        "commits": 1
+      },
+      "hash": {
+        "text": "110e73f54eaa",
+        "struct": "1fbcf6b98320",
+        "semantic": "0b9a353e04d9"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 24
+        }
+      ],
+      "semantics": {
+        "what": "Request body validation.",
+        "how": "NotImplementedError.",
+        "when": "First step of create.",
+        "where": "create_order.py:23",
+        "why": "Placeholder \u2014 the 400 branch is currently unreachable.",
+        "confidence": 0.9,
+        "source": "llm"
+      },
+      "tags": [
+        "stub"
+      ]
+    },
+    {
+      "id": "u:py:src.orders.get_order#m",
+      "kind": "module",
+      "name": "get_order",
+      "qualname": "src.orders.get_order",
+      "lang": "python",
+      "parent": "u:layer:domain",
+      "children": [
+        "u:py:src.orders.get_order.get_order#f"
+      ],
+      "loc": {
+        "files": [
+          "src/orders/get_order.py"
+        ],
+        "start": 1,
+        "end": 11,
+        "sloc": 8
+      },
+      "metrics": {
+        "sloc": 8,
+        "fan_in": 1,
+        "fan_out": 1,
+        "churn": 11,
+        "commits": 1
+      },
+      "hash": {
+        "text": "14f2c66f2628",
+        "struct": "459793b3a42a",
+        "semantic": "932b3223be27"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 11
+        }
+      ],
+      "semantics": {
+        "what": "Read path for a single order.",
+        "how": "repo.find_order, 404 on None.",
+        "when": "GET /public/orders/{id}.",
+        "where": "src/orders/get_order.py",
+        "why": "No ownership check beyond the router dependency \u2014 any valid token reads any order.",
+        "confidence": 0.8,
+        "source": "llm"
+      },
+      "tags": [
+        "hot-path",
+        "idor-risk"
+      ]
+    },
+    {
+      "id": "u:py:src.orders.get_order.get_order#f",
+      "kind": "function",
+      "name": "get_order",
+      "qualname": "src.orders.get_order.get_order",
+      "lang": "python",
+      "parent": "u:py:src.orders.get_order#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/orders/get_order.py"
+        ],
+        "start": 7,
+        "end": 11,
+        "sloc": 5
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "order_id",
+            "type": "str",
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "HTTPException"
+        ],
+        "async": true
+      },
+      "cost": {
+        "complexity": 2,
+        "io": [
+          "net"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 5,
+        "fan_in": 0,
+        "fan_out": 1,
+        "churn": 11,
+        "commits": 1
+      },
+      "hash": {
+        "text": "845eb7a49f67",
+        "struct": "8aa480c1dd69",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 11
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.orders.pricing#m",
+      "kind": "module",
+      "name": "pricing",
+      "qualname": "src.orders.pricing",
+      "lang": "python",
+      "parent": "u:layer:domain",
+      "children": [
+        "u:py:src.orders.pricing.price_items#f"
+      ],
+      "loc": {
+        "files": [
+          "src/orders/pricing.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 2,
+        "commits": 1
+      },
+      "hash": {
+        "text": "6025869cd6cb",
+        "struct": "d953fa785b76",
+        "semantic": "4c1c44a074ce"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "semantics": {
+        "what": "Line-item pricing.",
+        "how": "Sums unit_price \u00d7 qty in one generator expression.",
+        "when": "Per create.",
+        "where": "src/orders/pricing.py",
+        "why": "Float arithmetic on money, and no currency field. Both will have to change.",
+        "confidence": 0.88,
+        "source": "llm"
+      },
+      "tags": [
+        "money"
+      ]
+    },
+    {
+      "id": "u:py:src.orders.pricing.price_items#f",
+      "kind": "function",
+      "name": "price_items",
+      "qualname": "src.orders.pricing.price_items",
+      "lang": "python",
+      "parent": "u:py:src.orders.pricing#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/orders/pricing.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "items",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 2,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 2,
+        "commits": 1
+      },
+      "hash": {
+        "text": "6025869cd6cb",
+        "struct": "88c9d88604b0",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.orders.repo#m",
+      "kind": "module",
+      "name": "repo",
+      "qualname": "src.orders.repo",
+      "lang": "python",
+      "parent": "u:layer:domain",
+      "children": [
+        "u:py:src.orders.repo.insert_order#f",
+        "u:py:src.orders.repo.find_order#f",
+        "u:py:src.orders.repo.rollback#f"
+      ],
+      "loc": {
+        "files": [
+          "src/orders/repo.py"
+        ],
+        "start": 1,
+        "end": 13,
+        "sloc": 7
+      },
+      "metrics": {
+        "sloc": 7,
+        "fan_in": 2,
+        "fan_out": 1,
+        "churn": 13,
+        "commits": 1
+      },
+      "hash": {
+        "text": "d53080236efc",
+        "struct": "1b8c9728ec92",
+        "semantic": "e19c16fca7cb"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 13
+        }
+      ],
+      "semantics": {
+        "what": "Order persistence: insert, find, hard delete.",
+        "how": "Inline SQL through the db connection helpers.",
+        "when": "Per create and per read.",
+        "where": "src/orders/repo.py",
+        "why": "rollback() is a hard delete, so a failed payment leaves no audit trail of the attempt.",
+        "confidence": 0.87,
+        "source": "llm"
+      },
+      "tags": [
+        "destructive"
+      ]
+    },
+    {
+      "id": "u:py:src.orders.repo.find_order#f",
+      "kind": "function",
+      "name": "find_order",
+      "qualname": "src.orders.repo.find_order",
+      "lang": "python",
+      "parent": "u:py:src.orders.repo#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/orders/repo.py"
+        ],
+        "start": 8,
+        "end": 9,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "order_id",
+            "type": "str",
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [],
+        "async": true
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "db"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 1,
+        "churn": 13,
+        "commits": 1
+      },
+      "hash": {
+        "text": "005e0cf2fddc",
+        "struct": "ee8d11ea4cd6",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 13
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.orders.repo.insert_order#f",
+      "kind": "function",
+      "name": "insert_order",
+      "qualname": "src.orders.repo.insert_order",
+      "lang": "python",
+      "parent": "u:py:src.orders.repo#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/orders/repo.py"
+        ],
+        "start": 4,
+        "end": 5,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "priced",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [],
+        "async": true
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "db"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 1,
+        "churn": 13,
+        "commits": 1
+      },
+      "hash": {
+        "text": "5d6fdd94628a",
+        "struct": "c51875d578c1",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 13
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.orders.repo.rollback#f",
+      "kind": "function",
+      "name": "rollback",
+      "qualname": "src.orders.repo.rollback",
+      "lang": "python",
+      "parent": "u:py:src.orders.repo#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/orders/repo.py"
+        ],
+        "start": 12,
+        "end": 13,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "order_id",
+            "type": "str",
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [],
+        "async": true
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "db"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 1,
+        "churn": 13,
+        "commits": 1
+      },
+      "hash": {
+        "text": "477a0ef8c8b1",
+        "struct": "ee8d11ea4cd6",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 13
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.payments#m",
+      "kind": "module",
+      "name": "payments",
+      "qualname": "src.payments",
+      "lang": "python",
+      "parent": "u:layer:domain",
+      "children": [
+        "u:py:src.payments.charge#f"
+      ],
+      "loc": {
+        "files": [
+          "src/payments/__init__.py"
+        ],
+        "start": 1,
+        "end": 5,
+        "sloc": 3
+      },
+      "metrics": {
+        "sloc": 3,
+        "fan_in": 1,
+        "fan_out": 1,
+        "churn": 5,
+        "commits": 1
+      },
+      "hash": {
+        "text": "f59b01bd51b4",
+        "struct": "1d0ce0c57247",
+        "semantic": "b8eec2556b90"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 5
+        }
+      ],
+      "semantics": {
+        "what": "Card charges via Stripe.",
+        "how": "charge() delegates to a stripe_client that is still NotImplementedError.",
+        "when": "Once per created order, after the row is written.",
+        "where": "src/payments/",
+        "why": "Isolates the third-party SDK behind one function so the domain never imports Stripe.",
+        "confidence": 0.79,
+        "source": "llm"
+      },
+      "tags": [
+        "external-boundary",
+        "stub"
+      ],
+      "cost": {
+        "estimate": "1 external API call, unbounded latency",
+        "confidence": 0.79
+      }
+    },
+    {
+      "id": "u:py:src.payments.charge#f",
+      "kind": "function",
+      "name": "charge",
+      "qualname": "src.payments.charge",
+      "lang": "python",
+      "parent": "u:py:src.payments#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/payments/__init__.py"
+        ],
+        "start": 4,
+        "end": 5,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "order",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [],
+        "async": true
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 1,
+        "churn": 5,
+        "commits": 1
+      },
+      "hash": {
+        "text": "f2cfac10d02b",
+        "struct": "8362182e631d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 5
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.payments.stripe_client#m",
+      "kind": "module",
+      "name": "stripe_client",
+      "qualname": "src.payments.stripe_client",
+      "lang": "python",
+      "parent": "u:layer:domain",
+      "children": [
+        "u:py:src.payments.stripe_client.create_charge#f",
+        "u:py:src.payments.stripe_client.handle_webhook#f"
+      ],
+      "loc": {
+        "files": [
+          "src/payments/stripe_client.py"
+        ],
+        "start": 1,
+        "end": 6,
+        "sloc": 4
+      },
+      "metrics": {
+        "sloc": 4,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "dbb47b5e10e3",
+        "struct": "df5a50a05415",
+        "semantic": "d1629d8a8f38"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": {
+        "what": "The Stripe call surface, plus an unrouted webhook handler.",
+        "how": "Both NotImplementedError.",
+        "when": "Per charge; the webhook never.",
+        "where": "src/payments/stripe_client.py",
+        "why": "No timeout, retry, or idempotency key is planned yet, and handle_webhook is orphaned \u2014 nothing in the tree routes to it.",
+        "confidence": 0.7,
+        "source": "llm"
+      },
+      "tags": [
+        "stub",
+        "external-boundary",
+        "orphan"
+      ]
+    },
+    {
+      "id": "u:py:src.payments.stripe_client.create_charge#f",
+      "kind": "function",
+      "name": "create_charge",
+      "qualname": "src.payments.stripe_client.create_charge",
+      "lang": "python",
+      "parent": "u:py:src.payments.stripe_client#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/payments/stripe_client.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "order",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "NotImplementedError"
+        ],
+        "async": true
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "67a867736e64",
+        "struct": "fb7086434757",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.payments.stripe_client.handle_webhook#f",
+      "kind": "function",
+      "name": "handle_webhook",
+      "qualname": "src.payments.stripe_client.handle_webhook",
+      "lang": "python",
+      "parent": "u:py:src.payments.stripe_client#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/payments/stripe_client.py"
+        ],
+        "start": 5,
+        "end": 6,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "event",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "NotImplementedError"
+        ],
+        "async": true
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 6,
+        "commits": 1
+      },
+      "hash": {
+        "text": "fc0c1880aa4b",
+        "struct": "b43c24fb43d4",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.utils#m",
+      "kind": "module",
+      "name": "utils",
+      "qualname": "src.utils",
+      "lang": "python",
+      "parent": "u:layer:support",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/utils/__init__.py"
+        ],
+        "start": 1,
+        "end": 0,
+        "sloc": 0
+      },
+      "metrics": {
+        "sloc": 0,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 0,
+        "commits": 1
+      },
+      "hash": {
+        "text": "da39a3ee5e6b",
+        "struct": "66673287205e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 0
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.utils.events#m",
+      "kind": "module",
+      "name": "events",
+      "qualname": "src.utils.events",
+      "lang": "python",
+      "parent": "u:layer:support",
+      "children": [
+        "u:py:src.utils.events.emit#f"
+      ],
+      "loc": {
+        "files": [
+          "src/utils/events.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 2,
+        "commits": 1
+      },
+      "hash": {
+        "text": "542bf974ed2f",
+        "struct": "3571af3c8b17",
+        "semantic": "c27f5c26537f"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "semantics": {
+        "what": "Domain event emitter.",
+        "how": "emit(name, *args) \u2014 a stub.",
+        "when": "After an order is confirmed.",
+        "where": "src/utils/events.py",
+        "why": "Placeholder for an outbox. create_order believes it published order.confirmed. It did not.",
+        "confidence": 0.85,
+        "source": "llm"
+      },
+      "tags": [
+        "stub",
+        "silent-failure"
+      ]
+    },
+    {
+      "id": "u:py:src.utils.events.emit#f",
+      "kind": "function",
+      "name": "emit",
+      "qualname": "src.utils.events.emit",
+      "lang": "python",
+      "parent": "u:py:src.utils.events#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/utils/events.py"
+        ],
+        "start": 1,
+        "end": 2,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "event_name",
+            "type": "str",
+            "source": "static"
+          },
+          {
+            "name": "*args",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [
+          "NotImplementedError"
+        ],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 2,
+        "commits": 1
+      },
+      "hash": {
+        "text": "542bf974ed2f",
+        "struct": "07309763438e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:src.utils.logging#m",
+      "kind": "module",
+      "name": "logging",
+      "qualname": "src.utils.logging",
+      "lang": "python",
+      "parent": "u:layer:support",
+      "children": [
+        "u:py:src.utils.logging.request_log#f"
+      ],
+      "loc": {
+        "files": [
+          "src/utils/logging.py"
+        ],
+        "start": 1,
+        "end": 10,
+        "sloc": 4
+      },
+      "metrics": {
+        "sloc": 4,
+        "fan_in": 1,
+        "fan_out": 0,
+        "churn": 12,
+        "commits": 2
+      },
+      "hash": {
+        "text": "daa9fefb46cb",
+        "struct": "465081279c3c",
+        "semantic": "462b68d6fb9f"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 4
+        }
+      ],
+      "semantics": {
+        "what": "A structlog logger and one request-logging helper.",
+        "how": "Emits request_id, route, duration_ms as structured fields.",
+        "when": "Per request and inside the limiter.",
+        "where": "src/utils/logging.py",
+        "why": "The field names are a contract with log parsers that live outside this repository. The analyzer cannot see them, so it cannot confirm the rename was safe.",
+        "confidence": 0.55,
+        "source": "llm"
+      },
+      "tags": [
+        "cross-cutting",
+        "external-contract"
+      ]
+    },
+    {
+      "id": "u:py:src.utils.logging.request_log#f",
+      "kind": "function",
+      "name": "request_log",
+      "qualname": "src.utils.logging.request_log",
+      "lang": "python",
+      "parent": "u:py:src.utils.logging#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "src/utils/logging.py"
+        ],
+        "start": 6,
+        "end": 7,
+        "sloc": 2
+      },
+      "signature": {
+        "in": [
+          {
+            "name": "request",
+            "type": null,
+            "source": "static"
+          },
+          {
+            "name": "ms",
+            "type": null,
+            "source": "static"
+          }
+        ],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "net",
+          "stdout"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 2,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 12,
+        "commits": 2
+      },
+      "hash": {
+        "text": "3e6098b98019",
+        "struct": "577785692b71",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 4
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests#m",
+      "kind": "module",
+      "name": "tests",
+      "qualname": "tests",
+      "lang": "python",
+      "parent": "u:layer:tests",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/__init__.py"
+        ],
+        "start": 1,
+        "end": 0,
+        "sloc": 0
+      },
+      "metrics": {
+        "sloc": 0,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 0,
+        "commits": 1
+      },
+      "hash": {
+        "text": "da39a3ee5e6b",
+        "struct": "66673287205e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 0
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests.integration#m",
+      "kind": "module",
+      "name": "integration",
+      "qualname": "tests.integration",
+      "lang": "python",
+      "parent": "u:layer:tests",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/integration/__init__.py"
+        ],
+        "start": 1,
+        "end": 0,
+        "sloc": 0
+      },
+      "metrics": {
+        "sloc": 0,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 0,
+        "commits": 1
+      },
+      "hash": {
+        "text": "da39a3ee5e6b",
+        "struct": "66673287205e",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 0
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests.integration.test_orders#m",
+      "kind": "module",
+      "name": "test_orders",
+      "qualname": "tests.integration.test_orders",
+      "lang": "python",
+      "parent": "u:layer:tests",
+      "children": [
+        "u:py:tests.integration.test_orders.test_create_order_returns_201#f",
+        "u:py:tests.integration.test_orders.test_get_order_returns_404_when_missing#f",
+        "u:py:tests.integration.test_orders.test_create_order_rolls_back_on_charge_failure#f"
+      ],
+      "loc": {
+        "files": [
+          "tests/integration/test_orders.py"
+        ],
+        "start": 1,
+        "end": 7,
+        "sloc": 3
+      },
+      "metrics": {
+        "sloc": 3,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 7,
+        "commits": 1
+      },
+      "hash": {
+        "text": "e2b264ec6a59",
+        "struct": "ed80ace9715f",
+        "semantic": "741c3f91a477"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        }
+      ],
+      "semantics": {
+        "what": "Three integration tests over the order path.",
+        "how": "201 on create, 404 on missing, rollback on charge failure.",
+        "when": "CI \u2014 but not re-run since the routing change.",
+        "where": "tests/integration/test_orders.py",
+        "why": "These are the only tests that would catch the limiter breaking the order path, and they are stale.",
+        "confidence": 0.85,
+        "source": "llm"
+      },
+      "tags": [
+        "stale",
+        "coverage-gap"
+      ]
+    },
+    {
+      "id": "u:py:tests.integration.test_orders.test_create_order_returns_201#f",
+      "kind": "function",
+      "name": "test_create_order_returns_201",
+      "qualname": "tests.integration.test_orders.test_create_order_returns_201",
+      "lang": "python",
+      "parent": "u:py:tests.integration.test_orders#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/integration/test_orders.py"
+        ],
+        "start": 1,
+        "end": 1,
+        "sloc": 1
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 1,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 7,
+        "commits": 1
+      },
+      "hash": {
+        "text": "530ce18e52dd",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests.integration.test_orders.test_create_order_rolls_back_on_charge_failure#f",
+      "kind": "function",
+      "name": "test_create_order_rolls_back_on_charge_failure",
+      "qualname": "tests.integration.test_orders.test_create_order_rolls_back_on_charge_failure",
+      "lang": "python",
+      "parent": "u:py:tests.integration.test_orders#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/integration/test_orders.py"
+        ],
+        "start": 7,
+        "end": 7,
+        "sloc": 1
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 1,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 7,
+        "commits": 1
+      },
+      "hash": {
+        "text": "91580ad2f143",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests.integration.test_orders.test_get_order_returns_404_when_missing#f",
+      "kind": "function",
+      "name": "test_get_order_returns_404_when_missing",
+      "qualname": "tests.integration.test_orders.test_get_order_returns_404_when_missing",
+      "lang": "python",
+      "parent": "u:py:tests.integration.test_orders#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/integration/test_orders.py"
+        ],
+        "start": 4,
+        "end": 4,
+        "sloc": 1
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "net"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 1,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 7,
+        "commits": 1
+      },
+      "hash": {
+        "text": "b36268820748",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests.test_rate_limiter#m",
+      "kind": "module",
+      "name": "test_rate_limiter",
+      "qualname": "tests.test_rate_limiter",
+      "lang": "python",
+      "parent": "u:layer:tests",
+      "children": [
+        "u:py:tests.test_rate_limiter.test_allows_requests_under_the_limit#f",
+        "u:py:tests.test_rate_limiter.test_returns_429_with_retry_after_when_bucket_empty#f",
+        "u:py:tests.test_rate_limiter.test_refills_the_bucket_after_the_window#f",
+        "u:py:tests.test_rate_limiter.test_keys_buckets_per_api_token#f"
+      ],
+      "loc": {
+        "files": [
+          "tests/test_rate_limiter.py"
+        ],
+        "start": 1,
+        "end": 9,
+        "sloc": 5
+      },
+      "metrics": {
+        "sloc": 5,
+        "fan_in": 0,
+        "fan_out": 1,
+        "churn": 9,
+        "commits": 2
+      },
+      "hash": {
+        "text": "1ef5f2747a6c",
+        "struct": "a6f2fd3407d6",
+        "semantic": "920b4f99beb7"
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "semantics": {
+        "what": "Four unit tests over the limiter.",
+        "how": "Covers under-limit, 429 + Retry-After, window refill, per-token keying.",
+        "when": "CI.",
+        "where": "tests/test_rate_limiter.py",
+        "why": "Added with the limiter and passing. Nothing here exercises a Redis outage.",
+        "confidence": 0.93,
+        "source": "llm"
+      },
+      "tags": [
+        "passing"
+      ]
+    },
+    {
+      "id": "u:py:tests.test_rate_limiter.test_allows_requests_under_the_limit#f",
+      "kind": "function",
+      "name": "test_allows_requests_under_the_limit",
+      "qualname": "tests.test_rate_limiter.test_allows_requests_under_the_limit",
+      "lang": "python",
+      "parent": "u:py:tests.test_rate_limiter#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/test_rate_limiter.py"
+        ],
+        "start": 4,
+        "end": 4,
+        "sloc": 1
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [
+          "net"
+        ],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 1,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 9,
+        "commits": 2
+      },
+      "hash": {
+        "text": "8d7652b1556f",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests.test_rate_limiter.test_keys_buckets_per_api_token#f",
+      "kind": "function",
+      "name": "test_keys_buckets_per_api_token",
+      "qualname": "tests.test_rate_limiter.test_keys_buckets_per_api_token",
+      "lang": "python",
+      "parent": "u:py:tests.test_rate_limiter#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/test_rate_limiter.py"
+        ],
+        "start": 7,
+        "end": 7,
+        "sloc": 1
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 1,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 9,
+        "commits": 2
+      },
+      "hash": {
+        "text": "22db5b8ed43e",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests.test_rate_limiter.test_refills_the_bucket_after_the_window#f",
+      "kind": "function",
+      "name": "test_refills_the_bucket_after_the_window",
+      "qualname": "tests.test_rate_limiter.test_refills_the_bucket_after_the_window",
+      "lang": "python",
+      "parent": "u:py:tests.test_rate_limiter#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/test_rate_limiter.py"
+        ],
+        "start": 6,
+        "end": 6,
+        "sloc": 1
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 1,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 9,
+        "commits": 2
+      },
+      "hash": {
+        "text": "e9299886ee4b",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    },
+    {
+      "id": "u:py:tests.test_rate_limiter.test_returns_429_with_retry_after_when_bucket_empty#f",
+      "kind": "function",
+      "name": "test_returns_429_with_retry_after_when_bucket_empty",
+      "qualname": "tests.test_rate_limiter.test_returns_429_with_retry_after_when_bucket_empty",
+      "lang": "python",
+      "parent": "u:py:tests.test_rate_limiter#m",
+      "children": [],
+      "loc": {
+        "files": [
+          "tests/test_rate_limiter.py"
+        ],
+        "start": 5,
+        "end": 5,
+        "sloc": 1
+      },
+      "signature": {
+        "in": [],
+        "out": [],
+        "raises": [],
+        "async": false
+      },
+      "cost": {
+        "complexity": 1,
+        "io": [],
+        "confidence": 0.9,
+        "source": "static"
+      },
+      "metrics": {
+        "sloc": 1,
+        "fan_in": 0,
+        "fan_out": 0,
+        "churn": 9,
+        "commits": 2
+      },
+      "hash": {
+        "text": "0e91c3f82d9c",
+        "struct": "09d4ba43b46d",
+        "semantic": null
+      },
+      "provenance": {
+        "source": "static"
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "semantics": null,
+      "tags": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "e:4214214816",
+      "from": "u:py:src.admin_tasks#m",
+      "to": "u:py:scripts.backfill#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/admin_tasks.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:fa7db4eb45",
+      "from": "u:py:src.api.middleware.rate_limiter#m",
+      "to": "u:py:src.config#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/api/middleware/rate_limiter.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:266dbdf4c8",
+      "from": "u:py:src.api.middleware.rate_limiter#m",
+      "to": "u:py:src.utils.logging#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/api/middleware/rate_limiter.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:95184b95dc",
+      "from": "u:py:src.api.middleware.rate_limiter.rate_limit.check#f",
+      "to": "u:py:src.api.middleware.rate_limiter.bucket_key#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/api/middleware/rate_limiter.py",
+          "line": 13
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:74cbef1146",
+      "from": "u:py:src.api.routes#m",
+      "to": "u:py:src.api.middleware.rate_limiter#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/api/routes.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:ee356652e6",
+      "from": "u:py:src.api.routes#m",
+      "to": "u:py:src.api.middleware.rate_limiter.rate_limit#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/api/routes.py",
+          "line": 7
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:c3050e6fd1",
+      "from": "u:py:src.api.routes#m",
+      "to": "u:py:src.auth#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/api/routes.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:4840ccf174",
+      "from": "u:py:src.api.routes#m",
+      "to": "u:py:src.orders#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/api/routes.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:7cb0c8e235",
+      "from": "u:py:src.auth.verify_token#f",
+      "to": "u:py:src.auth._lookup#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/auth/__init__.py",
+          "line": 6
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:9d904f28cb",
+      "from": "u:py:src.config#m",
+      "to": "u:py:src.config.Settings#c",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/config.py",
+          "line": 14
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:35e53ce03e",
+      "from": "u:py:src.db.connection#m",
+      "to": "u:py:src.config#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/db/connection.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:75f57071cb",
+      "from": "u:py:src.orders#m",
+      "to": "u:py:src.orders.create_order#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/__init__.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:8944675f3c",
+      "from": "u:py:src.orders#m",
+      "to": "u:py:src.orders.get_order#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/__init__.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:decb17baaf",
+      "from": "u:py:src.orders.create_order#m",
+      "to": "u:py:src.orders.pricing#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:03a2cd60ef",
+      "from": "u:py:src.orders.create_order#m",
+      "to": "u:py:src.orders.repo#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:f1cb37b066",
+      "from": "u:py:src.orders.create_order#m",
+      "to": "u:py:src.payments#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:535a06b41c",
+      "from": "u:py:src.orders.create_order#m",
+      "to": "u:py:src.utils.events#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:9cbb6f5e8b",
+      "from": "u:py:src.orders.create_order.create_order#f",
+      "to": "u:py:src.orders.create_order.parse#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 10
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:e99d5e20e5",
+      "from": "u:py:src.orders.create_order.create_order#f",
+      "to": "u:py:src.orders.pricing.price_items#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 13
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:30174fc6cc",
+      "from": "u:py:src.orders.create_order.create_order#f",
+      "to": "u:py:src.orders.repo.insert_order#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 14
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:ece770420d",
+      "from": "u:py:src.orders.create_order.create_order#f",
+      "to": "u:py:src.orders.repo.rollback#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 17
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:ff9d6246bd",
+      "from": "u:py:src.orders.create_order.create_order#f",
+      "to": "u:py:src.payments.charge#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 15
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:0871b0c93d",
+      "from": "u:py:src.orders.create_order.create_order#f",
+      "to": "u:py:src.utils.events.emit#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/create_order.py",
+          "line": 19
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:d3c8f65e86",
+      "from": "u:py:src.orders.get_order#m",
+      "to": "u:py:src.orders.repo#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/get_order.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:41167fb65a",
+      "from": "u:py:src.orders.get_order.get_order#f",
+      "to": "u:py:src.orders.repo.find_order#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/get_order.py",
+          "line": 8
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:a4666782e0",
+      "from": "u:py:src.orders.repo#m",
+      "to": "u:py:src.db.connection#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/repo.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:4281aa73e1",
+      "from": "u:py:src.orders.repo.find_order#f",
+      "to": "u:py:src.db.connection.fetch_one#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/repo.py",
+          "line": 9
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:9515673b08",
+      "from": "u:py:src.orders.repo.insert_order#f",
+      "to": "u:py:src.db.connection.execute#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/repo.py",
+          "line": 5
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:a53677bc9a",
+      "from": "u:py:src.orders.repo.rollback#f",
+      "to": "u:py:src.db.connection.execute#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/orders/repo.py",
+          "line": 13
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:28cdc6072e",
+      "from": "u:py:src.payments#m",
+      "to": "u:py:src.payments.stripe_client#m",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/payments/__init__.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:986fa21985",
+      "from": "u:py:src.payments.charge#f",
+      "to": "u:py:src.payments.stripe_client.create_charge#f",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [
+        {
+          "file": "src/payments/__init__.py",
+          "line": 5
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:b8018b37d5",
+      "from": "u:py:tests.test_rate_limiter#m",
+      "to": "u:py:src.api.middleware.rate_limiter#m",
+      "kind": "imports",
+      "weight": 2,
+      "evidence": [
+        {
+          "file": "tests/test_rate_limiter.py",
+          "line": 1
+        },
+        {
+          "file": "tests/test_rate_limiter.py",
+          "line": 1
+        }
+      ],
+      "source": "static",
+      "confidence": 1.0
+    },
+    {
+      "id": "e:af358be711",
+      "from": "u:layer:domain",
+      "to": "u:layer:infra",
+      "kind": "calls",
+      "weight": 3,
+      "evidence": [],
+      "source": "static",
+      "confidence": 1.0,
+      "rollup": true
+    },
+    {
+      "id": "e:1c87406627",
+      "from": "u:layer:domain",
+      "to": "u:layer:infra",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [],
+      "source": "static",
+      "confidence": 1.0,
+      "rollup": true
+    },
+    {
+      "id": "e:986a496114",
+      "from": "u:layer:domain",
+      "to": "u:layer:support",
+      "kind": "calls",
+      "weight": 1,
+      "evidence": [],
+      "source": "static",
+      "confidence": 1.0,
+      "rollup": true
+    },
+    {
+      "id": "e:be9fc3b250",
+      "from": "u:layer:domain",
+      "to": "u:layer:support",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [],
+      "source": "static",
+      "confidence": 1.0,
+      "rollup": true
+    },
+    {
+      "id": "e:1879a6dff3",
+      "from": "u:layer:edge",
+      "to": "u:layer:domain",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [],
+      "source": "static",
+      "confidence": 1.0,
+      "rollup": true
+    },
+    {
+      "id": "e:bbe0527628",
+      "from": "u:layer:edge",
+      "to": "u:layer:infra",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [],
+      "source": "static",
+      "confidence": 1.0,
+      "rollup": true
+    },
+    {
+      "id": "e:ba8c5d6cb4",
+      "from": "u:layer:edge",
+      "to": "u:layer:support",
+      "kind": "imports",
+      "weight": 1,
+      "evidence": [],
+      "source": "static",
+      "confidence": 1.0,
+      "rollup": true
+    },
+    {
+      "id": "e:a2ff9f0463",
+      "from": "u:layer:tests",
+      "to": "u:layer:edge",
+      "kind": "imports",
+      "weight": 2,
+      "evidence": [],
+      "source": "static",
+      "confidence": 1.0,
+      "rollup": true
+    }
+  ],
+  "externals": [
+    {
+      "id": "x:pypi:fastapi@0.110.0",
+      "ecosystem": "pypi",
+      "name": "fastapi",
+      "version": "0.110.0",
+      "direct": true,
+      "depth": 1,
+      "reached_by": [
+        "u:py:src.auth#m",
+        "u:py:src.api.routes#m",
+        "u:py:src.api.middleware.rate_limiter#m",
+        "u:py:src.orders.create_order#m",
+        "u:py:src.orders.get_order#m"
+      ],
+      "transitive_count": null,
+      "source": "static"
+    },
+    {
+      "id": "x:pypi:redis@5.0.1",
+      "ecosystem": "pypi",
+      "name": "redis",
+      "version": "5.0.1",
+      "direct": true,
+      "depth": 1,
+      "reached_by": [
+        "u:py:src.api.middleware.rate_limiter#m"
+      ],
+      "transitive_count": null,
+      "source": "static"
+    },
+    {
+      "id": "x:pypi:structlog@24.1.0",
+      "ecosystem": "pypi",
+      "name": "structlog",
+      "version": "24.1.0",
+      "direct": true,
+      "depth": 1,
+      "reached_by": [
+        "u:py:src.utils.logging#m"
+      ],
+      "transitive_count": null,
+      "source": "static"
+    }
+  ]
+}
