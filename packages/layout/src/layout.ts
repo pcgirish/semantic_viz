@@ -59,6 +59,13 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
   });
   const links = route(routeChains, boxes);
 
+  const fanOut = new Map<string, number>();
+  const fanIn = new Map<string, number>();
+  for (const e of edges) {
+    fanOut.set(e.from, (fanOut.get(e.from) ?? 0) + 1);
+    fanIn.set(e.to, (fanIn.get(e.to) ?? 0) + 1);
+  }
+
   const nodes: SceneNode[] = units
     .filter((u) => boxes.has(u.id))
     .map((u) => {
@@ -73,6 +80,10 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
         sides: sidesFor(u.cost?.complexity),
         heat: 0,
         ring: false,
+        name: u.name,
+        sloc: u.loc.sloc,
+        fanOut: fanOut.get(u.id) ?? 0,
+        fanIn: fanIn.get(u.id) ?? 0,
       };
     });
 
