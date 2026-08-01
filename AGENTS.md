@@ -18,8 +18,13 @@ npm run lint
 - Never read/write .env directly; use .env.example for shape
 - Input validation via Zod / class-validator only — never trust raw request data
 
+- CLearly articulate the idea and intent 
+- Be Terse; Omit needless words
+- No narration, filler, or detailed thinking output
+- Report only actual steps: decisions, implementation, key tool calls (file, command)
+
 ## Git Workflow
-**Flow:** branch → implement → verify → review → push → open PR → merge PR. Never commit or push directly to main.
+**Flow:** always branch → implement → verify → review → push → open PR → merge PR. Never commit or push directly to main.
 
 **Branches:**
 - `feature/<name>` — new feature or refactor
@@ -32,11 +37,8 @@ npm run lint
 Writes code, runs the test and lint commands above before considering the task done.
 
 ### Reviewer
-Reviewed as a staff engineer would: challenges assumptions, spots edge cases, checks
-security. If your agent supports spawning a fresh sub-session/subagent with no
-knowledge of the implementation, prefer that for the review pass. Returns one of
-APPROVED / NEEDS CHANGES / BLOCKED, with explicit reasons. See the `project-review`
-skill below.
+Reviews as a staff engineer would: use `project-review` skill below in a fresh sub-session/subagent with no knowledge of the implementation to run review. 
+Returns one of APPROVED / NEEDS CHANGES / BLOCKED, with explicit reasons. 
 
 ### Security Auditor
 Runs the `project-security` skill before any auth-related change merges. Focuses on:
@@ -75,4 +77,4 @@ its description:
   natively — no extra setup needed.
 
 ## Architecture
-See `docs/PROGRAM.md` for architecture decisions (auth flow, DB conventions, API conventions).
+See `docs/design.md` for design/architecture decisions.
