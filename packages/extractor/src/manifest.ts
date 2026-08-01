@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 export interface ManifestInfo {
@@ -9,6 +9,28 @@ export interface ManifestInfo {
 export interface RepoManifests {
   pypi: ManifestInfo | null;
   npm: ManifestInfo | null;
+}
+
+const SKIP_DIRS = new Set(["__pycache__", ".git", ".scv", "node_modules", "dist"]);
+
+/** Finds every file matching `name` under root, skipping the same dirs the extractor's file walker skips. */
+function findManifestFiles(root: string, name: string): string[] {
+  const out: string[] = [];
+  const stack: string[] = [root];
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    for (const entry of readdirSync(dir)) {
+      if (SKIP_DIRS.has(entry) || entry.startsWith(".")) continue;
+      const full = path.join(dir, entry);
+      const st = statSync(full);
+      if (st.isDirectory()) {
+        stack.push(full);
+      } else if (entry === name) {
+        out.push(full);
+      }
+    }
+  }
+  return out.sort();
 }
 
 function parseRequirementsTxt(text: string): Map<string, string | null> {
@@ -67,27 +89,40 @@ function parsePyprojectToml(text: string): Map<string, string | null> {
   return pinned;
 }
 
+/** Merges pinned maps found across a repo, deepest (root-most) files applied last so they win on name conflicts. */
+function mergePinned(entries: { file: string; pinned: Map<string, string | null> }[]): Map<string, string | null> {
+  const byDepth = [...entries].sort((a, b) => b.file.split(path.sep).length - a.file.split(path.sep).length);
+  const merged = new Map<string, string | null>();
+  for (const { pinned } of byDepth) {
+    for (const [name, version] of pinned) merged.set(name, version);
+  }
+  return merged;
+}
+
 function parsePypiManifest(root: string): ManifestInfo | null {
-  const requirementsPath = path.join(root, "requirements.txt");
-  if (existsSync(requirementsPath)) {
-    return { ecosystem: "pypi", pinned: parseRequirementsTxt(readFileSync(requirementsPath, "utf-8")) };
-  }
-  const pyprojectPath = path.join(root, "pyproject.toml");
-  if (existsSync(pyprojectPath)) {
-    return { ecosystem: "pypi", pinned: parsePyprojectToml(readFileSync(pyprojectPath, "utf-8")) };
-  }
-  return null;
+  const requirementsFiles = findManifestFiles(root, "requirements.txt").map((file) => ({
+    file,
+    pinned: parseRequirementsTxt(readFileSync(file, "utf-8")),
+  }));
+  const pyprojectFiles = findManifestFiles(root, "pyproject.toml").map((file) => ({
+    file,
+    pinned: parsePyprojectToml(readFileSync(file, "utf-8")),
+  }));
+  const entries = [...requirementsFiles, ...pyprojectFiles];
+  if (entries.length === 0) return null;
+  return { ecosystem: "pypi", pinned: mergePinned(entries) };
 }
 
 function parseNpmManifest(root: string): ManifestInfo | null {
-  const packageJsonPath = path.join(root, "package.json");
-  if (existsSync(packageJsonPath)) {
-    return { ecosystem: "npm", pinned: parsePackageJson(readFileSync(packageJsonPath, "utf-8")) };
-  }
-  return null;
+  const entries = findManifestFiles(root, "package.json").map((file) => ({
+    file,
+    pinned: parsePackageJson(readFileSync(file, "utf-8")),
+  }));
+  if (entries.length === 0) return null;
+  return { ecosystem: "npm", pinned: mergePinned(entries) };
 }
 
-/** Reads whichever of pyproject.toml/requirements.txt and package.json are present at the repo root. */
+/** Reads every requirements.txt/pyproject.toml and package.json anywhere in the repo (skipping node_modules etc.), merging pinned deps per ecosystem. */
 export function parseManifests(root: string): RepoManifests {
   return { pypi: parsePypiManifest(root), npm: parseNpmManifest(root) };
 }
