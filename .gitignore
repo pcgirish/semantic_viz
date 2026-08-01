@@ -9,6 +9,12 @@
 *.swp
 *.swo
 
+# visualizer data
+.scv/
+# Fixture repos (nested git repos, versioned independently)
+fixtures/orderly/
+
+
 # Node
 node_modules/
 dist/
@@ -20,3 +26,4 @@ coverage/
 # OS
 .DS_Store
 Thumbs.db
+
