@@ -11,6 +11,18 @@ export interface SymbolParam {
   type: string | null;
 }
 
+export interface SymbolAuthor {
+  name: string;
+  lines: number;
+}
+
+export interface SymbolMetrics {
+  fanIn: number;
+  fanOut: number;
+  churn: number;
+  commits: number;
+}
+
 export interface SymbolUnit {
   id: string;
   kind: SymbolUnitKind;
@@ -25,6 +37,8 @@ export interface SymbolUnit {
   returns: string | null;
   bases: string[];
   hash: { struct: string; text: string };
+  metrics: SymbolMetrics;
+  authors: SymbolAuthor[];
 }
 
 export type SymbolEdgeKind = "imports" | "calls" | "inherits";
@@ -40,8 +54,11 @@ export interface SymbolEdge {
 
 export interface SymbolExternal {
   id: string;
+  ecosystem: string;
   name: string;
-  version: string;
+  version: string | null;
+  direct: boolean;
+  depth: number;
   reachedBy: string[];
 }
 

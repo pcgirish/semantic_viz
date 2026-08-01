@@ -46,6 +46,30 @@ describe("extractRepo on the orderly fixture", () => {
     const h2 = graph2.units.map((u) => u.hash.struct).sort();
     expect(h1).toEqual(h2);
   });
+
+  it("derives externals from requirements.txt with reached_by and depth", () => {
+    const redis = graph.externals.find((x) => x.name === "redis");
+    expect(redis).toBeDefined();
+    expect(redis!.ecosystem).toBe("pypi");
+    expect(redis!.version).toBe("5.0.1");
+    expect(redis!.direct).toBe(true);
+    expect(redis!.depth).toBe(1);
+    expect(redis!.reachedBy.length).toBeGreaterThan(0);
+  });
+
+  it("computes churn, commits, and authors on a known unit from git history", () => {
+    const routes = graph.units.find((u) => u.qualname === "src.api.routes");
+    expect(routes).toBeDefined();
+    expect(routes!.metrics.commits).toBeGreaterThan(0);
+    expect(routes!.metrics.churn).toBeGreaterThan(0);
+    expect(routes!.authors.length).toBeGreaterThan(0);
+  });
+
+  it("computes fan_in and fan_out from edges", () => {
+    const rateLimit = graph.units.find((u) => u.qualname === "src.api.middleware.rate_limiter.rate_limit");
+    expect(rateLimit).toBeDefined();
+    expect(rateLimit!.metrics.fanIn).toBeGreaterThan(0);
+  });
 });
 
 describe("extractRepo on a TypeScript sample", () => {
