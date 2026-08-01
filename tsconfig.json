@@ -4,6 +4,7 @@
     { "path": "packages/schema" },
     { "path": "packages/extractor" },
     { "path": "packages/cli" },
-    { "path": "packages/server" }
+    { "path": "packages/server" },
+    { "path": "packages/layout" }
   ]
 }
