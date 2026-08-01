@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/schema" },
     { "path": "packages/extractor" },
+    { "path": "packages/interpreter" },
     { "path": "packages/cli" },
     { "path": "packages/server" },
     { "path": "packages/layout" },
