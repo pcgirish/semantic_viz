@@ -1,0 +1,341 @@
+{
+  "_note": "Output of the Interpreter passes. In production these fields are LLM-authored and cached by text_hash+prompt_rev. Hand-authored here to stand in for that pass so the snapshot is complete and reviewable. Every field lands in the snapshot with source:'llm'.",
+  "prompt_rev": "p1",
+  "model": "hand-authored/fixture",
+
+  "clusters": {
+    "_rationale": "Pass B. Layers are import-cohesion groups, not directories. Note ops: src/admin_tasks.py sits in src/ but imports scripts.backfill and nothing imports it back, so it groups with scripts/ rather than with the domain.",
+    "edge": {
+      "name": "API edge",
+      "modules": ["src.api.routes", "src.api.middleware.rate_limiter", "src.api.middleware", "src.auth", "src.api"],
+      "what": "Everything that touches an untrusted request before the domain sees it.",
+      "how": "FastAPI router with two dependencies in order \u2014 rate limit, then token auth.",
+      "when": "Every public request.",
+      "where": "src/api, src/auth",
+      "why": "One place where admission control lives, so a policy change is one diff and not a grep.",
+      "tags": ["auth-boundary", "public-api"],
+      "confidence": 0.91
+    },
+    "domain": {
+      "name": "Order domain",
+      "modules": ["src.orders", "src.orders.create_order", "src.orders.get_order", "src.orders.repo", "src.orders.pricing", "src.payments", "src.payments.stripe_client"],
+      "what": "Order lifecycle and the money that makes it real.",
+      "how": "create_order prices, persists, charges, and compensates on failure; get_order reads.",
+      "when": "Downstream of the edge layer, never called directly.",
+      "where": "src/orders, src/payments",
+      "why": "The only place business rules are allowed to live.",
+      "tags": ["core"],
+      "confidence": 0.9
+    },
+    "infra": {
+      "name": "Infrastructure",
+      "modules": ["src.db", "src.db.connection", "src.config"],
+      "what": "Database access and process settings.",
+      "how": "Thin async query helpers; environment-backed settings object read at import.",
+      "when": "DB on every persisted operation; config once at boot.",
+      "where": "src/db, src/config",
+      "why": "Keeps connection and environment concerns out of domain code.",
+      "tags": ["shared"],
+      "confidence": 0.87
+    },
+    "support": {
+      "name": "Support",
+      "modules": ["src.utils", "src.utils.logging", "src.utils.events", "src.utils.throttle"],
+      "what": "Structured logging and a domain event emitter.",
+      "how": "structlog logger; emit() is still a stub.",
+      "when": "Ambient \u2014 called from anywhere.",
+      "where": "src/utils",
+      "why": "Cross-cutting concerns that would otherwise be copy-pasted.",
+      "tags": ["cross-cutting"],
+      "confidence": 0.84
+    },
+    "ops": {
+      "name": "Operations",
+      "modules": ["migrations.0001_initial_schema", "migrations.0002_add_order_status", "scripts.backfill", "scripts.cleanup", "src.admin_tasks"],
+      "what": "Schema migrations and one-off maintenance jobs.",
+      "how": "Numbered upgrade/downgrade pairs; standalone run() entry points.",
+      "when": "Deploy time and on demand, never in the request path.",
+      "where": "migrations/, scripts/, src/admin_tasks.py",
+      "why": "Grouped by how they run, not by where they sit. src/admin_tasks.py is in src/ but imports scripts.backfill and has no importers of its own, so directory-shaped grouping would have hidden it inside the application.",
+      "tags": ["out-of-band", "llm-grouped"],
+      "confidence": 0.62
+    },
+    "tests": {
+      "name": "Tests",
+      "modules": ["tests", "tests.test_rate_limiter", "tests.integration", "tests.integration.test_orders"],
+      "what": "Unit tests for the limiter, integration tests for orders.",
+      "how": "pytest.",
+      "when": "CI.",
+      "where": "tests/",
+      "why": "Coverage of the limiter is good; coverage of the wiring is not.",
+      "tags": ["coverage-gap"],
+      "confidence": 0.93
+    }
+  },
+
+  "system": {
+    "name": "orderly",
+    "what": "A FastAPI order-taking service: accepts orders on a public HTTP API, prices them, persists them, and charges a card.",
+    "how": "Six semantic layers. Requests enter through a rate-limited, token-authenticated router, drop into the orders domain, and fan out to Postgres and Stripe.",
+    "when": "Per inbound HTTP request; migrations and scripts run out-of-band.",
+    "where": "One deployable process plus Redis and Postgres.",
+    "why": "Sells things. Everything else in the tree exists to make that request path correct, bounded, and observable.",
+    "tags": ["service", "public-api"],
+    "confidence": 0.88
+  },
+
+  "units": {
+    "src.api.routes": {
+      "what": "The public route table. Two endpoints: POST /public/orders, GET /public/orders/{id}.",
+      "how": "APIRouter with prefix /public and two Depends() \u2014 rate_limit(\"public\") then verify_token.",
+      "when": "Import time builds the table; per-request the dependency chain runs.",
+      "where": "src/api/routes.py",
+      "why": "A single declaration of what is publicly reachable and what guards it.",
+      "tags": ["public-api", "contract"], "confidence": 0.94,
+      "cost_estimate": "O(1) dispatch"
+    },
+    "src.api.middleware.rate_limiter": {
+      "what": "Redis-backed fixed-window rate limiter, keyed per API token and tier.",
+      "how": "INCR a minute-bucketed key; set a 60s TTL on first hit; raise 429 with Retry-After past the limit.",
+      "when": "First dependency on every public route, ahead of auth.",
+      "where": "src/api/middleware/rate_limiter.py",
+      "why": "The in-process throttle it replaced could not bound a client spread across instances.",
+      "tags": ["new", "auth-boundary", "no-fallback"], "confidence": 0.86,
+      "cost_estimate": "2 Redis round-trips per request"
+    },
+    "src.api.middleware.rate_limiter.rate_limit": {
+      "what": "Factory that binds a tier to a dependency callable.",
+      "how": "Reads {tier}_per_min off settings.rate_limit once, closes over it.",
+      "when": "Import time, once per tier.",
+      "where": "rate_limiter.py:9",
+      "why": "Reading the limit at import means a config change needs a restart, not a reload.",
+      "tags": ["new"], "confidence": 0.9
+    },
+    "src.api.middleware.rate_limiter.rate_limit.check": {
+      "what": "The per-request check. Increments the bucket and raises 429 past the limit.",
+      "how": "store.incr(key); on first hit sets a 60s expiry; compares the count to the tier limit.",
+      "when": "Before auth, on every public request.",
+      "where": "rate_limiter.py:11",
+      "why": "This is the whole limiter. Neither Redis call is wrapped, so an unreachable Redis turns every public request into a 500 rather than degrading to unlimited.",
+      "tags": ["no-fallback", "hot-path"], "confidence": 0.86,
+      "cost_estimate": "2 Redis round-trips, blocking"
+    },
+    "src.api.middleware.rate_limiter.bucket_key": {
+      "what": "Builds the Redis key for the current minute window.",
+      "how": "rl:{tier}:{token}:{epoch_minute}.",
+      "when": "Once per request.",
+      "where": "rate_limiter.py:24",
+      "why": "Fixed windows, not sliding \u2014 a client can send 2\u00d7 the limit across a boundary.",
+      "tags": ["new"], "confidence": 0.88
+    },
+    "src.auth": {
+      "what": "Bearer-style token check against a hard-coded set.",
+      "how": "Reads x-api-token, raises 401 if absent or unknown.",
+      "when": "Second dependency on every public route.",
+      "where": "src/auth/__init__.py",
+      "why": "Minimum viable identity. The in-memory token set is a fixture, not a design.",
+      "tags": ["auth-boundary", "stub"], "confidence": 0.92
+    },
+    "src.auth.verify_token": {
+      "what": "Rejects requests without a known token.",
+      "how": "Header lookup, then a set membership test.",
+      "when": "After the rate limiter, on every public request.",
+      "where": "auth/__init__.py:4",
+      "why": "Runs second, so unauthenticated traffic is rate-limited before it is rejected \u2014 an anonymous flood consumes the anon bucket, not the auth path.",
+      "tags": ["auth-boundary"], "confidence": 0.92
+    },
+    "src.auth._lookup": {
+      "what": "Membership test against a module-level set.",
+      "how": "token in _KNOWN_TOKENS.",
+      "when": "Per authenticated request.",
+      "where": "auth/__init__.py:10",
+      "why": "Fixture-grade. A real store goes behind this one function.",
+      "tags": ["stub"], "confidence": 0.9
+    },
+    "src.orders.create_order": {
+      "what": "The write path: parse, price, insert, charge, emit, respond 201.",
+      "how": "On a failed charge it deletes the row it just wrote and raises 402.",
+      "when": "POST /public/orders.",
+      "where": "src/orders/create_order.py",
+      "why": "The compensating delete is the only consistency mechanism. If the process dies between insert and charge, the row survives unpaid and nothing reconciles it.",
+      "tags": ["hot-path", "core", "compensating-write"], "confidence": 0.82,
+      "cost_estimate": "2 DB round-trips + 1 Stripe call, serial"
+    },
+    "src.orders.create_order.create_order": {
+      "what": "Handler for order creation.",
+      "how": "parse \u2192 price \u2192 insert \u2192 charge \u2192 emit \u2192 201; rollback + 402 on charge failure.",
+      "when": "Per POST.",
+      "where": "create_order.py:9",
+      "why": "Six sequential steps with one compensating branch. The emit at the end is a no-op, so a confirmed order publishes nothing.",
+      "tags": ["hot-path", "core", "compensating-write"], "confidence": 0.82
+    },
+    "src.orders.create_order.parse": {
+      "what": "Request body validation.", "how": "NotImplementedError.",
+      "when": "First step of create.", "where": "create_order.py:23",
+      "why": "Placeholder \u2014 the 400 branch is currently unreachable.",
+      "tags": ["stub"], "confidence": 0.9
+    },
+    "src.orders.get_order": {
+      "what": "Read path for a single order.", "how": "repo.find_order, 404 on None.",
+      "when": "GET /public/orders/{id}.", "where": "src/orders/get_order.py",
+      "why": "No ownership check beyond the router dependency \u2014 any valid token reads any order.",
+      "tags": ["hot-path", "idor-risk"], "confidence": 0.8
+    },
+    "src.orders.pricing": {
+      "what": "Line-item pricing.", "how": "Sums unit_price \u00d7 qty in one generator expression.",
+      "when": "Per create.", "where": "src/orders/pricing.py",
+      "why": "Float arithmetic on money, and no currency field. Both will have to change.",
+      "tags": ["money"], "confidence": 0.88
+    },
+    "src.orders.repo": {
+      "what": "Order persistence: insert, find, hard delete.",
+      "how": "Inline SQL through the db connection helpers.",
+      "when": "Per create and per read.", "where": "src/orders/repo.py",
+      "why": "rollback() is a hard delete, so a failed payment leaves no audit trail of the attempt.",
+      "tags": ["destructive"], "confidence": 0.87
+    },
+    "src.payments": {
+      "what": "Card charges via Stripe.",
+      "how": "charge() delegates to a stripe_client that is still NotImplementedError.",
+      "when": "Once per created order, after the row is written.", "where": "src/payments/",
+      "why": "Isolates the third-party SDK behind one function so the domain never imports Stripe.",
+      "tags": ["external-boundary", "stub"], "confidence": 0.79,
+      "cost_estimate": "1 external API call, unbounded latency"
+    },
+    "src.payments.stripe_client": {
+      "what": "The Stripe call surface, plus an unrouted webhook handler.",
+      "how": "Both NotImplementedError.", "when": "Per charge; the webhook never.",
+      "where": "src/payments/stripe_client.py",
+      "why": "No timeout, retry, or idempotency key is planned yet, and handle_webhook is orphaned \u2014 nothing in the tree routes to it.",
+      "tags": ["stub", "external-boundary", "orphan"], "confidence": 0.7
+    },
+    "src.db.connection": {
+      "what": "Async query helpers.", "how": "execute/fetch_one, both NotImplementedError.",
+      "when": "Every persisted read or write.", "where": "src/db/connection.py",
+      "why": "One seam for pooling and instrumentation later.",
+      "tags": ["stub"], "confidence": 0.88
+    },
+    "src.config": {
+      "what": "Process settings read from the environment at import.",
+      "how": "Class attributes, with a nested rate_limit block added by RL-114.",
+      "when": "Once, at import.", "where": "src/config.py",
+      "why": "Fails loudly at boot on a missing variable rather than quietly at request time.",
+      "tags": ["config", "boot-critical"], "confidence": 0.9
+    },
+    "src.config.Settings": {
+      "what": "Port, database URL, and the nested rate-limit block.",
+      "how": "os.environ at class-body evaluation \u2014 a missing DATABASE_URL or RATE_LIMIT_REDIS_URL raises at import.",
+      "when": "Boot.", "where": "config.py:4",
+      "why": "public_per_min was lowered from 100 to 60 by hand after a capacity review. The inline comment is the only record of that reasoning anywhere in the repository.",
+      "tags": ["boot-critical", "human-tuned"], "confidence": 0.9
+    },
+    "src.utils.logging": {
+      "what": "A structlog logger and one request-logging helper.",
+      "how": "Emits request_id, route, duration_ms as structured fields.",
+      "when": "Per request and inside the limiter.", "where": "src/utils/logging.py",
+      "why": "The field names are a contract with log parsers that live outside this repository. The analyzer cannot see them, so it cannot confirm the rename was safe.",
+      "tags": ["cross-cutting", "external-contract"], "confidence": 0.55
+    },
+    "src.utils.events": {
+      "what": "Domain event emitter.", "how": "emit(name, *args) \u2014 a stub.",
+      "when": "After an order is confirmed.", "where": "src/utils/events.py",
+      "why": "Placeholder for an outbox. create_order believes it published order.confirmed. It did not.",
+      "tags": ["stub", "silent-failure"], "confidence": 0.85
+    },
+    "src.utils.throttle": {
+      "what": "Legacy in-process throttle keyed by a per-instance dict.",
+      "how": "Counters in local memory, no shared state.",
+      "when": "Called from routes before RL-114.", "where": "src/utils/throttle.py",
+      "why": "Superseded \u2014 it could not bound a client spread across instances.",
+      "tags": ["deprecated"], "confidence": 0.88
+    },
+    "src.admin_tasks": {
+      "what": "Shim that imports the backfill job into the src package.",
+      "how": "from scripts.backfill import run.", "when": "On demand.",
+      "where": "src/admin_tasks.py",
+      "why": "Sits in src/ but belongs to ops. Nothing imports it back, which is why it clusters with scripts/ rather than with the application.",
+      "tags": ["out-of-band", "llm-grouped", "orphan"], "confidence": 0.58
+    },
+    "tests.test_rate_limiter": {
+      "what": "Four unit tests over the limiter.",
+      "how": "Covers under-limit, 429 + Retry-After, window refill, per-token keying.",
+      "when": "CI.", "where": "tests/test_rate_limiter.py",
+      "why": "Added with the limiter and passing. Nothing here exercises a Redis outage.",
+      "tags": ["passing"], "confidence": 0.93
+    },
+    "tests.integration.test_orders": {
+      "what": "Three integration tests over the order path.",
+      "how": "201 on create, 404 on missing, rollback on charge failure.",
+      "when": "CI \u2014 but not re-run since the routing change.",
+      "where": "tests/integration/test_orders.py",
+      "why": "These are the only tests that would catch the limiter breaking the order path, and they are stale.",
+      "tags": ["stale", "coverage-gap"], "confidence": 0.85
+    }
+  },
+
+  "api_flows": [
+    {
+      "name": "POST /public/orders",
+      "route": "POST /public/orders",
+      "steps": ["src.api.routes", "src.api.middleware.rate_limiter.rate_limit.check", "src.auth.verify_token", "src.orders.create_order.create_order", "src.orders.pricing.price_items", "src.orders.repo.insert_order", "src.payments.charge", "src.utils.events.emit"],
+      "what": "The write path from public HTTP to a charged, persisted order.",
+      "how": "Two router dependencies, then six sequential domain steps.",
+      "when": "Per POST.",
+      "where": "src/api \u2192 src/orders \u2192 src/payments",
+      "why": "Every hop is blocking and none of them has a timeout. The path touches Redis, Postgres, and Stripe in series, so its tail latency is the sum of three external systems.",
+      "tags": ["hot-path", "public-api"],
+      "confidence": 0.81
+    },
+    {
+      "name": "GET /public/orders/{id}",
+      "route": "GET /public/orders/{order_id}",
+      "steps": ["src.api.routes", "src.api.middleware.rate_limiter.rate_limit.check", "src.auth.verify_token", "src.orders.get_order.get_order", "src.orders.repo.find_order"],
+      "what": "Single-order read.",
+      "how": "Same guard chain, then one indexed lookup.",
+      "when": "Per GET.",
+      "where": "src/api \u2192 src/orders",
+      "why": "The guard chain authenticates but does not authorise: any valid token can read any order id.",
+      "tags": ["hot-path", "public-api", "idor-risk"],
+      "confidence": 0.79
+    }
+  ],
+
+  "risk": {
+    "_note": "Pass D. Written only for units whose semantic_hash changed. Ground-truth ids map to task/RL-114.deltas.json.",
+    "src.api.middleware.rate_limiter": {
+      "gt": "d1,d2", "rank": 1, "confidence": 0.78,
+      "axes": {"functionality": 0.4, "availability": 0.95, "scalability": 0.5, "performance": 0.55, "security": 0.2},
+      "why": "New external dependency: middleware \u2192 Redis. The limiter stores counters in Redis via redis-py, and neither store.incr nor store.expire is wrapped. If Redis is unreachable the dependency raises and every public request returns 500 \u2014 the limiter fails closed on the whole service, not just on limiting. No fallback or fail-open policy was found."
+    },
+    "src.utils.logging": {
+      "gt": "d6", "rank": 2, "confidence": 0.55,
+      "axes": {"functionality": 0.25, "availability": 0.15, "scalability": 0.05, "performance": 0.05, "security": 0.05},
+      "why": "Changed outside the stated task. Log lines were reformatted and req_id renamed to request_id. Downstream log parsers and alert rules live outside this repository, so the analyzer cannot confirm the old field names are unused. Ranked high because the blast radius is unobservable, not because the diff is large."
+    },
+    "src.api.routes": {
+      "gt": "d3", "rank": 3, "confidence": 0.82,
+      "axes": {"functionality": 0.6, "availability": 0.35, "scalability": 0.2, "performance": 0.15, "security": 0.1},
+      "why": "The public contract now returns 429 with a Retry-After header. Existing clients that do not handle 429 will surface it as an error. The OpenAPI spec was not updated, so the change is invisible to anyone generating a client from it."
+    },
+    "tests.test_rate_limiter": {
+      "gt": "d1", "rank": 4, "confidence": 0.93,
+      "axes": {"functionality": 0.1, "availability": 0.05, "scalability": 0.05, "performance": 0.05, "security": 0.05},
+      "why": "Four unit tests added alongside the limiter, all passing. Covers the limit boundary, the refill window, and per-token keying. Nothing here exercises a Redis outage, which is the delta ranked first."
+    },
+    "tests.integration.test_orders": {
+      "gt": "d7", "rank": 5, "confidence": 0.85, "risk_only": true,
+      "axes": {"functionality": 0.65, "availability": 0.3, "scalability": 0.1, "performance": 0.1, "security": 0.05},
+      "why": "Unchanged, but its subject changed underneath it. The orders integration tests were never re-run after routes.py gained the limiter dependency, so behaviour under 429 is unverified. The only unit here whose risk moved without a line changing."
+    },
+    "src.config": {
+      "gt": "d4", "rank": 6, "confidence": 0.9,
+      "axes": {"functionality": 0.3, "availability": 0.35, "scalability": 0.25, "performance": 0.1, "security": 0.05},
+      "why": "Rate-limit settings added by the agent, then hand-tuned. A human lowered the public tier from 100 to 60 requests per minute after a capacity review. Mixed authorship \u2014 the human edit is the current behaviour, and the reasoning survives only as a code comment."
+    },
+    "src.utils.throttle": {
+      "gt": "d5", "rank": 7, "confidence": 0.88,
+      "axes": {"functionality": 0.2, "availability": 0.1, "scalability": 0.05, "performance": 0.05, "security": 0.05},
+      "why": "Legacy in-process throttle deleted along with its single call site in routes. No other importers were found anywhere in the tree, so the deletion looks clean."
+    }
+  }
+}
