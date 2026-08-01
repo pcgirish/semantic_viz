@@ -29,4 +29,14 @@ describe("parseJsonResponse", () => {
   it("extracts JSON from an unclosed fence (response truncated mid-stream)", () => {
     expect(parseJsonResponse('```json\n{"a":1,"b":[1,2,3]}', "label")).toEqual({ a: 1, b: [1, 2, 3] });
   });
+
+  it("prefers the last balanced JSON block over an earlier one — reasoning models draft an example before the real answer", () => {
+    const text = 'Thinking... maybe something like {"a": "draft example"} then the real one:\n\n{"a":2}';
+    expect(parseJsonResponse(text, "label")).toEqual({ a: 2 });
+  });
+
+  it("prefers the last well-formed JSON block even when an earlier one is syntactically valid too", () => {
+    const text = 'Draft: {"a":1}\n\nFinal answer: {"a":2}';
+    expect(parseJsonResponse(text, "label")).toEqual({ a: 2 });
+  });
 });

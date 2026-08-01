@@ -9,38 +9,68 @@ export function stripCodeFence(text: string): string {
   return closeIndex === -1 ? afterOpen : afterOpen.slice(0, closeIndex).trim();
 }
 
-/** Finds the first balanced `{...}` or `[...]` in text, ignoring braces/brackets inside string literals. Guards against a response ending mid-JSON (still balanced up to the cutoff) or trailing prose after valid JSON. */
-function extractBalancedJson(text: string): string | null {
-  const start = text.search(/[[{]/);
-  if (start === -1) return null;
+/**
+ * Finds every top-level balanced `{...}`/`[...]` block in text, ignoring braces/brackets inside
+ * string literals. A reasoning model's response often contains an earlier draft or example JSON
+ * inside its "thinking" prose before the real answer, so callers should prefer the last candidate,
+ * not the first.
+ */
+function findBalancedJsonBlocks(text: string): string[] {
+  const blocks: string[] = [];
+  let searchFrom = 0;
 
-  const stack: string[] = [];
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === "\\") escaped = true;
-      else if (ch === '"') inString = false;
-      continue;
+  while (searchFrom < text.length) {
+    const start = text.slice(searchFrom).search(/[[{]/);
+    if (start === -1) break;
+    const absStart = searchFrom + start;
+
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+    for (let i = absStart; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "{" || ch === "[") stack.push(ch);
+      else if (ch === "}" || ch === "]") {
+        stack.pop();
+        if (stack.length === 0) {
+          end = i;
+          break;
+        }
+      }
     }
-    if (ch === '"') inString = true;
-    else if (ch === "{" || ch === "[") stack.push(ch);
-    else if (ch === "}" || ch === "]") {
-      stack.pop();
-      if (stack.length === 0) return text.slice(start, i + 1);
-    }
+
+    if (end === -1) break;
+    blocks.push(text.slice(absStart, end + 1));
+    searchFrom = end + 1;
   }
-  return null;
+
+  return blocks;
 }
 
-/** Parses a provider's JSON response, tolerating a markdown code fence (open, closed, or truncated) and surrounding prose, with a labeled error on failure. */
+/** Parses a provider's JSON response, tolerating a markdown code fence (open, closed, or truncated) and surrounding reasoning-model prose, with a labeled error on failure. Prefers the last well-formed JSON block, since a model's final answer follows any drafts in its "thinking" text. */
 export function parseJsonResponse(text: string, label: string): unknown {
-  const candidate = extractBalancedJson(stripCodeFence(text)) ?? stripCodeFence(text);
+  const stripped = stripCodeFence(text);
+  const blocks = findBalancedJsonBlocks(stripped);
+
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    try {
+      return JSON.parse(blocks[i]!);
+    } catch {
+      continue;
+    }
+  }
+
   try {
-    return JSON.parse(candidate);
+    return JSON.parse(stripped);
   } catch {
-    throw new Error(`${label}: provider returned non-JSON output: ${text.slice(0, 200)}`);
+    throw new Error(`${label}: provider returned non-JSON output: ${text.slice(0, 2000)}`);
   }
 }
