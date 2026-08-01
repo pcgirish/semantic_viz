@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@scv/extractor": "*",
+    "@scv/interpreter": "*",
     "@scv/schema": "*",
     "commander": "^12.0.0"
   },

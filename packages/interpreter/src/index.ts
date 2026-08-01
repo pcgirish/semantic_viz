@@ -16,3 +16,5 @@ export type { PassCResult, Layer, RunPassCOptions } from "./pass-c.js";
 export { checkAndRepairClusters, directoryClusters, modularity } from "./checker.js";
 export type { ClusterProposal, CheckedClusters, ImportEdge } from "./checker.js";
 export { parseJsonResponse, stripCodeFence } from "./json-response.js";
+export { runInterpreter } from "./orchestrate.js";
+export type { RunInterpreterOptions } from "./orchestrate.js";
