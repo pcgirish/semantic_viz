@@ -12,10 +12,11 @@ describe("place", () => {
   });
 
   it("sizes width by sqrt(sloc), not linearly", () => {
-    const boxes = place([["small", "big"]], new Map([["small", 400], ["big", 6400]]));
+    // sloc chosen so both boxes clear MIN_DIM (96px floor) and the ratio isn't clamped away
+    const boxes = place([["small", "big"]], new Map([["small", 4000], ["big", 64000]]));
     const small = boxes.get("small")!;
     const big = boxes.get("big")!;
-    // sqrt(6400)/sqrt(400) = 4, not 6400/400 = 16
+    // sqrt(64000)/sqrt(4000) = 4, not 64000/4000 = 16
     expect(big.w / small.w).toBeCloseTo(4, 1);
   });
 
@@ -43,6 +44,12 @@ describe("place", () => {
     );
     expect(lonely.get("solo")!.w).toBeLessThan(2000);
     expect(crowded.get("solo2")!.w).toBeLessThan(2000);
+  });
+
+  it("keeps a minimum tile size large enough for a skin to render a name label", () => {
+    const boxes = place([["tiny"]], new Map([["tiny", 1]]));
+    expect(boxes.get("tiny")!.w).toBeGreaterThanOrEqual(90);
+    expect(boxes.get("tiny")!.h).toBeGreaterThanOrEqual(90);
   });
 
   it("sizes a dummy node as a small fixed-width pass-through marker, not by sloc", () => {

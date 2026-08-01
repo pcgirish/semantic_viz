@@ -24,6 +24,15 @@ export function node(n: SceneNode): SVGGElement {
   ];
   g.appendChild(el("polygon", { points: ptstr(pts), class: "tile-body" }));
 
+  const nameSize = Math.min(14, Math.max(10.5, n.w / 10));
+  const label = el("text", { x: n.x + 12, y: n.y + 22, class: "nm", "font-size": nameSize });
+  label.textContent = n.name;
+  g.appendChild(label);
+
+  const meta = el("text", { x: n.x + 12, y: n.y + 36, class: "mt", "font-size": 9.5 });
+  meta.textContent = `${n.sloc} sloc · in ${n.fanIn} · out ${n.fanOut}`;
+  g.appendChild(meta);
+
   if (n.ring) {
     const ringPts = pts.map(([x, y]) => [x + 3, y + 3] as [number, number]);
     g.appendChild(el("polygon", { points: ptstr(ringPts), class: "ring", fill: "none" }));

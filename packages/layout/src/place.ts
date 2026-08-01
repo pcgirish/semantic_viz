@@ -2,7 +2,7 @@ import { isDummy } from "./expand.js";
 
 export type Box = { x: number; y: number; w: number; h: number };
 
-const MIN_DIM = 24;
+const MIN_DIM = 96; // large enough to hold a name label + metadata line (docs/mock's drawTiles)
 const MAX_DIM = 1200; // cap tile size so a lone/huge node never stretches full-canvas
 const AREA_SCALE = 4; // px^2 per sloc unit before sqrt
 const GAP = 16;

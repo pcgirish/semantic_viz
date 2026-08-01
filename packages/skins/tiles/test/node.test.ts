@@ -3,7 +3,21 @@ import { node } from "../src/node.js";
 import type { SceneNode } from "@scv/layout";
 
 function makeNode(overrides: Partial<SceneNode> & { id: string }): SceneNode {
-  return { x: 0, y: 0, w: 100, h: 60, depth: 0, sides: 3, heat: 0, ring: false, ...overrides };
+  return {
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 60,
+    depth: 0,
+    sides: 3,
+    heat: 0,
+    ring: false,
+    name: overrides.id,
+    sloc: 10,
+    fanIn: 0,
+    fanOut: 0,
+    ...overrides,
+  };
 }
 
 describe("node", () => {
@@ -43,5 +57,19 @@ describe("node", () => {
     const withoutRing = node(makeNode({ id: "b", ring: false }));
     expect(withRing.querySelector(".ring")).not.toBeNull();
     expect(withoutRing.querySelector(".ring")).toBeNull();
+  });
+
+  it("renders the unit's name as a label", () => {
+    const el = node(makeNode({ id: "a", name: "computeTotal" }));
+    const label = el.querySelector(".nm")!;
+    expect(label.textContent).toBe("computeTotal");
+  });
+
+  it("renders a metadata line with sloc, fan-in, and fan-out", () => {
+    const el = node(makeNode({ id: "a", sloc: 42, fanIn: 3, fanOut: 5 }));
+    const meta = el.querySelector(".mt")!;
+    expect(meta.textContent).toContain("42");
+    expect(meta.textContent).toContain("3");
+    expect(meta.textContent).toContain("5");
   });
 });
