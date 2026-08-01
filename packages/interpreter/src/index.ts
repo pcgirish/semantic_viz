@@ -3,7 +3,7 @@ export { OllamaProvider } from "./providers/ollama.js";
 export { AnthropicProvider } from "./providers/anthropic.js";
 export { ClaudeCliProvider } from "./providers/claude-cli.js";
 export { createProvider } from "./create-provider.js";
-export { loadInterpreterConfig } from "./config.js";
+export { loadInterpreterConfig, writeInterpreterConfig } from "./config.js";
 export type { InterpreterConfig } from "./config.js";
 export { ContentCache } from "./cache.js";
 export type { CacheKey } from "./cache.js";

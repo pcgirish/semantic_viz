@@ -27,6 +27,12 @@ describe("createProvider", () => {
     expect(provider).toBeInstanceOf(ClaudeCliProvider);
   });
 
+  it("passes effort through to ClaudeCliProvider", () => {
+    const provider = createProvider({ provider: "claude-cli", effort: "high" });
+    expect(provider).toBeInstanceOf(ClaudeCliProvider);
+    expect((provider as ClaudeCliProvider).effortLevel).toBe("high");
+  });
+
   it("throws on an unknown provider name", () => {
     // @ts-expect-error - intentionally invalid
     expect(() => createProvider({ provider: "bogus" })).toThrow(/unknown provider/i);

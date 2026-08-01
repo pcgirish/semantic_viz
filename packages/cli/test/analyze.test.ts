@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -83,5 +83,39 @@ describe("runAnalyze", () => {
     const hash = (s: typeof first.snapshot) =>
       s.units.filter((u) => u.kind === "function").map((u) => u.hash.semantic);
     expect(hash(second.snapshot)).toEqual(hash(first.snapshot));
+  });
+
+  it("writes provider/model to .scv/config.yaml when passed as options, even on first run", async () => {
+    expect(existsSync(`${scvDir}/config.yaml`)).toBe(false);
+
+    await runAnalyze({
+      root: orderlyRoot,
+      scvDir,
+      provider: fakeProvider(),
+      providerName: "anthropic",
+      model: "claude-sonnet-5",
+    });
+
+    const raw = readFileSync(`${scvDir}/config.yaml`, "utf-8");
+    expect(raw).toContain("provider: anthropic");
+    expect(raw).toContain("model: claude-sonnet-5");
+  });
+
+  it("writes effort to .scv/config.yaml when passed", async () => {
+    await runAnalyze({
+      root: orderlyRoot,
+      scvDir,
+      provider: fakeProvider(),
+      providerName: "claude-cli",
+      effort: "high",
+    });
+
+    const raw = readFileSync(`${scvDir}/config.yaml`, "utf-8");
+    expect(raw).toContain("effort: high");
+  });
+
+  it("does not write config.yaml when no provider/model/effort options are given", async () => {
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider() });
+    expect(existsSync(`${scvDir}/config.yaml`)).toBe(false);
   });
 });

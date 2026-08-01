@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { Command } from "commander";
-import { runAnalyze } from "./analyze.js";
+import { runAnalyze, type RunAnalyzeOptions } from "./analyze.js";
 import { runDiff } from "./diff.js";
 
 const program = new Command();
@@ -12,8 +12,16 @@ program
   .command("analyze")
   .description("extract a repo, lift semantics/clustering, and write a scv/1 snapshot to .scv/snapshots/")
   .argument("[root]", "repo root to analyze", ".")
-  .action(async (root: string) => {
-    const { path: outPath, snapshot } = await runAnalyze({ root });
+  .option("--provider <name>", "interpreter provider: ollama | anthropic | claude-cli; persisted to .scv/config.yaml")
+  .option("--model <name>", "interpreter model; persisted to .scv/config.yaml")
+  .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
+  .action(async (root: string, opts: { provider?: string; model?: string; effort?: string }) => {
+    const { path: outPath, snapshot } = await runAnalyze({
+      root,
+      providerName: opts.provider as RunAnalyzeOptions["providerName"],
+      model: opts.model,
+      effort: opts.effort as RunAnalyzeOptions["effort"],
+    });
     console.log(
       `wrote ${outPath} (${snapshot.units.length} units, ${snapshot.edges.length} edges, ${snapshot.externals.length} externals)`,
     );

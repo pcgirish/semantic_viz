@@ -71,10 +71,46 @@ npm test --workspace packages/extractor
 npm run build --workspace packages/extractor
 ```
 
+## Configuring the LLM provider
+
+`scv analyze` (Pass A/B/C) and `scv diff` (Pass D + ranking) both call an LLM
+provider, resolved from `<scvDir>/config.yaml` (default `.scv/config.yaml`).
+No file → defaults to `ollama`.
+
+On the very first run there's no `.scv/` yet, so there's nothing to hand-edit.
+Pass `--provider`/`--model`/`--effort` to `analyze` instead — they're written
+to `config.yaml` (creating `.scv/` if needed) before the run, so later
+invocations reuse them without flags:
+
+```sh
+node packages/cli/dist/bin.js analyze /path/to/repo \
+  --provider anthropic --model claude-sonnet-5
+```
+
+Or write `config.yaml` directly, any time:
+
+```yaml
+interpreter:
+  provider: ollama       # ollama | anthropic | claude-cli
+  model: qwen3.6:0.8b-mlx  # optional; each provider has its own default
+  effort: low             # claude-cli only: low | medium | high | xhigh | max
+```
+
+- `ollama` — local, default model `qwen3.6:0.8b-mlx`. Requires a running
+  Ollama daemon.
+- `anthropic` — Anthropic API, default model `claude-sonnet-5`. Requires
+  `ANTHROPIC_API_KEY` in the environment (never in `.scv/config.yaml`).
+- `claude-cli` — shells out to the local `claude` CLI. Not used by default in
+  this repo's own dev/test loop — see `packages/interpreter/src/providers/`
+  for provider implementations.
+
+Interpreter calls are content-cached at `<scvDir>/cache.sqlite`, so
+re-running against an unchanged unit never re-invokes the provider.
+
 ## Seeing a codebase
 
 End to end, including the Interpreter (needs a provider — `ollama` by default,
-configured via `.scv/config.yaml`):
+configured via `.scv/config.yaml`, see above):
 
 ```sh
 # 1. extract a repo, lift semantics/clustering, and write a snapshot
