@@ -1,0 +1,1499 @@
+{
+  "schema": "scv-delta/1",
+  "from": {
+    "snapshot_id": "817cecfbe9bc6654",
+    "sha": "6ab4e5e"
+  },
+  "to": {
+    "snapshot_id": "c6224c3b281f0cda",
+    "sha": "bc3450f"
+  },
+  "provenance": {
+    "extractor": "scv-py/0.1.0",
+    "interpreter": {
+      "model": "hand-authored/fixture",
+      "prompt_rev": "p1"
+    },
+    "formulas": {
+      "amount": "0.4*text_diff + 0.3*struct_changed + 0.3*semantic_drift",
+      "risk_floor": "amount * (0.5 + 0.5*norm(blast.transitive)) * boost(public_api)",
+      "rollup_amount": "sloc-weighted mean of children",
+      "rollup_risk": "max of children"
+    }
+  },
+  "inspect_queue": [
+    {
+      "rank": 1,
+      "unit": "u:py:src.api.middleware.rate_limiter#m",
+      "qualname": "src.api.middleware.rate_limiter",
+      "status": "added",
+      "risk": 0.95,
+      "confidence": 0.78,
+      "ground_truth": "d1,d2"
+    },
+    {
+      "rank": 2,
+      "unit": "u:py:src.utils.logging#m",
+      "qualname": "src.utils.logging",
+      "status": "modified",
+      "risk": 0.25,
+      "confidence": 0.55,
+      "ground_truth": "d6"
+    },
+    {
+      "rank": 3,
+      "unit": "u:py:src.api.routes#m",
+      "qualname": "src.api.routes",
+      "status": "modified",
+      "risk": 0.6,
+      "confidence": 0.82,
+      "ground_truth": "d3"
+    },
+    {
+      "rank": 4,
+      "unit": "u:py:tests.test_rate_limiter#m",
+      "qualname": "tests.test_rate_limiter",
+      "status": "added",
+      "risk": 0.1,
+      "confidence": 0.93,
+      "ground_truth": "d1"
+    },
+    {
+      "rank": 5,
+      "unit": "u:py:tests.integration.test_orders#m",
+      "qualname": "tests.integration.test_orders",
+      "status": "risk_changed",
+      "risk": 0.65,
+      "confidence": 0.85,
+      "ground_truth": "d7"
+    },
+    {
+      "rank": 6,
+      "unit": "u:py:src.config#m",
+      "qualname": "src.config",
+      "status": "modified",
+      "risk": 0.35,
+      "confidence": 0.9,
+      "ground_truth": "d4"
+    },
+    {
+      "rank": 7,
+      "unit": "u:py:src.utils.throttle#m",
+      "qualname": "src.utils.throttle",
+      "status": "removed",
+      "risk": 0.2,
+      "confidence": 0.88,
+      "ground_truth": "d5"
+    }
+  ],
+  "unit_deltas": [
+    {
+      "unit": "u:flow:87d90a10",
+      "qualname": "GET /public/orders/{order_id}",
+      "kind": "api_flow",
+      "status": "modified",
+      "fields": [
+        "hash.struct"
+      ],
+      "amount": 0.511,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": true
+      },
+      "authors": [],
+      "risk": {
+        "score": 0.358,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:flow:d3c489f9",
+      "qualname": "POST /public/orders",
+      "kind": "api_flow",
+      "status": "modified",
+      "fields": [
+        "hash.struct"
+      ],
+      "amount": 0.425,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": true
+      },
+      "authors": [],
+      "risk": {
+        "score": 0.297,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:layer:edge",
+      "qualname": "edge",
+      "kind": "layer",
+      "status": "modified",
+      "fields": [
+        "hash.struct"
+      ],
+      "amount": 0.7,
+      "blast_radius": {
+        "direct": 1,
+        "transitive": 1,
+        "public_api": true
+      },
+      "authors": [],
+      "risk": {
+        "score": 0.531,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:layer:ops",
+      "qualname": "ops",
+      "kind": "layer",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:layer:support",
+      "qualname": "support",
+      "kind": "layer",
+      "status": "modified",
+      "fields": [
+        "hash.struct"
+      ],
+      "amount": 0.567,
+      "blast_radius": {
+        "direct": 3,
+        "transitive": 3,
+        "public_api": false
+      },
+      "authors": [],
+      "risk": {
+        "score": 0.354,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:layer:tests",
+      "qualname": "tests",
+      "kind": "layer",
+      "status": "modified",
+      "fields": [
+        "hash.struct"
+      ],
+      "amount": 0.7,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [],
+      "risk": {
+        "score": 0.35,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:migrations.0001_initial_schema#m",
+      "qualname": "migrations.0001_initial_schema",
+      "kind": "module",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:migrations.0001_initial_schema.downgrade#f",
+      "qualname": "migrations.0001_initial_schema.downgrade",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:migrations.0001_initial_schema.upgrade#f",
+      "qualname": "migrations.0001_initial_schema.upgrade",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:migrations.0002_add_order_status#m",
+      "qualname": "migrations.0002_add_order_status",
+      "kind": "module",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:migrations.0002_add_order_status.downgrade#f",
+      "qualname": "migrations.0002_add_order_status.downgrade",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:migrations.0002_add_order_status.upgrade#f",
+      "qualname": "migrations.0002_add_order_status.upgrade",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 6
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:scripts.backfill#m",
+      "qualname": "scripts.backfill",
+      "kind": "module",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 1,
+        "transitive": 1,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "risk": {
+        "score": 0.542,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:scripts.backfill.run#f",
+      "qualname": "scripts.backfill.run",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:scripts.cleanup#m",
+      "qualname": "scripts.cleanup",
+      "kind": "module",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:scripts.cleanup.run#f",
+      "qualname": "scripts.cleanup.run",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 2
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.admin_tasks#m",
+      "qualname": "src.admin_tasks",
+      "kind": "module",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.api.middleware#m",
+      "qualname": "src.api.middleware",
+      "kind": "module",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 0
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.api.middleware.rate_limiter#m",
+      "qualname": "src.api.middleware.rate_limiter",
+      "kind": "module",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 2,
+        "transitive": 2,
+        "public_api": true
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 24
+        }
+      ],
+      "risk": {
+        "score": 0.95,
+        "axes": {
+          "functionality": 0.4,
+          "availability": 0.95,
+          "scalability": 0.5,
+          "performance": 0.55,
+          "security": 0.2
+        },
+        "why": "New external dependency: middleware \u2192 Redis. The limiter stores counters in Redis via redis-py, and neither store.incr nor store.expire is wrapped. If Redis is unreachable the dependency raises and every public request returns 500 \u2014 the limiter fails closed on the whole service, not just on limiting. No fallback or fail-open policy was found.",
+        "confidence": 0.78,
+        "source": "llm",
+        "formula_floor": 0.817,
+        "rank": 1,
+        "ground_truth": "d1,d2"
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.api.middleware.rate_limiter.bucket_key#f",
+      "qualname": "src.api.middleware.rate_limiter.bucket_key",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 1,
+        "transitive": 1,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 24
+        }
+      ],
+      "risk": {
+        "score": 0.542,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.api.middleware.rate_limiter.rate_limit#f",
+      "qualname": "src.api.middleware.rate_limiter.rate_limit",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 1,
+        "transitive": 1,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 24
+        }
+      ],
+      "risk": {
+        "score": 0.542,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.api.middleware.rate_limiter.rate_limit.check#f",
+      "qualname": "src.api.middleware.rate_limiter.rate_limit.check",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 24
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.api.routes#m",
+      "qualname": "src.api.routes",
+      "kind": "module",
+      "status": "modified",
+      "fields": [
+        "hash.text",
+        "hash.struct"
+      ],
+      "amount": 0.42,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": true
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 10
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 2
+        }
+      ],
+      "risk": {
+        "score": 0.6,
+        "axes": {
+          "functionality": 0.6,
+          "availability": 0.35,
+          "scalability": 0.2,
+          "performance": 0.15,
+          "security": 0.1
+        },
+        "why": "The public contract now returns 429 with a Retry-After header. Existing clients that do not handle 429 will surface it as an error. The OpenAPI spec was not updated, so the change is invisible to anyone generating a client from it.",
+        "confidence": 0.82,
+        "source": "llm",
+        "formula_floor": 0.294,
+        "rank": 3,
+        "ground_truth": "d3"
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.config#m",
+      "qualname": "src.config",
+      "kind": "module",
+      "status": "modified",
+      "fields": [
+        "hash.text"
+      ],
+      "amount": 0.4,
+      "blast_radius": {
+        "direct": 2,
+        "transitive": 8,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 5
+        },
+        {
+          "name": "j.moreau",
+          "lines": 1
+        }
+      ],
+      "risk": {
+        "score": 0.35,
+        "axes": {
+          "functionality": 0.3,
+          "availability": 0.35,
+          "scalability": 0.25,
+          "performance": 0.1,
+          "security": 0.05
+        },
+        "why": "Rate-limit settings added by the agent, then hand-tuned. A human lowered the public tier from 100 to 60 requests per minute after a capacity review. Mixed authorship \u2014 the human edit is the current behaviour, and the reasoning survives only as a code comment.",
+        "confidence": 0.9,
+        "source": "llm",
+        "formula_floor": 0.333,
+        "rank": 6,
+        "ground_truth": "d4"
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.config.Settings#c",
+      "qualname": "src.config.Settings",
+      "kind": "class",
+      "status": "modified",
+      "fields": [
+        "hash.text"
+      ],
+      "amount": 0.4,
+      "blast_radius": {
+        "direct": 1,
+        "transitive": 8,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 5
+        },
+        {
+          "name": "j.moreau",
+          "lines": 1
+        }
+      ],
+      "risk": {
+        "score": 0.333,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.config.Settings.rate_limit#c",
+      "qualname": "src.config.Settings.rate_limit",
+      "kind": "class",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 9
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 5
+        },
+        {
+          "name": "j.moreau",
+          "lines": 1
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.utils.logging#m",
+      "qualname": "src.utils.logging",
+      "kind": "module",
+      "status": "modified",
+      "fields": [
+        "hash.text"
+      ],
+      "amount": 0.12,
+      "blast_radius": {
+        "direct": 1,
+        "transitive": 3,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 4
+        }
+      ],
+      "risk": {
+        "score": 0.25,
+        "axes": {
+          "functionality": 0.25,
+          "availability": 0.15,
+          "scalability": 0.05,
+          "performance": 0.05,
+          "security": 0.05
+        },
+        "why": "Changed outside the stated task. Log lines were reformatted and req_id renamed to request_id. Downstream log parsers and alert rules live outside this repository, so the analyzer cannot confirm the old field names are unused. Ranked high because the blast radius is unobservable, not because the diff is large.",
+        "confidence": 0.55,
+        "source": "llm",
+        "formula_floor": 0.075,
+        "rank": 2,
+        "ground_truth": "d6"
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.utils.logging.request_log#f",
+      "qualname": "src.utils.logging.request_log",
+      "kind": "function",
+      "status": "modified",
+      "fields": [
+        "hash.text"
+      ],
+      "amount": 0.12,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        },
+        {
+          "name": "orderly-agent",
+          "lines": 4
+        }
+      ],
+      "risk": {
+        "score": 0.06,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.utils.throttle#m",
+      "qualname": "src.utils.throttle",
+      "kind": "module",
+      "status": "removed",
+      "fields": [
+        "removed"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 1,
+        "transitive": 1,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 16
+        }
+      ],
+      "risk": {
+        "score": 0.2,
+        "axes": {
+          "functionality": 0.2,
+          "availability": 0.1,
+          "scalability": 0.05,
+          "performance": 0.05,
+          "security": 0.05
+        },
+        "why": "Legacy in-process throttle deleted along with its single call site in routes. No other importers were found anywhere in the tree, so the deletion looks clean.",
+        "confidence": 0.88,
+        "source": "llm",
+        "formula_floor": 0.542,
+        "rank": 7,
+        "ground_truth": "d5"
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.utils.throttle.throttle#f",
+      "qualname": "src.utils.throttle.throttle",
+      "kind": "function",
+      "status": "removed",
+      "fields": [
+        "removed"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 1,
+        "transitive": 1,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 16
+        }
+      ],
+      "risk": {
+        "score": 0.542,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:src.utils.throttle.throttle.check#f",
+      "qualname": "src.utils.throttle.throttle.check",
+      "kind": "function",
+      "status": "removed",
+      "fields": [
+        "removed"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 16
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:tests.integration.test_orders#m",
+      "qualname": "tests.integration.test_orders",
+      "kind": "module",
+      "status": "risk_changed",
+      "fields": [],
+      "amount": 0.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly fixture",
+          "lines": 7
+        }
+      ],
+      "risk": {
+        "score": 0.65,
+        "axes": {
+          "functionality": 0.65,
+          "availability": 0.3,
+          "scalability": 0.1,
+          "performance": 0.1,
+          "security": 0.05
+        },
+        "why": "Unchanged, but its subject changed underneath it. The orders integration tests were never re-run after routes.py gained the limiter dependency, so behaviour under 429 is unverified. The only unit here whose risk moved without a line changing.",
+        "confidence": 0.85,
+        "source": "llm",
+        "formula_floor": 0.0,
+        "rank": 5,
+        "ground_truth": "d7"
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:tests.test_rate_limiter#m",
+      "qualname": "tests.test_rate_limiter",
+      "kind": "module",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "risk": {
+        "score": 0.1,
+        "axes": {
+          "functionality": 0.1,
+          "availability": 0.05,
+          "scalability": 0.05,
+          "performance": 0.05,
+          "security": 0.05
+        },
+        "why": "Four unit tests added alongside the limiter, all passing. Covers the limit boundary, the refill window, and per-token keying. Nothing here exercises a Redis outage, which is the delta ranked first.",
+        "confidence": 0.93,
+        "source": "llm",
+        "formula_floor": 0.5,
+        "rank": 4,
+        "ground_truth": "d1"
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:tests.test_rate_limiter.test_allows_requests_under_the_limit#f",
+      "qualname": "tests.test_rate_limiter.test_allows_requests_under_the_limit",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:tests.test_rate_limiter.test_keys_buckets_per_api_token#f",
+      "qualname": "tests.test_rate_limiter.test_keys_buckets_per_api_token",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:tests.test_rate_limiter.test_refills_the_bucket_after_the_window#f",
+      "qualname": "tests.test_rate_limiter.test_refills_the_bucket_after_the_window",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:py:tests.test_rate_limiter.test_returns_429_with_retry_after_when_bucket_empty#f",
+      "qualname": "tests.test_rate_limiter.test_returns_429_with_retry_after_when_bucket_empty",
+      "kind": "function",
+      "status": "added",
+      "fields": [
+        "added"
+      ],
+      "amount": 1.0,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": false
+      },
+      "authors": [
+        {
+          "name": "orderly-agent",
+          "lines": 6
+        },
+        {
+          "name": "orderly fixture",
+          "lines": 3
+        }
+      ],
+      "risk": {
+        "score": 0.5,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    },
+    {
+      "unit": "u:sys:orderly",
+      "qualname": "orderly",
+      "kind": "system",
+      "status": "modified",
+      "fields": [
+        "hash.struct"
+      ],
+      "amount": 0.441,
+      "blast_radius": {
+        "direct": 0,
+        "transitive": 0,
+        "public_api": true
+      },
+      "authors": [],
+      "risk": {
+        "score": 0.309,
+        "source": "formula",
+        "confidence": 0.5,
+        "axes": null,
+        "why": null
+      },
+      "_": null
+    }
+  ],
+  "edge_deltas": [
+    {
+      "edge": "e:266dbdf4c8",
+      "from": "u:py:src.api.middleware.rate_limiter#m",
+      "to": "u:py:src.utils.logging#m",
+      "kind": "imports",
+      "status": "added"
+    },
+    {
+      "edge": "e:4214214816",
+      "from": "u:py:src.admin_tasks#m",
+      "to": "u:py:scripts.backfill#m",
+      "kind": "imports",
+      "status": "added"
+    },
+    {
+      "edge": "e:74cbef1146",
+      "from": "u:py:src.api.routes#m",
+      "to": "u:py:src.api.middleware.rate_limiter#m",
+      "kind": "imports",
+      "status": "added"
+    },
+    {
+      "edge": "e:95184b95dc",
+      "from": "u:py:src.api.middleware.rate_limiter.rate_limit.check#f",
+      "to": "u:py:src.api.middleware.rate_limiter.bucket_key#f",
+      "kind": "calls",
+      "status": "added"
+    },
+    {
+      "edge": "e:9c106bd8b6",
+      "from": "u:py:src.api.routes#m",
+      "to": "u:py:src.utils.throttle.throttle#f",
+      "kind": "calls",
+      "status": "removed"
+    },
+    {
+      "edge": "e:a2ff9f0463",
+      "from": "u:layer:tests",
+      "to": "u:layer:edge",
+      "kind": "imports",
+      "status": "added"
+    },
+    {
+      "edge": "e:b105efdd4e",
+      "from": "u:py:src.api.routes#m",
+      "to": "u:py:src.utils.throttle#m",
+      "kind": "imports",
+      "status": "removed"
+    },
+    {
+      "edge": "e:b8018b37d5",
+      "from": "u:py:tests.test_rate_limiter#m",
+      "to": "u:py:src.api.middleware.rate_limiter#m",
+      "kind": "imports",
+      "status": "added"
+    },
+    {
+      "edge": "e:bbe0527628",
+      "from": "u:layer:edge",
+      "to": "u:layer:infra",
+      "kind": "imports",
+      "status": "added"
+    },
+    {
+      "edge": "e:dc13316f30",
+      "from": "u:layer:edge",
+      "to": "u:layer:support",
+      "kind": "calls",
+      "status": "removed"
+    },
+    {
+      "edge": "e:ee356652e6",
+      "from": "u:py:src.api.routes#m",
+      "to": "u:py:src.api.middleware.rate_limiter.rate_limit#f",
+      "kind": "calls",
+      "status": "added"
+    },
+    {
+      "edge": "e:fa7db4eb45",
+      "from": "u:py:src.api.middleware.rate_limiter#m",
+      "to": "u:py:src.config#m",
+      "kind": "imports",
+      "status": "added"
+    }
+  ],
+  "rollup": {
+    "u:py:src.api.middleware.rate_limiter.rate_limit#f": {
+      "amount": 1.0,
+      "risk": 0.542,
+      "sloc": 23.0
+    },
+    "u:py:src.api.middleware.rate_limiter#m": {
+      "amount": 1.0,
+      "risk": 0.95,
+      "sloc": 46.0
+    },
+    "u:py:src.auth#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 6.0
+    },
+    "u:layer:edge": {
+      "amount": 0.776,
+      "risk": 0.95,
+      "sloc": 97.0
+    },
+    "u:py:src.orders.create_order#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 14.0
+    },
+    "u:py:src.orders.get_order#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 5.0
+    },
+    "u:py:src.orders.repo#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 6.0
+    },
+    "u:py:src.orders.pricing#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 2.0
+    },
+    "u:py:src.payments#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 2.0
+    },
+    "u:py:src.payments.stripe_client#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 4.0
+    },
+    "u:layer:domain": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 34.0
+    },
+    "u:py:src.db.connection#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 4.0
+    },
+    "u:py:src.config.Settings#c": {
+      "amount": 0.618,
+      "risk": 0.5,
+      "sloc": 11.0
+    },
+    "u:py:src.config#m": {
+      "amount": 0.52,
+      "risk": 0.5,
+      "sloc": 20.0
+    },
+    "u:layer:infra": {
+      "amount": 0.433,
+      "risk": 0.5,
+      "sloc": 24.0
+    },
+    "u:py:src.utils.logging#m": {
+      "amount": 0.12,
+      "risk": 0.25,
+      "sloc": 6.0
+    },
+    "u:py:src.utils.events#m": {
+      "amount": 0.0,
+      "risk": 0.0,
+      "sloc": 2.0
+    },
+    "u:layer:support": {
+      "amount": 0.294,
+      "risk": 0.354,
+      "sloc": 14.0
+    },
+    "u:py:migrations.0001_initial_schema#m": {
+      "amount": 1.0,
+      "risk": 0.5,
+      "sloc": 8.0
+    },
+    "u:py:migrations.0002_add_order_status#m": {
+      "amount": 1.0,
+      "risk": 0.5,
+      "sloc": 8.0
+    },
+    "u:py:scripts.backfill#m": {
+      "amount": 1.0,
+      "risk": 0.542,
+      "sloc": 4.0
+    },
+    "u:py:scripts.cleanup#m": {
+      "amount": 1.0,
+      "risk": 0.5,
+      "sloc": 4.0
+    },
+    "u:layer:ops": {
+      "amount": 1.0,
+      "risk": 0.542,
+      "sloc": 40.0
+    },
+    "u:py:tests.test_rate_limiter#m": {
+      "amount": 1.0,
+      "risk": 0.5,
+      "sloc": 9.0
+    },
+    "u:py:tests.integration.test_orders#m": {
+      "amount": 0.0,
+      "risk": 0.65,
+      "sloc": 6.0
+    },
+    "u:layer:tests": {
+      "amount": 0.635,
+      "risk": 0.65,
+      "sloc": 23.0
+    },
+    "u:sys:orderly": {
+      "amount": 0.543,
+      "risk": 0.95,
+      "sloc": 426.0
+    }
+  }
+}
