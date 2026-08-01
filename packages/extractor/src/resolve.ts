@@ -1,17 +1,56 @@
+import { builtinModules } from "node:module";
 import path from "node:path";
 import type { DefFact, Fact, FileFacts, ImportFact } from "./facts.js";
 import { moduleQualname } from "./qualname.js";
 import { normalizeSource, shortHash, sloc } from "./hash.js";
 import { langForFile } from "./grammars/registry.js";
-import type { ManifestInfo } from "./manifest.js";
+import type { RepoManifests } from "./manifest.js";
 import type { FileChurn } from "./vcs.js";
 import type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "./symbol-graph.js";
 
+// Python 3.12 standard library top-level module names (stdlib + de facto stdlib built-ins).
 const PYTHON_STDLIB = new Set([
   "os", "sys", "time", "json", "typing", "dataclasses", "pathlib", "hashlib",
   "asyncio", "collections", "functools", "re", "abc", "itertools", "logging",
   "datetime", "math", "random", "subprocess", "io", "contextlib", "enum",
+  "argparse", "array", "ast", "base64", "bisect", "builtins", "bz2",
+  "calendar", "cgi", "cmath", "codecs", "colorsys",
+  "concurrent", "configparser", "contextvars", "copy", "copyreg", "csv",
+  "ctypes", "decimal", "difflib", "dis", "email", "encodings", "ensurepip",
+  "errno", "faulthandler", "fcntl", "filecmp", "fileinput", "fnmatch",
+  "fractions", "ftplib", "gc", "getopt", "getpass", "gettext", "glob",
+  "graphlib", "gzip", "hmac", "html", "http", "imaplib", "importlib",
+  "inspect", "ipaddress", "keyword", "linecache", "locale", "lzma",
+  "mailbox", "mimetypes", "mmap", "multiprocessing", "numbers", "operator",
+  "optparse", "pdb", "pickle", "pickletools", "pkgutil", "platform",
+  "plistlib", "poplib", "pprint", "profile", "pstats", "pty", "pwd",
+  "pyclbr", "pydoc", "queue", "quopri", "reprlib", "resource", "sched",
+  "secrets", "select", "selectors", "shelve", "shlex", "shutil", "signal",
+  "site", "smtplib", "sndhdr", "socket", "socketserver", "sqlite3", "ssl",
+  "stat", "statistics", "string", "stringprep", "struct", "symtable",
+  "sysconfig", "syslog", "tabnanny", "tarfile", "telnetlib", "tempfile",
+  "termios", "textwrap", "threading", "timeit", "tkinter", "token",
+  "tokenize", "tomllib", "trace", "traceback", "tracemalloc", "tty",
+  "turtle", "types", "unicodedata", "unittest", "urllib", "uuid",
+  "venv", "warnings", "wave", "weakref", "webbrowser", "wsgiref", "xml",
+  "xmlrpc", "zipapp", "zipfile", "zipimport", "zlib", "zoneinfo",
+  "__future__",
 ]);
+
+// Node.js builtin module names, without the "node:" prefix.
+const NODE_BUILTINS = new Set(builtinModules);
+
+// Import top-level name -> PyPI package name, where the two diverge.
+const PYPI_IMPORT_ALIASES: Record<string, string> = {
+  jose: "python-jose",
+  dotenv: "python-dotenv",
+  yaml: "pyyaml",
+  jwt: "pyjwt",
+  docx: "python-docx",
+  cv2: "opencv-python",
+  bs4: "beautifulsoup4",
+  PIL: "pillow",
+};
 
 interface UnitBuild {
   fact: DefFact;
@@ -34,7 +73,7 @@ function resolveRelativeModule(fromFile: string, moduleSpecifier: string): strin
 export function resolveGraph(
   files: FileFacts[],
   knownModules: Set<string>,
-  manifest: ManifestInfo,
+  manifests: RepoManifests,
   churn: Map<string, FileChurn>,
 ): SymbolGraph {
   const unitsByQualname = new Map<string, UnitBuild>();
@@ -114,7 +153,11 @@ export function resolveGraph(
 
   const edges: SymbolEdge[] = [];
   let edgeSeq = 0;
-  const externalReachedBy = new Map<string, Set<string>>();
+  interface ExternalKey {
+    ecosystem: "pypi" | "npm";
+    name: string;
+  }
+  const externalReachedBy = new Map<string, { key: ExternalKey; reachedBy: Set<string> }>();
 
   // imports: binding -> resolved module qualname (if it's a repo module)
   for (const ff of files) {
@@ -123,6 +166,8 @@ export function resolveGraph(
     if (!moduleUnit) continue;
     const importFacts = ff.facts.filter((f): f is ImportFact => f.kind === "import");
     const bindingTargets = new Map<string, string>(); // binding -> resolved qualname (module or symbol)
+    const fileLang = langForFile(ff.file);
+    const fileEcosystem: "pypi" | "npm" | null = fileLang === "python" ? "pypi" : fileLang === "typescript" ? "npm" : null;
 
     for (const imp of importFacts) {
       const relativeModule = resolveRelativeModule(ff.file, imp.module);
@@ -166,11 +211,21 @@ export function resolveGraph(
           confidence: 0.3,
           evidence: { file: ff.file, line: imp.line },
         });
-        const topLevel = imp.module.split(".")[0]!;
-        if (!(manifest.ecosystem === "pypi" && PYTHON_STDLIB.has(topLevel))) {
-          const reachedBy = externalReachedBy.get(topLevel) ?? new Set<string>();
-          reachedBy.add(moduleUnit.id);
-          externalReachedBy.set(topLevel, reachedBy);
+        if (!imp.module.startsWith(".") && fileEcosystem) {
+          const withoutSubpath = imp.module.startsWith("@")
+            ? imp.module.split("/").slice(0, 2).join("/")
+            : imp.module.split("/")[0]!;
+          const topLevel = withoutSubpath.split(".")[0]!;
+          const isStdlib =
+            (fileEcosystem === "pypi" && PYTHON_STDLIB.has(topLevel)) ||
+            (fileEcosystem === "npm" && (imp.module.startsWith("node:") || NODE_BUILTINS.has(topLevel)));
+          if (!isStdlib) {
+            const packageName = fileEcosystem === "pypi" ? (PYPI_IMPORT_ALIASES[topLevel] ?? topLevel) : topLevel;
+            const key = `${fileEcosystem}:${packageName}`;
+            const entry = externalReachedBy.get(key) ?? { key: { ecosystem: fileEcosystem, name: packageName }, reachedBy: new Set<string>() };
+            entry.reachedBy.add(moduleUnit.id);
+            externalReachedBy.set(key, entry);
+          }
         }
       }
     }
@@ -235,15 +290,16 @@ export function resolveGraph(
     if (toUnit) toUnit.metrics.fanIn++;
   }
 
-  const externals: SymbolExternal[] = [...externalReachedBy.entries()]
-    .map(([name, reachedBy]) => {
-      const version = manifest.pinned.get(name) ?? null;
+  const externals: SymbolExternal[] = [...externalReachedBy.values()]
+    .map(({ key, reachedBy }) => {
+      const pinned = key.ecosystem === "pypi" ? manifests.pypi?.pinned : manifests.npm?.pinned;
+      const version = pinned?.get(key.name) ?? null;
       return {
-        id: version ? `x:${manifest.ecosystem}:${name}@${version}` : `x:${manifest.ecosystem}:${name}`,
-        ecosystem: manifest.ecosystem ?? "unknown",
-        name,
+        id: version ? `x:${key.ecosystem}:${key.name}@${version}` : `x:${key.ecosystem}:${key.name}`,
+        ecosystem: key.ecosystem,
+        name: key.name,
         version,
-        direct: manifest.pinned.has(name),
+        direct: pinned?.has(key.name) ?? false,
         depth: 1,
         reachedBy: [...reachedBy].sort(),
       };
