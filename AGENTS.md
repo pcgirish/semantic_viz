@@ -18,10 +18,23 @@ npm run lint
 - Never read/write .env directly; use .env.example for shape
 - Input validation via Zod / class-validator only — never trust raw request data
 
-- CLearly articulate the idea and intent 
+- Clearly articulate the idea and intent 
 - Be Terse; Omit needless words
 - No narration, filler, or detailed thinking output
 - Report only actual steps: decisions, implementation, key tool calls (file, command)
+
+
+## Code guidelines
+- Write production-quality code.
+- Prioritize in order:  Correctness . Simplicity . Readability . Consistency . Small diffs
+- Avoid unnecessary abstractions.
+- Keep functions focused.
+- Use names that mean intent.
+- Handle errors.
+- Remove dead code.
+- Don't optimize prematurely.
+- Ask if requirements are unclear.
+- Before finishing, ensure the solution is the simplest maintainable implementation you would approve in a production code review.
 
 ## Git Workflow
 **Flow:** always branch → implement → verify → review → push → open PR → merge PR. Never commit or push directly to main.
