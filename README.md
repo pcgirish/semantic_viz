@@ -11,18 +11,26 @@ and [`docs/implement-serve.md`](docs/implement-serve.md) for milestones.
 
 ## Status
 
-This repo is under active build-out; not all pipeline stages exist yet.
+Static-analysis-only pipeline is complete end to end: you can point `scv` at
+a real repo, extract it, serve it, and browse it as a live tile map in the
+browser today. The LLM Interpreter (semantics, cost estimates) and Differ
+(delta/replay mode) are not built yet — those fields render as explicit
+"not yet available" states rather than being silently blank.
 
 | Package | What it does | Status |
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
-| Interpreter, Differ, CLI, Server/Web UI | LLM semantics pass, snapshot diffing, `scv` CLI, `scv serve` web UI | Not yet built |
+| `packages/cli` | `scv analyze` — extracts a repo and writes a `scv/1` snapshot to `.scv/snapshots/` | Implemented |
+| `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, ...) | Implemented |
+| `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
+| `packages/skins/tiles` | SVG rendering skin: chamfered tiles, complexity glyphs, dependency-highlight links | Implemented |
+| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray | Implemented |
+| Interpreter, Differ | LLM semantics/cost pass, snapshot diffing (delta/replay mode) | Not yet built |
 
 A disposable Python prototype of the *full* pipeline (extract → interpret →
 diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
-seeing the end-to-end shape of the product before the TypeScript packages
-catch up.
+seeing the end-to-end shape of the product before the LLM stages catch up.
 
 ## Requirements
 
@@ -50,6 +58,33 @@ npm test --workspace packages/extractor
 npm run build --workspace packages/extractor
 ```
 
+## Seeing a codebase
+
+End to end, static analysis only (no LLM involved):
+
+```sh
+# 1. extract a repo and write a snapshot
+npm run build --workspace packages/cli
+node packages/cli/dist/bin.js analyze /path/to/repo
+
+# 2. serve it over HTTP
+npm run dev --workspace packages/server
+
+# 3. run the UI (proxies /api to the server above)
+npm run dev --workspace packages/ui
+```
+
+Open the UI dev server URL in a browser. You get a layered tile map of the
+repo's units (modules/classes/functions), sized by SLOC and shaped by
+complexity. Click a tile to select it and open the inspector tray;
+double-click to drill into it (double-click empty canvas to ascend back out);
+hover to highlight what it depends on vs. what depends on it.
+
+`semantics` (what/how/when/where/why) and `cost.estimate` show as "not yet
+available — no Interpreter pass has run" until `packages/interpreter` exists.
+Everything else — structure, metrics, fan-in/out, dependency edges — is real,
+extracted static analysis.
+
 ## Using the extractor
 
 The only consumable API today is `extractRepo`, which walks a repo on disk
@@ -76,10 +111,15 @@ Notes on what it does under the hood:
 
 ```
 packages/
-  extractor/   # tree-sitter-based static analysis -> SymbolGraph
-  schema/      # shared Zod/JSON schemas for the pipeline contract
-docs/          # design docs, milestone plans, and the disposable Python mock
-fixtures/      # sample repos used by tests (gitignored except small TS fixtures)
+  extractor/     # tree-sitter-based static analysis -> SymbolGraph
+  schema/        # shared Zod/JSON schemas for the pipeline contract
+  cli/           # `scv analyze` — writes scv/1 snapshots
+  server/        # Fastify API serving snapshots
+  layout/        # pure layered layout engine (rank/order/place/route)
+  skins/tiles/   # SVG rendering skin
+  ui/            # React app: canvas + inspector tray
+docs/            # design docs, milestone plans, and the disposable Python mock
+fixtures/        # sample repos used by tests (gitignored except small TS fixtures)
 ```
 
 ## Contributing
