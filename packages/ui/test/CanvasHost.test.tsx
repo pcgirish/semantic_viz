@@ -101,6 +101,60 @@ describe("CanvasHost", () => {
     expect(h).toBeGreaterThan(0);
   });
 
+  it("wheel zooms: viewBox shrinks on zoom-in (deltaY < 0)", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    render(<CanvasHost units={units} edges={[]} />);
+    const svg = screen.getByTestId("canvas-svg");
+    const before = svg.getAttribute("viewBox")!.split(" ").map(Number);
+
+    fireEvent.wheel(svg, { deltaY: -100, clientX: 100, clientY: 100 });
+
+    const after = svg.getAttribute("viewBox")!.split(" ").map(Number);
+    expect(after[2]).toBeLessThan(before[2]);
+    expect(after[3]).toBeLessThan(before[3]);
+  });
+
+  it("wheel zoom-out grows the viewBox, clamped to a max scale", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    render(<CanvasHost units={units} edges={[]} />);
+    const svg = screen.getByTestId("canvas-svg");
+    const before = svg.getAttribute("viewBox")!.split(" ").map(Number);
+
+    for (let i = 0; i < 100; i++) {
+      fireEvent.wheel(svg, { deltaY: 100, clientX: 100, clientY: 100 });
+    }
+    const after = svg.getAttribute("viewBox")!.split(" ").map(Number);
+    expect(after[2]).toBeGreaterThan(before[2]);
+    expect(Number.isFinite(after[2])).toBe(true);
+  });
+
+  it("dragging on empty canvas pans the viewBox instead of ascending", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    render(<CanvasHost units={units} edges={[]} />);
+    const svg = screen.getByTestId("canvas-svg");
+    svg.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300, toJSON() {} }) as DOMRect;
+    const before = svg.getAttribute("viewBox")!.split(" ").map(Number);
+
+    fireEvent.mouseDown(svg, { clientX: 200, clientY: 200 });
+    fireEvent.mouseMove(svg, { clientX: 150, clientY: 180 });
+    fireEvent.mouseUp(svg, { clientX: 150, clientY: 180 });
+
+    const after = svg.getAttribute("viewBox")!.split(" ").map(Number);
+    expect(after[0]).not.toBe(before[0]);
+    expect(after[1]).not.toBe(before[1]);
+    expect(useAppStore.getState().focus).toBeNull();
+  });
+
+  it("double-clicking empty canvas still ascends after a drag/zoom sequence", () => {
+    useAppStore.getState().drill("u:x");
+    const units = [makeUnit({ id: "a" })];
+    render(<CanvasHost units={units} edges={[]} />);
+    const svg = screen.getByTestId("canvas-svg");
+    fireEvent.wheel(svg, { deltaY: -50, clientX: 50, clientY: 50 });
+    fireEvent.doubleClick(svg);
+    expect(useAppStore.getState().focus).toBeNull();
+  });
+
   it("mouse leave clears the hover highlight", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
     const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
