@@ -1,0 +1,22 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+coverage/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
