@@ -55,22 +55,35 @@ function findBalancedJsonBlocks(text: string): string[] {
   return blocks;
 }
 
+/** Repairs `"key", "value"` where a model wrote a comma instead of a colon after an object key, at the start of a line (optionally indented). Leaves everything else untouched. */
+function repairKeyValueComma(text: string): string {
+  return text.replace(/^([ \t]*"(?:[^"\\]|\\.)*")\s*,(\s*")/gm, "$1:$2");
+}
+
+function tryParse(candidate: string): unknown | undefined {
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    try {
+      return JSON.parse(repairKeyValueComma(candidate));
+    } catch {
+      return undefined;
+    }
+  }
+}
+
 /** Parses a provider's JSON response, tolerating a markdown code fence (open, closed, or truncated) and surrounding reasoning-model prose, with a labeled error on failure. Prefers the last well-formed JSON block, since a model's final answer follows any drafts in its "thinking" text. */
 export function parseJsonResponse(text: string, label: string): unknown {
   const stripped = stripCodeFence(text);
   const blocks = findBalancedJsonBlocks(stripped);
 
   for (let i = blocks.length - 1; i >= 0; i--) {
-    try {
-      return JSON.parse(blocks[i]!);
-    } catch {
-      continue;
-    }
+    const parsed = tryParse(blocks[i]!);
+    if (parsed !== undefined) return parsed;
   }
 
-  try {
-    return JSON.parse(stripped);
-  } catch {
-    throw new Error(`${label}: provider returned non-JSON output: ${text.slice(0, 2000)}`);
-  }
+  const parsed = tryParse(stripped);
+  if (parsed !== undefined) return parsed;
+
+  throw new Error(`${label}: provider returned non-JSON output: ${text.slice(0, 2000)}`);
 }

@@ -39,4 +39,9 @@ describe("parseJsonResponse", () => {
     const text = 'Draft: {"a":1}\n\nFinal answer: {"a":2}';
     expect(parseJsonResponse(text, "label")).toEqual({ a: 2 });
   });
+
+  it("repairs a comma written in place of a colon after an object key", () => {
+    const text = '{\n"what": "x",\n"when", "y",\n"where": "z"\n}';
+    expect(parseJsonResponse(text, "label")).toEqual({ what: "x", when: "y", where: "z" });
+  });
 });
