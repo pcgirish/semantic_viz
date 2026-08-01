@@ -26,3 +26,30 @@ describe("parseManifests on a package.json repo", () => {
     expect(manifest.pinned.size).toBe(0);
   });
 });
+
+describe("parseManifests on a pyproject.toml (uv) repo", () => {
+  const pyprojectRoot = fileURLToPath(new URL("./fixtures/pyproject-uv", import.meta.url));
+
+  it("marks pypi ecosystem", () => {
+    const manifest = parseManifests(pyprojectRoot);
+    expect(manifest.ecosystem).toBe("pypi");
+  });
+
+  it("reads a pinned (==) dependency version", () => {
+    const manifest = parseManifests(pyprojectRoot);
+    expect(manifest.pinned.get("fastapi")).toBe("0.110.0");
+  });
+
+  it("records an unpinned dependency with a null version", () => {
+    const manifest = parseManifests(pyprojectRoot);
+    expect(manifest.pinned.has("sqlalchemy")).toBe(true);
+    expect(manifest.pinned.get("sqlalchemy")).toBeNull();
+    expect(manifest.pinned.has("structlog")).toBe(true);
+    expect(manifest.pinned.get("structlog")).toBeNull();
+  });
+
+  it("does not read dependency-groups (dev) dependencies", () => {
+    const manifest = parseManifests(pyprojectRoot);
+    expect(manifest.pinned.has("pytest")).toBe(false);
+  });
+});
