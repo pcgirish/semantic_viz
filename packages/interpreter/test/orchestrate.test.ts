@@ -222,4 +222,46 @@ describe("runInterpreter", () => {
     const opsFiles = result.units.filter((u) => u.parent === layer?.id).map((u) => u.qualname);
     expect(opsFiles.sort()).toEqual(["scripts.backfill", "src.admin_tasks"]);
   });
+
+  it("gives a layer with the same file membership the same id across runs, even when the LLM names the cluster differently — layer identity must not depend on the LLM's naming choice, or every re-run looks like the layer was removed and re-added", async () => {
+    const graph = makeGraph();
+    const snapshotA = makeSnapshot(graph);
+    const snapshotB = makeSnapshot(graph);
+
+    const providerFor = (clusterName: string, layerName: string): Provider => ({
+      name: "fake",
+      model: "fake-model",
+      interpret: async (prompt: string) => {
+        if (prompt.includes("grouping the files")) {
+          return {
+            text: JSON.stringify({ clusters: { [clusterName]: ["src/admin_tasks.py", "scripts/backfill.py"] } }),
+            tokens: 10,
+          };
+        }
+        if (prompt.includes("describing why")) {
+          return { text: JSON.stringify({ why: `${layerName} layer`, confidence: 0.8 }), tokens: 10 };
+        }
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      },
+    });
+
+    const resultA = await runInterpreter({
+      snapshot: snapshotA,
+      graph,
+      provider: providerFor("ops", "ops"),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+    const resultB = await runInterpreter({
+      snapshot: snapshotB,
+      graph,
+      provider: providerFor("operational-scripts", "operational-scripts"),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const layerA = resultA.units.find((u) => u.kind === "layer");
+    const layerB = resultB.units.find((u) => u.kind === "layer");
+    expect(layerA?.id).toBe(layerB?.id);
+  });
 });
