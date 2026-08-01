@@ -5,7 +5,7 @@ import path from "node:path";
  * "src/widget.ts" -> "src.widget"; "index.ts" collapses to the package.
  */
 export function moduleQualname(relPath: string): string {
-  const noExt = relPath.replace(/\.(py|ts)$/, "");
+  const noExt = relPath.replace(/\.(py|tsx?|jsx?|mjs|cjs)$/, "");
   const parts = noExt.split(path.sep);
   const last = parts[parts.length - 1];
   if (last === "__init__" || last === "index") parts.pop();

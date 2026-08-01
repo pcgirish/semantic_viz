@@ -4,6 +4,7 @@ import { extractRepo } from "../src/index.js";
 
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));
 const tsSampleRoot = fileURLToPath(new URL("./fixtures/ts-sample", import.meta.url));
+const jsSampleRoot = fileURLToPath(new URL("./fixtures/js-sample", import.meta.url));
 
 describe("extractRepo on the orderly fixture", () => {
   const graph = extractRepo(orderlyRoot);
@@ -91,6 +92,39 @@ describe("extractRepo on a TypeScript sample", () => {
     );
     expect(callEdge).toBeDefined();
     expect(callEdge!.confidence).toBe(1);
+  });
+});
+
+describe("extractRepo on a JavaScript/JSX sample", () => {
+  const graph = extractRepo(jsSampleRoot);
+
+  it("emits function units with the javascript lang tag", () => {
+    const priceItems = graph.units.find((u) => u.qualname === "src.pricing.priceItems");
+    expect(priceItems).toBeDefined();
+    expect(priceItems!.lang).toBe("javascript");
+  });
+
+  it("resolves the relative import + call from orders.js to pricing.js", () => {
+    const createOrder = graph.units.find((u) => u.qualname === "src.orders.createOrder");
+    const priceItems = graph.units.find((u) => u.qualname === "src.pricing.priceItems");
+    expect(createOrder).toBeDefined();
+    expect(priceItems).toBeDefined();
+    const callEdge = graph.edges.find(
+      (e) => e.from === createOrder!.id && e.to === priceItems!.id && e.kind === "calls",
+    );
+    expect(callEdge).toBeDefined();
+    expect(callEdge!.confidence).toBe(1);
+  });
+
+  it("parses a .jsx file with JSX syntax and resolves its import", () => {
+    const app = graph.units.find((u) => u.qualname === "src.App.App");
+    const createOrder = graph.units.find((u) => u.qualname === "src.orders.createOrder");
+    expect(app).toBeDefined();
+    expect(createOrder).toBeDefined();
+    const callEdge = graph.edges.find(
+      (e) => e.from === app!.id && e.to === createOrder!.id && e.kind === "calls",
+    );
+    expect(callEdge).toBeDefined();
   });
 });
 
