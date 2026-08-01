@@ -93,3 +93,13 @@ describe("extractRepo on a TypeScript sample", () => {
     expect(callEdge!.confidence).toBe(1);
   });
 });
+
+describe("extractRepo on a TypeScript repo with an unresolved relative import", () => {
+  const brokenRelativeRoot = fileURLToPath(new URL("./fixtures/ts-broken-relative-import", import.meta.url));
+  const graph = extractRepo(brokenRelativeRoot);
+
+  it("does not record a blank-name external", () => {
+    const blank = graph.externals.find((x) => x.name === "");
+    expect(blank).toBeUndefined();
+  });
+});

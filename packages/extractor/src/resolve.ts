@@ -166,11 +166,13 @@ export function resolveGraph(
           confidence: 0.3,
           evidence: { file: ff.file, line: imp.line },
         });
-        const topLevel = imp.module.split(".")[0]!;
-        if (!(manifest.ecosystem === "pypi" && PYTHON_STDLIB.has(topLevel))) {
-          const reachedBy = externalReachedBy.get(topLevel) ?? new Set<string>();
-          reachedBy.add(moduleUnit.id);
-          externalReachedBy.set(topLevel, reachedBy);
+        if (!imp.module.startsWith(".")) {
+          const topLevel = imp.module.split(".")[0]!;
+          if (!(manifest.ecosystem === "pypi" && PYTHON_STDLIB.has(topLevel))) {
+            const reachedBy = externalReachedBy.get(topLevel) ?? new Set<string>();
+            reachedBy.add(moduleUnit.id);
+            externalReachedBy.set(topLevel, reachedBy);
+          }
         }
       }
     }
