@@ -1,0 +1,35 @@
+import Fastify, { type FastifyInstance } from "fastify";
+import { SnapshotStore } from "./store.js";
+
+export interface BuildAppOptions {
+  scvDir: string;
+}
+
+export function buildApp(options: BuildAppOptions): FastifyInstance {
+  const app = Fastify();
+  const store = new SnapshotStore(options.scvDir);
+
+  app.get("/api/revs", async () => store.listRevs());
+
+  app.get<{ Params: { sha: string } }>("/api/snapshot/:sha", async (req, reply) => {
+    const snapshot = store.getSnapshot(req.params.sha);
+    if (!snapshot) return reply.code(404).send({ error: "snapshot not found" });
+    return snapshot;
+  });
+
+  app.get<{ Params: { sha: string; id: string } }>("/api/snapshot/:sha/unit/:id", async (req, reply) => {
+    const result = store.getUnit(req.params.sha, req.params.id);
+    if (!result) return reply.code(404).send({ error: "unit not found" });
+    return result;
+  });
+
+  app.get<{ Querystring: { q?: string } }>("/api/search", async (req, reply) => {
+    const q = req.query.q;
+    if (!q) return reply.code(400).send({ error: "missing query parameter q" });
+    const latest = store.getLatestSnapshot();
+    if (!latest) return [];
+    return store.search(latest.rev.sha, q);
+  });
+
+  return app;
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@scv/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsx src/bin.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@scv/schema": "*",
+    "fastify": "^4.28.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "tsx": "^4.16.0"
+  }
+}
