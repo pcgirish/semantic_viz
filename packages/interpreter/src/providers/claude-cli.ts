@@ -36,13 +36,15 @@ export class ClaudeCliProvider implements Provider {
     }
 
     const stdout = await new Promise<string>((resolve, reject) => {
-      execFile("claude", args, { maxBuffer: 10 * 1024 * 1024 }, (error, out) => {
+      const child = execFile("claude", args, { maxBuffer: 10 * 1024 * 1024 }, (error, out) => {
         if (error) {
           reject(error);
           return;
         }
         resolve(out);
       });
+      // Without this, the CLI can hang waiting for stdin input we never send.
+      child.stdin?.end();
     });
 
     const data = JSON.parse(stdout) as ClaudeCliJsonOutput;

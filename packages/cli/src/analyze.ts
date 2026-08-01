@@ -1,7 +1,15 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { extractRepo } from "@scv/extractor";
 import type { Snapshot } from "@scv/schema";
+import {
+  CachedProvider,
+  ContentCache,
+  createProvider,
+  loadInterpreterConfig,
+  runInterpreter,
+  type Provider,
+} from "@scv/interpreter";
 import { headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
 
@@ -9,6 +17,9 @@ export interface RunAnalyzeOptions {
   root: string;
   /** Directory snapshots are written under; defaults to `<root>/.scv`. */
   scvDir?: string;
+  /** Overrides the provider resolved from `<scvDir>/config.yaml`; primarily for tests. */
+  provider?: Provider;
+  promptRev?: string;
 }
 
 export interface RunAnalyzeResult {
@@ -16,12 +27,38 @@ export interface RunAnalyzeResult {
   path: string;
 }
 
-/** Extracts `root`, maps to a scv/1 Snapshot (semantics not yet lifted), and writes it to `<scvDir>/snapshots/<sha>.json`. */
+function readSource(root: string) {
+  return (file: string, start: number, end: number): string => {
+    const lines = readFileSync(path.join(root, file), "utf-8").split("\n");
+    return lines.slice(start - 1, end).join("\n");
+  };
+}
+
+/** Extracts `root`, runs the Interpreter (Pass A/B/C) to lift semantics, clustering, and layer narration, and writes the resulting scv/1 Snapshot to `<scvDir>/snapshots/<sha>.json`. Interpreter calls are content-cached at `<scvDir>/cache.sqlite` so re-analyzing unchanged units never re-invokes the LLM and never introduces spurious semantic drift from model non-determinism. */
 export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyzeResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
+  mkdirSync(scvDir, { recursive: true });
   const graph = extractRepo(options.root);
   const rev = headRev(options.root);
-  const snapshot = toSnapshot(graph, { root: options.root, rev });
+  const structural = toSnapshot(graph, { root: options.root, rev });
+
+  const promptRev = options.promptRev ?? "p1";
+  const baseProvider = options.provider ?? createProvider(loadInterpreterConfig(scvDir));
+  const cache = new ContentCache(path.join(scvDir, "cache.sqlite"));
+  const provider = new CachedProvider(baseProvider, cache, promptRev);
+
+  let snapshot: Snapshot;
+  try {
+    snapshot = await runInterpreter({
+      snapshot: structural,
+      graph,
+      provider,
+      promptRev,
+      readSource: readSource(options.root),
+    });
+  } finally {
+    cache.close();
+  }
 
   const snapshotsDir = path.join(scvDir, "snapshots");
   mkdirSync(snapshotsDir, { recursive: true });

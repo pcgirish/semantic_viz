@@ -11,25 +11,35 @@ and [`docs/implement-serve.md`](docs/implement-serve.md) for milestones.
 
 ## Status
 
-Static-analysis-only pipeline is complete end to end: you can point `scv` at
-a real repo, extract it, serve it, and browse it as a live tile map in the
-browser today. The Interpreter's leaf-semantics pass (A4) and clustering +
-architecture-narration passes (A5) are implemented but not yet wired into
-`scv analyze`; the Differ and risk narration (A6) are not built yet —
-semantics/cost fields render as explicit "not yet available" states in the
-UI until that wiring lands.
+The full pipeline — Extractor → Interpreter (Pass A–D) → Differ — is
+implemented end to end and wired into the CLI: `scv analyze` extracts a repo
+and lifts semantics, clustering, and layer narration in one pass; `scv diff`
+diffs two snapshots with LLM risk narration and produces a ranked inspect
+queue. You can point `scv` at a real repo, extract it, serve it, and browse
+it as a live tile map in the browser today.
+
+**A6 validation against `fixtures/orderly`** (`docs/analyze.md`'s exit
+criterion): the inspect queue correctly surfaces all 7/7 module-level
+ground-truth entities (`fixtures/orderly/task/RL-114.deltas.json`) with a
+local LLM in the loop — coverage is exact. Rank *order* does not yet match
+the ground truth's order; ranking is the Interpreter's judgment call and its
+quality depends on the underlying model, which a stronger model should
+improve without any code change. `risk_changed` (flagging a unit whose own
+diff is empty but whose dependency changed) is not yet implemented — the one
+ground-truth entry that requires it (`tests.integration.test_orders`) is
+absent from the queue.
 
 | Package | What it does | Status |
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
-| `packages/cli` | `scv analyze` — extracts a repo and writes a `scv/1` snapshot to `.scv/snapshots/` | Implemented |
+| `packages/interpreter` | Pass A (leaf semantics), Pass B (import-cohesion clustering + deterministic checker), Pass C (architecture narration), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
+| `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking | Implemented |
+| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles, complexity glyphs, dependency-highlight links | Implemented |
 | `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray | Implemented |
-| `packages/interpreter` | Pass A (leaf semantics via `Provider`: `ollama`, `anthropic`, `claude-cli`) + content cache; Pass B (import-cohesion clustering + deterministic checker) + Pass C (architecture narration) | A4 + A5 implemented, not wired into `scv analyze` |
-| Interpreter Pass D, Differ | Risk narration, snapshot diffing (delta/replay mode) | Not yet built (A6) |
 
 A disposable Python prototype of the *full* pipeline (extract → interpret →
 diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
@@ -63,18 +73,22 @@ npm run build --workspace packages/extractor
 
 ## Seeing a codebase
 
-End to end, static analysis only (no LLM involved):
+End to end, including the Interpreter (needs a provider — `ollama` by default,
+configured via `.scv/config.yaml`):
 
 ```sh
-# 1. extract a repo and write a snapshot
+# 1. extract a repo, lift semantics/clustering, and write a snapshot
 npm run build --workspace packages/cli
 node packages/cli/dist/bin.js analyze /path/to/repo
 
-# 2. serve it over HTTP
+# 2. (optional) diff two snapshots once you have two revs analyzed
+node packages/cli/dist/bin.js diff <from-sha> <to-sha> --scv-dir /path/to/repo/.scv
+
+# 3. serve it over HTTP
 npm run build --workspace packages/server
 node packages/server/dist/bin.js /path/to/repo
 
-# 3. run the UI (proxies /api to the server above)
+# 4. run the UI (proxies /api to the server above)
 npm run dev --workspace packages/ui
 ```
 
@@ -85,11 +99,6 @@ sloc/fan-in/fan-out, sized by SLOC and shaped by complexity. Scroll to zoom
 so zoom is how you read it. Click a tile to select it and open the inspector
 tray; double-click to drill into it (double-click empty canvas to ascend back
 out); hover to highlight what it depends on vs. what depends on it.
-
-`semantics` (what/how/when/where/why) and `cost.estimate` show as "not yet
-available — no Interpreter pass has run" until `packages/interpreter` exists.
-Everything else — structure, metrics, fan-in/out, dependency edges — is real,
-extracted static analysis.
 
 ## Using the extractor
 
@@ -118,9 +127,10 @@ Notes on what it does under the hood:
 ```
 packages/
   extractor/     # tree-sitter-based static analysis -> SymbolGraph
-  interpreter/   # Pass A (leaf semantics), Provider interface, content cache
+  interpreter/   # Pass A-D, Provider interface, content cache, checker, ranking
+  differ/        # match, classify, blast radius, rollup
   schema/        # shared Zod/JSON schemas for the pipeline contract
-  cli/           # `scv analyze` — writes scv/1 snapshots
+  cli/           # `scv analyze` / `scv diff`
   server/        # Fastify API serving snapshots
   layout/        # pure layered layout engine (rank/order/place/route)
   skins/tiles/   # SVG rendering skin

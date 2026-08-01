@@ -1,0 +1,174 @@
+import { describe, expect, it } from "vitest";
+import { runDiffer } from "../src/diff.js";
+import type { Snapshot, Unit, Edge } from "@scv/schema";
+
+function makeUnit(overrides: Partial<Unit> = {}): Unit {
+  return {
+    id: "u:py:src.a#f",
+    kind: "function",
+    name: "a",
+    qualname: "src.a",
+    lang: "python",
+    parent: null,
+    children: [],
+    loc: { files: ["src/a.py"], start: 1, end: 5, sloc: 4 },
+    signature: null,
+    semantics: null,
+    cost: null,
+    tags: [],
+    metrics: {},
+    authors: [],
+    hash: { struct: "s1", text: "t1", semantic: null },
+    provenance: { source: "static" },
+    ...overrides,
+  };
+}
+
+function makeSnapshot(units: Unit[], edges: Edge[] = [], sha = "aaa1111"): Snapshot {
+  return {
+    schema: "scv/1",
+    snapshot_id: `snap-${sha}`,
+    repo: { root: "orderly", vcs: "git" },
+    rev: { sha, kind: "commit", author: "a", author_kind: "human", ts: "2026-01-01T00:00:00Z" },
+    provenance: { extractor: "scv-ts/0.1.0", interpreter: { model: "none", prompt_rev: "none" } },
+    units,
+    edges,
+    externals: [],
+  };
+}
+
+describe("runDiffer", () => {
+  it("marks a unit present only in b as added, with amount 1", () => {
+    const a = makeSnapshot([]);
+    const b = makeSnapshot([makeUnit()]);
+
+    const delta = runDiffer(a, b);
+
+    expect(delta.unit_deltas).toHaveLength(1);
+    expect(delta.unit_deltas[0]).toMatchObject({ unit: "u:py:src.a#f", status: "added", amount: 1 });
+  });
+
+  it("marks a unit present only in a as removed, with amount 1", () => {
+    const a = makeSnapshot([makeUnit()]);
+    const b = makeSnapshot([]);
+
+    const delta = runDiffer(a, b);
+
+    expect(delta.unit_deltas[0]).toMatchObject({ status: "removed", amount: 1 });
+  });
+
+  it("omits unchanged units (same hashes) from unit_deltas", () => {
+    const unit = makeUnit();
+    const a = makeSnapshot([unit]);
+    const b = makeSnapshot([unit]);
+
+    const delta = runDiffer(a, b);
+
+    expect(delta.unit_deltas).toHaveLength(0);
+  });
+
+  it("marks a unit as modified when its text hash changes, with amount > 0", () => {
+    const a = makeSnapshot([makeUnit({ hash: { struct: "s1", text: "t1", semantic: null } })]);
+    const b = makeSnapshot([makeUnit({ hash: { struct: "s1", text: "t2", semantic: null } })]);
+
+    const delta = runDiffer(a, b);
+
+    expect(delta.unit_deltas[0]?.status).toBe("modified");
+    expect(delta.unit_deltas[0]?.amount).toBeGreaterThan(0);
+  });
+
+  it("computes blast radius as transitive incoming edges, capped at depth 4", () => {
+    // chain: d -> c -> b -> a -> target ; target has 5 transitive ancestors upstream if uncapped
+    const target = makeUnit({ id: "u:t", qualname: "t" });
+    const n1 = makeUnit({ id: "u:1", qualname: "n1" });
+    const n2 = makeUnit({ id: "u:2", qualname: "n2" });
+    const n3 = makeUnit({ id: "u:3", qualname: "n3" });
+    const n4 = makeUnit({ id: "u:4", qualname: "n4" });
+    const n5 = makeUnit({ id: "u:5", qualname: "n5" });
+    const edges: Edge[] = [
+      { id: "e1", from: "u:1", to: "u:t", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e2", from: "u:2", to: "u:1", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e3", from: "u:3", to: "u:2", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e4", from: "u:4", to: "u:3", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e5", from: "u:5", to: "u:4", kind: "calls", weight: 1, source: "static", confidence: 1 },
+    ];
+    const a = makeSnapshot([]);
+    const b = makeSnapshot([target, n1, n2, n3, n4, n5], edges);
+
+    const delta = runDiffer(a, b);
+
+    const targetDelta = delta.unit_deltas.find((d) => d.unit === "u:t");
+    expect(targetDelta?.blast_radius.direct).toBe(1);
+    expect(targetDelta?.blast_radius.transitive).toBe(4);
+  });
+
+  it("flags public_api true when the unit is tagged public-api or auth-boundary", () => {
+    const a = makeSnapshot([]);
+    const b = makeSnapshot([makeUnit({ tags: ["public-api"] })]);
+
+    const delta = runDiffer(a, b);
+
+    expect(delta.unit_deltas[0]?.blast_radius.public_api).toBe(true);
+  });
+
+  it("produces edge deltas for added, removed, and reweighted edges", () => {
+    const u1 = makeUnit({ id: "u:1", qualname: "n1" });
+    const u2 = makeUnit({ id: "u:2", qualname: "n2" });
+    const edgeSame: Edge = { id: "e:same", from: "u:1", to: "u:2", kind: "calls", weight: 1, source: "static", confidence: 1 };
+    const edgeRemoved: Edge = { id: "e:rm", from: "u:1", to: "u:2", kind: "imports", weight: 1, source: "static", confidence: 1 };
+    const edgeReweighted: Edge = { id: "e:rw", from: "u:1", to: "u:2", kind: "inherits", weight: 1, source: "static", confidence: 1 };
+    const edgeAdded: Edge = { id: "e:add", from: "u:2", to: "u:1", kind: "calls", weight: 1, source: "static", confidence: 1 };
+
+    const a = makeSnapshot([u1, u2], [edgeSame, edgeRemoved, { ...edgeReweighted, weight: 1 }]);
+    const b = makeSnapshot([u1, u2], [edgeSame, { ...edgeReweighted, weight: 3 }, edgeAdded]);
+
+    const delta = runDiffer(a, b);
+
+    const statuses = Object.fromEntries(delta.edge_deltas.map((d) => [d.edge, d.status]));
+    expect(statuses["e:rm"]).toBe("removed");
+    expect(statuses["e:add"]).toBe("added");
+    expect(statuses["e:rw"]).toBe("reweighted");
+    expect(statuses["e:same"]).toBeUndefined();
+  });
+
+  it("rolls up amount (sloc-weighted mean) and risk (max) to ancestors", () => {
+    const parent = makeUnit({
+      id: "u:parent",
+      qualname: "parent",
+      kind: "module",
+      children: ["u:child1", "u:child2"],
+      loc: { files: ["p.py"], start: null, end: null, sloc: 10 },
+    });
+    const child1 = makeUnit({ id: "u:child1", qualname: "child1", parent: "u:parent", loc: { files: ["p.py"], start: 1, end: 3, sloc: 3 } });
+    const child2 = makeUnit({ id: "u:child2", qualname: "child2", parent: "u:parent", loc: { files: ["p.py"], start: 4, end: 10, sloc: 7 } });
+
+    const a = makeSnapshot([
+      parent,
+      { ...child1, hash: { struct: "s1", text: "t1", semantic: null } },
+      { ...child2, hash: { struct: "s1", text: "t1", semantic: null } },
+    ]);
+    const b = makeSnapshot([
+      parent,
+      { ...child1, hash: { struct: "s1", text: "t1-changed", semantic: null } },
+      { ...child2, hash: { struct: "s1", text: "t1", semantic: null } },
+    ]);
+
+    const delta = runDiffer(a, b);
+
+    expect(delta.rollup["u:parent"]).toBeDefined();
+    expect(delta.rollup["u:parent"]?.amount).toBeGreaterThan(0);
+    expect(delta.rollup["u:parent"]?.sloc).toBe(10);
+  });
+
+  it("returns schema-required from/to snapshot refs and formulas provenance", () => {
+    const a = makeSnapshot([], [], "aaa1111");
+    const b = makeSnapshot([], [], "bbb2222");
+
+    const delta = runDiffer(a, b);
+
+    expect(delta.schema).toBe("scv-delta/1");
+    expect(delta.from.sha).toBe("aaa1111");
+    expect(delta.to.sha).toBe("bbb2222");
+    expect(delta.provenance.formulas).toBeTruthy();
+  });
+});

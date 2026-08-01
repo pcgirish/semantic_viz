@@ -3,7 +3,7 @@ import type { Provider } from "./provider.js";
 import { passBPrompt } from "./prompts/pass-b.js";
 import { checkAndRepairClusters, directoryClusters, modularity } from "./checker.js";
 import type { ClusterProposal, ImportEdge } from "./checker.js";
-import { parseJsonResponse } from "./json-response.js";
+import { interpretJsonWithRetry } from "./retry.js";
 
 const PassBResponseSchema = z.object({
   clusters: z.record(z.string(), z.array(z.string())),
@@ -28,10 +28,7 @@ export interface RunPassBOptions {
 export async function runPassB(options: RunPassBOptions): Promise<PassBResult> {
   const { files, oneLiners, edges, provider } = options;
   const prompt = passBPrompt(files, oneLiners, edges);
-  const { text } = await provider.interpret(prompt);
-
-  const parsed = parseJsonResponse(text, "pass B");
-  const response = PassBResponseSchema.parse(parsed);
+  const response = await interpretJsonWithRetry({ provider, prompt, label: "pass B", schema: PassBResponseSchema });
   const { clusters, repaired } = checkAndRepairClusters(response.clusters, files);
 
   return {
