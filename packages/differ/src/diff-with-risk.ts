@@ -10,10 +10,15 @@ import { runDiffer } from "./diff.js";
  */
 const NARRATABLE_KINDS = new Set(["module"]);
 
-/** Triggers Pass D — a unit's semantics changed (or it was added/removed, which is always a semantics change) but was skipped for a text/struct-only reformat, and it's a module, not a finer-grained unit or a clustering artifact. */
+/**
+ * Triggers Pass D for any module that changed at all. Unlike leaf units, a module's own
+ * `semantic_hash` is never computed (only function/class units get one from Pass A), so gating
+ * on `fields.includes("semantics")` would never fire — a text-only edit like a config value
+ * tuned or a log format reworded is exactly the kind of module-level change worth narrating,
+ * even though no individual function's meaning changed.
+ */
 function needsRiskNarration(delta: UnitDelta): boolean {
-  if (!NARRATABLE_KINDS.has(delta.kind)) return false;
-  return delta.status === "added" || delta.status === "removed" || delta.fields.includes("semantics");
+  return NARRATABLE_KINDS.has(delta.kind) && delta.status !== "unchanged";
 }
 
 /** Runs the deterministic Differ, then narrates risk (Pass D) for every unit whose semantics changed and ranks the inspect queue — the Interpreter-in-the-loop half of the Differ. See analyze.md#3-4. */

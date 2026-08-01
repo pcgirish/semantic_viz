@@ -94,16 +94,31 @@ describe("runDifferWithRisk", () => {
     expect(delta.inspect_queue[1]).toMatchObject({ rank: 2, unit: "u:1" });
   });
 
-  it("does not call Pass D for units whose semantics did not change", async () => {
-    const unit = makeUnit({ hash: { struct: "s1", text: "t1-changed", semantic: "sem1" } });
-    const a = makeSnapshot([{ ...unit, hash: { struct: "s1", text: "t1", semantic: "sem1" } }]);
+  it("does not call Pass D for units that did not change at all", async () => {
+    const unit = makeUnit({ hash: { struct: "s1", text: "t1", semantic: "sem1" } });
+    const a = makeSnapshot([unit]);
     const b = makeSnapshot([unit]);
     const provider = providerReturning({}, []);
 
     const delta = await runDifferWithRisk(a, b, provider, "p1");
 
-    expect(delta.unit_deltas[0]?.risk.source).toBe("formula");
+    expect(delta.unit_deltas).toEqual([]);
     expect(delta.inspect_queue).toEqual([]);
+  });
+
+  it("narrates a module whose text changed but whose (unmodeled) module-level semantic hash did not — e.g. a reformat or config tuning", async () => {
+    const unit = makeUnit({ hash: { struct: "s1", text: "t1-changed", semantic: null } });
+    const a = makeSnapshot([{ ...unit, hash: { struct: "s1", text: "t1", semantic: null } }]);
+    const b = makeSnapshot([unit]);
+    const provider = providerReturning(
+      { "src.a": { axes: { functionality: 0.1, availability: 0.1, scalability: 0.1, performance: 0.1, security: 0.1 }, why: "reformat", confidence: 0.4 } },
+      [1],
+    );
+
+    const delta = await runDifferWithRisk(a, b, provider, "p1");
+
+    expect(delta.unit_deltas[0]?.risk.source).toBe("llm");
+    expect(delta.inspect_queue).toHaveLength(1);
   });
 
   it("never narrates or ranks layer/system units — clustering churn is not a code-level risk", async () => {
