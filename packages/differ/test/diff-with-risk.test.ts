@@ -105,4 +105,18 @@ describe("runDifferWithRisk", () => {
     expect(delta.unit_deltas[0]?.risk.source).toBe("formula");
     expect(delta.inspect_queue).toEqual([]);
   });
+
+  it("never narrates or ranks layer/system units — clustering churn is not a code-level risk", async () => {
+    const layer = makeUnit({ id: "u:layer:x", kind: "layer", qualname: "ops", children: [] });
+    const system = makeUnit({ id: "u:sys:orderly", kind: "system", qualname: "orderly", children: [] });
+    const a = makeSnapshot([]);
+    const b = makeSnapshot([layer, system]);
+    const provider = providerReturning({}, []);
+
+    const delta = await runDifferWithRisk(a, b, provider, "p1");
+
+    expect(delta.unit_deltas.every((d) => d.risk.source === "formula")).toBe(true);
+    expect(delta.inspect_queue).toEqual([]);
+    expect(provider.interpret).not.toHaveBeenCalled();
+  });
 });

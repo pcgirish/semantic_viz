@@ -1,10 +1,14 @@
 import { runPassD, rankInspectQueue, type Provider } from "@scv/interpreter";
-import type { Delta, Snapshot } from "@scv/schema";
+import type { Delta, Snapshot, UnitDelta } from "@scv/schema";
 import { runDiffer } from "./diff.js";
 
-/** Triggers Pass D — a unit's semantics changed (or it was added/removed, which is always a semantics change) but was skipped for a text/struct-only reformat. */
-function needsRiskNarration(fields: string[], status: string): boolean {
-  return status === "added" || status === "removed" || fields.includes("semantics");
+/** layer/system units are LLM-invented groupings, not code — their identity churns whenever Pass B/C reclusters, which is not a risk a human should be asked to inspect. */
+const NON_NARRATABLE_KINDS = new Set(["layer", "system"]);
+
+/** Triggers Pass D — a unit's semantics changed (or it was added/removed, which is always a semantics change) but was skipped for a text/struct-only reformat, and it's a real code unit, not a clustering artifact. */
+function needsRiskNarration(delta: UnitDelta): boolean {
+  if (NON_NARRATABLE_KINDS.has(delta.kind)) return false;
+  return delta.status === "added" || delta.status === "removed" || delta.fields.includes("semantics");
 }
 
 /** Runs the deterministic Differ, then narrates risk (Pass D) for every unit whose semantics changed and ranks the inspect queue — the Interpreter-in-the-loop half of the Differ. See analyze.md#3-4. */
@@ -15,7 +19,7 @@ export async function runDifferWithRisk(a: Snapshot, b: Snapshot, provider: Prov
 
   const unitDeltas = await Promise.all(
     structural.unit_deltas.map(async (delta) => {
-      if (!needsRiskNarration(delta.fields, delta.status)) return delta;
+      if (!needsRiskNarration(delta)) return delta;
 
       const unit = unitsB.get(delta.unit) ?? unitsA.get(delta.unit);
       const passD = await runPassD({
