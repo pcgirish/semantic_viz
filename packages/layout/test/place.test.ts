@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { place } from "../src/place.js";
+import { isDummy } from "../src/expand.js";
 
 describe("place", () => {
   it("places a single node at the row origin", () => {
@@ -42,5 +43,14 @@ describe("place", () => {
     );
     expect(lonely.get("solo")!.w).toBeLessThan(2000);
     expect(crowded.get("solo2")!.w).toBeLessThan(2000);
+  });
+
+  it("sizes a dummy node as a small fixed-width pass-through marker, not by sloc", () => {
+    const dummyId = "~dummy~a|d|1";
+    expect(isDummy(dummyId)).toBe(true);
+    const boxes = place([["real", dummyId]], new Map([["real", 400]]));
+    const dummy = boxes.get(dummyId)!;
+    expect(dummy.w).toBeLessThan(boxes.get("real")!.w);
+    expect(dummy.w).toBeLessThanOrEqual(8);
   });
 });
