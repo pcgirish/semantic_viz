@@ -14,7 +14,7 @@ export function createProvider(config: InterpreterConfig): Provider {
     case "anthropic":
       return new AnthropicProvider({ model: config.model ?? DEFAULT_ANTHROPIC_MODEL });
     case "claude-cli":
-      return new ClaudeCliProvider();
+      return new ClaudeCliProvider({ model: config.model });
     default:
       throw new Error(`unknown provider: ${config.provider as string}`);
   }

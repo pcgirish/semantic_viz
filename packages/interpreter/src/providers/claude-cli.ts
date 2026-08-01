@@ -6,6 +6,14 @@ interface ClaudeCliJsonOutput {
   usage?: { input_tokens?: number; output_tokens?: number };
 }
 
+export interface ClaudeCliProviderOptions {
+  model?: string;
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
+}
+
+const DEFAULT_MODEL = "sonnet";
+const DEFAULT_EFFORT = "low";
+
 /**
  * Shells out to the `claude` CLI, authenticated via Pro/Max OAuth rather than
  * ANTHROPIC_API_KEY — usage draws down plan quota, not metered billing.
@@ -13,10 +21,16 @@ interface ClaudeCliJsonOutput {
  */
 export class ClaudeCliProvider implements Provider {
   readonly name = "claude-cli";
-  readonly model = "unpinned";
+  readonly model: string;
+  private readonly effort: string;
+
+  constructor(options: ClaudeCliProviderOptions = {}) {
+    this.model = options.model ?? DEFAULT_MODEL;
+    this.effort = options.effort ?? DEFAULT_EFFORT;
+  }
 
   async interpret(prompt: string, context?: ProviderContext): Promise<ProviderResult> {
-    const args = ["-p", prompt, "--output-format", "json"];
+    const args = ["-p", prompt, "--output-format", "json", "--model", this.model, "--effort", this.effort];
     if (context?.system) {
       args.push("--append-system-prompt", context.system);
     }

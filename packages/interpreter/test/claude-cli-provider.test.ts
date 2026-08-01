@@ -18,7 +18,7 @@ describe("ClaudeCliProvider", () => {
     execFileMock.mockReset();
   });
 
-  it("shells out to `claude -p` with --output-format json", async () => {
+  it("shells out to `claude -p` with --output-format json, defaulting to sonnet at low effort", async () => {
     mockResult({ result: "it increments a counter", usage: { input_tokens: 5, output_tokens: 7 } });
 
     const provider = new ClaudeCliProvider();
@@ -31,9 +31,26 @@ describe("ClaudeCliProvider", () => {
     expect(args).toContain("what does this do?");
     expect(args).toContain("--output-format");
     expect(args).toContain("json");
+    expect(args).toContain("--model");
+    expect(args).toContain("sonnet");
+    expect(args).toContain("--effort");
+    expect(args).toContain("low");
 
     expect(result.text).toBe("it increments a counter");
     expect(result.tokens).toBe(12);
+  });
+
+  it("accepts a custom model and effort", async () => {
+    mockResult({ result: "ok", usage: { input_tokens: 1, output_tokens: 1 } });
+
+    const provider = new ClaudeCliProvider({ model: "opus", effort: "high" });
+    await provider.interpret("prompt");
+
+    const [, args] = execFileMock.mock.calls[0]!;
+    expect(args).toContain("--model");
+    expect(args).toContain("opus");
+    expect(args).toContain("--effort");
+    expect(args).toContain("high");
   });
 
   it("passes context.system via --append-system-prompt", async () => {
@@ -56,9 +73,9 @@ describe("ClaudeCliProvider", () => {
     await expect(provider.interpret("prompt")).rejects.toThrow(/command not found/);
   });
 
-  it("exposes provider name; model reflects whatever the CLI resolves, unpinned", () => {
+  it("exposes provider name and model, defaulting to sonnet", () => {
     const provider = new ClaudeCliProvider();
     expect(provider.name).toBe("claude-cli");
-    expect(provider.model).toBe("unpinned");
+    expect(provider.model).toBe("sonnet");
   });
 });
