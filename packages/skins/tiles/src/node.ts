@@ -3,6 +3,15 @@ import { el, ngon, ptstr } from "./svg.js";
 
 const CORNER = 6; // chamfer radius, so tiles read as tiles rather than plain rectangles
 const GLYPH_R = 7.5;
+const LABEL_PAD = 12; // matches the label's x offset from the tile's left edge
+const CHAR_WIDTH_RATIO = 0.55; // rough average glyph width, in ems, for the sans/mono labels here
+
+/** Truncates `name` with an ellipsis so it fits in `availWidth` px at `fontSize`, if needed. */
+function fitLabel(name: string, availWidth: number, fontSize: number): string {
+  const maxChars = Math.max(1, Math.floor(availWidth / (fontSize * CHAR_WIDTH_RATIO)));
+  if (name.length <= maxChars) return name;
+  return `${name.slice(0, Math.max(1, maxChars - 1))}…`;
+}
 
 /**
  * Renders one Scene node as an SVG <g>: a chamfered tile sized to the node's box, a
@@ -25,12 +34,19 @@ export function node(n: SceneNode): SVGGElement {
   g.appendChild(el("polygon", { points: ptstr(pts), class: "tile-body" }));
 
   const nameSize = Math.min(14, Math.max(10.5, n.w / 10));
-  const label = el("text", { x: n.x + 12, y: n.y + 22, class: "nm", "font-size": nameSize });
-  label.textContent = n.name;
+  const fittedName = fitLabel(n.name, n.w - LABEL_PAD * 2, nameSize);
+  const label = el("text", { x: n.x + LABEL_PAD, y: n.y + 22, class: "nm", "font-size": nameSize });
+  label.textContent = fittedName;
   g.appendChild(label);
+  if (fittedName !== n.name) {
+    const title = el("title", {});
+    title.textContent = n.name;
+    g.appendChild(title);
+  }
 
-  const meta = el("text", { x: n.x + 12, y: n.y + 36, class: "mt", "font-size": 9.5 });
-  meta.textContent = `${n.sloc} sloc · in ${n.fanIn} · out ${n.fanOut}`;
+  const metaSize = 9.5;
+  const meta = el("text", { x: n.x + 12, y: n.y + 36, class: "mt", "font-size": metaSize });
+  meta.textContent = fitLabel(`${n.sloc} sloc · in ${n.fanIn} · out ${n.fanOut}`, n.w - LABEL_PAD * 2, metaSize);
   g.appendChild(meta);
 
   if (n.ring) {
