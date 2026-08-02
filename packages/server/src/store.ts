@@ -5,6 +5,7 @@ import type { Delta, Snapshot, Unit } from "@scv/schema";
 export interface RevSummary {
   sha: string;
   kind: Snapshot["rev"]["kind"];
+  pr?: number;
   ts: string;
   author: string;
   author_kind: string;
@@ -49,6 +50,7 @@ export class SnapshotStore {
       return {
         sha: s.rev.sha,
         kind: s.rev.kind,
+        ...(s.rev.pr !== undefined ? { pr: s.rev.pr } : {}),
         ts: s.rev.ts,
         author: s.rev.author,
         author_kind: s.rev.author_kind,
