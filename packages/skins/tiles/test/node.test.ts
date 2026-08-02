@@ -66,10 +66,34 @@ describe("node", () => {
   });
 
   it("renders a metadata line with sloc, fan-in, and fan-out", () => {
-    const el = node(makeNode({ id: "a", sloc: 42, fanIn: 3, fanOut: 5 }));
+    const el = node(makeNode({ id: "a", sloc: 42, fanIn: 3, fanOut: 5, w: 200 }));
     const meta = el.querySelector(".mt")!;
     expect(meta.textContent).toContain("42");
     expect(meta.textContent).toContain("3");
     expect(meta.textContent).toContain("5");
+  });
+
+  it("truncates a name too long for a narrow tile instead of overflowing into neighbours", () => {
+    const el = node(makeNode({ id: "a", name: "GET /public/orders/checkout", w: 96 }));
+    const label = el.querySelector(".nm")!;
+    expect(label.textContent!.length).toBeLessThan("GET /public/orders/checkout".length);
+    expect(label.textContent!.endsWith("…")).toBe(true);
+  });
+
+  it("does not truncate a name that already fits the tile", () => {
+    const el = node(makeNode({ id: "a", name: "ok", w: 200 }));
+    const label = el.querySelector(".nm")!;
+    expect(label.textContent).toBe("ok");
+  });
+
+  it("puts the full name in a <title> so a truncated label is still readable on hover", () => {
+    const el = node(makeNode({ id: "a", name: "GET /public/orders/checkout", w: 96 }));
+    expect(el.querySelector("title")?.textContent).toBe("GET /public/orders/checkout");
+  });
+
+  it("truncates the metadata line too, so 'sloc · in · out' doesn't overflow a narrow tile", () => {
+    const el = node(makeNode({ id: "a", sloc: 800, fanIn: 30, fanOut: 40, w: 96 }));
+    const meta = el.querySelector(".mt")!;
+    expect(meta.textContent!.length).toBeLessThan(`${800} sloc · in ${30} · out ${40}`.length);
   });
 });

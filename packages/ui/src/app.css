@@ -39,6 +39,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   font: 13px/1.45 var(--b);
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
