@@ -165,4 +165,12 @@ describe("CanvasHost", () => {
 
     expect(container.querySelector('.tile[data-id="b"]')!.classList.contains("dim")).toBe(false);
   });
+
+  it("applies a pulse class to tiles with a delta, so scrubbing rev-to-rev is visibly animated", () => {
+    const units = [makeUnit({ id: "a" })];
+    const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
+    const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
+
+    expect(container.querySelector('.tile[data-id="a"]')!.classList.contains("pulse")).toBe(true);
+  });
 });

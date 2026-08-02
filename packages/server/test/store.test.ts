@@ -12,8 +12,8 @@ describe("SnapshotStore", () => {
     const revs = store.listRevs();
 
     expect(revs).toEqual([
-      { sha: "c".repeat(40), kind: "commit", ts: "2026-02-01T00:00:00Z", author: "Bo" },
-      { sha: "b".repeat(40), kind: "commit", ts: "2026-01-01T00:00:00Z", author: "Ada" },
+      { sha: "c".repeat(40), kind: "commit", ts: "2026-02-01T00:00:00Z", author: "Bo", author_kind: "human", amount: 0 },
+      { sha: "b".repeat(40), kind: "commit", ts: "2026-01-01T00:00:00Z", author: "Ada", author_kind: "human", amount: 0 },
     ]);
   });
 

@@ -3,6 +3,7 @@ import type { Delta, Snapshot } from "@scv/schema";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { Inspector } from "./Inspector.js";
 import { InspectQueue } from "./InspectQueue.js";
+import { Replay } from "./Replay.js";
 import { useAppStore } from "./store.js";
 
 export type AppProps = {
@@ -12,7 +13,7 @@ export type AppProps = {
 
 type LoadState = { status: "loading" } | { status: "error" } | { status: "loaded"; snapshot: Snapshot };
 
-type RevSummary = { sha: string; kind: string; ts: string; author: string };
+type RevSummary = { sha: string; kind: string; ts: string; author: string; author_kind: string; amount: number };
 
 function shaFromSnapshotUrl(url: string): string {
   return url.split("/").pop() ?? "";
@@ -142,12 +143,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         </select>
       </header>
       <div className="body">
-        <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
         {mode === "delta" && delta && (
           <InspectQueue entries={delta.inspect_queue} onSelect={(unitId) => select(unitId)} />
         )}
+        <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
         <Inspector unit={selectedUnit} units={units} edges={edges} />
       </div>
+      {revs.length > 0 && <Replay revs={revs} sha={sha} onScrub={setSha} />}
     </div>
   );
 }
