@@ -377,8 +377,9 @@ button {
 
 .replay {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 15px;
+  gap: 8px 15px;
   flex: none;
   padding: 8px 18px;
   background: var(--panel);
@@ -417,10 +418,9 @@ button {
 .replay-track {
   display: flex;
   align-items: flex-end;
-  gap: 3px;
   flex: 1;
-  height: 32px;
   min-width: 0;
+  height: 52px;
   position: relative;
 }
 
@@ -429,18 +429,30 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 16px;
   height: 1px;
   background: var(--hair);
 }
 
-.replay-bar {
+/* Each rev gets its own flex cell (docs/mock's #revs/.rev) so bars, dots, and sha
+   captions space out proportionally to rev count instead of the captions clashing
+   together in a single dense strip. */
+.replay-rev {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.replay-bar {
+  width: 100%;
+  max-width: 46px;
   min-width: 2px;
-  max-width: 20px;
   height: calc(4px + var(--amount, 0) * 28px);
   background: var(--hair);
-  cursor: pointer;
   border-radius: 1px 1px 0 0;
   transition: 0.18s;
 }
@@ -456,5 +468,45 @@ button {
 .replay-bar.active {
   background: var(--ink);
   transform: scaleY(1.05);
+}
+
+.replay-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid var(--hair);
+}
+
+.replay-rev.active .replay-dot {
+  background: var(--ink);
+  border-color: var(--ink);
+  transform: scale(1.3);
+}
+
+.replay-cap {
+  font: 9.5px var(--m);
+  color: var(--slate);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.replay-rev.active .replay-cap {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.replay-meta {
+  flex-basis: 100%;
+  font-size: 10.5px;
+  color: var(--slate);
+}
+
+.replay-meta strong {
+  margin-right: 6px;
+  color: var(--ink);
+  font-weight: 600;
 }
 

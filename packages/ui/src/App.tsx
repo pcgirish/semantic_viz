@@ -13,7 +13,7 @@ export type AppProps = {
 
 type LoadState = { status: "loading" } | { status: "error" } | { status: "loaded"; snapshot: Snapshot };
 
-type RevSummary = { sha: string; kind: string; pr?: number; ts: string; author: string; author_kind: string; amount: number };
+type RevSummary = { sha: string; kind: string; pr?: number; message?: string; ts: string; author: string; author_kind: string; amount: number };
 
 function shaFromSnapshotUrl(url: string): string {
   return url.split("/").pop() ?? "";

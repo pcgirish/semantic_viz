@@ -6,6 +6,7 @@ export interface RevSummary {
   sha: string;
   kind: Snapshot["rev"]["kind"];
   pr?: number;
+  message?: string;
   ts: string;
   author: string;
   author_kind: string;
@@ -51,6 +52,7 @@ export class SnapshotStore {
         sha: s.rev.sha,
         kind: s.rev.kind,
         ...(s.rev.pr !== undefined ? { pr: s.rev.pr } : {}),
+        ...(s.rev.message !== undefined ? { message: s.rev.message } : {}),
         ts: s.rev.ts,
         author: s.rev.author,
         author_kind: s.rev.author_kind,
