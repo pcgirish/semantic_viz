@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
-import { makeSnapshot, writeScvFixture } from "./fixtures.js";
+import { makeDelta, makeSnapshot, writeScvFixture } from "./fixtures.js";
 
 describe("server routes", () => {
   it("GET /api/revs returns the rev list", async () => {
@@ -73,5 +73,25 @@ describe("server routes", () => {
     const res = await app.inject({ method: "GET", url: "/api/search" });
 
     expect(res.statusCode).toBe(400);
+  });
+
+  it("GET /api/delta/:from/:to returns the delta between two snapshots", async () => {
+    const delta = makeDelta();
+    const scvDir = writeScvFixture([], [delta]);
+    const app = buildApp({ scvDir });
+
+    const res = await app.inject({ method: "GET", url: `/api/delta/${delta.from.sha}/${delta.to.sha}` });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(delta);
+  });
+
+  it("GET /api/delta/:from/:to 404s when no delta file exists for that pair", async () => {
+    const scvDir = writeScvFixture([], []);
+    const app = buildApp({ scvDir });
+
+    const res = await app.inject({ method: "GET", url: `/api/delta/${"a".repeat(40)}/${"b".repeat(40)}` });
+
+    expect(res.statusCode).toBe(404);
   });
 });
