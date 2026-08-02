@@ -14,6 +14,7 @@ type LoadState = { status: "loading" } | { status: "error" } | { status: "loaded
 export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const selection = useAppStore((s) => s.selection);
+  const focus = useAppStore((s) => s.focus);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,9 +41,21 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const { units, edges } = state.snapshot;
   const selectedUnit = units.find((u) => u.id === selection) ?? null;
 
+  // docs/serve.md#4 "Current": outermost is the system unit; a view shows only the
+  // focused unit's direct children, never the whole graph flat. Collapse/expand mutates
+  // the visible node set, not the graph (docs/serve.md#3).
+  const unitsById = new Map(units.map((u) => [u.id, u]));
+  const systemUnit = units.find((u) => u.kind === "system") ?? null;
+  const focusedUnit = (focus && unitsById.get(focus)) || systemUnit;
+  const visibleUnits = focusedUnit
+    ? units.filter((u) => focusedUnit.children.includes(u.id))
+    : units.filter((u) => u.parent === null);
+  const visibleIds = new Set(visibleUnits.map((u) => u.id));
+  const visibleEdges = edges.filter((e) => visibleIds.has(e.from) && visibleIds.has(e.to));
+
   return (
     <div className="app">
-      <CanvasHost units={units} edges={edges} />
+      <CanvasHost units={visibleUnits} edges={visibleEdges} />
       <Inspector unit={selectedUnit} units={units} edges={edges} />
     </div>
   );
