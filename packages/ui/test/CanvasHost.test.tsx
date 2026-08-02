@@ -41,6 +41,24 @@ describe("CanvasHost", () => {
     expect(container.querySelectorAll(".tile")).toHaveLength(2);
   });
 
+  it("sets --layer-color on a tile whose unit has a layer ancestor", () => {
+    const units = [
+      makeUnit({ id: "u:layer:abc", kind: "layer", name: "orders" }),
+      makeUnit({ id: "a", parent: "u:layer:abc" }),
+    ];
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const tile = container.querySelector('[data-id="a"]') as HTMLElement;
+    expect(tile.style.getPropertyValue("--layer-color")).not.toBe("");
+    expect(tile.style.getPropertyValue("--layer-color")).not.toBe("var(--ext)");
+  });
+
+  it("falls back to var(--ext) for a tile with no layer ancestor", () => {
+    const units = [makeUnit({ id: "a" })];
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const tile = container.querySelector('[data-id="a"]') as HTMLElement;
+    expect(tile.style.getPropertyValue("--layer-color")).toBe("var(--ext)");
+  });
+
   it("clicking a tile selects its unit", () => {
     const units = [makeUnit({ id: "a" })];
     const { container } = render(<CanvasHost units={units} edges={[]} />);

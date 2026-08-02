@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { buildScene, type Scene } from "@scv/layout";
-import { tilesSkin } from "@scv/skin-tiles";
+import { tilesSkin, hashLayerToColor } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
 
 const HIGH_RISK = 0.5;
@@ -101,6 +101,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     }
     for (const n of scene.nodes) {
       const el = tilesSkin.node(n);
+      const layerColor = n.layer ? hashLayerToColor(n.layer) : "";
+      el.style.setProperty("--layer-color", layerColor || "var(--ext)");
       const d = deltaByUnit?.get(n.id);
       if (d) {
         el.classList.add(`status-${d.status}`, "pulse");

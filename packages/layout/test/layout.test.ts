@@ -98,4 +98,41 @@ describe("buildScene", () => {
     const s2 = buildScene(units, edges);
     expect(s1).toEqual(s2);
   });
+
+  it("carries the nearest layer ancestor's id onto a scene node", () => {
+    const units = [
+      makeUnit({ id: "u:layer:abc123", kind: "layer", name: "orders" }),
+      makeUnit({ id: "a", parent: "u:layer:abc123" }),
+    ];
+    const scene = buildScene(units, []);
+    const a = scene.nodes.find((n) => n.id === "a")!;
+    expect(a.layer).toBe("u:layer:abc123");
+  });
+
+  it("walks past non-layer parents to find the nearest layer ancestor", () => {
+    const units = [
+      makeUnit({ id: "u:layer:abc123", kind: "layer", name: "orders" }),
+      makeUnit({ id: "cls", kind: "class", parent: "u:layer:abc123" }),
+      makeUnit({ id: "a", parent: "cls" }),
+    ];
+    const scene = buildScene(units, []);
+    const a = scene.nodes.find((n) => n.id === "a")!;
+    expect(a.layer).toBe("u:layer:abc123");
+  });
+
+  it("gives a unit with no layer ancestor an empty layer id", () => {
+    const units = [makeUnit({ id: "a" })];
+    const scene = buildScene(units, []);
+    expect(scene.nodes[0]!.layer).toBe("");
+  });
+
+  it("carries raw complexity onto a scene node, defaulting to 0 when cost is absent", () => {
+    const units = [
+      makeUnit({ id: "a", cost: { complexity: 7 } }),
+      makeUnit({ id: "b" }),
+    ];
+    const scene = buildScene(units, []);
+    expect(scene.nodes.find((n) => n.id === "a")!.complexity).toBe(7);
+    expect(scene.nodes.find((n) => n.id === "b")!.complexity).toBe(0);
+  });
 });
