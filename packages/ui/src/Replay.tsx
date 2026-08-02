@@ -4,6 +4,7 @@ export type ReplayRev = {
   sha: string;
   kind: string;
   pr?: number;
+  message?: string;
   ts: string;
   author: string;
   author_kind: string;
@@ -30,18 +31,15 @@ export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
   const hasPrs = revs.some((r) => r.kind === "pr");
   const [dense, setDense] = useState(false);
 
-  // PR mode scopes the track to the current rev's own PR (branch point to head) when
-  // rev.pr is available, rather than flattening every PR in the repo into one track.
-  // Falls back to every rev when the repo has no PR data at all (e.g. no merged PRs, or
-  // a fixture that predates rev.pr) — otherwise the default view would silently show
+  // Replay is a lens on "what happened in this PR", never the whole repo history — both
+  // modes scope to the current rev's own PR (branch point to head) when rev.pr is
+  // available. Falls back to every rev only when the repo has no PR data at all (e.g. a
+  // fixture that predates rev.pr) — otherwise the default view would silently show
   // nothing rather than the commit-level track the mock always renders.
-  const shown =
-    dense || !hasPrs
-      ? revs
-      : currentPr !== undefined
-        ? revs.filter((r) => r.pr === currentPr)
-        : revs.filter((r) => r.kind === "pr");
+  const scoped = currentPr !== undefined ? revs.filter((r) => r.pr === currentPr) : revs;
+  const shown = dense || !hasPrs ? scoped : scoped.filter((r) => r.kind === "pr");
   const chronological = [...shown].sort((a, b) => a.ts.localeCompare(b.ts));
+  const current = revs.find((r) => r.sha === sha);
 
   return (
     <div className="replay">
@@ -57,14 +55,26 @@ export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
         {chronological.map((r) => (
           <div
             key={r.sha}
-            data-testid="replay-bar"
-            className={`replay-bar author-${r.author_kind}${r.sha === sha ? " active" : ""}`}
-            style={{ "--amount": String(r.amount ?? 0) } as React.CSSProperties}
-            title={`${r.sha} · ${r.author} · amount ${(r.amount ?? 0).toFixed(2)}`}
+            className={`replay-rev author-${r.author_kind}${r.sha === sha ? " active" : ""}`}
             onClick={() => onScrub(r.sha)}
-          />
+          >
+            <div
+              data-testid="replay-bar"
+              className={`replay-bar author-${r.author_kind}${r.sha === sha ? " active" : ""}`}
+              style={{ "--amount": String(r.amount ?? 0) } as React.CSSProperties}
+              title={`${r.sha} · ${r.author} · amount ${(r.amount ?? 0).toFixed(2)}`}
+            />
+            <div className="replay-dot" />
+            <div className="replay-cap">{r.sha}</div>
+          </div>
         ))}
       </div>
+      {current && (
+        <div className="replay-meta">
+          {current.message && <strong>{current.message}</strong>}
+          {current.author} · {current.author_kind}
+        </div>
+      )}
     </div>
   );
 }

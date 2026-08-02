@@ -73,4 +73,36 @@ describe("Replay", () => {
     const shas = screen.getAllByTestId("replay-bar").map((b) => b.title.split(" · ")[0]);
     expect(shas.sort()).toEqual(["head", "mid", "start"]);
   });
+
+  it("commit granularity still scopes to the current PR, not the whole repo history", () => {
+    const revs: ReplayRev[] = [
+      { sha: "other-pr-head", kind: "pr", pr: 500, ts: "2026-01-06T00:00:00Z", author: "Cy", author_kind: "human", amount: 0.3 },
+      { sha: "head", kind: "pr", pr: 412, ts: "2026-01-04T00:00:00Z", author: "Ada", author_kind: "human", amount: 0.6 },
+      { sha: "mid", kind: "commit", pr: 412, ts: "2026-01-03T00:00:00Z", author: "agent", author_kind: "agent", amount: 0.5 },
+      { sha: "start", kind: "commit", pr: 412, ts: "2026-01-02T00:00:00Z", author: "agent", author_kind: "agent", amount: 0.1 },
+      { sha: "main1", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "Bo", author_kind: "human", amount: 0 },
+    ];
+    render(<Replay revs={revs} sha="mid" onScrub={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /commit/i }));
+
+    const shas = screen.getAllByTestId("replay-bar").map((b) => b.title.split(" · ")[0]);
+    expect(shas.sort()).toEqual(["head", "mid", "start"]);
+  });
+
+  it("shows a short sha caption under each bar, so the track is legible without hovering", () => {
+    render(<Replay revs={makeRevs()} sha="bbb" onScrub={vi.fn()} />);
+
+    expect(screen.getByText("bbb")).toBeInTheDocument();
+  });
+
+  it("shows the current rev's message and author below the track, like the mock's timeline readout", () => {
+    const revs: ReplayRev[] = [
+      { sha: "bbb", kind: "pr", message: "tune default rate limits", ts: "2026-01-02T00:00:00Z", author: "j.moreau", author_kind: "human", amount: 0.5 },
+    ];
+    render(<Replay revs={revs} sha="bbb" onScrub={vi.fn()} />);
+
+    expect(screen.getByText("tune default rate limits")).toBeInTheDocument();
+    expect(screen.getByText(/j\.moreau/)).toBeInTheDocument();
+  });
 });
