@@ -17,6 +17,16 @@ describe("SnapshotStore", () => {
     ]);
   });
 
+  it("carries rev.pr through so revs can be grouped by pull request", () => {
+    const withPr = makeSnapshot({ rev: { sha: "d".repeat(40), kind: "pr", pr: 412, ts: "2026-03-01T00:00:00Z", author: "Ada", author_kind: "human" } });
+    const scvDir = writeScvFixture([withPr]);
+    const store = new SnapshotStore(scvDir);
+
+    expect(store.listRevs()).toEqual([
+      { sha: "d".repeat(40), kind: "pr", pr: 412, ts: "2026-03-01T00:00:00Z", author: "Ada", author_kind: "human", amount: 0 },
+    ]);
+  });
+
   it("returns an empty list when no snapshots exist", () => {
     const scvDir = writeScvFixture([]);
     const store = new SnapshotStore(scvDir);

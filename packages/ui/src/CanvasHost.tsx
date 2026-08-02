@@ -55,6 +55,12 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   const viewRef = useRef<ViewBox | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; view: ViewBox; moved: boolean } | null>(null);
 
+  // Nodes/links from the last build, kept around so hover can toggle classes on the
+  // existing elements instead of the whole scene being torn down and rebuilt — otherwise
+  // every hover replays each delta tile's pulse animation (docs/serve.md#4 "Replay").
+  const nodeElsRef = useRef(new Map<string, SVGGElement>());
+  const linkElsRef = useRef<Array<{ from: string; to: string; el: SVGElement }>>([]);
+
   const applyViewBox = (svg: SVGSVGElement, box: ViewBox) => {
     svg.setAttribute("viewBox", `${box.x} ${box.y} ${box.w} ${box.h}`);
   };
@@ -63,6 +69,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     const svg = svgRef.current;
     if (!svg) return;
     svg.innerHTML = "";
+    nodeElsRef.current = new Map();
+    linkElsRef.current = [];
 
     const scene = buildScene(units, edges);
     const gated = scene.links.length > scene.nodes.length * 1.6;
@@ -77,27 +85,13 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     svg.appendChild(linkLayer);
     svg.appendChild(nodeLayer);
 
-    const related = new Set<string>();
-    if (hover) {
-      related.add(hover);
-      for (const l of scene.links) {
-        if (l.from === hover) related.add(l.to);
-        if (l.to === hover) related.add(l.from);
-      }
-    }
-
     for (const l of scene.links) {
       const el = tilesSkin.link(l, { gated });
-      if (hover) {
-        if (l.from === hover) el.classList.add("depends-on");
-        else if (l.to === hover) el.classList.add("used-by");
-        else el.classList.add("dim");
-      }
+      linkElsRef.current.push({ from: l.from, to: l.to, el });
       linkLayer.appendChild(el);
     }
     for (const n of scene.nodes) {
       const el = tilesSkin.node(n);
-      if (hover && !related.has(n.id)) el.classList.add("dim");
       const d = deltaByUnit?.get(n.id);
       if (d) {
         el.classList.add(`status-${d.status}`, "pulse");
@@ -114,9 +108,35 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       });
       el.addEventListener("mouseenter", () => setHover(n.id));
       el.addEventListener("mouseleave", () => setHover((h) => (h === n.id ? null : h)));
+      nodeElsRef.current.set(n.id, el);
       nodeLayer.appendChild(el);
     }
-  }, [units, edges, select, drill, hover, deltaByUnit]);
+  }, [units, edges, select, drill, deltaByUnit]);
+
+  // Hover only toggles classes on the existing elements built above — it never rebuilds
+  // the scene, so a delta tile's pulse animation plays once (on scrub) and never replays
+  // just because the mouse moved over a tile.
+  useEffect(() => {
+    const related = new Set<string>();
+    if (hover) {
+      related.add(hover);
+      for (const { from, to } of linkElsRef.current) {
+        if (from === hover) related.add(to);
+        if (to === hover) related.add(from);
+      }
+    }
+
+    for (const { from, to, el } of linkElsRef.current) {
+      el.classList.remove("depends-on", "used-by", "dim");
+      if (!hover) continue;
+      if (from === hover) el.classList.add("depends-on");
+      else if (to === hover) el.classList.add("used-by");
+      else el.classList.add("dim");
+    }
+    for (const [id, el] of nodeElsRef.current) {
+      el.classList.toggle("dim", Boolean(hover) && !related.has(id));
+    }
+  }, [hover]);
 
   const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
