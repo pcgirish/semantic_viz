@@ -264,4 +264,42 @@ describe("runInterpreter", () => {
     const layerB = resultB.units.find((u) => u.kind === "layer");
     expect(layerA?.id).toBe(layerB?.id);
   });
+
+  it("does not fail the whole run when Pass A returns unparseable output for one leaf unit — that unit is left without semantics, other units still get theirs", async () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) {
+          return {
+            text: JSON.stringify({ clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } }),
+            tokens: 10,
+          };
+        }
+        if (prompt.includes("describing why")) {
+          return { text: JSON.stringify({ why: "ops layer", confidence: 0.8 }), tokens: 10 };
+        }
+        if (prompt.includes("scripts.backfill.run")) {
+          return { text: "not json at all", tokens: 10 };
+        }
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    const result = await runInterpreter({
+      snapshot,
+      graph,
+      provider,
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const broken = result.units.find((u) => u.id === "u:py:scripts.backfill.run#f");
+    expect(broken?.semantics).toBeNull();
+
+    const ok = result.units.find((u) => u.id === "u:py:src.admin_tasks.run#f");
+    expect(ok?.semantics?.what).toBe("does a thing");
+  });
 });
