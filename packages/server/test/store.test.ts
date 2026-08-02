@@ -27,6 +27,18 @@ describe("SnapshotStore", () => {
     ]);
   });
 
+  it("carries rev.message through so the Replay track can show what each commit did", () => {
+    const withMessage = makeSnapshot({
+      rev: { sha: "e".repeat(40), kind: "commit", message: "tune default rate limits", ts: "2026-03-01T00:00:00Z", author: "Ada", author_kind: "human" },
+    });
+    const scvDir = writeScvFixture([withMessage]);
+    const store = new SnapshotStore(scvDir);
+
+    expect(store.listRevs()).toEqual([
+      { sha: "e".repeat(40), kind: "commit", message: "tune default rate limits", ts: "2026-03-01T00:00:00Z", author: "Ada", author_kind: "human", amount: 0 },
+    ]);
+  });
+
   it("returns an empty list when no snapshots exist", () => {
     const scvDir = writeScvFixture([]);
     const store = new SnapshotStore(scvDir);
