@@ -534,6 +534,32 @@ describe("App", () => {
     });
   });
 
+  it("shows the inspect queue rail in Delta mode even when no delta exists yet (e.g. earliest rev)", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/revs") {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([{ sha: "aaa", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a" }]),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makeSnapshot()) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/aaa" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /delta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("inspect-queue")).toBeInTheDocument();
+      expect(screen.getByTestId("inspect-queue")).toHaveTextContent(/no delta available/i);
+    });
+  });
+
   it("switching VIEW to Depends on shows externals instead of the canvas", async () => {
     vi.stubGlobal(
       "fetch",

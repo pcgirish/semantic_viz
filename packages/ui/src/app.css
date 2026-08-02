@@ -266,6 +266,12 @@ button {
   padding-left: 8px;
 }
 
+.empty {
+  color: var(--slate);
+  font-size: 11.5px;
+  font-style: italic;
+}
+
 .inspect-queue ol {
   list-style: none;
   margin: 0;

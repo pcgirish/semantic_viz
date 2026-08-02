@@ -169,8 +169,8 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         </select>
       </header>
       <div className="body">
-        {mode === "delta" && delta && (
-          <InspectQueue entries={delta.inspect_queue} onSelect={(unitId) => select(unitId)} />
+        {mode === "delta" && (
+          <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
         {(mode === "current" || mode === "depends") && (
           <div className="rail">
