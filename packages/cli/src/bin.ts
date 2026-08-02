@@ -40,4 +40,7 @@ program
     );
   });
 
-program.parseAsync(process.argv);
+program.parseAsync(process.argv).catch((err: unknown) => {
+  console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
+  process.exitCode = 1;
+});
