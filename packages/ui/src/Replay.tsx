@@ -3,6 +3,7 @@ import { useState } from "react";
 export type ReplayRev = {
   sha: string;
   kind: string;
+  pr?: number;
   ts: string;
   author: string;
   author_kind: string;
@@ -25,9 +26,21 @@ export type ReplayProps = {
  * animates.
  */
 export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
+  const currentPr = revs.find((r) => r.sha === sha)?.pr;
+  const hasPrs = revs.some((r) => r.kind === "pr");
   const [dense, setDense] = useState(false);
 
-  const shown = dense ? revs : revs.filter((r) => r.kind === "pr");
+  // PR mode scopes the track to the current rev's own PR (branch point to head) when
+  // rev.pr is available, rather than flattening every PR in the repo into one track.
+  // Falls back to every rev when the repo has no PR data at all (e.g. no merged PRs, or
+  // a fixture that predates rev.pr) — otherwise the default view would silently show
+  // nothing rather than the commit-level track the mock always renders.
+  const shown =
+    dense || !hasPrs
+      ? revs
+      : currentPr !== undefined
+        ? revs.filter((r) => r.pr === currentPr)
+        : revs.filter((r) => r.kind === "pr");
   const chronological = [...shown].sort((a, b) => a.ts.localeCompare(b.ts));
 
   return (
@@ -46,8 +59,8 @@ export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
             key={r.sha}
             data-testid="replay-bar"
             className={`replay-bar author-${r.author_kind}${r.sha === sha ? " active" : ""}`}
-            style={{ "--amount": String(r.amount) } as React.CSSProperties}
-            title={`${r.sha} · ${r.author} · amount ${r.amount.toFixed(2)}`}
+            style={{ "--amount": String(r.amount ?? 0) } as React.CSSProperties}
+            title={`${r.sha} · ${r.author} · amount ${(r.amount ?? 0).toFixed(2)}`}
             onClick={() => onScrub(r.sha)}
           />
         ))}
