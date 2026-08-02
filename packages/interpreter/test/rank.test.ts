@@ -58,4 +58,47 @@ describe("rankInspectQueue", () => {
 
     await expect(rankInspectQueue({ candidates, provider, promptRev: "p1" })).rejects.toThrow(/rank/i);
   });
+
+  it("falls back to sorting by risk score, without calling the provider, when candidates exceed the LLM ranking cap", async () => {
+    const many: RankCandidate[] = Array.from({ length: 31 }, (_, i) => ({
+      unit: `u:${i}`,
+      qualname: `n${i}`,
+      status: "modified",
+      score: i / 31,
+      confidence: 0.8,
+      blastRadius: { direct: 0, transitive: 0, public_api: false },
+      why: "",
+    }));
+    const provider = fakeProvider({ ranked: [] });
+
+    const result = await rankInspectQueue({ candidates: many, provider, promptRev: "p1" });
+
+    expect(provider.interpret).not.toHaveBeenCalled();
+    expect(result.map((r) => r.unit)).toEqual(["u:30", "u:29", "u:28"].concat(result.slice(3).map((r) => r.unit)));
+    expect(result[0]!.rank).toBe(1);
+    expect(result).toHaveLength(31);
+    // strictly descending by score
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i]!.score).toBeLessThanOrEqual(result[i - 1]!.score);
+    }
+  });
+
+  it("still uses the LLM ranking when candidates are at or under the cap", async () => {
+    const thirty: RankCandidate[] = Array.from({ length: 30 }, (_, i) => ({
+      unit: `u:${i}`,
+      qualname: `n${i}`,
+      status: "modified",
+      score: 0.5,
+      confidence: 0.8,
+      blastRadius: { direct: 0, transitive: 0, public_api: false },
+      why: "",
+    }));
+    const reversed = Array.from({ length: 30 }, (_, i) => 30 - i);
+    const provider = fakeProvider({ ranked: reversed });
+
+    const result = await rankInspectQueue({ candidates: thirty, provider, promptRev: "p1" });
+
+    expect(provider.interpret).toHaveBeenCalledTimes(1);
+    expect(result[0]!.unit).toBe("u:29");
+  });
 });

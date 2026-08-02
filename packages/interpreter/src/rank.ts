@@ -25,6 +25,18 @@ export interface RankInspectQueueOptions {
   promptRev: string;
 }
 
+/** Above this many candidates, an exact 1..N permutation is an unreasonable ask for a single LLM
+ *  call — smaller/local models reliably fail to produce one at this scale (observed: a 93-candidate
+ *  diff), which would otherwise hard-fail the whole diff. A score-sorted fallback keeps the queue
+ *  always available; it costs the Interpreter's qualitative judgment only on unusually large diffs. */
+const LLM_RANK_CAP = 30;
+
+function sortByScoreDescending(candidates: RankCandidate[]): RankedEntry[] {
+  return [...candidates]
+    .sort((a, b) => b.score - a.score)
+    .map((c, i) => ({ ...c, rank: i + 1 }));
+}
+
 /**
  * Orders changed units by what a human should look at first — the Interpreter's judgment, not a
  * sort by risk.score. See analyze.md#rank-is-not-score.
@@ -37,6 +49,7 @@ export interface RankInspectQueueOptions {
 export async function rankInspectQueue(options: RankInspectQueueOptions): Promise<RankedEntry[]> {
   const { candidates, provider } = options;
   if (candidates.length === 0) return [];
+  if (candidates.length > LLM_RANK_CAP) return sortByScoreDescending(candidates);
 
   const prompt = rankPrompt(candidates);
   const response = await interpretJsonWithRetry({
