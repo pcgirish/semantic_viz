@@ -24,6 +24,11 @@ export type CanvasHostProps = {
  * Hovering a unit highlights its depends_on (outgoing) and users (incoming) edges in
  * distinct classes and dims everything else (docs/serve.md#5 — "Direction is a distinct
  * visual question from connection").
+ *
+ * Panning uses the wrapping .canvas-scroll div's native scroll position, not the SVG's
+ * viewBox — viewBox stays fixed to the scene's bounds in scene units, while the SVG's
+ * width/height (CSS pixels) scale with zoom. That makes the browser's own scrollbars
+ * work (drag, click-track, keyboard, trackpad) instead of only a bespoke drag handler.
  */
 type ViewBox = { x: number; y: number; w: number; h: number };
 
@@ -43,27 +48,25 @@ function sceneBounds(scene: { nodes: Array<{ x: number; y: number; w: number; h:
 }
 
 export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.Element {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
   const [hover, setHover] = useState<string | null>(null);
 
-  // Base (fit-to-scene) box, recomputed only when the scene changes; current pan/zoom
-  // is layered on top so hover/selection re-renders never reset the view.
+  // Base (fit-to-scene) box in scene units; the SVG's viewBox always equals this — only
+  // its CSS width/height change with zoom, so scroll position (not viewBox) is what pans.
   const baseBoxRef = useRef<ViewBox>({ x: 0, y: 0, w: 1, h: 1 });
-  const viewRef = useRef<ViewBox | null>(null);
-  const dragRef = useRef<{ startX: number; startY: number; view: ViewBox; moved: boolean } | null>(null);
+  const scaleRef = useRef(1);
+  const [renderSize, setRenderSize] = useState({ w: 1, h: 1 });
+  const dragRef = useRef<{ startX: number; startY: number; scrollLeft: number; scrollTop: number; moved: boolean } | null>(null);
 
   // Nodes/links from the last build, kept around so hover can toggle classes on the
   // existing elements instead of the whole scene being torn down and rebuilt — otherwise
   // every hover replays each delta tile's pulse animation (docs/serve.md#4 "Replay").
   const nodeElsRef = useRef(new Map<string, SVGGElement>());
   const linkElsRef = useRef<Array<{ from: string; to: string; el: SVGElement }>>([]);
-
-  const applyViewBox = (svg: SVGSVGElement, box: ViewBox) => {
-    svg.setAttribute("viewBox", `${box.x} ${box.y} ${box.w} ${box.h}`);
-  };
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -75,10 +78,10 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     const scene = buildScene(units, edges);
     const gated = scene.links.length > scene.nodes.length * 1.6;
 
-    baseBoxRef.current = sceneBounds(scene);
-    const view = viewRef.current ?? baseBoxRef.current;
-    viewRef.current = view;
-    applyViewBox(svg, view);
+    const base = sceneBounds(scene);
+    baseBoxRef.current = base;
+    svg.setAttribute("viewBox", `${base.x} ${base.y} ${base.w} ${base.h}`);
+    setRenderSize({ w: base.w * scaleRef.current, h: base.h * scaleRef.current });
 
     const linkLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -138,59 +141,56 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     }
   }, [hover]);
 
-  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const view = viewRef.current ?? baseBoxRef.current;
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
 
-    const rect = svg.getBoundingClientRect();
-    const px = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0.5;
-    const py = rect.height > 0 ? (e.clientY - rect.top) / rect.height : 0.5;
-    const anchorX = view.x + px * view.w;
-    const anchorY = view.y + py * view.h;
+    const rect = scroll.getBoundingClientRect();
+    const px = e.clientX - rect.left + scroll.scrollLeft;
+    const py = e.clientY - rect.top + scroll.scrollTop;
 
-    const factor = e.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
+    const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scaleRef.current * factor));
+    const ratio = nextScale / scaleRef.current;
+    scaleRef.current = nextScale;
+
     const base = baseBoxRef.current;
-    const currentScale = base.w / view.w;
-    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, currentScale / factor));
-    const w = base.w / nextScale;
-    const h = base.h / nextScale;
+    setRenderSize({ w: base.w * nextScale, h: base.h * nextScale });
 
-    const next: ViewBox = {
-      x: anchorX - px * w,
-      y: anchorY - py * h,
-      w,
-      h,
-    };
-    viewRef.current = next;
-    applyViewBox(svg, next);
+    // Keep the point under the cursor stationary: it scales by `ratio` in content
+    // space, so the scroll offset must grow by the same amount around that point.
+    scroll.scrollLeft = px * ratio - (e.clientX - rect.left);
+    scroll.scrollTop = py * ratio - (e.clientY - rect.top);
   };
 
-  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.target !== svgRef.current) return; // let tile-level handlers own their own clicks
-    const view = viewRef.current ?? baseBoxRef.current;
-    dragRef.current = { startX: e.clientX, startY: e.clientY, view, moved: false };
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Tile clicks call stopPropagation, so this only fires for empty-canvas mousedowns
+    // (on the scroll container or the SVG background itself) — never a tile.
+    if (e.target !== svgRef.current && e.target !== scrollRef.current) return;
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    dragRef.current = { startX: e.clientX, startY: e.clientY, scrollLeft: scroll.scrollLeft, scrollTop: scroll.scrollTop, moved: false };
   };
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
-    const svg = svgRef.current;
-    if (!drag || !svg) return;
-    const rect = svg.getBoundingClientRect();
-    const dxPx = e.clientX - drag.startX;
-    const dyPx = e.clientY - drag.startY;
-    if (Math.abs(dxPx) > DRAG_THRESHOLD || Math.abs(dyPx) > DRAG_THRESHOLD) drag.moved = true;
+    const scroll = scrollRef.current;
+    if (!drag || !scroll) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+      drag.moved = true;
+      scroll.classList.add("panning");
+    }
     if (!drag.moved) return;
 
-    const dx = rect.width > 0 ? (dxPx / rect.width) * drag.view.w : 0;
-    const dy = rect.height > 0 ? (dyPx / rect.height) * drag.view.h : 0;
-    const next: ViewBox = { x: drag.view.x - dx, y: drag.view.y - dy, w: drag.view.w, h: drag.view.h };
-    viewRef.current = next;
-    applyViewBox(svg, next);
+    scroll.scrollLeft = drag.scrollLeft - dx;
+    scroll.scrollTop = drag.scrollTop - dy;
   };
 
   const handleMouseUp = () => {
     dragRef.current = null;
+    scrollRef.current?.classList.remove("panning");
   };
 
   const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -200,18 +200,23 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   };
 
   return (
-    <svg
-      ref={svgRef}
-      className="canvas"
-      data-testid="canvas-svg"
+    <div
+      ref={scrollRef}
+      className="canvas-scroll"
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onDoubleClick={handleDoubleClick}
-      width="100%"
-      height="100%"
-    />
+    >
+      <svg
+        ref={svgRef}
+        className="canvas"
+        data-testid="canvas-svg"
+        onDoubleClick={handleDoubleClick}
+        width={renderSize.w}
+        height={renderSize.h}
+      />
+    </div>
   );
 }

@@ -281,6 +281,66 @@ describe("App", () => {
     expect(container.querySelector('.tile[data-id="u:a"]')?.classList.contains("status-modified")).toBe(true);
   });
 
+  it("selecting a tile in Delta mode doesn't recreate tile elements, so a delta tile's pulse doesn't replay on click", async () => {
+    const delta = {
+      schema: "scv-delta/1",
+      from: { snapshot_id: "s0", sha: "aaa" },
+      to: { snapshot_id: "s1", sha: "bbb" },
+      provenance: { extractor: "scv-ts/0.1.0", formulas: {} },
+      inspect_queue: [{ rank: 1, unit: "u:a", qualname: "a", status: "modified", risk: 0.6, confidence: 0.8 }],
+      unit_deltas: [
+        {
+          unit: "u:a",
+          qualname: "a",
+          kind: "module",
+          status: "modified",
+          fields: ["semantics"],
+          amount: 0.4,
+          blast_radius: { direct: 0, transitive: 0, public_api: false },
+          authors: [],
+          risk: { score: 0.6, axes: null, why: null, confidence: 0.8, source: "formula" },
+        },
+      ],
+      edge_deltas: [],
+      rollup: {},
+    };
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/revs") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { sha: "bbb", kind: "commit", ts: "2026-01-02T00:00:00Z", author: "a" },
+              { sha: "aaa", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a" },
+            ]),
+        });
+      }
+      if (url === "/api/delta/aaa/bbb") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(delta) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makeSnapshot()) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/bbb" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /delta/i }));
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')?.classList.contains("status-modified")).toBe(true);
+    });
+
+    const tileBefore = container.querySelector('.tile[data-id="u:a"]')!;
+    fireEvent.click(tileBefore);
+    const tileAfter = container.querySelector('.tile[data-id="u:a"]')!;
+
+    expect(tileAfter).toBe(tileBefore);
+  });
+
   it("colors a collapsed ancestor via rollup when the changed unit is a hidden descendant, not itself in unit_deltas", async () => {
     // u:layer:ops is the only visible tile (system's direct child); the actual change is on
     // u:a, a grandchild hidden below the current focus depth. docs/serve.md#4 "Delta":
@@ -413,7 +473,7 @@ describe("App", () => {
 
     const bodyChildren = Array.from(container.querySelector(".body")!.children);
     const queueIndex = bodyChildren.findIndex((el) => el.getAttribute("data-testid") === "inspect-queue");
-    const canvasIndex = bodyChildren.findIndex((el) => el.getAttribute("data-testid") === "canvas-svg");
+    const canvasIndex = bodyChildren.findIndex((el) => el.classList.contains("canvas-scroll"));
     expect(queueIndex).toBeGreaterThanOrEqual(0);
     expect(queueIndex).toBeLessThan(canvasIndex);
   });

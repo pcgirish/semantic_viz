@@ -20,6 +20,11 @@ function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
   };
 }
 
+function stubRect(el: Element, width: number, height: number) {
+  el.getBoundingClientRect = () =>
+    ({ x: 0, y: 0, left: 0, top: 0, width, height, right: width, bottom: height, toJSON() {} }) as DOMRect;
+}
+
 describe("CanvasHost", () => {
   beforeEach(() => {
     useAppStore.setState(useAppStore.getInitialState());
@@ -89,6 +94,18 @@ describe("CanvasHost", () => {
     expect(hoveredTile.classList.contains("dim")).toBe(false);
   });
 
+  it("does not re-create delta tile nodes on hover, so the pulse animation doesn't replay every time the mouse moves over a tile", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
+    const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
+
+    const tileBefore = container.querySelector('.tile[data-id="a"]')!;
+    fireEvent.mouseEnter(container.querySelector('.tile[data-id="b"]')!);
+    const tileAfter = container.querySelector('.tile[data-id="a"]')!;
+
+    expect(tileAfter).toBe(tileBefore);
+  });
+
   it("sets a viewBox fitted to the scene's bounds so nodes off the origin are visible", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
     const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
@@ -101,56 +118,85 @@ describe("CanvasHost", () => {
     expect(h).toBeGreaterThan(0);
   });
 
-  it("wheel zooms: viewBox shrinks on zoom-in (deltaY < 0)", () => {
+  it("scene sits inside a native-scrolling container, so an oversized graph gets real scrollbars", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    render(<CanvasHost units={units} edges={[]} />);
-    const svg = screen.getByTestId("canvas-svg");
-    const before = svg.getAttribute("viewBox")!.split(" ").map(Number);
-
-    fireEvent.wheel(svg, { deltaY: -100, clientX: 100, clientY: 100 });
-
-    const after = svg.getAttribute("viewBox")!.split(" ").map(Number);
-    expect(after[2]).toBeLessThan(before[2]);
-    expect(after[3]).toBeLessThan(before[3]);
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const scroll = container.querySelector(".canvas-scroll")!;
+    expect(scroll).not.toBeNull();
+    expect(scroll.contains(screen.getByTestId("canvas-svg"))).toBe(true);
   });
 
-  it("wheel zoom-out grows the viewBox, clamped to a max scale", () => {
+  it("wheel zooms in: the SVG's rendered (CSS pixel) size grows on deltaY < 0", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    render(<CanvasHost units={units} edges={[]} />);
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const scroll = container.querySelector(".canvas-scroll")!;
+    stubRect(scroll, 400, 300);
     const svg = screen.getByTestId("canvas-svg");
-    const before = svg.getAttribute("viewBox")!.split(" ").map(Number);
+    const before = Number(svg.getAttribute("width"));
+
+    fireEvent.wheel(scroll, { deltaY: -100, clientX: 100, clientY: 100 });
+
+    const after = Number(svg.getAttribute("width"));
+    expect(after).toBeGreaterThan(before);
+  });
+
+  it("wheel zoom-out shrinks the SVG's rendered size, clamped to a min scale", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const scroll = container.querySelector(".canvas-scroll")!;
+    stubRect(scroll, 400, 300);
+    const svg = screen.getByTestId("canvas-svg");
+    const before = Number(svg.getAttribute("width"));
 
     for (let i = 0; i < 100; i++) {
-      fireEvent.wheel(svg, { deltaY: 100, clientX: 100, clientY: 100 });
+      fireEvent.wheel(scroll, { deltaY: 100, clientX: 100, clientY: 100 });
     }
-    const after = svg.getAttribute("viewBox")!.split(" ").map(Number);
-    expect(after[2]).toBeGreaterThan(before[2]);
-    expect(Number.isFinite(after[2])).toBe(true);
+    const after = Number(svg.getAttribute("width"));
+    expect(after).toBeLessThan(before);
+    expect(after).toBeGreaterThan(0);
   });
 
-  it("dragging on empty canvas pans the viewBox instead of ascending", () => {
+  it("dragging on empty canvas pans via native scroll instead of ascending", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    render(<CanvasHost units={units} edges={[]} />);
-    const svg = screen.getByTestId("canvas-svg");
-    svg.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300, toJSON() {} }) as DOMRect;
-    const before = svg.getAttribute("viewBox")!.split(" ").map(Number);
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const scroll = container.querySelector(".canvas-scroll")! as HTMLDivElement;
+    stubRect(scroll, 400, 300);
+    scroll.scrollLeft = 50;
+    scroll.scrollTop = 50;
 
-    fireEvent.mouseDown(svg, { clientX: 200, clientY: 200 });
-    fireEvent.mouseMove(svg, { clientX: 150, clientY: 180 });
-    fireEvent.mouseUp(svg, { clientX: 150, clientY: 180 });
+    fireEvent.mouseDown(scroll, { clientX: 200, clientY: 200 });
+    fireEvent.mouseMove(scroll, { clientX: 150, clientY: 180 });
+    fireEvent.mouseUp(scroll, { clientX: 150, clientY: 180 });
 
-    const after = svg.getAttribute("viewBox")!.split(" ").map(Number);
-    expect(after[0]).not.toBe(before[0]);
-    expect(after[1]).not.toBe(before[1]);
+    expect(scroll.scrollLeft).not.toBe(50);
+    expect(scroll.scrollTop).not.toBe(50);
     expect(useAppStore.getState().focus).toBeNull();
+  });
+
+  it("only shows the scrollbar (via a 'panning' class) while a drag-pan is actually in progress", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const scroll = container.querySelector(".canvas-scroll")! as HTMLDivElement;
+    stubRect(scroll, 400, 300);
+
+    expect(scroll.classList.contains("panning")).toBe(false);
+
+    fireEvent.mouseDown(scroll, { clientX: 200, clientY: 200 });
+    fireEvent.mouseMove(scroll, { clientX: 150, clientY: 180 });
+    expect(scroll.classList.contains("panning")).toBe(true);
+
+    fireEvent.mouseUp(scroll, { clientX: 150, clientY: 180 });
+    expect(scroll.classList.contains("panning")).toBe(false);
   });
 
   it("double-clicking empty canvas still ascends after a drag/zoom sequence", () => {
     useAppStore.getState().drill("u:x");
     const units = [makeUnit({ id: "a" })];
-    render(<CanvasHost units={units} edges={[]} />);
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const scroll = container.querySelector(".canvas-scroll")!;
+    stubRect(scroll, 400, 300);
     const svg = screen.getByTestId("canvas-svg");
-    fireEvent.wheel(svg, { deltaY: -50, clientX: 50, clientY: 50 });
+    fireEvent.wheel(scroll, { deltaY: -50, clientX: 50, clientY: 50 });
     fireEvent.doubleClick(svg);
     expect(useAppStore.getState().focus).toBeNull();
   });
