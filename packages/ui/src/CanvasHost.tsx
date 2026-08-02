@@ -100,7 +100,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       if (hover && !related.has(n.id)) el.classList.add("dim");
       const d = deltaByUnit?.get(n.id);
       if (d) {
-        el.classList.add(`status-${d.status}`);
+        el.classList.add(`status-${d.status}`, "pulse");
         el.style.setProperty("--amount", String(d.amount));
         if (d.risk !== null && d.risk >= HIGH_RISK) el.classList.add("high-risk");
       }

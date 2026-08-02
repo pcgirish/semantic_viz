@@ -340,4 +340,81 @@ describe("App", () => {
       expect(tile?.classList.contains("high-risk")).toBe(true);
     });
   });
+
+  it("shows the Replay timeline and scrubbing a bar changes the selected rev", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/revs") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { sha: "bbb", kind: "pr", ts: "2026-01-02T00:00:00Z", author: "a", author_kind: "human", amount: 0.5 },
+              { sha: "aaa", kind: "pr", ts: "2026-01-01T00:00:00Z", author: "a", author_kind: "human", amount: 0 },
+            ]),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makeSnapshot()) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App snapshotUrl="/api/snapshot/bbb" />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("replay-bar")).toHaveLength(2);
+    });
+
+    fireEvent.click(screen.getAllByTestId("replay-bar")[0]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("rev-picker")).toHaveValue("aaa");
+    });
+  });
+
+  it("renders the inspect queue in the left margin, before the canvas", async () => {
+    const delta = {
+      schema: "scv-delta/1",
+      from: { snapshot_id: "s0", sha: "aaa" },
+      to: { snapshot_id: "s1", sha: "bbb" },
+      provenance: { extractor: "scv-ts/0.1.0", formulas: {} },
+      inspect_queue: [{ rank: 1, unit: "u:a", qualname: "a", status: "modified", risk: 0.6, confidence: 0.8 }],
+      unit_deltas: [],
+      edge_deltas: [],
+      rollup: {},
+    };
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/revs") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { sha: "bbb", kind: "commit", ts: "2026-01-02T00:00:00Z", author: "a", author_kind: "human", amount: 0.5 },
+              { sha: "aaa", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a", author_kind: "human", amount: 0 },
+            ]),
+        });
+      }
+      if (url === "/api/delta/aaa/bbb") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(delta) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makeSnapshot()) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/bbb" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /delta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("inspect-queue")).toBeInTheDocument();
+    });
+
+    const bodyChildren = Array.from(container.querySelector(".body")!.children);
+    const queueIndex = bodyChildren.findIndex((el) => el.getAttribute("data-testid") === "inspect-queue");
+    const canvasIndex = bodyChildren.findIndex((el) => el.getAttribute("data-testid") === "canvas-svg");
+    expect(queueIndex).toBeGreaterThanOrEqual(0);
+    expect(queueIndex).toBeLessThan(canvasIndex);
+  });
 });

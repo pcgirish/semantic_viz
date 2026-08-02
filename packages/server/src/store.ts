@@ -7,6 +7,8 @@ export interface RevSummary {
   kind: Snapshot["rev"]["kind"];
   ts: string;
   author: string;
+  author_kind: string;
+  amount: number;
 }
 
 export interface UnitWithNeighbours {
@@ -37,9 +39,22 @@ export class SnapshotStore {
   }
 
   listRevs(): RevSummary[] {
-    return this.readAll()
-      .map((s) => ({ sha: s.rev.sha, kind: s.rev.kind, ts: s.rev.ts, author: s.rev.author }))
-      .sort((a, b) => b.ts.localeCompare(a.ts));
+    const snapshots = this.readAll().sort((a, b) => b.rev.ts.localeCompare(a.rev.ts));
+    return snapshots.map((s, i) => {
+      const previous = snapshots[i + 1];
+      const delta = previous ? this.getDelta(previous.rev.sha, s.rev.sha) : undefined;
+      const amount = delta && delta.unit_deltas.length > 0
+        ? delta.unit_deltas.reduce((sum, d) => sum + d.amount, 0) / delta.unit_deltas.length
+        : 0;
+      return {
+        sha: s.rev.sha,
+        kind: s.rev.kind,
+        ts: s.rev.ts,
+        author: s.rev.author,
+        author_kind: s.rev.author_kind,
+        amount,
+      };
+    });
   }
 
   getSnapshot(sha: string): Snapshot | undefined {
