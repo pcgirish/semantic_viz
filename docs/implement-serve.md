@@ -75,7 +75,7 @@ PUT /api/layout/:sha/:skin             persist after relayout
 | **V4** | Inspector tray | Every Unit field surfaced; low confidence visually distinct |
 | **V5** | Delta mode + inspect queue + rev picker | Queue drives navigation; rollup makes hot leaves visible from the system view |
 | **V6** | Replay with seeded layout | 50-rev replay, zero node teleporting |
-| **V7** | `tiles3d` | Zero changes under `layout/` |
+| **V7** | `tiles3d` | Zero changes under `layout/` — done |
 | **V8** | Depends-on view | Depth rows, `reached_by`, transitive sizing |
 | **V9** | Flows view | Entry points enumerated from `api_flow` units; step detail; delta status per step |
 
