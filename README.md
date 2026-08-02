@@ -38,7 +38,7 @@ absent from the queue.
 | `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
-| `packages/skins/tiles` | SVG rendering skin: chamfered tiles, complexity glyphs, dependency-highlight links. Wired into `packages/ui` today | Implemented |
+| `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
 | `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Not yet wired into `packages/ui` (`tilesSkin` is still hardcoded there) | Implemented |
 | `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction, pulse-highlight on scrub) + Depends-on view + Flows view | Implemented |
 
@@ -121,11 +121,30 @@ npm run dev --workspace packages/ui
 
 Open the UI dev server URL in a browser. You get a layered tile map of the
 repo's units (modules/classes/functions), each tile labeled with its name and
-sloc/fan-in/fan-out, sized by SLOC and shaped by complexity. Scroll to zoom
-(anchored at the cursor) and drag to pan — real repos lay out wide and flat,
-so zoom is how you read it. Click a tile to select it and open the inspector
-tray; double-click to drill into it (double-click empty canvas to ascend back
-out); hover to highlight what it depends on vs. what depends on it.
+sloc/fan-in/fan-out, sized by SLOC and shaped by complexity, and colored by
+the semantic layer the Interpreter clustered it into (a legend in the
+bottom-left corner lists each layer present in the current view). Scroll to
+zoom (anchored at the cursor) and drag to pan — real repos lay out wide and
+flat, so zoom is how you read it. Click a tile to select it and open the
+inspector tray; double-click to drill into it (double-click empty canvas to
+ascend back out); hover to highlight what it depends on vs. what depends on
+it.
+
+The top bar switches between four views:
+
+- **Current** — the live tile map described above.
+- **Delta** — diffs two revisions: tiles are colored by change status
+  (added/removed/modified), an offset ring flags high risk, and a left-margin
+  inspect queue ranks the units most worth reviewing first.
+- **Depends on** — lists third-party externals (with ecosystem, version,
+  direct/transitive depth) reached from the current selection.
+- **Flows** — traces a single `api_flow` end to end (the units one request
+  actually touches, in call order), with a step dot per changed unit in
+  Delta mode.
+
+A Replay timeline along the bottom scrubs through revisions (rev picker or
+drag), toggles between PR- and commit-level density, and shows a per-rev
+amount bar with human/agent authorship distinguished.
 
 ## Configuring the LLM provider
 
@@ -153,7 +172,8 @@ interpreter:
 ```
 
 - `ollama` — local, default model `qwen3.6:0.8b-mlx`. Requires a running
-  Ollama daemon.
+  Ollama daemon with that model pulled (`ollama list` to check; `--model`
+  to point at whatever you actually have installed).
 - `anthropic` — Anthropic API, default model `claude-sonnet-5`. Requires
   `ANTHROPIC_API_KEY` in the environment (never in `.scv/config.yaml`).
 - `claude-cli` — shells out to the local `claude` CLI. Not used by default in
@@ -162,6 +182,13 @@ interpreter:
 
 Interpreter calls are content-cached at `<scvDir>/cache.sqlite`, so
 re-running against an unchanged unit never re-invokes the provider.
+
+Pass A fires one provider call per leaf unit (function/class), all in
+parallel — fine for a small repo or fixture, but a large repo (hundreds of
+units) against a local `ollama` daemon can open more concurrent connections
+than it handles gracefully, surfacing as `fetch failed` in the analyze
+output. If you hit that, analyze a smaller subtree first, or use a hosted
+provider (`anthropic`) for the full run.
 
 ## Using the extractor as a library
 
