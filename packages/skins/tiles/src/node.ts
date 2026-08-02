@@ -62,5 +62,11 @@ export function node(n: SceneNode): SVGGElement {
     g.appendChild(el("polygon", { points: ptstr(ngon(gx, gy, GLYPH_R, n.sides)), class: "complexity-glyph" }));
   }
 
+  if (n.complexity > 0) {
+    const cx = el("text", { x: gx - GLYPH_R - 4, y: gy + 3.4, "text-anchor": "end", class: "cx" });
+    cx.textContent = String(n.complexity);
+    g.appendChild(cx);
+  }
+
   return g;
 }

@@ -16,6 +16,8 @@ function makeNode(overrides: Partial<SceneNode> & { id: string }): SceneNode {
     sloc: 10,
     fanIn: 0,
     fanOut: 0,
+    layer: "",
+    complexity: 0,
     ...overrides,
   };
 }
@@ -50,6 +52,18 @@ describe("node", () => {
     const el = node(makeNode({ id: "a", sides: 0 }));
     expect(el.querySelector("circle.complexity-glyph")).not.toBeNull();
     expect(el.querySelector("polygon.complexity-glyph")).toBeNull();
+  });
+
+  it("renders the raw complexity number next to the glyph when complexity is set", () => {
+    const el = node(makeNode({ id: "a", complexity: 5 }));
+    const label = el.querySelector(".cx");
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe("5");
+  });
+
+  it("omits the complexity label when complexity is 0", () => {
+    const el = node(makeNode({ id: "a", complexity: 0 }));
+    expect(el.querySelector(".cx")).toBeNull();
   });
 
   it("draws an offset ring when ring is true (risk >= 0.5), not present otherwise", () => {

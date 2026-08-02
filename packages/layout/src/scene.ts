@@ -15,6 +15,8 @@ export type SceneNode = {
   sloc: number;
   fanIn: number;
   fanOut: number;
+  layer: string; // nearest ancestor unit's stable id with kind "layer", or "" if none
+  complexity: number; // raw cyclomatic complexity, or 0 if unavailable
 };
 
 export type EdgeKindState = "current" | "added" | "removed" | "reweighted";
