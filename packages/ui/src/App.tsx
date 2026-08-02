@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot } from "@scv/schema";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
+import { Flows } from "./Flows.js";
 import { Inspector } from "./Inspector.js";
 import { InspectQueue } from "./InspectQueue.js";
 import { Replay } from "./Replay.js";
@@ -69,7 +70,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const previousSha = revIndex >= 0 ? revs[revIndex + 1]?.sha : undefined;
 
   useEffect(() => {
-    if (mode !== "delta" || !previousSha) {
+    // Flows also needs delta data for its per-step status dot (docs/serve.md#4 "Flows" —
+    // "in Delta mode, changed steps carry a status dot"); Current and Depends-on don't.
+    if ((mode !== "delta" && mode !== "flows") || !previousSha) {
       setDelta(null);
       return;
     }
@@ -131,6 +134,8 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const { units, edges, externals } = state.snapshot;
   const selectedUnit = units.find((u) => u.id === selection) ?? null;
   const selectedExternal = mode === "depends" ? (externals.find((x) => x.id === selection) ?? null) : null;
+  const flowUnits = units.filter((u) => u.kind === "api_flow");
+  const changedStepIds = delta ? new Set(delta.unit_deltas.map((d) => d.unit)) : undefined;
 
   return (
     <div className="app">
@@ -144,6 +149,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           </button>
           <button type="button" aria-pressed={mode === "depends"} onClick={() => setMode("depends")}>
             Depends on
+          </button>
+          <button type="button" aria-pressed={mode === "flows"} onClick={() => setMode("flows")}>
+            Flows
           </button>
         </div>
         <select
@@ -165,6 +173,8 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         )}
         {mode === "depends" ? (
           <DependsOn externals={externals} onSelect={(id) => select(id)} />
+        ) : mode === "flows" ? (
+          <Flows flows={flowUnits} units={units} edges={edges} onSelectStep={(id) => select(id)} changedStepIds={changedStepIds} />
         ) : (
           <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
         )}

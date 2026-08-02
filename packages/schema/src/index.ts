@@ -110,6 +110,10 @@ export const UnitSchema = z.object({
   authors: z.array(AuthorSchema).optional(),
   hash: HashSchema,
   provenance: UnitProvenanceSchema,
+  // kind:"api_flow" only (docs/serve.md#4 "Flows") — the route string and the ordered
+  // unit ids the request actually traverses, at whatever granularity the trace reached.
+  route: z.string().optional(),
+  steps: z.array(UnitId).optional(),
 });
 
 const EvidenceSchema = z.object({

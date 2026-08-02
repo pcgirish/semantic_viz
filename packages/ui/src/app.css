@@ -571,3 +571,164 @@ button {
   fill: var(--slate);
 }
 
+/* Flows view (docs/serve.md#4 "Flows"): left rail of entry points grouped by kind,
+   centre the ordered steps a request actually traverses. A view of its own, not a
+   sidebar list — a real service has dozens of entry points. */
+.flows {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.flows-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.flows-rail {
+  width: 280px;
+  flex: none;
+  overflow-y: auto;
+  padding: 13px;
+  background: var(--panel);
+  border-right: 1px solid var(--hair);
+}
+
+.flows-rail h3 {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--slate);
+  margin: 0 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.flows-group-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--slate);
+  margin: 12px 0 4px;
+}
+
+.flows-entry {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 8px;
+  margin-bottom: 4px;
+  border: 1px solid var(--hair);
+  border-left-width: 3px;
+  border-left-color: var(--edge);
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 11.5px;
+}
+
+.flows-entry:hover {
+  border-color: var(--slate);
+}
+
+.flows-entry.sel {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.flows-entry.sel * {
+  color: #fff !important;
+}
+
+.flows-entry b {
+  display: block;
+  font-size: 11.5px;
+}
+
+.flows-entry em {
+  font-style: normal;
+  font-size: 9px;
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.flows-path {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--paper);
+}
+
+.flow-step {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.flow-step:hover {
+  border-color: var(--slate);
+}
+
+.flow-step.changed {
+  border-left: 3px solid var(--modified);
+}
+
+.flow-step-index {
+  font: 600 11px var(--m);
+  color: var(--slate);
+  flex: none;
+}
+
+.flow-step-body {
+  min-width: 0;
+}
+
+.flow-step-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flow-step-head b {
+  font: 600 12.5px var(--d);
+}
+
+.flow-step-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--modified);
+  flex: none;
+}
+
+.flow-step-meta {
+  font: 10px var(--m);
+  color: var(--slate);
+  margin-top: 2px;
+}
+
+.flow-step-what {
+  font-size: 11px;
+  color: var(--ink);
+  margin: 4px 0 0;
+}
+
+.flow-edge {
+  font: 9.5px var(--m);
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 0 4px 40px;
+}
+
