@@ -37,9 +37,12 @@ Use before merging a branch or PR, or whenever asked to review code.
 
 ## Posting to GitHub
 If there is an open PR for the branch, post the verdict there — a review that only exists in chat is invisible to anyone else looking at the PR.
-- **APPROVED**: `gh pr review <n> --approve --body "<2-4 sentence summary: what changed, what was checked, any non-blocking suggestions>"`
-- **NEEDS CHANGES**: `gh pr review <n> --request-changes --body "<summary>"`, then one `gh pr comment <n> --body "..."` (or inline via `gh api`) per blocking issue, specific enough to act on (file, line, what's wrong).
-- **BLOCKED**: same as NEEDS CHANGES — `--request-changes` plus one comment per blocker, and call out explicitly that this is a red-flag block, not a style nit.
-Keep the approval body brief; put detail in issue-specific comments, not a wall of text on the review itself.
 
-**Verify the post landed.** `gh pr review --approve` silently fails when the PR author is the authenticated `gh` user (self-review is blocked server-side but the CLI does not always error loudly). After posting, confirm with `gh pr view <n> --json reviews,comments` that something actually appears. If the review call did not take, fall back to `gh pr comment <n> --body "..."` carrying the same verdict and content — a comment always works regardless of authorship. Never end a review by only reporting the verdict in chat; the GitHub-visible record is the deliverable, not the chat message.
+**This repo's PRs are always self-authored by the same `gh` identity that reviews them, so `gh pr review --approve`/`--request-changes` always fails server-side ("Can not approve your own pull request"). Do not attempt it — go straight to `gh pr comment`.**
+
+- **APPROVED**: `gh pr comment <n> --body "<verdict: APPROVED><2-4 sentence summary: what changed, what was checked, any non-blocking suggestions>"`
+- **NEEDS CHANGES**: `gh pr comment <n> --body "<verdict: NEEDS CHANGES><summary>"`, then one more `gh pr comment <n> --body "..."` (or inline via `gh api`) per blocking issue, specific enough to act on (file, line, what's wrong).
+- **BLOCKED**: same as NEEDS CHANGES, and call out explicitly that this is a red-flag block, not a style nit.
+Keep the summary comment brief; put detail in issue-specific comments, not a wall of text on one comment.
+
+**Verify the post landed.** Confirm with `gh pr view <n> --json comments` that the comment actually appears. Never end a review by only reporting the verdict in chat; the GitHub-visible record is the deliverable, not the chat message.
