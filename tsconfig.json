@@ -9,6 +9,7 @@
     { "path": "packages/server" },
     { "path": "packages/layout" },
     { "path": "packages/skins/tiles" },
+    { "path": "packages/skins/tiles3d" },
     { "path": "packages/ui" }
   ]
 }
