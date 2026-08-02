@@ -540,4 +540,67 @@ describe("App", () => {
       expect(container.querySelector(".inspector")!.textContent).toMatch(/redis/);
     });
   });
+
+  function makeSnapshotWithFlow(): Snapshot {
+    return {
+      ...makeSnapshot(),
+      units: [
+        ...makeSnapshot().units,
+        {
+          kind: "api_flow",
+          id: "u:flow:1",
+          name: "GET /orders/{id}",
+          qualname: "GET /orders/{id}",
+          route: "GET /orders/{id}",
+          steps: ["u:a"],
+          parent: null,
+          children: [],
+          loc: { files: [], sloc: 0 },
+          tags: [],
+          metrics: { hops: 1 },
+          hash: { struct: null, text: null, semantic: null },
+          provenance: { source: "llm" },
+        },
+      ],
+    } as unknown as Snapshot;
+  }
+
+  it("switching VIEW to Flows shows entry points instead of the canvas", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshotWithFlow()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^flows$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("GET /orders/{id}")).toBeInTheDocument();
+    });
+    expect(container.querySelector(".canvas-scroll")).toBeNull();
+  });
+
+  it("clicking a step in Flows mode shows that unit in the inspector tray", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshotWithFlow()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^flows$/i }));
+
+    await waitFor(() => {
+      expect(container.querySelector(".flow-step")).not.toBeNull();
+    });
+
+    fireEvent.click(container.querySelector(".flow-step")!);
+
+    await waitFor(() => {
+      expect(container.querySelector(".inspector")!.textContent).toContain("u:a");
+    });
+  });
 });
