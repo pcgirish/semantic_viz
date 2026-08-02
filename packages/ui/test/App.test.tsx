@@ -496,6 +496,44 @@ describe("App", () => {
     } as unknown as Snapshot;
   }
 
+  it("renders the legend as a fixed left rail in Current mode, before the canvas", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }),
+    );
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector(".rail")).not.toBeNull();
+    });
+
+    const bodyChildren = Array.from(container.querySelector(".body")!.children);
+    const railIndex = bodyChildren.findIndex((el) => el.classList.contains("rail"));
+    const canvasIndex = bodyChildren.findIndex((el) => el.classList.contains("canvas-scroll"));
+    expect(railIndex).toBeGreaterThanOrEqual(0);
+    expect(railIndex).toBeLessThan(canvasIndex);
+  });
+
+  it("renders the legend as a fixed left rail in Depends-on mode too", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }),
+    );
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:layer:ops"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
+
+    await waitFor(() => {
+      expect(container.querySelector(".rail")).not.toBeNull();
+    });
+  });
+
   it("switching VIEW to Depends on shows externals instead of the canvas", async () => {
     vi.stubGlobal(
       "fetch",

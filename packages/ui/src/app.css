@@ -101,15 +101,27 @@ button {
   position: relative;
 }
 
-.legend {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  z-index: 1;
-  padding: 8px 10px;
-  background: color-mix(in srgb, var(--paper) 92%, transparent);
-  border: 1px solid var(--hair);
-  border-radius: 4px;
+.rail {
+  width: 320px;
+  flex: none;
+  overflow-y: auto;
+  padding: 13px 15px;
+  background: var(--panel);
+  border-right: 1px solid var(--hair);
+}
+
+.sec {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--slate);
+  margin: 19px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.rail .sec:first-child {
+  margin-top: 0;
 }
 
 .lg {

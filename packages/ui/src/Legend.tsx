@@ -11,13 +11,13 @@ export function Legend({ units }: LegendProps): JSX.Element | null {
   if (layers.length === 0) return null;
 
   return (
-    <div className="legend">
+    <>
       {layers.map((layer) => (
         <div className="lg" key={layer.id}>
           <span className="chip" style={{ background: hashLayerToColor(layer.id) }} />
           {layer.name}
         </div>
       ))}
-    </div>
+    </>
   );
 }

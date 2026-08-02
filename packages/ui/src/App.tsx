@@ -172,15 +172,18 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         {mode === "delta" && delta && (
           <InspectQueue entries={delta.inspect_queue} onSelect={(unitId) => select(unitId)} />
         )}
+        {(mode === "current" || mode === "depends") && (
+          <div className="rail">
+            <div className="sec">Layers</div>
+            <Legend units={units} />
+          </div>
+        )}
         {mode === "depends" ? (
           <DependsOn externals={externals} onSelect={(id) => select(id)} />
         ) : mode === "flows" ? (
           <Flows flows={flowUnits} units={units} edges={edges} onSelectStep={(id) => select(id)} changedStepIds={changedStepIds} />
         ) : (
-          <>
-            <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
-            <Legend units={visibleUnits} />
-          </>
+          <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
         )}
         <Inspector unit={selectedUnit} units={units} edges={edges} external={selectedExternal} />
       </div>
