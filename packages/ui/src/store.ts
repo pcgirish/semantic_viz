@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type Mode = "current" | "delta";
+export type Mode = "current" | "delta" | "depends";
 
 export type AppState = {
   selection: string | null;
