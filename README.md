@@ -1,9 +1,9 @@
 # scv — semantic code visualizer
 
 A multi-view visualizer for software projects. It turns a repo into a
-`SymbolGraph` (units, edges, externals) via static analysis, then — in later
-stages of this project — layers an LLM Interpreter, a Differ, and a web UI on
-top.
+`SymbolGraph` (units, edges, externals) via static analysis, layers an LLM
+Interpreter and a Differ on top, then serves it as a live, drillable tile map
+in the browser.
 
 See [`docs/design.md`](docs/design.md) for the full architecture, schema
 contract, and pipeline. See [`docs/implement-analyze.md`](docs/implement-analyze.md)
@@ -12,11 +12,11 @@ and [`docs/implement-serve.md`](docs/implement-serve.md) for milestones.
 ## Status
 
 The full pipeline — Extractor → Interpreter (Pass A–D) → Differ — is
-implemented end to end and wired into the CLI: `scv analyze` extracts a repo
-and lifts semantics, clustering, and layer narration in one pass; `scv diff`
-diffs two snapshots with LLM risk narration and produces a ranked inspect
-queue. You can point `scv` at a real repo, extract it, serve it, and browse
-it as a live tile map in the browser today.
+implemented end to end and wired into the CLI, server, and UI: `scv analyze`
+extracts a repo and lifts semantics, clustering, and layer narration in one
+pass; `scv diff` diffs two snapshots with LLM risk narration and produces a
+ranked inspect queue. Point `scv` at a real repo, extract it, serve it, and
+browse it as a live tile map today.
 
 **A6 validation against `fixtures/orderly`** (`docs/analyze.md`'s exit
 criterion): the inspect queue correctly surfaces all 7/7 module-level
@@ -38,9 +38,9 @@ absent from the queue.
 | `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
-| `packages/skins/tiles` | SVG rendering skin: chamfered tiles, complexity glyphs, dependency-highlight links | Implemented |
-| `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout` | Implemented |
-| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction, pulse-highlight on scrub) | Implemented |
+| `packages/skins/tiles` | SVG rendering skin: chamfered tiles, complexity glyphs, dependency-highlight links. Wired into `packages/ui` today | Implemented |
+| `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Not yet wired into `packages/ui` (`tilesSkin` is still hardcoded there) | Implemented |
+| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction, pulse-highlight on scrub) + Depends-on view + Flows view | Implemented |
 
 A disposable Python prototype of the *full* pipeline (extract → interpret →
 diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
@@ -50,6 +50,7 @@ seeing the end-to-end shape of the product before the LLM stages catch up.
 
 - Node.js ≥ 24
 - npm
+- For the default LLM provider (`ollama`): a running local Ollama daemon
 
 ## Setup
 
@@ -57,20 +58,74 @@ seeing the end-to-end shape of the product before the LLM stages catch up.
 npm install
 ```
 
+This is a single npm workspace (`packages/*` + `packages/skins/*`) — one
+install resolves and links every package.
+
+## Build everything
+
+```sh
+npm run build
+```
+
+This runs `tsc -b` at the repo root, which builds **every package in
+dependency order** in one pass (schema → extractor/layout → interpreter/
+differ → cli/server/skins → ui) — you never need to build packages one at a
+time. Re-running it is incremental: only packages whose inputs changed
+rebuild.
+
+To force a full rebuild from clean:
+
+```sh
+npx tsc -b --clean   # drop all build state
+npm run build        # rebuild everything from scratch
+```
+
 ## Commands
 
 ```sh
-npm test        # run all tests (vitest)
-npm run lint    # lint all packages (eslint)
-npm run dev     # run the CLI package in dev mode (once packages/cli exists)
+npm run build   # build every package, in dependency order, in one go
+npm test        # run every package's tests (vitest)
+npm run lint    # lint the whole repo (eslint)
+npm run dev     # run the CLI package in dev mode (tsx, no build needed)
 ```
 
-Run a single package's tests/build directly if you only touched one:
+Scope any of these to a single package with `--workspace` if you only touched
+one and want a faster loop:
 
 ```sh
 npm test --workspace packages/extractor
 npm run build --workspace packages/extractor
 ```
+
+## Seeing a codebase end to end
+
+Needs a provider for the Interpreter steps — `ollama` by default, see
+[Configuring the LLM provider](#configuring-the-llm-provider) below.
+
+```sh
+# 0. build everything once
+npm run build
+
+# 1. extract a repo, lift semantics/clustering, and write a snapshot
+node packages/cli/dist/bin.js analyze /path/to/repo
+
+# 2. (optional) diff two revs once you have two snapshots analyzed
+node packages/cli/dist/bin.js diff <from-sha> <to-sha> --scv-dir /path/to/repo/.scv
+
+# 3. serve it over HTTP (defaults: repo = cwd, port 3000; override with PORT=... )
+node packages/server/dist/bin.js /path/to/repo
+
+# 4. run the UI dev server (proxies /api to the server started in step 3)
+npm run dev --workspace packages/ui
+```
+
+Open the UI dev server URL in a browser. You get a layered tile map of the
+repo's units (modules/classes/functions), each tile labeled with its name and
+sloc/fan-in/fan-out, sized by SLOC and shaped by complexity. Scroll to zoom
+(anchored at the cursor) and drag to pan — real repos lay out wide and flat,
+so zoom is how you read it. Click a tile to select it and open the inspector
+tray; double-click to drill into it (double-click empty canvas to ascend back
+out); hover to highlight what it depends on vs. what depends on it.
 
 ## Configuring the LLM provider
 
@@ -108,36 +163,7 @@ interpreter:
 Interpreter calls are content-cached at `<scvDir>/cache.sqlite`, so
 re-running against an unchanged unit never re-invokes the provider.
 
-## Seeing a codebase
-
-End to end, including the Interpreter (needs a provider — `ollama` by default,
-configured via `.scv/config.yaml`, see above):
-
-```sh
-# 1. extract a repo, lift semantics/clustering, and write a snapshot
-npm run build --workspace packages/cli
-node packages/cli/dist/bin.js analyze /path/to/repo
-
-# 2. (optional) diff two snapshots once you have two revs analyzed
-node packages/cli/dist/bin.js diff <from-sha> <to-sha> --scv-dir /path/to/repo/.scv
-
-# 3. serve it over HTTP
-npm run build --workspace packages/server
-node packages/server/dist/bin.js /path/to/repo
-
-# 4. run the UI (proxies /api to the server above)
-npm run dev --workspace packages/ui
-```
-
-Open the UI dev server URL in a browser. You get a layered tile map of the
-repo's units (modules/classes/functions), each tile labeled with its name and
-sloc/fan-in/fan-out, sized by SLOC and shaped by complexity. Scroll to zoom
-(anchored at the cursor) and drag to pan — real repos lay out wide and flat,
-so zoom is how you read it. Click a tile to select it and open the inspector
-tray; double-click to drill into it (double-click empty canvas to ascend back
-out); hover to highlight what it depends on vs. what depends on it.
-
-## Using the extractor
+## Using the extractor as a library
 
 The only consumable API today is `extractRepo`, which walks a repo on disk
 and returns a `SymbolGraph`:
@@ -170,8 +196,10 @@ packages/
   cli/           # `scv analyze` / `scv diff`
   server/        # Fastify API serving snapshots
   layout/        # pure layered layout engine (rank/order/place/route)
-  skins/tiles/   # SVG rendering skin
-  ui/            # React app: canvas + inspector tray
+  skins/
+    tiles/       # SVG rendering skin (wired into packages/ui)
+    tiles3d/     # three.js rendering skin (not yet wired into packages/ui)
+  ui/            # React app: canvas + inspector tray + Delta/Replay/Depends-on/Flows views
 docs/            # design docs, milestone plans, and the disposable Python mock
 fixtures/        # sample repos used by tests (gitignored except small TS fixtures)
 ```
