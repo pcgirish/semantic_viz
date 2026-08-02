@@ -20,6 +20,16 @@ function sidesFor(complexity: number | undefined): SceneNode["sides"] {
   return 0; // circle: the 13+ "look at this" bucket
 }
 
+/** Walks a unit's parent chain to the nearest ancestor with kind "layer", returning its stable id. */
+function layerIdOf(u: Unit, unitMap: Map<string, Unit>): string {
+  let c: Unit | undefined = u;
+  while (c) {
+    if (c.kind === "layer") return c.id;
+    c = c.parent ? unitMap.get(c.parent) : undefined;
+  }
+  return "";
+}
+
 /**
  * Composes rank -> order -> seed -> place -> route into a Scene. Pure function of its
  * inputs: same units/edges/priorScene always produce the same Scene (docs/implement-serve.md
@@ -66,6 +76,8 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
     fanIn.set(e.to, (fanIn.get(e.to) ?? 0) + 1);
   }
 
+  const unitMap = new Map(units.map((u) => [u.id, u]));
+
   const nodes: SceneNode[] = units
     .filter((u) => boxes.has(u.id))
     .map((u) => {
@@ -84,6 +96,8 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
         sloc: u.loc.sloc,
         fanOut: fanOut.get(u.id) ?? 0,
         fanIn: fanIn.get(u.id) ?? 0,
+        layer: layerIdOf(u, unitMap),
+        complexity: u.cost?.complexity ?? 0,
       };
     });
 

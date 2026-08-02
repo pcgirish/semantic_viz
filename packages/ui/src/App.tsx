@@ -5,6 +5,7 @@ import { DependsOn } from "./DependsOn.js";
 import { Flows } from "./Flows.js";
 import { Inspector } from "./Inspector.js";
 import { InspectQueue } from "./InspectQueue.js";
+import { Legend } from "./Legend.js";
 import { Replay } from "./Replay.js";
 import { useAppStore } from "./store.js";
 
@@ -176,7 +177,10 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         ) : mode === "flows" ? (
           <Flows flows={flowUnits} units={units} edges={edges} onSelectStep={(id) => select(id)} changedStepIds={changedStepIds} />
         ) : (
-          <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+          <>
+            <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+            <Legend units={visibleUnits} />
+          </>
         )}
         <Inspector unit={selectedUnit} units={units} edges={edges} external={selectedExternal} />
       </div>
