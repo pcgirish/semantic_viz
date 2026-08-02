@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { Snapshot, Unit } from "@scv/schema";
+import type { Delta, Snapshot, Unit } from "@scv/schema";
 
 export interface RevSummary {
   sha: string;
@@ -17,9 +17,11 @@ export interface UnitWithNeighbours {
 /** Reads scv/1 snapshots from `<scvDir>/snapshots/*.json` and serves them in memory. */
 export class SnapshotStore {
   private readonly snapshotsDir: string;
+  private readonly deltasDir: string;
 
   constructor(scvDir: string) {
     this.snapshotsDir = path.join(scvDir, "snapshots");
+    this.deltasDir = path.join(scvDir, "deltas");
   }
 
   private readAll(): Snapshot[] {
@@ -66,5 +68,14 @@ export class SnapshotStore {
     if (!snapshot) return [];
     const needle = query.toLowerCase();
     return snapshot.units.filter((u) => u.qualname.toLowerCase().includes(needle));
+  }
+
+  getDelta(from: string, to: string): Delta | undefined {
+    try {
+      const raw = readFileSync(path.join(this.deltasDir, `${from}__${to}.json`), "utf-8");
+      return JSON.parse(raw) as Delta;
+    } catch {
+      return undefined;
+    }
   }
 }

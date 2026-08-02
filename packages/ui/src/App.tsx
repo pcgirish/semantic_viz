@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import type { Snapshot } from "@scv/schema";
-import { CanvasHost } from "./CanvasHost.js";
+import type { Delta, Snapshot } from "@scv/schema";
+import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { Inspector } from "./Inspector.js";
+import { InspectQueue } from "./InspectQueue.js";
 import { useAppStore } from "./store.js";
 
 export type AppProps = {
@@ -11,15 +12,27 @@ export type AppProps = {
 
 type LoadState = { status: "loading" } | { status: "error" } | { status: "loaded"; snapshot: Snapshot };
 
+type RevSummary = { sha: string; kind: string; ts: string; author: string };
+
+function shaFromSnapshotUrl(url: string): string {
+  return url.split("/").pop() ?? "";
+}
+
 export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [revs, setRevs] = useState<RevSummary[]>([]);
+  const [delta, setDelta] = useState<Delta | null>(null);
+  const [sha, setSha] = useState(() => shaFromSnapshotUrl(snapshotUrl));
   const selection = useAppStore((s) => s.selection);
   const focus = useAppStore((s) => s.focus);
+  const mode = useAppStore((s) => s.mode);
+  const setMode = useAppStore((s) => s.setMode);
+  const select = useAppStore((s) => s.select);
 
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
-    fetch(snapshotUrl)
+    fetch(`/api/snapshot/${sha}`)
       .then((res) => {
         if (!res.ok) throw new Error(`snapshot fetch failed: ${res.status}`);
         return res.json() as Promise<Snapshot>;
@@ -33,7 +46,44 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [snapshotUrl]);
+  }, [sha]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/revs")
+      .then((res) => (res.ok ? (res.json() as Promise<unknown>) : []))
+      .then((list) => {
+        if (!cancelled) setRevs(Array.isArray(list) ? (list as RevSummary[]) : []);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Delta mode's default "Against" preset is the selected rev's immediate parent
+  // (docs/serve.md#4 "Delta" — "Previous", answers "what did this commit do").
+  const revIndex = revs.findIndex((r) => r.sha === sha);
+  const previousSha = revIndex >= 0 ? revs[revIndex + 1]?.sha : undefined;
+
+  useEffect(() => {
+    if (mode !== "delta" || !previousSha) {
+      setDelta(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/delta/${previousSha}/${sha}`)
+      .then((res) => (res.ok ? (res.json() as Promise<Delta>) : null))
+      .then((d) => {
+        if (!cancelled) setDelta(d);
+      })
+      .catch(() => {
+        if (!cancelled) setDelta(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, previousSha, sha]);
 
   if (state.status === "loading") return <div>Loading…</div>;
   if (state.status === "error") return <div>Could not load snapshot.</div>;
@@ -53,10 +103,51 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const visibleIds = new Set(visibleUnits.map((u) => u.id));
   const visibleEdges = edges.filter((e) => visibleIds.has(e.from) && visibleIds.has(e.to));
 
+  // docs/serve.md#4 "Delta": a unit_delta is a direct hit; otherwise fall back to the
+  // rollup so a collapsed ancestor still shows a hidden descendant's change ("a hot leaf
+  // is visible as a hot ancestor before you drill").
+  const unitDeltasById = new Map((delta?.unit_deltas ?? []).map((d) => [d.unit, d]));
+  const deltaByUnit = new Map<string, TileDeltaInfo>(
+    visibleUnits.flatMap((u): Array<[string, TileDeltaInfo]> => {
+      const direct = unitDeltasById.get(u.id);
+      if (direct) return [[u.id, { status: direct.status, amount: direct.amount, risk: direct.risk.score }]];
+      const rolled = delta?.rollup[u.id];
+      if (rolled) return [[u.id, { status: "rollup", amount: rolled.amount, risk: rolled.risk }]];
+      return [];
+    }),
+  );
+
   return (
     <div className="app">
-      <CanvasHost units={visibleUnits} edges={visibleEdges} />
-      <Inspector unit={selectedUnit} units={units} edges={edges} />
+      <header className="topbar">
+        <div className="view-toggle" role="group">
+          <button type="button" aria-pressed={mode === "current"} onClick={() => setMode("current")}>
+            Current
+          </button>
+          <button type="button" aria-pressed={mode === "delta"} onClick={() => setMode("delta")}>
+            Delta
+          </button>
+        </div>
+        <select
+          data-testid="rev-picker"
+          aria-label="revision"
+          value={sha}
+          onChange={(e) => setSha(e.target.value)}
+        >
+          {revs.map((r) => (
+            <option key={r.sha} value={r.sha} data-testid="rev-option">
+              {r.sha}
+            </option>
+          ))}
+        </select>
+      </header>
+      <div className="body">
+        <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+        {mode === "delta" && delta && (
+          <InspectQueue entries={delta.inspect_queue} onSelect={(unitId) => select(unitId)} />
+        )}
+        <Inspector unit={selectedUnit} units={units} edges={edges} />
+      </div>
     </div>
   );
 }
