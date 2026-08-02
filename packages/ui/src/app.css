@@ -19,6 +19,7 @@
   --lo: #7a8798;
   --dep: #c22f26;
   --usr: #2560c0;
+  --ext: #8894a6;
   --d: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --b: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --m: "IBM Plex Mono", ui-monospace, monospace;
@@ -508,5 +509,65 @@ button {
   margin-right: 6px;
   color: var(--ink);
   font-weight: 600;
+}
+
+/* Depends-on view (docs/serve.md#4 "Depends on"): rows by depth, direct at the top,
+   externals sized by transitive_count so reading downward reads how far the supply
+   chain reaches. */
+.depends-on {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--paper);
+}
+
+.depends-on-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.dep-row {
+  border-bottom: 1px solid var(--grid);
+}
+
+.dep-row-label {
+  padding: 8px 16px 0;
+  font: 9.5px var(--m);
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dep-row-canvas {
+  width: 100%;
+  height: calc(100% - 20px);
+}
+
+.dep-ext {
+  cursor: pointer;
+}
+
+.dep-ext circle {
+  fill: color-mix(in srgb, var(--ext) 13%, transparent);
+  stroke: var(--ext);
+  stroke-width: 1.3;
+}
+
+.dep-ext:hover circle {
+  stroke-width: 2;
+}
+
+.dep-name {
+  font: 600 12.5px var(--d);
+  fill: var(--ink);
+}
+
+.dep-meta {
+  font: 9.5px var(--m);
+  fill: var(--slate);
 }
 

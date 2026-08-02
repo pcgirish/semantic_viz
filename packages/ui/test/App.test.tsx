@@ -477,4 +477,67 @@ describe("App", () => {
     expect(queueIndex).toBeGreaterThanOrEqual(0);
     expect(queueIndex).toBeLessThan(canvasIndex);
   });
+
+  function makeSnapshotWithExternals(): Snapshot {
+    return {
+      ...makeSnapshot(),
+      externals: [
+        {
+          id: "x:pypi:redis@5.0.1",
+          ecosystem: "pypi",
+          name: "redis",
+          version: "5.0.1",
+          direct: true,
+          depth: 1,
+          reached_by: ["u:a"],
+          transitive_count: null,
+        },
+      ],
+    } as unknown as Snapshot;
+  }
+
+  it("switching VIEW to Depends on shows externals instead of the canvas", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshotWithExternals()) }),
+    );
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("redis")).toBeInTheDocument();
+    });
+    expect(container.querySelector(".canvas-scroll")).toBeNull();
+  });
+
+  it("clicking an external in Depends-on mode shows it in the inspector tray", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshotWithExternals()) }),
+    );
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-ext="x:pypi:redis@5.0.1"]')).not.toBeNull();
+    });
+
+    fireEvent.click(container.querySelector('[data-ext="x:pypi:redis@5.0.1"]')!);
+
+    await waitFor(() => {
+      expect(container.querySelector(".inspector")!.textContent).toMatch(/redis/);
+    });
+  });
 });
