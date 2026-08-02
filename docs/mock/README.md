@@ -15,6 +15,7 @@ the only thing proving the contract holds.
 | `tools/interpret.json` | **Interpreter** output — clustering, semantics, `api_flow` traces, risk narration. Hand-authored; stands in for the LLM passes. Everything here lands in the snapshot as `source:"llm"` |
 | `tools/build.py` | Merges the two, runs the **Differ**, writes `.scv/` |
 | `tools/render.py` | Static export of the visualizer — reads `.scv/`, emits one self-contained HTML. `scv serve` with the fetches inlined |
+| `tools/render_generic.py` | Same output as `render.py`, but for a real `packages/cli` `.scv/` store with arbitrary snapshot shas — discovers snapshots/deltas from the directory instead of `render.py`'s hardcoded `orderly` fixture `REV_ORDER`. Usage: `python3 tools/render_generic.py <.scv dir> <out.html>` |
 | `.scv/` | Generated. 7 snapshots, 6 cumulative deltas, 5 step deltas |
 | `scv-mock.html` | Generated. Open it directly, no server |
 
