@@ -413,7 +413,7 @@ describe("App", () => {
 
     const bodyChildren = Array.from(container.querySelector(".body")!.children);
     const queueIndex = bodyChildren.findIndex((el) => el.getAttribute("data-testid") === "inspect-queue");
-    const canvasIndex = bodyChildren.findIndex((el) => el.getAttribute("data-testid") === "canvas-svg");
+    const canvasIndex = bodyChildren.findIndex((el) => el.classList.contains("canvas-scroll"));
     expect(queueIndex).toBeGreaterThanOrEqual(0);
     expect(queueIndex).toBeLessThan(canvasIndex);
   });
