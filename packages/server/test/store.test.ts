@@ -89,4 +89,32 @@ describe("SnapshotStore", () => {
 
     expect(results.map((u) => u.id)).toEqual(["unit:billing"]);
   });
+
+  it("returns undefined for a layout that was never saved", () => {
+    const scvDir = writeScvFixture([makeSnapshot()]);
+    const store = new SnapshotStore(scvDir);
+
+    expect(store.getLayout("a".repeat(40), "tiles")).toBeUndefined();
+  });
+
+  it("round-trips a saved layout's node positions, keyed by sha and skin", () => {
+    const scvDir = writeScvFixture([makeSnapshot()]);
+    const store = new SnapshotStore(scvDir);
+    const layout = { nodeX: { "unit:orders": 0, "unit:billing": 120 } };
+
+    store.saveLayout("a".repeat(40), "tiles", layout);
+
+    expect(store.getLayout("a".repeat(40), "tiles")).toEqual(layout);
+  });
+
+  it("keeps layouts for different skins of the same sha separate", () => {
+    const scvDir = writeScvFixture([makeSnapshot()]);
+    const store = new SnapshotStore(scvDir);
+
+    store.saveLayout("a".repeat(40), "tiles", { nodeX: { a: 0 } });
+    store.saveLayout("a".repeat(40), "tiles3d", { nodeX: { a: 200 } });
+
+    expect(store.getLayout("a".repeat(40), "tiles")).toEqual({ nodeX: { a: 0 } });
+    expect(store.getLayout("a".repeat(40), "tiles3d")).toEqual({ nodeX: { a: 200 } });
+  });
 });

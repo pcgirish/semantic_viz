@@ -148,4 +148,27 @@ describe("server routes", () => {
 
     expect(res.statusCode).toBe(404);
   });
+
+  it("GET /api/layout/:sha/:skin 404s when no layout was saved", async () => {
+    const scvDir = writeScvFixture([makeSnapshot()]);
+    const app = buildApp({ scvDir });
+
+    const res = await app.inject({ method: "GET", url: `/api/layout/${"a".repeat(40)}/tiles` });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("PUT then GET /api/layout/:sha/:skin round-trips node positions", async () => {
+    const snapshot = makeSnapshot();
+    const scvDir = writeScvFixture([snapshot]);
+    const app = buildApp({ scvDir });
+    const layout = { nodeX: { "unit:orders": 0, "unit:billing": 120 } };
+
+    const put = await app.inject({ method: "PUT", url: `/api/layout/${snapshot.rev.sha}/tiles`, payload: layout });
+    expect(put.statusCode).toBe(204);
+
+    const get = await app.inject({ method: "GET", url: `/api/layout/${snapshot.rev.sha}/tiles` });
+    expect(get.statusCode).toBe(200);
+    expect(get.json()).toEqual(layout);
+  });
 });

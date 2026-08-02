@@ -231,4 +231,41 @@ describe("CanvasHost", () => {
 
     expect(tileAfter).toBe(tileBefore);
   });
+
+  it("keeps a node's relative x order stable across a units/edges change (replay scrub), so nodes don't teleport (docs/serve.md#3)", () => {
+    // "x" and "y" are children of "a" and "b" respectively. Rev 1 places x left of y. Rev 2
+    // flips which parent owns which child in a way that would pull barycentre ordering to
+    // put y left of x — seeding from the prior build's positions must keep x left of y
+    // regardless, so the node doesn't visibly jump sides on a rev scrub.
+    const leftEdge = (id: string, container: HTMLElement) => {
+      const points = container.querySelector(`.tile[data-id="${id}"] polygon.tile-body`)!.getAttribute("points")!;
+      const xs = points.trim().split(/\s+/).map((pt) => Number(pt.split(",")[0]));
+      return Math.min(...xs);
+    };
+
+    const unitsRev1 = [makeUnit({ id: "root" }), makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "x" }), makeUnit({ id: "y" })];
+    const edgesRev1: Edge[] = [
+      { id: "e0", from: "root", to: "a", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e0b", from: "root", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e1", from: "a", to: "x", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e2", from: "b", to: "y", kind: "calls", weight: 1, source: "static", confidence: 1 },
+    ];
+    const { container, rerender } = render(<CanvasHost units={unitsRev1} edges={edgesRev1} />);
+    const xBefore = leftEdge("x", container);
+    const yBefore = leftEdge("y", container);
+    expect(xBefore).toBeLessThan(yBefore);
+
+    const unitsRev2 = [makeUnit({ id: "root" }), makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "y" }), makeUnit({ id: "x" })];
+    const edgesRev2: Edge[] = [
+      { id: "e0", from: "root", to: "a", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e0b", from: "root", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e1", from: "a", to: "y", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e2", from: "b", to: "x", kind: "calls", weight: 1, source: "static", confidence: 1 },
+    ];
+    rerender(<CanvasHost units={unitsRev2} edges={edgesRev2} />);
+
+    const xAfter = leftEdge("x", container);
+    const yAfter = leftEdge("y", container);
+    expect(xAfter).toBeLessThan(yAfter);
+  });
 });

@@ -1,6 +1,10 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Delta, Snapshot, Unit } from "@scv/schema";
+
+export interface Layout {
+  nodeX: Record<string, number>;
+}
 
 export interface RevSummary {
   sha: string;
@@ -22,10 +26,12 @@ export interface UnitWithNeighbours {
 export class SnapshotStore {
   private readonly snapshotsDir: string;
   private readonly deltasDir: string;
+  private readonly layoutsDir: string;
 
   constructor(scvDir: string) {
     this.snapshotsDir = path.join(scvDir, "snapshots");
     this.deltasDir = path.join(scvDir, "deltas");
+    this.layoutsDir = path.join(scvDir, "layouts");
   }
 
   private readAll(): Snapshot[] {
@@ -96,5 +102,20 @@ export class SnapshotStore {
     } catch {
       return undefined;
     }
+  }
+
+  /** Seeded positions for replay stability (docs/serve.md#3 — "hard requirement, not polish"). */
+  getLayout(sha: string, skin: string): Layout | undefined {
+    try {
+      const raw = readFileSync(path.join(this.layoutsDir, `${sha}.${skin}.json`), "utf-8");
+      return JSON.parse(raw) as Layout;
+    } catch {
+      return undefined;
+    }
+  }
+
+  saveLayout(sha: string, skin: string, layout: Layout): void {
+    if (!existsSync(this.layoutsDir)) mkdirSync(this.layoutsDir, { recursive: true });
+    writeFileSync(path.join(this.layoutsDir, `${sha}.${skin}.json`), JSON.stringify(layout));
   }
 }
