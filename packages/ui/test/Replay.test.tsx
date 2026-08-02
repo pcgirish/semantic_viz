@@ -19,6 +19,16 @@ describe("Replay", () => {
     expect(screen.getAllByTestId("replay-bar")).toHaveLength(1);
   });
 
+  it("falls back to showing every rev when the repo has no pr-kind revs at all", () => {
+    const revs: ReplayRev[] = [
+      { sha: "aaa", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "Ada", author_kind: "human", amount: 0 },
+      { sha: "bbb", kind: "commit", ts: "2026-01-02T00:00:00Z", author: "Ada", author_kind: "human", amount: 0.5 },
+    ];
+    render(<Replay revs={revs} sha="bbb" onScrub={vi.fn()} />);
+
+    expect(screen.getAllByTestId("replay-bar")).toHaveLength(2);
+  });
+
   it("toggling to commit-level shows every rev as a bar", () => {
     render(<Replay revs={makeRevs()} sha="bbb" onScrub={vi.fn()} />);
 
@@ -48,5 +58,19 @@ describe("Replay", () => {
     render(<Replay revs={makeRevs()} sha="bbb" onScrub={vi.fn()} />);
 
     expect(screen.getAllByTestId("replay-bar")[0].classList.contains("active")).toBe(true);
+  });
+
+  it("scopes the track to the current sha's PR — branch point to head, not the whole repo history", () => {
+    const revs: ReplayRev[] = [
+      { sha: "other-head", kind: "pr", pr: 500, ts: "2026-01-06T00:00:00Z", author: "Cy", author_kind: "human", amount: 0.3 },
+      { sha: "head", kind: "pr", pr: 412, ts: "2026-01-04T00:00:00Z", author: "Ada", author_kind: "human", amount: 0.6 },
+      { sha: "mid", kind: "pr", pr: 412, ts: "2026-01-03T00:00:00Z", author: "agent", author_kind: "agent", amount: 0.5 },
+      { sha: "start", kind: "pr", pr: 412, ts: "2026-01-02T00:00:00Z", author: "agent", author_kind: "agent", amount: 0.1 },
+      { sha: "main1", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "Bo", author_kind: "human", amount: 0 },
+    ];
+    render(<Replay revs={revs} sha="mid" onScrub={vi.fn()} />);
+
+    const shas = screen.getAllByTestId("replay-bar").map((b) => b.title.split(" · ")[0]);
+    expect(shas.sort()).toEqual(["head", "mid", "start"]);
   });
 });
