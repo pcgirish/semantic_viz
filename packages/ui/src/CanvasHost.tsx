@@ -4,9 +4,15 @@ import { buildScene } from "@scv/layout";
 import { tilesSkin } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
 
+const HIGH_RISK = 0.5;
+
+export type TileDeltaInfo = { status: string; amount: number; risk: number | null };
+
 export type CanvasHostProps = {
   units: Unit[];
   edges: Edge[];
+  /** Present only in delta mode (docs/serve.md#2 — fill saturation = amount, ring = risk≥0.5). */
+  deltaByUnit?: Map<string, TileDeltaInfo>;
 };
 
 /**
@@ -36,7 +42,7 @@ function sceneBounds(scene: { nodes: Array<{ x: number; y: number; w: number; h:
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-export function CanvasHost({ units, edges }: CanvasHostProps): JSX.Element {
+export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null);
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
@@ -92,6 +98,12 @@ export function CanvasHost({ units, edges }: CanvasHostProps): JSX.Element {
     for (const n of scene.nodes) {
       const el = tilesSkin.node(n);
       if (hover && !related.has(n.id)) el.classList.add("dim");
+      const d = deltaByUnit?.get(n.id);
+      if (d) {
+        el.classList.add(`status-${d.status}`);
+        el.style.setProperty("--amount", String(d.amount));
+        if (d.risk !== null && d.risk >= HIGH_RISK) el.classList.add("high-risk");
+      }
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         select(n.id);
@@ -104,7 +116,7 @@ export function CanvasHost({ units, edges }: CanvasHostProps): JSX.Element {
       el.addEventListener("mouseleave", () => setHover((h) => (h === n.id ? null : h)));
       nodeLayer.appendChild(el);
     }
-  }, [units, edges, select, drill, hover]);
+  }, [units, edges, select, drill, hover, deltaByUnit]);
 
   const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
     const svg = svgRef.current;

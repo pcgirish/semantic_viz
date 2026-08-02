@@ -31,5 +31,11 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     return store.search(latest.rev.sha, q);
   });
 
+  app.get<{ Params: { from: string; to: string } }>("/api/delta/:from/:to", async (req, reply) => {
+    const delta = store.getDelta(req.params.from, req.params.to);
+    if (!delta) return reply.code(404).send({ error: "delta not found" });
+    return delta;
+  });
+
   return app;
 }

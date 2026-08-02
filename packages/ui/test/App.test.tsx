@@ -193,4 +193,151 @@ describe("App", () => {
       expect(container.querySelectorAll(".tile")).toHaveLength(1);
     });
   });
+
+  it("shows a rev picker populated from /api/revs, newest first", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/revs") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { sha: "bbb", kind: "commit", ts: "2026-01-02T00:00:00Z", author: "a" },
+              { sha: "aaa", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a" },
+            ]),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makeSnapshot()) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("rev-picker")).toBeInTheDocument();
+    });
+
+    const options = screen.getAllByTestId("rev-option");
+    expect(options.map((o) => o.textContent)).toEqual(["bbb", "aaa"]);
+  });
+
+  it("switching VIEW to Delta fetches the delta against the previous rev and renders the inspect queue", async () => {
+    const delta = {
+      schema: "scv-delta/1",
+      from: { snapshot_id: "s0", sha: "aaa" },
+      to: { snapshot_id: "s1", sha: "bbb" },
+      provenance: { extractor: "scv-ts/0.1.0", formulas: {} },
+      inspect_queue: [{ rank: 1, unit: "u:a", qualname: "a", status: "modified", risk: 0.6, confidence: 0.8 }],
+      unit_deltas: [
+        {
+          unit: "u:a",
+          qualname: "a",
+          kind: "module",
+          status: "modified",
+          fields: ["semantics"],
+          amount: 0.4,
+          blast_radius: { direct: 0, transitive: 0, public_api: false },
+          authors: [],
+          risk: { score: 0.6, axes: null, why: null, confidence: 0.8, source: "formula" },
+        },
+      ],
+      edge_deltas: [],
+      rollup: {},
+    };
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/revs") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { sha: "bbb", kind: "commit", ts: "2026-01-02T00:00:00Z", author: "a" },
+              { sha: "aaa", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a" },
+            ]),
+        });
+      }
+      if (url === "/api/delta/aaa/bbb") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(delta) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makeSnapshot()) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/bbb" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /delta/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/delta/aaa/bbb");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("inspect-queue")).toBeInTheDocument();
+      expect(screen.getByTestId("inspect-queue")).toHaveTextContent("a");
+    });
+
+    expect(container.querySelector('.tile[data-id="u:a"]')?.classList.contains("status-modified")).toBe(true);
+  });
+
+  it("colors a collapsed ancestor via rollup when the changed unit is a hidden descendant, not itself in unit_deltas", async () => {
+    // u:layer:ops is the only visible tile (system's direct child); the actual change is on
+    // u:a, a grandchild hidden below the current focus depth. docs/serve.md#4 "Delta":
+    // "Collapsed parents inherit the rollup, so a hot leaf is visible as a hot ancestor
+    // before you drill."
+    const delta = {
+      schema: "scv-delta/1",
+      from: { snapshot_id: "s0", sha: "aaa" },
+      to: { snapshot_id: "s1", sha: "bbb" },
+      provenance: { extractor: "scv-ts/0.1.0", formulas: {} },
+      inspect_queue: [{ rank: 1, unit: "u:a", qualname: "a", status: "modified", risk: 0.9, confidence: 0.8 }],
+      unit_deltas: [
+        {
+          unit: "u:a",
+          qualname: "a",
+          kind: "module",
+          status: "modified",
+          fields: ["semantics"],
+          amount: 0.4,
+          blast_radius: { direct: 0, transitive: 0, public_api: false },
+          authors: [],
+          risk: { score: 0.9, axes: null, why: null, confidence: 0.8, source: "formula" },
+        },
+      ],
+      edge_deltas: [],
+      rollup: { "u:layer:ops": { amount: 0.4, risk: 0.9, sloc: 10 } },
+    };
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/revs") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { sha: "bbb", kind: "commit", ts: "2026-01-02T00:00:00Z", author: "a" },
+              { sha: "aaa", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a" },
+            ]),
+        });
+      }
+      if (url === "/api/delta/aaa/bbb") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(delta) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/bbb" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:layer:ops"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /delta/i }));
+
+    await waitFor(() => {
+      const tile = container.querySelector('.tile[data-id="u:layer:ops"]');
+      expect(tile?.classList.contains("status-rollup")).toBe(true);
+      expect(tile?.classList.contains("high-risk")).toBe(true);
+    });
+  });
 });
