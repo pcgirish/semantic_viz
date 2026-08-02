@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot } from "@scv/schema";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
+import { DependsOn } from "./DependsOn.js";
 import { Inspector } from "./Inspector.js";
 import { InspectQueue } from "./InspectQueue.js";
 import { Replay } from "./Replay.js";
@@ -127,8 +128,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   if (state.status === "loading") return <div>Loading…</div>;
   if (state.status === "error") return <div>Could not load snapshot.</div>;
 
-  const { units, edges } = state.snapshot;
+  const { units, edges, externals } = state.snapshot;
   const selectedUnit = units.find((u) => u.id === selection) ?? null;
+  const selectedExternal = mode === "depends" ? (externals.find((x) => x.id === selection) ?? null) : null;
 
   return (
     <div className="app">
@@ -139,6 +141,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           </button>
           <button type="button" aria-pressed={mode === "delta"} onClick={() => setMode("delta")}>
             Delta
+          </button>
+          <button type="button" aria-pressed={mode === "depends"} onClick={() => setMode("depends")}>
+            Depends on
           </button>
         </div>
         <select
@@ -158,8 +163,12 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         {mode === "delta" && delta && (
           <InspectQueue entries={delta.inspect_queue} onSelect={(unitId) => select(unitId)} />
         )}
-        <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
-        <Inspector unit={selectedUnit} units={units} edges={edges} />
+        {mode === "depends" ? (
+          <DependsOn externals={externals} onSelect={(id) => select(id)} />
+        ) : (
+          <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+        )}
+        <Inspector unit={selectedUnit} units={units} edges={edges} external={selectedExternal} />
       </div>
       {revs.length > 0 && <Replay revs={revs} sha={sha} onScrub={setSha} />}
     </div>

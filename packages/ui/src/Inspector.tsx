@@ -1,9 +1,14 @@
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, External, Unit } from "@scv/schema";
 
 export type InspectorProps = {
   unit: Unit | null;
   units: Unit[];
   edges: Edge[];
+  /** Present when the Depends-on view has an external selected (docs/serve.md#4 "Depends on"
+   *  — "selecting an external lists every unit that reaches it and why it is present"). Takes
+   *  priority over `unit` when both are set, since the two selections are mutually exclusive
+   *  in practice (only one view is active at a time). */
+  external?: External | null;
 };
 
 const LOW_CONFIDENCE = 0.6;
@@ -18,7 +23,47 @@ function fileOf(unit: Unit): string | undefined {
  * pass exists yet) — that state is shown explicitly rather than left blank, matching the
  * doc's rule that "empty states carry information rather than apologising."
  */
-export function Inspector({ unit, units, edges }: InspectorProps): JSX.Element {
+export function Inspector({ unit, units, edges, external }: InspectorProps): JSX.Element {
+  if (external) {
+    const reachedBy = external.reached_by.map((id) => units.find((u) => u.id === id)).filter((u): u is Unit => Boolean(u));
+    return (
+      <aside className="inspector">
+        <h2>{external.name}</h2>
+        <div className="meta">
+          <span>{external.id}</span>
+          <span>{external.ecosystem}</span>
+        </div>
+        <ul className="tags">
+          <li>depth {external.depth}</li>
+          <li>{external.direct ? "direct" : "transitive"}</li>
+        </ul>
+        <section>
+          <h3>Reach</h3>
+          <dl>
+            <dt>Version</dt>
+            <dd>{external.version}</dd>
+            <dt>Call sites</dt>
+            <dd>{external.reached_by.length}</dd>
+            <dt>Transitive</dt>
+            <dd>{external.transitive_count ?? "not computed"}</dd>
+          </dl>
+        </section>
+        <section>
+          <h3>Reached by</h3>
+          {reachedBy.length > 0 ? (
+            <ul>
+              {reachedBy.map((u) => (
+                <li key={u.id}>{u.name}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>Nothing resolved — the unit that reaches this dependency isn't in this snapshot.</p>
+          )}
+        </section>
+      </aside>
+    );
+  }
+
   if (!unit) {
     return <aside className="inspector">Nothing selected.</aside>;
   }

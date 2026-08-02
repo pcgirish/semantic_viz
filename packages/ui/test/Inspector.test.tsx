@@ -1,7 +1,19 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, External, Unit } from "@scv/schema";
 import { Inspector } from "../src/Inspector.js";
+
+function makeExternal(overrides: Partial<External> & { id: string; name: string }): External {
+  return {
+    ecosystem: "pypi",
+    version: "1.0.0",
+    direct: true,
+    depth: 1,
+    reached_by: [],
+    transitive_count: null,
+    ...overrides,
+  };
+}
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
   return {
@@ -116,5 +128,39 @@ describe("Inspector", () => {
     const a = makeUnit({ id: "a" });
     render(<Inspector unit={a} units={[a]} edges={[]} />);
     expect(screen.getByText(/nothing\. removing this is free/i)).toBeInTheDocument();
+  });
+
+  it("renders an external's name, ecosystem, and depth/direct tags when an external is selected", () => {
+    const redis = makeExternal({ id: "x:pypi:redis@5.0.1", name: "redis", ecosystem: "pypi", version: "5.0.1", depth: 1, direct: true });
+    const { container } = render(<Inspector unit={null} units={[]} edges={[]} external={redis} />);
+
+    expect(screen.getByText("redis")).toBeInTheDocument();
+    expect(container.querySelector(".meta")!.textContent).toMatch(/pypi/i);
+    expect(screen.getByText(/depth 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/^direct$/i)).toBeInTheDocument();
+  });
+
+  it("lists every unit that reaches the selected external and why it's present", () => {
+    const limiter = makeUnit({ id: "u:limiter", name: "rate_limiter" });
+    const redis = makeExternal({ id: "x:pypi:redis@5.0.1", name: "redis", reached_by: ["u:limiter"] });
+    render(<Inspector unit={null} units={[limiter]} edges={[]} external={redis} />);
+
+    expect(screen.getByText("rate_limiter")).toBeInTheDocument();
+  });
+
+  it("shows transitive_count as 'not computed' rather than 0 when it is null, per serve.md's honesty rule", () => {
+    const pkg = makeExternal({ id: "x:pypi:fastapi@1", name: "fastapi", transitive_count: null });
+    render(<Inspector unit={null} units={[]} edges={[]} external={pkg} />);
+
+    expect(screen.getByText(/not computed/i)).toBeInTheDocument();
+  });
+
+  it("prefers the external tray over the unit tray when both are provided", () => {
+    const unit = makeUnit({ id: "u:check" });
+    const redis = makeExternal({ id: "x:pypi:redis@5.0.1", name: "redis" });
+    render(<Inspector unit={unit} units={[unit]} edges={[]} external={redis} />);
+
+    expect(screen.getByText("redis")).toBeInTheDocument();
+    expect(screen.queryByText("u:check")).not.toBeInTheDocument();
   });
 });
