@@ -16,6 +16,7 @@ export function InspectQueue({ entries, onSelect }: InspectQueueProps): JSX.Elem
   return (
     <aside className="inspect-queue" data-testid="inspect-queue">
       <h2>Inspect queue</h2>
+      {entries.length === 0 && <p className="empty">No delta available for this revision.</p>}
       <ol>
         {entries.map((e) => (
           <li
