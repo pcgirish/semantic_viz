@@ -36,10 +36,10 @@ absent from the queue.
 | `packages/interpreter` | Pass A (leaf semantics), Pass B (import-cohesion clustering + deterministic checker), Pass C (architecture narration), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking | Implemented |
 | `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue | Implemented |
-| `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, ...) | Implemented |
+| `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles, complexity glyphs, dependency-highlight links | Implemented |
-| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray | Implemented |
+| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction, pulse-highlight on scrub) | Implemented |
 
 A disposable Python prototype of the *full* pipeline (extract → interpret →
 diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
