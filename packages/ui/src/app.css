@@ -98,13 +98,21 @@ button {
   min-height: 0;
 }
 
-.canvas {
+.canvas-scroll {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
   background:
     linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 28px,
     linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 28px 100%,
     var(--paper);
+}
+
+/* Scrollbars stay hidden until a drag-pan is in progress (docs/serve.md#4 — panning is
+   primarily wheel/drag; the browser scrollbar is a secondary affordance, not chrome that
+   should sit on screen at rest). */
+.canvas-scroll.panning {
+  overflow: auto;
 }
 
 .inspector,
