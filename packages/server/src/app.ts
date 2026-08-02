@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
-import { SnapshotStore } from "./store.js";
+import { SnapshotStore, type Layout } from "./store.js";
 
 export interface BuildAppOptions {
   scvDir: string;
@@ -35,6 +35,17 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     const delta = store.getDelta(req.params.from, req.params.to);
     if (!delta) return reply.code(404).send({ error: "delta not found" });
     return delta;
+  });
+
+  app.get<{ Params: { sha: string; skin: string } }>("/api/layout/:sha/:skin", async (req, reply) => {
+    const layout = store.getLayout(req.params.sha, req.params.skin);
+    if (!layout) return reply.code(404).send({ error: "layout not found" });
+    return layout;
+  });
+
+  app.put<{ Params: { sha: string; skin: string }; Body: Layout }>("/api/layout/:sha/:skin", async (req, reply) => {
+    store.saveLayout(req.params.sha, req.params.skin, req.body);
+    return reply.code(204).send();
   });
 
   return app;

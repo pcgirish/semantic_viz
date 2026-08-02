@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
-import { buildScene } from "@scv/layout";
+import { buildScene, type Scene } from "@scv/layout";
 import { tilesSkin } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
 
@@ -68,6 +68,11 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   const nodeElsRef = useRef(new Map<string, SVGGElement>());
   const linkElsRef = useRef<Array<{ from: string; to: string; el: SVGElement }>>([]);
 
+  // Last build's Scene, so the next build (e.g. a replay scrub landing on a new rev's
+  // units/edges) seeds from it — docs/serve.md#3, "positions are seeded from the previous
+  // snapshot ... this is a hard requirement, replay is unreadable if nodes teleport."
+  const priorSceneRef = useRef<Scene | undefined>(undefined);
+
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -75,7 +80,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     nodeElsRef.current = new Map();
     linkElsRef.current = [];
 
-    const scene = buildScene(units, edges);
+    const scene = buildScene(units, edges, { priorScene: priorSceneRef.current });
+    priorSceneRef.current = scene;
     const gated = scene.links.length > scene.nodes.length * 1.6;
 
     const base = sceneBounds(scene);
