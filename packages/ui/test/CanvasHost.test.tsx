@@ -219,4 +219,16 @@ describe("CanvasHost", () => {
 
     expect(container.querySelector('.tile[data-id="a"]')!.classList.contains("pulse")).toBe(true);
   });
+
+  it("does not re-create delta tile nodes on hover, so the pulse animation doesn't replay every time the mouse moves over a tile", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
+    const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
+
+    const tileBefore = container.querySelector('.tile[data-id="a"]')!;
+    fireEvent.mouseEnter(container.querySelector('.tile[data-id="b"]')!);
+    const tileAfter = container.querySelector('.tile[data-id="a"]')!;
+
+    expect(tileAfter).toBe(tileBefore);
+  });
 });
