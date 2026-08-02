@@ -6,7 +6,7 @@ export interface BuildAppOptions {
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
-  const app = Fastify();
+  const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "error" } });
   const store = new SnapshotStore(options.scvDir);
 
   app.get("/api/revs", async () => store.listRevs());

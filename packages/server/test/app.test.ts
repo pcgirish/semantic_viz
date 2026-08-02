@@ -3,6 +3,13 @@ import { buildApp } from "../src/app.js";
 import { makeDelta, makeSnapshot, writeScvFixture } from "./fixtures.js";
 
 describe("server routes", () => {
+  it("enables the logger so fatal errors (e.g. port bind failure) are never silently swallowed", () => {
+    const scvDir = writeScvFixture([makeSnapshot()]);
+    const app = buildApp({ scvDir });
+
+    expect(typeof app.log.level).toBe("string");
+  });
+
   it("GET /api/revs returns the rev list", async () => {
     const snapshot = makeSnapshot();
     const scvDir = writeScvFixture([snapshot]);

@@ -13,6 +13,6 @@ app
     app.log.info(`serving ${scvDir} on http://127.0.0.1:${port}`);
   })
   .catch((err) => {
-    app.log.error(err);
+    console.error(`failed to start server on http://127.0.0.1:${port}:`, err);
     process.exit(1);
   });
