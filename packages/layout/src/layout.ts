@@ -11,6 +11,15 @@ export type BuildSceneOptions = {
   priorScene?: Scene;
 };
 
+// Module names are the file's relative path (e.g. "packages/extractor/src/facts.ts");
+// other kinds already carry a leaf symbol name. The breadcrumb supplies the folder
+// context, so a tile only needs the filename.
+function displayName(u: Unit): string {
+  if (u.kind !== "module") return u.name;
+  const parts = u.name.split("/");
+  return parts[parts.length - 1] ?? u.name;
+}
+
 /** Cyclomatic complexity -> side count, per docs/serve.md#2 ("sides = complexity, with a correction"). */
 function sidesFor(complexity: number | undefined): SceneNode["sides"] {
   const c = complexity ?? 1;
@@ -92,7 +101,7 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
         sides: sidesFor(u.cost?.complexity),
         heat: 0,
         ring: false,
-        name: u.name,
+        name: displayName(u),
         sloc: u.loc.sloc,
         fanOut: fanOut.get(u.id) ?? 0,
         fanIn: fanIn.get(u.id) ?? 0,

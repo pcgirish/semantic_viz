@@ -94,6 +94,59 @@ button {
   font-weight: 500;
 }
 
+.crumb-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-btn {
+  padding: 3px 8px;
+  font-size: 12px;
+  color: var(--slate);
+  background: none;
+  border: 1px solid var(--hair);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  background: var(--grid);
+  color: var(--ink);
+}
+
+#crumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+  font-size: 12px;
+}
+
+#crumb button {
+  padding: 1px 4px;
+  border-radius: 2px;
+  color: var(--slate);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+#crumb button:hover {
+  background: var(--grid);
+  color: var(--ink);
+}
+
+#crumb .here {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+#crumb i {
+  color: var(--hair);
+  font-style: normal;
+}
+
 .body {
   display: flex;
   flex: 1;

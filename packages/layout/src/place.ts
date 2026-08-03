@@ -8,6 +8,7 @@ const AREA_SCALE = 4; // px^2 per sloc unit before sqrt
 const GAP = 16;
 const ROW_GAP = 32;
 const DUMMY_DIM = 6; // small fixed-width pass-through marker for an expanded edge's midpoint
+const MAX_ROW_TILES = 6; // wrap threshold for a flat (single-rank) row — a grid reads better than one long strip
 
 /**
  * Nested-box placement: one row per rank, boxes sized by sqrt(sloc) (area, not length,
@@ -27,8 +28,13 @@ export function place(rows: string[][], sloc: Map<string, number>): Map<string, 
     return Math.min(MAX_DIM, Math.max(MIN_DIM, side));
   }
 
+  // A single rank (no cross-rank structure to justify one full-width row, e.g. a repo
+  // with zero cross-layer edges) gets wrapped into multiple rows instead. Rows produced
+  // by order.ts's crossing-minimization (rows.length > 1) are left alone.
+  const effectiveRows = rows.length === 1 ? wrapRow(rows[0]!) : rows;
+
   let y = 0;
-  for (const row of rows) {
+  for (const row of effectiveRows) {
     const dims = row.map((id) => ({ id, size: dimFor(id) }));
     const rowWidth = dims.reduce((acc, d) => acc + d.size, 0) + GAP * Math.max(0, dims.length - 1);
     const rowHeight = dims.length > 0 ? Math.max(...dims.map((d) => d.size)) : 0;
@@ -42,4 +48,12 @@ export function place(rows: string[][], sloc: Map<string, number>): Map<string, 
   }
 
   return boxes;
+}
+
+function wrapRow(ids: string[]): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < ids.length; i += MAX_ROW_TILES) {
+    out.push(ids.slice(i, i + MAX_ROW_TILES));
+  }
+  return out.length > 0 ? out : [ids];
 }

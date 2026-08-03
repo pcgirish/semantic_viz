@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot } from "@scv/schema";
+import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
 import { Flows } from "./Flows.js";
 import { Inspector } from "./Inspector.js";
 import { InspectQueue } from "./InspectQueue.js";
 import { Legend } from "./Legend.js";
-import { Replay } from "./Replay.js";
+import { Replay, shortSha } from "./Replay.js";
 import { useAppStore } from "./store.js";
 
 export type AppProps = {
@@ -32,6 +33,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
   const select = useAppStore((s) => s.select);
+  const focusStack = useAppStore((s) => s.focusStack);
+  const ascend = useAppStore((s) => s.ascend);
+  const goTo = useAppStore((s) => s.goTo);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,6 +145,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   return (
     <div className="app">
       <header className="topbar">
+        <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />
         <div className="view-toggle" role="group">
           <button type="button" aria-pressed={mode === "current"} onClick={() => setMode("current")}>
             Current
@@ -163,7 +168,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         >
           {revs.map((r) => (
             <option key={r.sha} value={r.sha} data-testid="rev-option">
-              {r.sha}
+              {shortSha(r.sha)}
             </option>
           ))}
         </select>

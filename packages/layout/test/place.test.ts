@@ -60,4 +60,60 @@ describe("place", () => {
     expect(dummy.w).toBeLessThan(boxes.get("real")!.w);
     expect(dummy.w).toBeLessThanOrEqual(8);
   });
+
+  describe("wrapping a flat single rank into multiple rows", () => {
+    function manyIds(n: number): string[] {
+      return Array.from({ length: n }, (_, i) => `n${i}`);
+    }
+    function sizedSloc(ids: string[]): Map<string, number> {
+      return new Map(ids.map((id) => [id, 2_000_000]));
+    }
+
+    it("wraps a single flat row that exceeds the max tile count into multiple rows", () => {
+      const ids = manyIds(7);
+      const boxes = place([ids], sizedSloc(ids));
+      const ys = new Set(ids.map((id) => boxes.get(id)!.y));
+      expect(ys.size).toBeGreaterThan(1);
+    });
+
+    it("leaves a single row that already fits within the max tile count unwrapped", () => {
+      const ids = ["a", "b", "c"];
+      const boxes = place([ids], new Map(ids.map((id) => [id, 100])));
+      const ys = new Set(ids.map((id) => boxes.get(id)!.y));
+      expect(ys.size).toBe(1);
+    });
+
+    it("wraps a single flat row of many small (MIN_DIM) tiles by count, even though they'd all fit width-wise", () => {
+      // Reproduces the extractor-core case: 11 modules, 0 edges among them, each tile
+      // clamped to MIN_DIM (96px) — small enough that all 11 fit under any reasonable
+      // pixel-width threshold, but still reads as one long flat strip.
+      const ids = manyIds(11);
+      const boxes = place([ids], new Map(ids.map((id) => [id, 1])));
+      const ys = new Set(ids.map((id) => boxes.get(id)!.y));
+      expect(ys.size).toBeGreaterThan(1);
+    });
+
+    it("never wraps when there is real multi-rank structure, even if one row is individually wide", () => {
+      const wideRow = manyIds(6);
+      const boxes = place([wideRow, ["leaf"]], sizedSloc(wideRow));
+      const ys = new Set(wideRow.map((id) => boxes.get(id)!.y));
+      expect(ys.size).toBe(1);
+    });
+
+    it("does not overlap tiles across wrapped sub-rows", () => {
+      const ids = manyIds(6);
+      const boxes = place([ids], sizedSloc(ids));
+      const rows = new Map<number, string[]>();
+      for (const id of ids) {
+        const y = boxes.get(id)!.y;
+        rows.set(y, [...(rows.get(y) ?? []), id]);
+      }
+      const sortedYs = [...rows.keys()].sort((a, b) => a - b);
+      for (let i = 1; i < sortedYs.length; i++) {
+        const prevRowIds = rows.get(sortedYs[i - 1]!)!;
+        const prevMaxH = Math.max(...prevRowIds.map((id) => boxes.get(id)!.h));
+        expect(sortedYs[i]).toBeGreaterThanOrEqual(sortedYs[i - 1]! + prevMaxH);
+      }
+    });
+  });
 });

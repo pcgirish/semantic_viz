@@ -44,4 +44,30 @@ describe("useAppStore", () => {
     useAppStore.getState().setRev("abc123");
     expect(useAppStore.getState().rev).toBe("abc123");
   });
+
+  it("goTo jumps to an ancestor in the focus stack, truncating the stack past it", () => {
+    useAppStore.getState().drill("u:layer:x");
+    useAppStore.getState().drill("u:module:y");
+    useAppStore.getState().drill("u:class:z");
+    useAppStore.getState().goTo(1);
+    expect(useAppStore.getState().focus).toBe("u:module:y");
+    expect(useAppStore.getState().focusStack).toEqual(["u:layer:x"]);
+  });
+
+  it("goTo(0) jumps to the first drilled unit with an empty stack", () => {
+    useAppStore.getState().drill("u:layer:x");
+    useAppStore.getState().drill("u:module:y");
+    useAppStore.getState().goTo(0);
+    expect(useAppStore.getState().focus).toBe("u:layer:x");
+    expect(useAppStore.getState().focusStack).toEqual([]);
+  });
+
+  it("goTo is a no-op when index is at or past the current stack length", () => {
+    useAppStore.getState().drill("u:layer:x");
+    useAppStore.getState().drill("u:module:y");
+    const before = useAppStore.getState();
+    useAppStore.getState().goTo(1);
+    expect(useAppStore.getState().focus).toBe(before.focus);
+    expect(useAppStore.getState().focusStack).toEqual(before.focusStack);
+  });
 });

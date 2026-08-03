@@ -11,6 +11,7 @@ export type AppState = {
   select: (unitId: string | null) => void;
   drill: (unitId: string) => void;
   ascend: () => void;
+  goTo: (index: number) => void;
   setMode: (mode: Mode) => void;
   setRev: (rev: string | null) => void;
 };
@@ -36,6 +37,11 @@ export const useAppStore = create<AppState>((set) => ({
       const stack = [...s.focusStack];
       const parent = stack.pop() ?? null;
       return { focusStack: stack, focus: parent };
+    }),
+  goTo: (index) =>
+    set((s) => {
+      if (index >= s.focusStack.length) return {};
+      return { focus: s.focusStack[index]!, focusStack: s.focusStack.slice(0, index) };
     }),
   setMode: (mode) => set({ mode }),
   setRev: (rev) => set({ rev }),
