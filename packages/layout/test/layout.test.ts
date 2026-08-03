@@ -135,4 +135,16 @@ describe("buildScene", () => {
     expect(scene.nodes.find((n) => n.id === "a")!.complexity).toBe(7);
     expect(scene.nodes.find((n) => n.id === "b")!.complexity).toBe(0);
   });
+
+  it("shows only the filename for a module unit, not its full relative path — the breadcrumb already gives the folder context", () => {
+    const units = [makeUnit({ id: "m", kind: "module", name: "packages/extractor/src/facts.ts" })];
+    const scene = buildScene(units, []);
+    expect(scene.nodes[0]!.name).toBe("facts.ts");
+  });
+
+  it("leaves non-module unit names (already leaf symbol names) untouched", () => {
+    const units = [makeUnit({ id: "f", kind: "function", name: "interpret" })];
+    const scene = buildScene(units, []);
+    expect(scene.nodes[0]!.name).toBe("interpret");
+  });
 });

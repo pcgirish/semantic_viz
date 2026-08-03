@@ -1,5 +1,10 @@
 import { useState } from "react";
 
+/** git's default abbreviated-sha length — enough to disambiguate, short enough to scan. */
+export function shortSha(sha: string): string {
+  return sha.slice(0, 7);
+}
+
 export type ReplayRev = {
   sha: string;
   kind: string;
@@ -65,7 +70,7 @@ export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
               title={`${r.sha} · ${r.author} · amount ${(r.amount ?? 0).toFixed(2)}`}
             />
             <div className="replay-dot" />
-            <div className="replay-cap">{r.sha}</div>
+            <div className="replay-cap">{shortSha(r.sha)}</div>
           </div>
         ))}
       </div>
