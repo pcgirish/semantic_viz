@@ -48,13 +48,13 @@ export function passCFlowNarrationPrompt(route: string, name: string, steps: Flo
 ${stepLines}
 
 Respond with JSON only, matching exactly this shape. Each field is a distinct one-sentence
-answer — do not repeat one field's text in another:
+answer — do not repeat one field's text in another. Use a colon after every key, never a comma:
 {
-  "what": "what this flow accomplishes end to end, one sentence",
-  "how": "how the steps connect, one sentence",
-  "when": "when this flow runs / is triggered, one sentence",
-  "where": "where the flow crosses from one part of the system to another, one sentence",
-  "why": "why this flow matters or what risk it carries — the one thing static analysis cannot tell you",
+  "what": "what it does, one sentence",
+  "how": "how it does it, one sentence",
+  "when": "when it runs, one sentence",
+  "where": "where it sits, one sentence",
+  "why": "why it exists, one sentence",
   "tags": ["hot-path", "public-api"],
   "confidence": 0.0-1.0
 }
