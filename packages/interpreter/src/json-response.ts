@@ -55,9 +55,51 @@ function findBalancedJsonBlocks(text: string): string[] {
   return blocks;
 }
 
-/** Repairs `"key", "value"` where a model wrote a comma instead of a colon after an object key, at the start of a line (optionally indented). Leaves everything else untouched. */
+/**
+ * Repairs `"key", "value"` where a model wrote a comma instead of a colon after an object key,
+ * at the start of a line (optionally indented). Tracks bracket depth so it never touches a
+ * string array's element-separating commas (e.g. `"tags": ["hot-path", "public-api"]`), which
+ * match the same textual shape but are correct JSON.
+ */
 function repairKeyValueComma(text: string): string {
-  return text.replace(/^([ \t]*"(?:[^"\\]|\\.)*")\s*,(\s*")/gm, "$1:$2");
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+  let out = "";
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+
+    if (inString) {
+      out += ch;
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+
+    if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") stack.pop();
+
+    if (ch === "," && stack[stack.length - 1] === "{") {
+      const beforeMatch = /^[ \t]*"(?:[^"\\]|\\.)*"$/.exec(out.slice(out.lastIndexOf("\n") + 1));
+      const afterMatch = /^\s*"/.exec(text.slice(i + 1));
+      if (beforeMatch && afterMatch) {
+        out += ":";
+        continue;
+      }
+    }
+
+    out += ch;
+  }
+
+  return out;
 }
 
 function tryParse(candidate: string): unknown | undefined {

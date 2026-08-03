@@ -44,4 +44,26 @@ describe("parseJsonResponse", () => {
     const text = '{\n"what": "x",\n"when", "y",\n"where": "z"\n}';
     expect(parseJsonResponse(text, "label")).toEqual({ what: "x", when: "y", where: "z" });
   });
+
+  it("does not corrupt a legitimate string array when repairing a key/colon typo elsewhere in the object", () => {
+    const text = [
+      "{",
+      '  "what": "x",',
+      '  "when", "y",',
+      '  "where", "z",',
+      '  "tags": [',
+      '    "hot-path",',
+      '    "public-api"',
+      "  ],",
+      '  "confidence": 0.95',
+      "}",
+    ].join("\n");
+    expect(parseJsonResponse(text, "label")).toEqual({
+      what: "x",
+      when: "y",
+      where: "z",
+      tags: ["hot-path", "public-api"],
+      confidence: 0.95,
+    });
+  });
 });
