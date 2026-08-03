@@ -34,6 +34,9 @@ function fakeProvider(): Provider {
           tokens: 10,
         };
       }
+      if (prompt.includes("identifying api_flow")) {
+        return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+      }
       return { text: JSON.stringify(passAResponse), tokens: 10 };
     }),
   };
