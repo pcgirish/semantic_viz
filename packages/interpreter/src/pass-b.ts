@@ -5,9 +5,19 @@ import { checkAndRepairClusters, directoryClusters, modularity } from "./checker
 import type { ClusterProposal, ImportEdge } from "./checker.js";
 import { interpretJsonWithRetry } from "./retry.js";
 
-const PassBResponseSchema = z.object({
-  clusters: z.record(z.string(), z.array(z.string())),
-});
+const ClusterMapSchema = z.record(z.string(), z.array(z.string()));
+
+function isWrapped(value: Record<string, string[]> | { clusters: Record<string, string[]> }): value is {
+  clusters: Record<string, string[]>;
+} {
+  return "clusters" in value && !Array.isArray(value.clusters) && typeof value.clusters === "object";
+}
+
+// Some local models drop the "clusters" wrapper the prompt asks for and return the
+// cluster map directly at the root — accept both shapes rather than failing the pass.
+const PassBResponseSchema = z
+  .union([z.object({ clusters: ClusterMapSchema }), ClusterMapSchema])
+  .transform((value) => (isWrapped(value) ? value : { clusters: value }));
 
 export interface PassBResult {
   clusters: ClusterProposal;

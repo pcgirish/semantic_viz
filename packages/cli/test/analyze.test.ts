@@ -29,7 +29,10 @@ function fakeProvider(): Provider {
         return { text: JSON.stringify({ clusters: { misc: [] } }), tokens: 10 };
       }
       if (prompt.includes("describing why")) {
-        return { text: JSON.stringify({ why: "misc layer", confidence: 0.5 }), tokens: 10 };
+        return {
+          text: JSON.stringify({ what: "misc what", how: "misc how", when: "misc when", where: "misc where", why: "misc layer", confidence: 0.5 }),
+          tokens: 10,
+        };
       }
       return { text: JSON.stringify(passAResponse), tokens: 10 };
     }),

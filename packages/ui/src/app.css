@@ -256,6 +256,24 @@ button {
   padding: 3px 0;
 }
 
+.inspector dl.semantics {
+  grid-template-columns: 42px 1fr;
+  gap: 4px 9px;
+}
+
+.inspector dl.semantics dt {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-top: 2px;
+}
+
+.inspector dl.semantics dd {
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+}
+
 .inspector .confidence {
   font-size: 10.5px;
   color: var(--slate);

@@ -108,11 +108,18 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
         <h3>What / how / when / where / why</h3>
         {unit.semantics ? (
           <>
-            <p>{unit.semantics.what}</p>
-            <p>{unit.semantics.how}</p>
-            <p>{unit.semantics.when}</p>
-            <p>{unit.semantics.where}</p>
-            <p>{unit.semantics.why}</p>
+            <dl className="semantics">
+              <dt>what</dt>
+              <dd>{unit.semantics.what}</dd>
+              <dt>how</dt>
+              <dd>{unit.semantics.how}</dd>
+              <dt>when</dt>
+              <dd>{unit.semantics.when}</dd>
+              <dt>where</dt>
+              <dd>{unit.semantics.where}</dd>
+              <dt>why</dt>
+              <dd>{unit.semantics.why}</dd>
+            </dl>
             <p className="confidence">
               confidence: {Math.round(unit.semantics.confidence * 100)}% ({unit.semantics.source})
             </p>

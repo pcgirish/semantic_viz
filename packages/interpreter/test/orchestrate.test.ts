@@ -170,7 +170,7 @@ describe("runInterpreter", () => {
           };
         }
         if (prompt.includes("describing why")) {
-          return { text: JSON.stringify({ why: "ops layer", confidence: 0.8 }), tokens: 10 };
+          return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       }),
@@ -194,7 +194,7 @@ describe("runInterpreter", () => {
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
       "grouping the files": { clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } },
-      "describing why": { why: "operational scripts", confidence: 0.8 },
+      "describing why": { what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "operational scripts", confidence: 0.8 },
     });
     // module units get Pass A too; fall through to passAResponse for anything else
     const wrapped: Provider = {
@@ -239,7 +239,7 @@ describe("runInterpreter", () => {
           };
         }
         if (prompt.includes("describing why")) {
-          return { text: JSON.stringify({ why: `${layerName} layer`, confidence: 0.8 }), tokens: 10 };
+          return { text: JSON.stringify({ what: `${layerName} what`, how: `${layerName} how`, when: `${layerName} when`, where: `${layerName} where`, why: `${layerName} layer`, confidence: 0.8 }), tokens: 10 };
         }
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       },
@@ -279,7 +279,7 @@ describe("runInterpreter", () => {
           };
         }
         if (prompt.includes("describing why")) {
-          return { text: JSON.stringify({ why: "ops layer", confidence: 0.8 }), tokens: 10 };
+          return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
         if (prompt.includes("scripts.backfill.run")) {
           return { text: "not json at all", tokens: 10 };
@@ -301,5 +301,52 @@ describe("runInterpreter", () => {
 
     const ok = result.units.find((u) => u.id === "u:py:src.admin_tasks.run#f");
     expect(ok?.semantics?.what).toBe("does a thing");
+  });
+
+  it("never runs more than 2 Pass A calls concurrently, so a local Ollama instance isn't flooded", async () => {
+    const leafCount = 6;
+    const units: SymbolGraph["units"] = Array.from({ length: leafCount }, (_, i) => ({
+      id: `u:py:mod${i}.run#f`,
+      kind: "function",
+      name: "run",
+      qualname: `mod${i}.run`,
+      lang: "python",
+      parent: null,
+      children: [],
+      loc: { file: `mod${i}.py`, start: 1, end: 5 },
+      sloc: 4,
+      params: [],
+      returns: null,
+      bases: [],
+      hash: { struct: `s${i}`, text: `t${i}` },
+      metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
+      authors: [],
+    }));
+    const graph: SymbolGraph = { units, edges: [], externals: [] };
+    const snapshot = makeSnapshot(graph);
+
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let passACalls = 0;
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) {
+          return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        }
+        passACalls++;
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight--;
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
+
+    expect(maxInFlight).toBeLessThanOrEqual(2);
+    expect(passACalls).toBe(leafCount);
   });
 });

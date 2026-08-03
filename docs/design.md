@@ -16,6 +16,7 @@ The first question is the bulk of the product. The second is what makes people o
 | [`implement-analyze.md`](implement-analyze.md) | Analyzer stack, module layout, milestones |
 | [`implement-serve.md`](implement-serve.md) | Visualizer stack, module layout, milestones |
 | [`mock/`](mock/README.md) | Working prototype — runs the whole pipeline on one fixture and renders it |
+| [`llm-call-observability.md`](llm-call-observability.md) | Future work — per-call token/cost logging, file-duplication detection |
 
 ## Fixed decisions
 
