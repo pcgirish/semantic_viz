@@ -279,6 +279,138 @@ describe("runInterpreter", () => {
     expect(system?.children).toContain(flow?.id);
   });
 
+  it("keeps two distinct flows whose entry points the LLM gives the same route/name string — flow identity must not collide just because the LLM picked the same label twice", async () => {
+    const graph: SymbolGraph = {
+      units: [
+        {
+          id: "u:py:src.a.run#f",
+          kind: "function",
+          name: "run",
+          qualname: "src.a.run",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/a.py", start: 1, end: 5 },
+          sloc: 3,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sa", text: "ta" },
+          metrics: { fanIn: 0, fanOut: 1, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:src.b.run#f",
+          kind: "function",
+          name: "run",
+          qualname: "src.b.run",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/b.py", start: 1, end: 5 },
+          sloc: 3,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sb", text: "tb" },
+          metrics: { fanIn: 0, fanOut: 1, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:src.a.next#f",
+          kind: "function",
+          name: "next",
+          qualname: "src.a.next",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/a.py", start: 7, end: 10 },
+          sloc: 3,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sc", text: "tc" },
+          metrics: { fanIn: 1, fanOut: 0, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:src.b.next#f",
+          kind: "function",
+          name: "next",
+          qualname: "src.b.next",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/b.py", start: 7, end: 10 },
+          sloc: 3,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sd", text: "td" },
+          metrics: { fanIn: 1, fanOut: 0, churn: 0, commits: 1 },
+          authors: [],
+        },
+      ],
+      edges: [
+        { id: "e:a", from: "u:py:src.a.run#f", to: "u:py:src.a.next#f", kind: "calls", confidence: 1, evidence: { file: "src/a.py", line: 2 } },
+        { id: "e:b", from: "u:py:src.b.run#f", to: "u:py:src.b.next#f", kind: "calls", confidence: 1, evidence: { file: "src/b.py", line: 2 } },
+      ],
+      externals: [],
+    };
+    const snapshot = makeSnapshot(graph);
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) {
+          return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        }
+        if (prompt.includes("identifying api_flow")) {
+          return {
+            text: JSON.stringify({
+              flows: [
+                { unit: "u:py:src.a.run#f", name: "same route", route: "same route" },
+                { unit: "u:py:src.b.run#f", name: "same route", route: "same route" },
+              ],
+            }),
+            tokens: 10,
+          };
+        }
+        if (prompt.includes("describing an api_flow")) {
+          return {
+            text: JSON.stringify({
+              what: "does something",
+              how: "somehow",
+              when: "sometime",
+              where: "somewhere",
+              why: "some reason",
+              tags: [],
+              confidence: 0.7,
+            }),
+            tokens: 10,
+          };
+        }
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    const result = await runInterpreter({
+      snapshot,
+      graph,
+      provider,
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const flows = result.units.filter((u) => u.kind === "api_flow");
+    expect(flows).toHaveLength(2);
+    const flowIds = flows.map((f) => f.id);
+    expect(new Set(flowIds).size).toBe(2);
+
+    const system = result.units.find((u) => u.kind === "system");
+    expect(flowIds.every((id) => system?.children.includes(id))).toBe(true);
+  });
+
   it("gives a layer with the same file membership the same id across runs, even when the LLM names the cluster differently — layer identity must not depend on the LLM's naming choice, or every re-run looks like the layer was removed and re-added", async () => {
     const graph = makeGraph();
     const snapshotA = makeSnapshot(graph);
