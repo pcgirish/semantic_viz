@@ -84,6 +84,18 @@ describe("runPassB", () => {
     expect(call[0]).toContain("src/admin_tasks.py -> scripts/backfill.py");
   });
 
+  it("accepts a response that omits the \"clusters\" wrapper and returns the cluster map directly at the root — some local models drop it despite the prompt asking for it", async () => {
+    const proposal = {
+      ops: ["src/admin_tasks.py", "scripts/backfill.py"],
+      api: ["src/api/routes.py", "src/api/middleware/rate_limiter.py"],
+    };
+    const provider = fakeProvider(proposal);
+
+    const result = await runPassB({ files, oneLiners, edges, provider, promptRev: "p1" });
+
+    expect(result.clusters).toEqual(proposal);
+  });
+
   it("throws a clear error when the provider returns invalid JSON", async () => {
     const provider: Provider = {
       name: "fake",

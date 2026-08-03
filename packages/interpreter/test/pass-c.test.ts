@@ -25,24 +25,58 @@ function fakeProvider(responses: object[]): Provider {
 }
 
 describe("runPassC", () => {
-  it("narrates each cluster with a name, why, and confidence", async () => {
+  it("narrates each cluster with distinct what/how/when/where/why and confidence", async () => {
     const provider = fakeProvider([
-      { why: "Groups operational scripts that run outside the request path.", confidence: 0.8 },
-      { why: "Handles all public-facing HTTP traffic.", confidence: 0.9 },
+      {
+        what: "Groups operational scripts.",
+        how: "Runs as standalone CLI entrypoints, not through the request path.",
+        when: "Invoked manually or via cron, outside a request.",
+        where: "Sits alongside the API layer but outside its call graph.",
+        why: "Groups operational scripts that run outside the request path.",
+        confidence: 0.8,
+      },
+      {
+        what: "Handles public-facing HTTP traffic.",
+        how: "Routes requests through middleware to handlers.",
+        when: "On every inbound HTTP request.",
+        where: "The system's front door.",
+        why: "Handles all public-facing HTTP traffic.",
+        confidence: 0.9,
+      },
     ]);
 
     const result = await runPassC({ clusters, oneLiners, provider, promptRev: "p1" });
 
     expect(result.layers).toEqual([
-      { name: "ops", files: clusters.ops, why: "Groups operational scripts that run outside the request path.", confidence: 0.8, source: "llm" },
-      { name: "api", files: clusters.api, why: "Handles all public-facing HTTP traffic.", confidence: 0.9, source: "llm" },
+      {
+        name: "ops",
+        files: clusters.ops,
+        what: "Groups operational scripts.",
+        how: "Runs as standalone CLI entrypoints, not through the request path.",
+        when: "Invoked manually or via cron, outside a request.",
+        where: "Sits alongside the API layer but outside its call graph.",
+        why: "Groups operational scripts that run outside the request path.",
+        confidence: 0.8,
+        source: "llm",
+      },
+      {
+        name: "api",
+        files: clusters.api,
+        what: "Handles public-facing HTTP traffic.",
+        how: "Routes requests through middleware to handlers.",
+        when: "On every inbound HTTP request.",
+        where: "The system's front door.",
+        why: "Handles all public-facing HTTP traffic.",
+        confidence: 0.9,
+        source: "llm",
+      },
     ]);
   });
 
   it("calls the provider once per cluster, including that cluster's file summaries", async () => {
     const provider = fakeProvider([
-      { why: "ops narration", confidence: 0.7 },
-      { why: "api narration", confidence: 0.7 },
+      { what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops narration", confidence: 0.7 },
+      { what: "api what", how: "api how", when: "api when", where: "api where", why: "api narration", confidence: 0.7 },
     ]);
 
     await runPassC({ clusters, oneLiners, provider, promptRev: "p1" });

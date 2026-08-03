@@ -5,6 +5,10 @@ import type { ClusterProposal } from "./checker.js";
 import { interpretJsonWithRetry } from "./retry.js";
 
 const PassCResponseSchema = z.object({
+  what: z.string(),
+  how: z.string(),
+  when: z.string(),
+  where: z.string(),
   why: z.string(),
   confidence: z.number().min(0).max(1),
 });
@@ -12,6 +16,10 @@ const PassCResponseSchema = z.object({
 export interface Layer {
   name: string;
   files: string[];
+  what: string;
+  how: string;
+  when: string;
+  where: string;
   why: string;
   confidence: number;
   source: "llm";
@@ -41,7 +49,17 @@ export async function runPassC(options: RunPassCOptions): Promise<PassCResult> {
       label: `pass C: cluster "${name}"`,
       schema: PassCResponseSchema,
     });
-    layers.push({ name, files, why: response.why, confidence: response.confidence, source: "llm" });
+    layers.push({
+      name,
+      files,
+      what: response.what,
+      how: response.how,
+      when: response.when,
+      where: response.where,
+      why: response.why,
+      confidence: response.confidence,
+      source: "llm",
+    });
   }
 
   return { layers };
