@@ -629,6 +629,17 @@ describe("App", () => {
     } as unknown as Snapshot;
   }
 
+  it("does not render an api_flow unit as a tile in the Current view", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshotWithFlow()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+    expect(container.querySelector('.tile[data-id="u:flow:1"]')).toBeNull();
+  });
+
   it("switching VIEW to Flows shows entry points instead of the canvas", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshotWithFlow()) }));
 

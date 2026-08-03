@@ -111,9 +111,12 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     const unitsById = new Map(units.map((u) => [u.id, u]));
     const systemUnit = units.find((u) => u.kind === "system") ?? null;
     const focusedUnit = (focus && unitsById.get(focus)) || systemUnit;
-    const visibleUnits = focusedUnit
-      ? units.filter((u) => focusedUnit.children.includes(u.id))
-      : units.filter((u) => u.parent === null);
+    // api_flow units are listed among the system unit's children (so Flows.tsx can find
+    // them) but belong only in the dedicated Flows view, not the structural
+    // Current/Delta/Depends-on tree.
+    const visibleUnits = (
+      focusedUnit ? units.filter((u) => focusedUnit.children.includes(u.id)) : units.filter((u) => u.parent === null)
+    ).filter((u) => u.kind !== "api_flow");
     const visibleIds = new Set(visibleUnits.map((u) => u.id));
     const visibleEdges = edges.filter((e) => visibleIds.has(e.from) && visibleIds.has(e.to));
 
