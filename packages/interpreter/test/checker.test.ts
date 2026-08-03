@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkAndRepairClusters, directoryClusters, modularity } from "../src/checker.js";
-import type { ImportEdge } from "../src/checker.js";
+import { checkAndRepairClusters, directoryClusters, modularity, traceFlow } from "../src/checker.js";
+import type { CallEdge, ImportEdge } from "../src/checker.js";
 
 const files = ["src/api/routes.py", "src/api/middleware/rate_limiter.py", "src/admin_tasks.py", "scripts/backfill.py"];
 
@@ -80,5 +80,45 @@ describe("modularity", () => {
 
   it("scores 0 for an empty edge list", () => {
     expect(modularity({ a: ["x"] }, [])).toBe(0);
+  });
+});
+
+describe("traceFlow", () => {
+  const known = new Set(["a", "b", "c", "d", "e"]);
+
+  it("traces the single longest path from an entry unit through calls edges", () => {
+    const edges: CallEdge[] = [
+      { from: "a", to: "b" },
+      { from: "b", to: "c" },
+      { from: "c", to: "d" },
+    ];
+    expect(traceFlow("a", known, edges)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("stops at a leaf with no outgoing calls edges", () => {
+    const edges: CallEdge[] = [{ from: "a", to: "b" }];
+    expect(traceFlow("a", known, edges)).toEqual(["a", "b"]);
+  });
+
+  it("does not infinite-loop on a cycle", () => {
+    const edges: CallEdge[] = [
+      { from: "a", to: "b" },
+      { from: "b", to: "a" },
+    ];
+    expect(traceFlow("a", known, edges)).toEqual(["a", "b"]);
+  });
+
+  it("picks the longer of two branches, not the first-seen", () => {
+    const edges: CallEdge[] = [
+      { from: "a", to: "b" },
+      { from: "a", to: "c" },
+      { from: "c", to: "d" },
+      { from: "d", to: "e" },
+    ];
+    expect(traceFlow("a", known, edges)).toEqual(["a", "c", "d", "e"]);
+  });
+
+  it("returns null for an entry unit id not in the known set", () => {
+    expect(traceFlow("ghost", known, [])).toBeNull();
   });
 });

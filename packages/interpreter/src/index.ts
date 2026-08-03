@@ -12,10 +12,19 @@ export { runPassA } from "./pass-a.js";
 export type { PassAResult, RunPassAOptions } from "./pass-a.js";
 export { runPassB } from "./pass-b.js";
 export type { PassBResult, RunPassBOptions } from "./pass-b.js";
-export { runPassC } from "./pass-c.js";
-export type { PassCResult, Layer, RunPassCOptions } from "./pass-c.js";
-export { checkAndRepairClusters, directoryClusters, modularity } from "./checker.js";
-export type { ClusterProposal, CheckedClusters, ImportEdge } from "./checker.js";
+export { runPassC, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
+export type {
+  PassCResult,
+  Layer,
+  RunPassCOptions,
+  FlowEntryPoint,
+  ProposeFlowEntryPointsOptions,
+  FlowNarration,
+  NarrateFlowOptions,
+} from "./pass-c.js";
+export { checkAndRepairClusters, directoryClusters, modularity, traceFlow } from "./checker.js";
+export type { ClusterProposal, CheckedClusters, ImportEdge, CallEdge } from "./checker.js";
+export type { FlowUnitSummary, FlowStepSummary } from "./prompts/pass-c-flows.js";
 export { parseJsonResponse, stripCodeFence } from "./json-response.js";
 export { runInterpreter } from "./orchestrate.js";
 export type { RunInterpreterOptions } from "./orchestrate.js";
