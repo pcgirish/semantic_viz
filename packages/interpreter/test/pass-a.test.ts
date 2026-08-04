@@ -70,6 +70,20 @@ describe("runPassA", () => {
     expect(result.tags).toEqual(["hot-path"]);
   });
 
+  it("builds signature from the provider's ports output, defaulting raises/async that Pass A doesn't ask for", async () => {
+    const provider = fakeProvider(validResponse);
+    const unit = makeUnit();
+
+    const result = await runPassA({ unit, source: "def check(user_id): ...", provider, promptRev: "p1" });
+
+    expect(result.signature).toEqual({
+      in: [{ name: "user_id", type: "str", description: "the caller's id" }],
+      out: [],
+      raises: [],
+      async: false,
+    });
+  });
+
   it("passes the unit's source and qualname to the provider", async () => {
     const provider = fakeProvider(validResponse);
     const unit = makeUnit({ qualname: "src.rate_limiter.check" });

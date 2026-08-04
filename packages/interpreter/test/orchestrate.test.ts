@@ -196,6 +196,26 @@ describe("runInterpreter", () => {
     expect(run?.hash.semantic).toBeTruthy();
   });
 
+  it("sets a leaf unit's signature from Pass A's ports output, not left null", async () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    const result = await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
+
+    const run = result.units.find((u) => u.id === "u:py:src.admin_tasks.run#f");
+    expect(run?.signature).toEqual({ in: [], out: [], raises: [], async: false });
+  });
+
   it("derives each file's oneLiner from its leaf units' semantics, not the module unit (which never gets Pass A semantics)", async () => {
     const graph = makeGraph();
     const snapshot = makeSnapshot(graph);
