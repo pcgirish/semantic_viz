@@ -15,12 +15,14 @@ program
   .option("--provider <name>", "interpreter provider: ollama | anthropic | claude-cli; persisted to .scv/config.yaml")
   .option("--model <name>", "interpreter model; persisted to .scv/config.yaml")
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
-  .action(async (root: string, opts: { provider?: string; model?: string; effort?: string }) => {
+  .option("--log-level <level>", "llm call logging: info; persisted to .scv/config.yaml")
+  .action(async (root: string, opts: { provider?: string; model?: string; effort?: string; logLevel?: string }) => {
     const { path: outPath, snapshot } = await runAnalyze({
       root,
       providerName: opts.provider as RunAnalyzeOptions["providerName"],
       model: opts.model,
       effort: opts.effort as RunAnalyzeOptions["effort"],
+      logLevel: opts.logLevel as RunAnalyzeOptions["logLevel"],
     });
     console.log(
       `wrote ${outPath} (${snapshot.units.length} units, ${snapshot.edges.length} edges, ${snapshot.externals.length} externals)`,

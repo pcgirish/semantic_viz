@@ -127,4 +127,16 @@ describe("runAnalyze", () => {
     await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider() });
     expect(existsSync(`${scvDir}/config.yaml`)).toBe(false);
   });
+
+  it("writes logLevel to .scv/config.yaml when passed", async () => {
+    await runAnalyze({
+      root: orderlyRoot,
+      scvDir,
+      provider: fakeProvider(),
+      logLevel: "info",
+    });
+
+    const raw = readFileSync(`${scvDir}/config.yaml`, "utf-8");
+    expect(raw).toContain("logLevel: info");
+  });
 });
