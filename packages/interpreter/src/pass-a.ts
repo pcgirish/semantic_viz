@@ -57,17 +57,25 @@ export interface RunPassAOptions {
   callees?: string[];
   /** Callee qualname -> already-known one-liner (`.semantics.what`), free with bottom-up ordering. */
   knownCalleeOneLiners?: Map<string, string>;
+  /**
+   * Digest of this unit's callees' semantic hashes. Not sent to the model — folded into the
+   * cache key so a callee's semantics changing invalidates this unit's cache entry even when
+   * the callee wasn't ready in time to be inlined into the prompt text itself (see
+   * knownCalleeOneLiners).
+   */
+  calleeSemanticsDigest?: string;
 }
 
 /** Pass A — leaf semantics for one function or class. See analyze.md#2. */
 export async function runPassA(options: RunPassAOptions): Promise<PassAResult> {
-  const { unit, source, provider, callers = [], callees = [], knownCalleeOneLiners = new Map() } = options;
+  const { unit, source, provider, callers = [], callees = [], knownCalleeOneLiners = new Map(), calleeSemanticsDigest } = options;
   const prompt = passAPrompt(unit, source, callers, callees, knownCalleeOneLiners);
   const response = await interpretJsonWithRetry({
     provider,
     prompt,
     label: `pass A: ${unit.qualname}`,
     schema: PassAResponseSchema,
+    context: calleeSemanticsDigest ? { cacheKeyExtra: calleeSemanticsDigest } : undefined,
   });
 
   return {

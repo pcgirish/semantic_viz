@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { runInterpreter } from "../src/orchestrate.js";
-import type { Provider, ProviderResult } from "../src/provider.js";
+import type { Provider, ProviderContext, ProviderResult } from "../src/provider.js";
 import type { SymbolGraph } from "@scv/extractor";
 import type { Snapshot } from "@scv/schema";
 
@@ -403,6 +403,29 @@ describe("runInterpreter", () => {
     const result = await runInterpreter({ snapshot, graph, provider: wrapped, promptRev: "p1", readSource: () => "def f(): ..." });
 
     expect(result.units.filter((u) => u.semantics)).toHaveLength(2);
+  });
+
+  it("folds a callee's semantic hash into the caller's cache key context, so a callee-semantics change invalidates the caller's cache entry even though the prompt text path is best-effort", async () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const contexts: (ProviderContext | undefined)[] = [];
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string, context?: ProviderContext): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        if (prompt.includes("Unit: src.admin_tasks.run")) contexts.push(context);
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
+
+    // admin_tasks.run calls backfill.run — its cache-key context should carry a digest derived
+    // from backfill.run's semantic hash, not just its own prompt text.
+    expect(contexts[0]?.cacheKeyExtra).toBeTruthy();
   });
 
   it("adds a system unit and layer units from Pass B/C, grouping admin_tasks with scripts", async () => {
