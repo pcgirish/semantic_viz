@@ -164,22 +164,71 @@ threads it from `orchestrate.ts` into `runPassA`'s options and into the prompt t
 Two LLM passes, both already consuming Pass A's *output* (not the graph directly, for Pass B's
 semantic content) plus real structural data (for Pass B's edges):
 
-- **Pass B — clustering** (`pass-b.ts`, `orchestrate.ts:118`, one call total, not per-file).
-  Input: file list, `oneLiners` (per-file, literally `= Pass A's semantics.what for one unit in
-  that file`, `orchestrate.ts:93-97`), and `importEdges` — aggregated **from `snapshot.edges`
-  (i.e. from the phase-1 graph)**, file-pair-keyed edge weights (`orchestrate.ts:104-116`). So
-  Pass B *does* already combine interpretation output (oneLiners) with graph structure
-  (importEdges) — this part already matches the "interpretations + graph together" intent.
-  Output: `Record<string, string[]>` (cluster name → files), proposed by the LLM, then
-  deterministically validated/repaired by `checker.ts` (every file assigned, no orphans) — this
-  determinism is load-bearing per `analyze.md:42-44` and must be preserved by any change here.
+- **Pass B — clustering** (`pass-b.ts`, `orchestrate.ts:177`, one call total, not per-file).
+  Input: file list, `oneLiners` (intended: per-file, Pass A's `semantics.what` rolled up from
+  that file's units), and `importEdges` — aggregated **from `snapshot.edges` (i.e. from the
+  phase-1 graph)**, file-pair-keyed edge weights (`orchestrate.ts:163-175`). Pass B *should*
+  already combine interpretation output (oneLiners) with graph structure (importEdges) — this
+  part is architecturally right — **but see the bug below: `oneLiners` is broken today, so in
+  practice only `importEdges` is real input.** Output: `Record<string, string[]>` (cluster name
+  → files), proposed by the LLM, then deterministically validated/repaired by `checker.ts`
+  (every file assigned, no orphans) — this determinism is load-bearing per `analyze.md:42-44`
+  and must be preserved by any change here.
 - **Pass C — layer narration** (`pass-c.ts:42-68`, one call per Pass B cluster). Input: a
-  cluster's files + their `oneLiners`. Output: `what/how/when/where/why` for the layer as a
-  whole, becoming a `kind: "layer"` `Unit`. **This is where the current pipeline stops.** Every
-  layer becomes a flat, direct child of the `system` unit (`orchestrate.ts:145`, later
-  reparented but never nested under anything coarser). For this repo that's on the order of ~40
-  layers with no further grouping — this is the literal cause of "the LLM is giving the next
-  layer of modules as the root layer" (this session's original complaint).
+  cluster's files + their `oneLiners` (same broken input as Pass B — see below). Output:
+  `what/how/when/where/why` for the layer as a whole, becoming a `kind: "layer"` `Unit`. **This
+  is where the current pipeline stops.** Every layer becomes a flat, direct child of the `system`
+  unit (`orchestrate.ts:230-258`, later reparented but never nested under anything coarser). For
+  this repo that's on the order of ~40 layers with no further grouping — this is the literal
+  cause of "the LLM is giving the next layer of modules as the root layer" (this session's
+  original complaint).
+
+#### Bug: `oneLiners` is `"(no summary)"` for every file, every run
+
+Found by reading actual Pass B/C prompt text via the new INFO-level LLM-call logging
+(`packages/interpreter/src/log.ts`, enable with `interpreter.logLevel: info` in
+`.scv/config.yaml` or `scv analyze --log-level info`) — every file line reads
+`- path/to/file.ts: (no summary)`, unconditionally.
+
+Root cause, `orchestrate.ts:144-156`:
+
+```ts
+const unitsByFile = new Map<string, Unit[]>();
+for (const unit of unitsWithBlockChildren) {
+  if (unit.kind !== "module") continue;          // <- only module units kept
+  for (const file of unit.loc.files) {
+    (unitsByFile.get(file) ?? unitsByFile.set(file, []).get(file)!).push(unit);
+  }
+}
+const oneLiners: Record<string, string> = {};
+for (const [file, fileUnits] of unitsByFile) {
+  const withSemantics = fileUnits.find((u) => u.semantics);  // <- always undefined
+  oneLiners[file] = withSemantics?.semantics?.what ?? "(no summary)";
+}
+```
+
+`unitsByFile` keeps only `kind === "module"` units. But Pass A (`orchestrate.ts:40,63`,
+`LEAF_KINDS = new Set(["function", "class"])`) only ever writes `.semantics` onto
+`function`/`class` units — module units never get `.semantics`. So `fileUnits.find((u) =>
+u.semantics)` searches a list that by construction can never contain a match, and every file
+falls back to the literal fallback string.
+
+This is not a pass-ordering bug — Pass A does run before Pass B/C. It's that the file→one-liner
+rollup reads the wrong unit: the module unit instead of the function/class units nested inside
+that file, which is where Pass A's output actually lives. Net effect for phase 3 as a whole:
+**Pass B currently clusters on `importEdges` alone (oneLiners contributes nothing), and Pass C
+narrates each layer from filenames + nothing else** — the "interpretations and graph structure
+together" principle in §0 is not met in practice today, even though the plumbing to meet it
+already exists and mostly works.
+
+Neither pass fails or throws — the fallback string is valid prompt input — so this shipped
+silently and would have stayed invisible without reading raw query text.
+
+**Fix**, folded into the Plan below: build the one-liner from each file's function/class units
+(a `LEAF_KINDS.has(unit.kind)` grouping, not `kind === "module"`), reducing each file's leaf
+`.semantics.what` values into one line. Needs a regression test asserting `oneLiners[file]` is
+not the literal `"(no summary)"` string once the file has at least one summarized unit, so this
+can't regress silently again.
 
 ### Intended
 
@@ -213,6 +262,11 @@ ignores structure the codebase already computes.
 
 (Supersedes/extends Part A of `soft-bubbling-valley.md` with the edge-weight input.)
 
+0. **Fix the `oneLiners` bug above first** — it's upstream of everything else in this section
+   and currently silently starves Pass B/C of the interpretation half of their input. Add
+   `leafUnitsByFile` (group by `LEAF_KINDS.has(unit.kind)` instead of `kind === "module"`) and
+   derive `oneLiners[file]` from that file's leaf units' `.semantics.what`, with a regression
+   test pinning "not the literal fallback string when a summarized unit exists in that file."
 1. After Pass C completes (`orchestrate.ts`, after line 132/161), compute layer-to-layer edge
    weights: for each edge in `graph.edges`/`snapshot.edges`, map both endpoints to their layer
    id (reuse the `parentOverride`/`layerIdFor` machinery already built at
