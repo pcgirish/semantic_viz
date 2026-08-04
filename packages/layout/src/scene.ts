@@ -16,7 +16,17 @@ export type SceneNode = {
   fanIn: number;
   fanOut: number;
   layer: string; // nearest ancestor unit's stable id with kind "layer", or "" if none
+  group: string; // nearest layer ancestor's group name, or "" if none
   complexity: number; // raw cyclomatic complexity, or 0 if unavailable
+};
+
+export type SceneRegion = {
+  id: string; // group name, stable slug
+  name: string; // group display name
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 };
 
 export type EdgeKindState = "current" | "added" | "removed" | "reweighted";
@@ -35,4 +45,5 @@ export type SceneLink = {
 export type Scene = {
   nodes: SceneNode[];
   links: SceneLink[];
+  regions: SceneRegion[];
 };

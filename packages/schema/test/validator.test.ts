@@ -43,6 +43,24 @@ describe("orderly fixture validates against scv/1", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("parses a fixture snapshot whose units have no group field, without throwing", () => {
+    const snapshot = loadFixture("orderly.snapshot.base.json");
+    expect(snapshot.units.some((u: { group?: string }) => "group" in u)).toBe(false);
+    const result = SnapshotSchema.safeParse(snapshot);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a layer unit with a group field set", () => {
+    const snapshot = loadFixture("orderly.snapshot.base.json");
+    const [firstUnit, ...restUnits] = snapshot.units;
+    const unitWithGroup = { ...firstUnit, group: "api surface" };
+    const result = SnapshotSchema.safeParse({
+      ...snapshot,
+      units: [unitWithGroup, ...restUnits],
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("JSON Schema emit", () => {

@@ -177,6 +177,21 @@ button {
   margin-top: 0;
 }
 
+.lg-group {
+  margin-bottom: 6px;
+}
+
+.lg-group-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 3px 0;
+}
+
+.lg-group .lg {
+  padding-left: 14px;
+}
+
 .lg {
   display: flex;
   align-items: center;
@@ -473,6 +488,17 @@ button {
   100% {
     transform: scale(1);
   }
+}
+
+.region-body {
+  stroke-width: 1.5;
+  opacity: 0.5;
+}
+
+.region-label {
+  font: 600 10px var(--d);
+  letter-spacing: 0.05em;
+  fill: var(--slate);
 }
 
 .lk {

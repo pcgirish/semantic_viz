@@ -45,5 +45,7 @@ export function nestedScene(children: Unit[], edges: Edge[], parentBox: Box): Sc
       ...l,
       path: l.path.map((pt) => map(pt.x, pt.y)),
     })),
+    // Region boxes are too coarse to read at nested-thumbnail scale — omitted here.
+    regions: [],
   };
 }

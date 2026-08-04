@@ -89,10 +89,20 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     svg.setAttribute("viewBox", `${base.x} ${base.y} ${base.w} ${base.h}`);
     setRenderSize({ w: base.w * scaleRef.current, h: base.h * scaleRef.current });
 
+    const regionLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const linkLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    svg.appendChild(regionLayer);
     svg.appendChild(linkLayer);
     svg.appendChild(nodeLayer);
+
+    // Region boxes are the architecture-level grouping (dashed boxes around a group's
+    // layers), drawn behind links/tiles and inert — no click/drill, matching the mockup
+    // where regions group but don't add a new navigation level (docs/serve.md#1).
+    for (const r of scene.regions) {
+      const el = tilesSkin.region?.(r);
+      if (el) regionLayer.appendChild(el);
+    }
 
     for (const l of scene.links) {
       const el = tilesSkin.link(l, { gated });

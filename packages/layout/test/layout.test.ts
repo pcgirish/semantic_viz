@@ -147,4 +147,68 @@ describe("buildScene", () => {
     const scene = buildScene(units, []);
     expect(scene.nodes[0]!.name).toBe("interpret");
   });
+
+  it("carries the nearest layer ancestor's group onto a scene node", () => {
+    const units = [
+      makeUnit({ id: "u:layer:abc123", kind: "layer", name: "orders", group: "api surface" }),
+      makeUnit({ id: "a", parent: "u:layer:abc123" }),
+    ];
+    const scene = buildScene(units, []);
+    const a = scene.nodes.find((n) => n.id === "a")!;
+    expect(a.group).toBe("api surface");
+  });
+
+  it("gives a unit with no group an empty group", () => {
+    const units = [makeUnit({ id: "a" })];
+    const scene = buildScene(units, []);
+    expect(scene.nodes[0]!.group).toBe("");
+  });
+
+  describe("regions", () => {
+    it("produces one region per group when 2+ layers share a group, with a bounding box containing all member nodes", () => {
+      const units = [
+        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
+        makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", group: "api surface" }),
+        makeUnit({ id: "a", parent: "u:layer:l1" }),
+        makeUnit({ id: "b", parent: "u:layer:l2" }),
+      ];
+      const scene = buildScene(units, []);
+
+      expect(scene.regions).toHaveLength(1);
+      const region = scene.regions[0]!;
+      expect(region.name).toBe("api surface");
+
+      const a = scene.nodes.find((n) => n.id === "a")!;
+      const b = scene.nodes.find((n) => n.id === "b")!;
+      expect(region.x).toBeLessThanOrEqual(Math.min(a.x, b.x));
+      expect(region.y).toBeLessThanOrEqual(Math.min(a.y, b.y));
+      expect(region.x + region.w).toBeGreaterThanOrEqual(Math.max(a.x + a.w, b.x + b.w));
+      expect(region.y + region.h).toBeGreaterThanOrEqual(Math.max(a.y + a.h, b.y + b.h));
+    });
+
+    it("produces no region for a group with only a single member node", () => {
+      const units = [
+        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
+        makeUnit({ id: "a", parent: "u:layer:l1" }),
+      ];
+      const scene = buildScene(units, []);
+      expect(scene.regions).toHaveLength(0);
+    });
+
+    it("produces no region for units with no group", () => {
+      const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+      const scene = buildScene(units, []);
+      expect(scene.regions).toHaveLength(0);
+    });
+
+    it("produces a region around layer tiles themselves when 2+ layer tiles share a group (system-level view)", () => {
+      const units = [
+        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
+        makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", group: "api surface" }),
+      ];
+      const scene = buildScene(units, []);
+      expect(scene.regions).toHaveLength(1);
+      expect(scene.regions[0]!.name).toBe("api surface");
+    });
+  });
 });

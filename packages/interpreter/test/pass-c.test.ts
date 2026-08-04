@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runPassC } from "../src/pass-c.js";
+import { runPassC, runPassCGroups } from "../src/pass-c.js";
 import type { Provider, ProviderResult } from "../src/provider.js";
 import type { ClusterProposal } from "../src/checker.js";
 
@@ -95,5 +95,74 @@ describe("runPassC", () => {
     };
 
     await expect(runPassC({ clusters, oneLiners, provider, promptRev: "p1" })).rejects.toThrow(/pass c/i);
+  });
+});
+
+describe("runPassCGroups", () => {
+  const layers = [
+    { name: "ops", why: "Groups operational scripts that run outside the request path." },
+    { name: "api", why: "Handles all public-facing HTTP traffic." },
+  ];
+
+  function fakeProvider(response: object): Provider {
+    return {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (): Promise<ProviderResult> => ({ text: JSON.stringify(response), tokens: 10 })),
+    };
+  }
+
+  it("returns the LLM's proposed groups when they already partition every layer", async () => {
+    const proposal = { platform: ["ops"], "api surface": ["api"] };
+    const provider = fakeProvider({ groups: proposal });
+
+    const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
+
+    expect(result.groups).toEqual(proposal);
+    expect(result.repaired).toBe(false);
+  });
+
+  it("repairs a proposal that omits a layer into a fallback group, and reports repaired: true", async () => {
+    const provider = fakeProvider({ groups: { platform: ["ops"] } });
+
+    const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
+
+    expect(result.repaired).toBe(true);
+    const allLayers = Object.values(result.groups).flat();
+    expect(allLayers.sort()).toEqual(["api", "ops"]);
+  });
+
+  it("drops a layer name the LLM invented that isn't a real layer", async () => {
+    const provider = fakeProvider({ groups: { platform: ["ops"], "api surface": ["api", "ghost-layer"] } });
+
+    const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
+
+    expect(result.repaired).toBe(true);
+    expect(result.groups["api surface"]).toEqual(["api"]);
+  });
+
+  it("includes layer why-narration and edges in the prompt sent to the provider", async () => {
+    const provider = fakeProvider({ groups: { platform: ["ops"], "api surface": ["api"] } });
+
+    await runPassCGroups({
+      layers,
+      edges: [{ from: "ops", to: "api", weight: 3 }],
+      provider,
+      promptRev: "p1",
+    });
+
+    const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("Groups operational scripts that run outside the request path.");
+    expect(call[0]).toContain("ops -> api (weight 3)");
+  });
+
+  it("throws a clear error when the provider returns invalid JSON", async () => {
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async () => ({ text: "not json", tokens: 1 })),
+    };
+
+    await expect(runPassCGroups({ layers, edges: [], provider, promptRev: "p1" })).rejects.toThrow(/pass c/i);
   });
 });

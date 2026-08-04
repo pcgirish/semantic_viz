@@ -172,6 +172,9 @@ describe("runInterpreter", () => {
         if (prompt.includes("describing why")) {
           return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: { platform: ["ops"] } }), tokens: 10 };
+        }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         }
@@ -206,6 +209,9 @@ describe("runInterpreter", () => {
       interpret: async (prompt: string) => {
         if (prompt.includes("grouping the files")) return provider.interpret(prompt);
         if (prompt.includes("describing why")) return provider.interpret(prompt);
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: { platform: ["ops"] } }), tokens: 10 };
+        }
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       },
@@ -223,8 +229,38 @@ describe("runInterpreter", () => {
     expect(system).toBeTruthy();
     const layer = result.units.find((u) => u.kind === "layer" && u.qualname === "ops");
     expect(layer).toBeTruthy();
+    expect(layer?.group).toBe("platform");
     const opsFiles = result.units.filter((u) => u.parent === layer?.id).map((u) => u.qualname);
     expect(opsFiles.sort()).toEqual(["scripts.backfill", "src.admin_tasks"]);
+  });
+
+  it("falls back a layer the LLM's group proposal omits into the checker's fallback group", async () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) {
+          return { text: JSON.stringify({ clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } }), tokens: 10 };
+        }
+        if (prompt.includes("describing why")) {
+          return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
+        }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        }
+        if (prompt.includes("identifying api_flow")) {
+          return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        }
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    const result = await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
+
+    const layer = result.units.find((u) => u.kind === "layer" && u.qualname === "ops");
+    expect(layer?.group).toBe("unclustered");
   });
 
   it("adds an api_flow unit traced from the proposed entry point through real calls edges", async () => {
@@ -236,6 +272,9 @@ describe("runInterpreter", () => {
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
         if (prompt.includes("grouping the files")) {
           return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return {
@@ -365,6 +404,9 @@ describe("runInterpreter", () => {
         if (prompt.includes("grouping the files")) {
           return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
         }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        }
         if (prompt.includes("identifying api_flow")) {
           return {
             text: JSON.stringify({
@@ -429,6 +471,9 @@ describe("runInterpreter", () => {
         if (prompt.includes("describing why")) {
           return { text: JSON.stringify({ what: `${layerName} what`, how: `${layerName} how`, when: `${layerName} when`, where: `${layerName} where`, why: `${layerName} layer`, confidence: 0.8 }), tokens: 10 };
         }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: { platform: [clusterName] } }), tokens: 10 };
+        }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         }
@@ -471,6 +516,9 @@ describe("runInterpreter", () => {
         }
         if (prompt.includes("describing why")) {
           return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
+        }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: { platform: ["ops"] } }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -528,6 +576,9 @@ describe("runInterpreter", () => {
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
         if (prompt.includes("grouping the files")) {
           return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
