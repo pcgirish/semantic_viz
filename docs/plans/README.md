@@ -1,0 +1,20 @@
+# Plans
+
+Implementation plans produced during Claude Code plan-mode sessions, migrated here from
+`~/.claude/plans/` (a local, non-version-controlled directory where filenames are random
+slugs and reused slugs silently overwrite prior content). Kept here so plan history is
+diffable and durable.
+
+| File | Plan |
+|---|---|
+| `iterative-bubbling-horizon.md` | Codebase Visualizer (project_viz) — original architecture pipeline |
+| `zesty-wishing-meteor.md` | Clean up tracked build artifacts before implementation |
+| `draft-it-as-a-abstract-penguin.md` | Batch entity summarization in `summarizeEntities` |
+| `can-we-fix-both-gleaming-karp.md` | Fix grammar-key legend fidelity + plate side-count encoding |
+| `do-we-have-the-cuddly-meerkat.md` | Visualization fixes & compact hop-column redesign |
+| `look-into-what-shows-abstract-valley.md` | Variable sides in Architecture view, fan-based sizing |
+| `flows-pass-c.md` | Pass C: generate `api_flow` units (Flows view) |
+| `soft-bubbling-valley.md` | Group layers into architectural groups, render region boxes |
+
+New plans: write to `~/.claude/plans/` as usual during plan mode, then copy the approved
+file here (and commit) once implementation starts, so its history is preserved.
