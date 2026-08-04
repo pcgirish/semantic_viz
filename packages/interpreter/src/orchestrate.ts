@@ -141,6 +141,16 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     }
 
     const source = readSource(symbolUnit.loc.file, symbolUnit.loc.start, symbolUnit.loc.end);
+    // A callee processed earlier in this run (bottom-up) has its fresh hash in
+    // passAResultById; one not touched this run keeps its prior snapshot hash. Either way,
+    // this digest changing invalidates the caller's cache entry even if the callee's one-liner
+    // wasn't ready in time to be inlined into the prompt text itself.
+    const calleeHashes = (calleeIdsById.get(unit.id) ?? [])
+      .map((calleeId) => (passAResultById.get(calleeId) ?? snapshotUnitById.get(calleeId))?.hash.semantic)
+      .filter((h): h is string => Boolean(h))
+      .sort();
+    const calleeSemanticsDigest = calleeHashes.length > 0 ? createHash("sha1").update(calleeHashes.join("")).digest("hex") : undefined;
+
     let result;
     try {
       result = await runPassA({
@@ -151,6 +161,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
         callers: callersById.get(unit.id) ?? [],
         callees: calleesById.get(unit.id) ?? [],
         knownCalleeOneLiners: knownOneLiners,
+        calleeSemanticsDigest,
       });
     } catch (err) {
       console.error(`pass A: ${unit.qualname ?? unit.id}: skipped — ${err instanceof Error ? err.message : String(err)}`);

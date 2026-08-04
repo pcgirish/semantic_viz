@@ -72,6 +72,26 @@ describe("CachedProvider", () => {
     expect(inner2.interpret).not.toHaveBeenCalled();
   });
 
+  it("misses when cacheKeyExtra differs even though the prompt text is identical — lets a caller's key track a callee's semantics digest without embedding it in the prompt", async () => {
+    const inner = fakeProvider();
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt", { cacheKeyExtra: "digest-1" });
+    await provider.interpret("some prompt", { cacheKeyExtra: "digest-2" });
+
+    expect(inner.interpret).toHaveBeenCalledTimes(2);
+  });
+
+  it("never forwards cacheKeyExtra to the underlying provider", async () => {
+    const inner = fakeProvider();
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt", { system: "sys", cacheKeyExtra: "digest-1" });
+
+    const call = (inner.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1]).toEqual({ system: "sys" });
+  });
+
   it("exposes the underlying provider's name and model", () => {
     const inner = fakeProvider();
     const provider = new CachedProvider(inner, cache, "p1");

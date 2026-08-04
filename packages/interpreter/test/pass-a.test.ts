@@ -149,6 +149,32 @@ describe("runPassA", () => {
     expect(call[0]).not.toContain("Callees:");
   });
 
+  it("passes calleeSemanticsDigest as cacheKeyExtra, not forwarded to the model", async () => {
+    const provider = fakeProvider(validResponse);
+    const unit = makeUnit();
+
+    await runPassA({
+      unit,
+      source: "def check(): ...",
+      provider,
+      promptRev: "p1",
+      calleeSemanticsDigest: "digest-abc",
+    });
+
+    const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1]).toEqual({ cacheKeyExtra: "digest-abc" });
+  });
+
+  it("omits context entirely when there is no callee digest", async () => {
+    const provider = fakeProvider(validResponse);
+    const unit = makeUnit();
+
+    await runPassA({ unit, source: "def check(): ...", provider, promptRev: "p1" });
+
+    const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1]).toBeUndefined();
+  });
+
   it("caps a long callers/callees list and shows a remainder count", async () => {
     const provider = fakeProvider(validResponse);
     const unit = makeUnit();

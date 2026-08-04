@@ -31,7 +31,11 @@ export class CachedProvider implements Provider {
 
   async interpret(prompt: string, context?: ProviderContext): Promise<ProviderResult> {
     this.usageState.calls += 1;
-    const inputHash = createHash("sha1").update(prompt).update(context?.system ?? "").digest("hex");
+    const inputHash = createHash("sha1")
+      .update(prompt)
+      .update(context?.system ?? "")
+      .update(context?.cacheKeyExtra ?? "")
+      .digest("hex");
     const key = { inputHash, promptRev: this.promptRev, provider: this.inner.name, model: this.inner.model };
 
     const cached = this.cache.get(key);
@@ -40,7 +44,8 @@ export class CachedProvider implements Provider {
       return cached;
     }
 
-    const result = await this.inner.interpret(prompt, context);
+    const innerContext: ProviderContext | undefined = context?.system !== undefined ? { system: context.system } : undefined;
+    const result = await this.inner.interpret(prompt, innerContext);
     this.usageState.inputTokens += result.inputTokens ?? 0;
     this.usageState.outputTokens += result.outputTokens ?? result.tokens;
     this.cache.set(key, result);
