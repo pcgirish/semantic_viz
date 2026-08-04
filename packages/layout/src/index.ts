@@ -12,4 +12,4 @@ export { seed } from "./seed.js";
 export { expand, isDummy } from "./expand.js";
 export type { ExpandEdge, ExpandResult, Chain } from "./expand.js";
 export { nestedScene } from "./nested.js";
-export type { Scene, SceneNode, SceneLink, EdgeKindState } from "./scene.js";
+export type { Scene, SceneNode, SceneLink, SceneRegion, EdgeKindState } from "./scene.js";

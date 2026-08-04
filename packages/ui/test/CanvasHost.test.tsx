@@ -59,6 +59,29 @@ describe("CanvasHost", () => {
     expect(tile.style.getPropertyValue("--layer-color")).toBe("var(--ext)");
   });
 
+  it("draws a region behind the node layer for a group with 2+ layers", () => {
+    const units = [
+      makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
+      makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", group: "api surface" }),
+      makeUnit({ id: "a", parent: "u:layer:l1" }),
+      makeUnit({ id: "b", parent: "u:layer:l2" }),
+    ];
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const svg = screen.getByTestId("canvas-svg");
+    const layers = [...svg.children];
+    const regionLayerIndex = layers.findIndex((g) => g.querySelector(".region"));
+    const nodeLayerIndex = layers.findIndex((g) => g.querySelector(".tile"));
+    expect(regionLayerIndex).toBeGreaterThanOrEqual(0);
+    expect(regionLayerIndex).toBeLessThan(nodeLayerIndex);
+    expect(container.querySelector(".region")).not.toBeNull();
+  });
+
+  it("does not draw a region for a single ungrouped layer", () => {
+    const units = [makeUnit({ id: "a" })];
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    expect(container.querySelector(".region")).toBeNull();
+  });
+
   it("clicking a tile selects its unit", () => {
     const units = [makeUnit({ id: "a" })];
     const { container } = render(<CanvasHost units={units} edges={[]} />);

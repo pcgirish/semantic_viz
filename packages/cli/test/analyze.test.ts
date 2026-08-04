@@ -34,6 +34,9 @@ function fakeProvider(): Provider {
           tokens: 10,
         };
       }
+      if (prompt.includes("grouping a codebase's architectural layers")) {
+        return { text: JSON.stringify({ groups: { platform: ["misc", "unclustered"] } }), tokens: 10 };
+      }
       if (prompt.includes("identifying api_flow")) {
         return { text: JSON.stringify({ flows: [] }), tokens: 10 };
       }

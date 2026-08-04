@@ -3,7 +3,9 @@ import type { Provider } from "./provider.js";
 import { passCPrompt } from "./prompts/pass-c.js";
 import { passCEntryPointsPrompt, passCFlowNarrationPrompt } from "./prompts/pass-c-flows.js";
 import type { FlowStepSummary, FlowUnitSummary } from "./prompts/pass-c-flows.js";
-import type { CallEdge, ClusterProposal } from "./checker.js";
+import { passCGroupsPrompt } from "./prompts/pass-c-groups.js";
+import { checkAndRepairClusters } from "./checker.js";
+import type { CallEdge, ClusterProposal, ImportEdge } from "./checker.js";
 import { interpretJsonWithRetry } from "./retry.js";
 
 const PassCResponseSchema = z.object({
@@ -65,6 +67,52 @@ export async function runPassC(options: RunPassCOptions): Promise<PassCResult> {
   }
 
   return { layers };
+}
+
+const GroupMapSchema = z.record(z.string(), z.array(z.string()));
+
+function isGroupsWrapped(value: Record<string, string[]> | { groups: Record<string, string[]> }): value is {
+  groups: Record<string, string[]>;
+} {
+  return "groups" in value && !Array.isArray(value.groups) && typeof value.groups === "object";
+}
+
+// Mirrors Pass B's response-shape tolerance: some local models drop the "groups" wrapper.
+const PassCGroupsResponseSchema = z
+  .union([z.object({ groups: GroupMapSchema }), GroupMapSchema])
+  .transform((value) => (isGroupsWrapped(value) ? value : { groups: value }));
+
+export interface PassCGroupsResult {
+  groups: ClusterProposal;
+  repaired: boolean;
+}
+
+export interface RunPassCGroupsOptions {
+  layers: { name: string; why: string }[];
+  edges: ImportEdge[];
+  provider: Provider;
+  promptRev: string;
+}
+
+/**
+ * Pass C — groups. Super-groups Pass C's layers into a small number of named
+ * architectural groups (e.g. "api surface", "platform"), one level above `layer`. Same
+ * propose-then-repair discipline as Pass B: the LLM proposes freely, the deterministic
+ * checker guarantees every layer lands in exactly one group.
+ */
+export async function runPassCGroups(options: RunPassCGroupsOptions): Promise<PassCGroupsResult> {
+  const { layers, edges, provider } = options;
+  const layerNames = layers.map((l) => l.name);
+  const prompt = passCGroupsPrompt(layers, edges);
+  const response = await interpretJsonWithRetry({
+    provider,
+    prompt,
+    label: "pass C: groups",
+    schema: PassCGroupsResponseSchema,
+  });
+  const { clusters, repaired } = checkAndRepairClusters(response.groups, layerNames);
+
+  return { groups: clusters, repaired };
 }
 
 const EntryPointSchema = z.object({ unit: z.string(), name: z.string(), route: z.string() });

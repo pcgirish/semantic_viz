@@ -1,6 +1,7 @@
-import type { SceneLink, SceneNode } from "@scv/layout";
+import type { SceneLink, SceneNode, SceneRegion } from "@scv/layout";
 import { node } from "./node.js";
 import { link, type LinkOptions } from "./link.js";
+import { region } from "./region.js";
 import { defaultTheme, type Theme } from "./theme.js";
 
 // docs/serve.md#6 "Navigation belongs in the skin contract".
@@ -15,6 +16,7 @@ export type CameraMove = { kind: "pan-zoom"; target?: string; path?: string[] };
 export type Skin = {
   node: (n: SceneNode) => SVGGElement;
   link: (l: SceneLink, options?: LinkOptions) => SVGPathElement;
+  region?: (r: SceneRegion) => SVGGElement;
   theme: Theme;
   camera: "fixed" | "orbit" | "walk" | "fly";
   navigate: (intent: Intent) => CameraMove;
@@ -27,6 +29,7 @@ export type Skin = {
 export const tilesSkin: Skin = {
   node,
   link,
+  region,
   theme: defaultTheme,
   camera: "fixed",
   navigate(intent: Intent): CameraMove {

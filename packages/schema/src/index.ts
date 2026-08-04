@@ -114,6 +114,9 @@ export const UnitSchema = z.object({
   // unit ids the request actually traverses, at whatever granularity the trace reached.
   route: z.string().optional(),
   steps: z.array(UnitId).optional(),
+  // kind:"layer" only — the architectural group (e.g. "api surface") this layer belongs
+  // to, one level above layer in the hierarchy without being a new parent/child edge.
+  group: z.string().optional(),
 });
 
 const EvidenceSchema = z.object({

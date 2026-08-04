@@ -59,4 +59,34 @@ describe("Legend", () => {
     const colors = new Set(chips.map((c) => c.style.background));
     expect(colors.size).toBe(2);
   });
+
+  it("renders one header row per group, with member layers nested underneath", () => {
+    const units = [
+      makeUnit({ id: "u:layer:a", kind: "layer", name: "orders", group: "api surface" }),
+      makeUnit({ id: "u:layer:b", kind: "layer", name: "billing", group: "api surface" }),
+      makeUnit({ id: "u:layer:c", kind: "layer", name: "queue", group: "platform" }),
+    ];
+    const { container, getByText } = render(<Legend units={units} />);
+    const groups = container.querySelectorAll(".lg-group");
+    expect(groups).toHaveLength(2);
+    expect(getByText("api surface")).not.toBeNull();
+    expect(getByText("platform")).not.toBeNull();
+    expect(getByText("orders")).not.toBeNull();
+    expect(getByText("billing")).not.toBeNull();
+    expect(getByText("queue")).not.toBeNull();
+  });
+
+  it("falls a layer with no group under an 'other' header", () => {
+    const units = [makeUnit({ id: "u:layer:a", kind: "layer", name: "orders" })];
+    const { getByText } = render(<Legend units={units} />);
+    expect(getByText("other")).not.toBeNull();
+    expect(getByText("orders")).not.toBeNull();
+  });
+
+  it("still shows the existing per-layer chip color nested under its group header", () => {
+    const units = [makeUnit({ id: "u:layer:a", kind: "layer", name: "orders", group: "api surface" })];
+    const { container } = render(<Legend units={units} />);
+    const chip = container.querySelector(".chip") as HTMLElement;
+    expect(chip.style.background).toBeTruthy();
+  });
 });
