@@ -6,6 +6,7 @@ export interface InterpreterConfig {
   provider: "ollama" | "anthropic" | "claude-cli";
   model?: string;
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  logLevel?: "info";
 }
 
 const DEFAULT_CONFIG: InterpreterConfig = { provider: "ollama" };

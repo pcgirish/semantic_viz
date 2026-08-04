@@ -39,6 +39,18 @@ describe("loadInterpreterConfig", () => {
     expect(config).toEqual({ provider: "claude-cli", effort: "high" });
   });
 
+  it("reads logLevel from .scv/config.yaml", () => {
+    const scvDir = path.join(dir, ".scv");
+    mkdirSync(scvDir);
+    writeFileSync(
+      path.join(scvDir, "config.yaml"),
+      "interpreter:\n  provider: ollama\n  logLevel: info\n",
+    );
+
+    const config = loadInterpreterConfig(scvDir);
+    expect(config).toEqual({ provider: "ollama", logLevel: "info" });
+  });
+
   it("defaults to ollama when no config file exists", () => {
     const config = loadInterpreterConfig(path.join(dir, ".scv"));
     expect(config.provider).toBe("ollama");
@@ -69,6 +81,13 @@ describe("writeInterpreterConfig", () => {
     writeInterpreterConfig(scvDir, { provider: "claude-cli", model: "sonnet", effort: "max" });
 
     expect(loadInterpreterConfig(scvDir)).toEqual({ provider: "claude-cli", model: "sonnet", effort: "max" });
+  });
+
+  it("round-trips logLevel", () => {
+    const scvDir = path.join(dir, ".scv");
+    writeInterpreterConfig(scvDir, { provider: "ollama", logLevel: "info" });
+
+    expect(loadInterpreterConfig(scvDir)).toEqual({ provider: "ollama", logLevel: "info" });
   });
 
   it("overwrites an existing config.yaml", () => {

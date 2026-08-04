@@ -10,11 +10,11 @@ const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
 export function createProvider(config: InterpreterConfig): Provider {
   switch (config.provider) {
     case "ollama":
-      return new OllamaProvider({ model: config.model ?? DEFAULT_OLLAMA_MODEL });
+      return new OllamaProvider({ model: config.model ?? DEFAULT_OLLAMA_MODEL, logLevel: config.logLevel });
     case "anthropic":
-      return new AnthropicProvider({ model: config.model ?? DEFAULT_ANTHROPIC_MODEL });
+      return new AnthropicProvider({ model: config.model ?? DEFAULT_ANTHROPIC_MODEL, logLevel: config.logLevel });
     case "claude-cli":
-      return new ClaudeCliProvider({ model: config.model, effort: config.effort });
+      return new ClaudeCliProvider({ model: config.model, effort: config.effort, logLevel: config.logLevel });
     default:
       throw new Error(`unknown provider: ${config.provider as string}`);
   }
