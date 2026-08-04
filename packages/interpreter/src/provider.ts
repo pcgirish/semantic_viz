@@ -6,6 +6,13 @@ export interface ProviderContext {
    * so a stale cache entry can't survive a dependency change the prompt text itself doesn't show.
    */
   cacheKeyExtra?: string;
+  /** Call-site identity for per-call logging (docs/llm-call-observability.md). Not sent to the model. */
+  callMeta?: {
+    pass: "A" | "B" | "C" | "D";
+    unitId?: string;
+    qualname?: string;
+    file?: string;
+  };
 }
 
 export interface ProviderResult {

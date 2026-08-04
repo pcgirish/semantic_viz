@@ -41,6 +41,7 @@ export async function runPassD(options: RunPassDOptions): Promise<PassDResult> {
     prompt,
     label: `pass D: ${context.qualname}`,
     schema: PassDResponseSchema,
+    context: { callMeta: { pass: "D", qualname: context.qualname } },
   });
 
   return {

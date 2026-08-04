@@ -63,4 +63,64 @@ describe("ContentCache", () => {
     expect(second.get(key)).toEqual({ text: "does a thing", tokens: 12 });
     second.close();
   });
+
+  describe("logCall / listCalls", () => {
+    it("records a per-call row and returns it via listCalls", () => {
+      const cache = new ContentCache(dbPath);
+      cache.logCall({
+        pass: "A",
+        unitId: "u:py:mod.run#f",
+        qualname: "mod.run",
+        file: "mod.py",
+        inTokens: 100,
+        outTokens: 20,
+        cacheHit: false,
+      });
+
+      const calls = cache.listCalls();
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toMatchObject({
+        pass: "A",
+        unitId: "u:py:mod.run#f",
+        qualname: "mod.run",
+        file: "mod.py",
+        inTokens: 100,
+        outTokens: 20,
+        cacheHit: false,
+      });
+      expect(calls[0]!.ts).toBeTruthy();
+      cache.close();
+    });
+
+    it("records cache hits with zero new tokens", () => {
+      const cache = new ContentCache(dbPath);
+      cache.logCall({ pass: "A", unitId: "u:1", qualname: "a", file: "a.py", inTokens: 0, outTokens: 0, cacheHit: true });
+
+      const calls = cache.listCalls();
+      expect(calls[0]!.cacheHit).toBe(true);
+      expect(calls[0]!.inTokens).toBe(0);
+      expect(calls[0]!.outTokens).toBe(0);
+      cache.close();
+    });
+
+    it("allows a call with no unit context (Pass B/C)", () => {
+      const cache = new ContentCache(dbPath);
+      cache.logCall({ pass: "B", inTokens: 50, outTokens: 10, cacheHit: false });
+
+      const calls = cache.listCalls();
+      expect(calls[0]!.pass).toBe("B");
+      expect(calls[0]!.unitId).toBeUndefined();
+      cache.close();
+    });
+
+    it("persists logged calls across instances backed by the same file", () => {
+      const first = new ContentCache(dbPath);
+      first.logCall({ pass: "A", unitId: "u:1", qualname: "a", file: "a.py", inTokens: 5, outTokens: 5, cacheHit: false });
+      first.close();
+
+      const second = new ContentCache(dbPath);
+      expect(second.listCalls()).toHaveLength(1);
+      second.close();
+    });
+  });
 });

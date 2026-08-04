@@ -38,7 +38,13 @@ export interface RunPassBOptions {
 export async function runPassB(options: RunPassBOptions): Promise<PassBResult> {
   const { files, oneLiners, edges, provider } = options;
   const prompt = passBPrompt(files, oneLiners, edges);
-  const response = await interpretJsonWithRetry({ provider, prompt, label: "pass B", schema: PassBResponseSchema });
+  const response = await interpretJsonWithRetry({
+    provider,
+    prompt,
+    label: "pass B",
+    schema: PassBResponseSchema,
+    context: { callMeta: { pass: "B" } },
+  });
   const { clusters, repaired } = checkAndRepairClusters(response.clusters, files);
 
   return {
