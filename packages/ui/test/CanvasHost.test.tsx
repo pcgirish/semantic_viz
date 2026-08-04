@@ -98,6 +98,17 @@ describe("CanvasHost", () => {
     expect(useAppStore.getState().focus).toBe("a");
   });
 
+  it("double-clicking a function-kind tile opens its flowchart instead of drilling", () => {
+    const units = [makeUnit({ id: "fn1", kind: "function" })];
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
+    const tile = container.querySelector('.tile[data-id="fn1"]')!;
+    fireEvent.doubleClick(tile);
+    const s = useAppStore.getState();
+    expect(s.mode).toBe("flowchart");
+    expect(s.flowchartFunctionId).toBe("fn1");
+    expect(s.focus).toBeNull();
+  });
+
   it("double-clicking empty canvas ascends", () => {
     useAppStore.getState().drill("u:x");
     const units = [makeUnit({ id: "a" })];

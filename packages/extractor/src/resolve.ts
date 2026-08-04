@@ -1,12 +1,12 @@
 import { builtinModules } from "node:module";
 import path from "node:path";
-import type { DefFact, Fact, FileFacts, ImportFact } from "./facts.js";
+import type { BlockFact, ControlFlowEdgeFact, DefFact, Fact, FileFacts, ImportFact } from "./facts.js";
 import { moduleQualname } from "./qualname.js";
 import { normalizeSource, shortHash, sloc } from "./hash.js";
 import { langForFile } from "./grammars/registry.js";
 import type { RepoManifests } from "./manifest.js";
 import type { FileChurn } from "./vcs.js";
-import type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "./symbol-graph.js";
+import type { SymbolBlockGraph, SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "./symbol-graph.js";
 
 // Python 3.12 standard library top-level module names (stdlib + de facto stdlib built-ins).
 const PYTHON_STDLIB = new Set([
@@ -291,6 +291,8 @@ export function resolveGraph(
     if (toUnit) toUnit.metrics.fanIn++;
   }
 
+  const blockGraph = resolveBlockGraph(files, byFileAndName);
+
   const externals: SymbolExternal[] = [...externalReachedBy.values()]
     .map(({ key, reachedBy }) => {
       const pinned = key.ecosystem === "pypi" ? manifests.pypi?.pinned : manifests.npm?.pinned;
@@ -307,5 +309,61 @@ export function resolveGraph(
     })
     .sort((a, b) => a.id.localeCompare(b.id));
 
-  return { units, edges, externals };
+  return { units, edges, externals, blockGraph };
+}
+
+/** Mints globally-stable block unit ids (u:block:<hash of qualname+blockId>) and groups
+ *  per-function BlockFact/ControlFlowEdgeFact streams by resolved function qualname. */
+function resolveBlockGraph(files: FileFacts[], byFileAndName: Map<string, string>): Record<string, SymbolBlockGraph> {
+  const out: Record<string, SymbolBlockGraph> = {};
+
+  for (const ff of files) {
+    const blockFacts = ff.facts.filter((f): f is BlockFact => f.kind === "block");
+    const edgeFacts = ff.facts.filter((f): f is ControlFlowEdgeFact => f.kind === "cf_edge");
+    if (blockFacts.length === 0) continue;
+
+    // group by functionQualname (the walker's local def name, per-file) so each
+    // function's blocks are resolved and emitted independently.
+    const byFunction = new Map<string, { blocks: BlockFact[]; edges: ControlFlowEdgeFact[] }>();
+    for (const b of blockFacts) {
+      const entry = byFunction.get(b.functionQualname) ?? { blocks: [], edges: [] };
+      entry.blocks.push(b);
+      byFunction.set(b.functionQualname, entry);
+    }
+    for (const e of edgeFacts) {
+      const entry = byFunction.get(e.functionQualname) ?? { blocks: [], edges: [] };
+      entry.edges.push(e);
+      byFunction.set(e.functionQualname, entry);
+    }
+
+    const BRANCHING_TYPES = new Set<BlockFact["blockType"]>(["decision", "loop", "try"]);
+
+    for (const [localName, { blocks, edges }] of byFunction) {
+      const qualname = byFileAndName.get(`${ff.file}::${localName}`);
+      if (!qualname) continue;
+      // A function with no actual branching (just an entry -> exit/sequential chain)
+      // gets no blockGraph entry at all — not an empty placeholder (matches how a
+      // leaf function shows no flowchart rather than a trivial one-block diagram).
+      if (!blocks.some((b) => BRANCHING_TYPES.has(b.blockType))) continue;
+
+      const globalId = (blockId: string) => `u:block:${shortHash(`${qualname}:${blockId}`)}`;
+
+      out[qualname] = {
+        blocks: blocks.map((b) => ({
+          id: globalId(b.blockId),
+          blockType: b.blockType,
+          startLine: b.startLine,
+          endLine: b.endLine,
+          condition: b.condition ?? null,
+        })),
+        edges: edges.map((e) => ({
+          from: globalId(e.fromBlock),
+          to: globalId(e.toBlock),
+          edgeType: e.edgeType,
+        })),
+      };
+    }
+  }
+
+  return out;
 }

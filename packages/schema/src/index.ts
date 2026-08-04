@@ -27,6 +27,7 @@ export const EdgeKindSchema = z.enum([
   "handles",
   "configures",
   "tests",
+  "control_flow",
 ]);
 
 const SourceSchema = z.enum(["static", "llm"]);
@@ -134,6 +135,8 @@ export const EdgeSchema = z.object({
   source: SourceSchema,
   confidence: z.number().min(0).max(1),
   rollup: z.boolean().optional(),
+  // kind:"control_flow" only — which branch this edge represents.
+  flowType: z.enum(["sequential", "true", "false", "loop-back", "exception"]).optional(),
 });
 
 export const ExternalSchema = z.object({

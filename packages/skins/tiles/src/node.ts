@@ -22,20 +22,32 @@ export function node(n: SceneNode): SVGGElement {
   const g = el("g", { class: "tile" });
   g.dataset.id = n.id;
 
-  const ch = Math.min(CORNER, n.h / 4, n.w / 4);
-  const pts: Array<[number, number]> = [
-    [n.x + ch, n.y],
-    [n.x + n.w, n.y],
-    [n.x + n.w, n.y + n.h - ch],
-    [n.x + n.w - ch, n.y + n.h],
-    [n.x, n.y + n.h],
-    [n.x, n.y + ch],
-  ];
-  g.appendChild(el("polygon", { points: ptstr(pts), class: "tile-body" }));
+  const isDiamond = n.blockType === "decision" || n.blockType === "loop";
+  const pts: Array<[number, number]> = isDiamond
+    ? [
+        [n.x + n.w / 2, n.y],
+        [n.x + n.w, n.y + n.h / 2],
+        [n.x + n.w / 2, n.y + n.h],
+        [n.x, n.y + n.h / 2],
+      ]
+    : (() => {
+        const ch = Math.min(CORNER, n.h / 4, n.w / 4);
+        return [
+          [n.x + ch, n.y],
+          [n.x + n.w, n.y],
+          [n.x + n.w, n.y + n.h - ch],
+          [n.x + n.w - ch, n.y + n.h],
+          [n.x, n.y + n.h],
+          [n.x, n.y + ch],
+        ];
+      })();
+  g.appendChild(el("polygon", { points: ptstr(pts), class: isDiamond ? "block-diamond tile-body" : "tile-body" }));
 
   const nameSize = Math.min(14, Math.max(10.5, n.w / 10));
   const fittedName = fitLabel(n.name, n.w - LABEL_PAD * 2, nameSize);
-  const label = el("text", { x: n.x + LABEL_PAD, y: n.y + 22, class: "nm", "font-size": nameSize });
+  const label = isDiamond
+    ? el("text", { x: n.x + n.w / 2, y: n.y + n.h / 2, "text-anchor": "middle", "dominant-baseline": "middle", class: "nm", "font-size": nameSize })
+    : el("text", { x: n.x + LABEL_PAD, y: n.y + 22, class: "nm", "font-size": nameSize });
   label.textContent = fittedName;
   g.appendChild(label);
   if (fittedName !== n.name) {
@@ -44,28 +56,32 @@ export function node(n: SceneNode): SVGGElement {
     g.appendChild(title);
   }
 
-  const metaSize = 9.5;
-  const meta = el("text", { x: n.x + 12, y: n.y + 36, class: "mt", "font-size": metaSize });
-  meta.textContent = fitLabel(`${n.sloc} sloc · in ${n.fanIn} · out ${n.fanOut}`, n.w - LABEL_PAD * 2, metaSize);
-  g.appendChild(meta);
+  if (!isDiamond && !n.blockType) {
+    const metaSize = 9.5;
+    const meta = el("text", { x: n.x + 12, y: n.y + 36, class: "mt", "font-size": metaSize });
+    meta.textContent = fitLabel(`${n.sloc} sloc · in ${n.fanIn} · out ${n.fanOut}`, n.w - LABEL_PAD * 2, metaSize);
+    g.appendChild(meta);
+  }
 
   if (n.ring) {
     const ringPts = pts.map(([x, y]) => [x + 3, y + 3] as [number, number]);
     g.appendChild(el("polygon", { points: ptstr(ringPts), class: "ring", fill: "none" }));
   }
 
-  const gx = n.x + n.w - GLYPH_R - 6;
-  const gy = n.y + GLYPH_R + 6;
-  if (n.sides === 0) {
-    g.appendChild(el("circle", { cx: gx, cy: gy, r: GLYPH_R, class: "complexity-glyph" }));
-  } else {
-    g.appendChild(el("polygon", { points: ptstr(ngon(gx, gy, GLYPH_R, n.sides)), class: "complexity-glyph" }));
-  }
+  if (!isDiamond && !n.blockType) {
+    const gx = n.x + n.w - GLYPH_R - 6;
+    const gy = n.y + GLYPH_R + 6;
+    if (n.sides === 0) {
+      g.appendChild(el("circle", { cx: gx, cy: gy, r: GLYPH_R, class: "complexity-glyph" }));
+    } else {
+      g.appendChild(el("polygon", { points: ptstr(ngon(gx, gy, GLYPH_R, n.sides)), class: "complexity-glyph" }));
+    }
 
-  if (n.complexity > 0) {
-    const cx = el("text", { x: gx - GLYPH_R - 4, y: gy + 3.4, "text-anchor": "end", class: "cx" });
-    cx.textContent = String(n.complexity);
-    g.appendChild(cx);
+    if (n.complexity > 0) {
+      const cx = el("text", { x: gx - GLYPH_R - 4, y: gy + 3.4, "text-anchor": "end", class: "cx" });
+      cx.textContent = String(n.complexity);
+      g.appendChild(cx);
+    }
   }
 
   return g;

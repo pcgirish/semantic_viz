@@ -41,7 +41,29 @@ export interface InheritFact {
   baseName: string;
 }
 
-export type Fact = DefFact | ImportFact | RefFact | InheritFact;
+export interface BlockFact {
+  kind: "block";
+  file: string;
+  functionQualname: string;
+  /** stable within one function's fact stream: `${blockType}:${index}` */
+  blockId: string;
+  blockType: "entry" | "sequential" | "decision" | "loop" | "try" | "catch" | "exit" | "merge";
+  startLine: number;
+  endLine: number;
+  /** decision/loop condition source text, verbatim */
+  condition?: string;
+}
+
+export interface ControlFlowEdgeFact {
+  kind: "cf_edge";
+  file: string;
+  functionQualname: string;
+  fromBlock: string;
+  toBlock: string;
+  edgeType: "sequential" | "true" | "false" | "loop-back" | "exception";
+}
+
+export type Fact = DefFact | ImportFact | RefFact | InheritFact | BlockFact | ControlFlowEdgeFact;
 
 export interface FileFacts {
   file: string;

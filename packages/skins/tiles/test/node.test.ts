@@ -111,4 +111,35 @@ describe("node", () => {
     const meta = el.querySelector(".mt")!;
     expect(meta.textContent!.length).toBeLessThan(`${800} sloc · in ${30} · out ${40}`.length);
   });
+
+  it("renders a decision block as a diamond polygon with its condition centered inside", () => {
+    const el = node(makeNode({ id: "d", blockType: "decision", condition: "x > 0", name: "x > 0" }));
+    const diamond = el.querySelector(".block-diamond")!;
+    expect(diamond).toBeTruthy();
+    const points = diamond.getAttribute("points")!.trim().split(/\s+/);
+    expect(points).toHaveLength(4);
+    const label = el.querySelector(".nm")!;
+    expect(label.textContent).toBe("x > 0");
+  });
+
+  it("renders a loop block as a diamond polygon too", () => {
+    const el = node(makeNode({ id: "l", blockType: "loop", condition: "x", name: "x" }));
+    expect(el.querySelector(".block-diamond")).toBeTruthy();
+  });
+
+  it("does not render a diamond for a non-decision/loop block", () => {
+    const el = node(makeNode({ id: "s", blockType: "sequential" }));
+    expect(el.querySelector(".block-diamond")).toBeNull();
+  });
+
+  it("does not render a diamond for a regular (non-flowchart) node", () => {
+    const el = node(makeNode({ id: "a" }));
+    expect(el.querySelector(".block-diamond")).toBeNull();
+  });
+
+  it("does not render the complexity glyph or sloc/fan-in/out meta line for any flowchart block", () => {
+    const el = node(makeNode({ id: "s", blockType: "sequential" }));
+    expect(el.querySelector(".complexity-glyph")).toBeNull();
+    expect(el.querySelector(".mt")).toBeNull();
+  });
 });

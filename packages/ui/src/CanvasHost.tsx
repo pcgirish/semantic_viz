@@ -53,6 +53,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
+  const showFlowchart = useAppStore((s) => s.showFlowchart);
   const [hover, setHover] = useState<string | null>(null);
 
   // Base (fit-to-scene) box in scene units; the SVG's viewBox always equals this — only
@@ -82,6 +83,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
 
     const scene = buildScene(units, edges, { priorScene: priorSceneRef.current });
     priorSceneRef.current = scene;
+    const unitKindById = new Map(units.map((u) => [u.id, u.kind]));
     const gated = scene.links.length > scene.nodes.length * 1.6;
 
     const base = sceneBounds(scene);
@@ -105,9 +107,10 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     }
 
     for (const l of scene.links) {
-      const el = tilesSkin.link(l, { gated });
-      linkElsRef.current.push({ from: l.from, to: l.to, el });
-      linkLayer.appendChild(el);
+      const wrap = tilesSkin.link(l, { gated });
+      const pathEl = wrap.querySelector("path") ?? wrap;
+      linkElsRef.current.push({ from: l.from, to: l.to, el: pathEl });
+      linkLayer.appendChild(wrap);
     }
     for (const n of scene.nodes) {
       const el = tilesSkin.node(n);
@@ -125,14 +128,18 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       });
       el.addEventListener("dblclick", (e) => {
         e.stopPropagation();
-        drill(n.id);
+        // Double-clicking a function tile opens its flowchart detail view instead of
+        // drilling further down the structural tree — a function has no children to
+        // drill into in Current/Delta, so this replaces what would otherwise be a no-op.
+        if (unitKindById.get(n.id) === "function") showFlowchart(n.id);
+        else drill(n.id);
       });
       el.addEventListener("mouseenter", () => setHover(n.id));
       el.addEventListener("mouseleave", () => setHover((h) => (h === n.id ? null : h)));
       nodeElsRef.current.set(n.id, el);
       nodeLayer.appendChild(el);
     }
-  }, [units, edges, select, drill, deltaByUnit]);
+  }, [units, edges, select, drill, showFlowchart, deltaByUnit]);
 
   // Hover only toggles classes on the existing elements built above — it never rebuilds
   // the scene, so a delta tile's pulse animation plays once (on scrub) and never replays

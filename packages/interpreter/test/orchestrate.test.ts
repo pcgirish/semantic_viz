@@ -87,6 +87,7 @@ function makeGraph(): SymbolGraph {
       },
     ],
     externals: [],
+    blockGraph: {},
   };
 }
 
@@ -395,6 +396,7 @@ describe("runInterpreter", () => {
         { id: "e:b", from: "u:py:src.b.run#f", to: "u:py:src.b.next#f", kind: "calls", confidence: 1, evidence: { file: "src/b.py", line: 2 } },
       ],
       externals: [],
+      blockGraph: {},
     };
     const snapshot = makeSnapshot(graph);
     const provider: Provider = {
@@ -564,7 +566,7 @@ describe("runInterpreter", () => {
       metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
       authors: [],
     }));
-    const graph: SymbolGraph = { units, edges: [], externals: [] };
+    const graph: SymbolGraph = { units, edges: [], externals: [], blockGraph: {} };
     const snapshot = makeSnapshot(graph);
 
     let inFlight = 0;
@@ -596,5 +598,80 @@ describe("runInterpreter", () => {
 
     expect(maxInFlight).toBeLessThanOrEqual(2);
     expect(passACalls).toBe(leafCount);
+  });
+
+  it("wires a function's blockGraph into block units parented under it, with control_flow edges", async () => {
+    const graph = makeGraph();
+    graph.blockGraph = {
+      "src.admin_tasks.run": {
+        blocks: [
+          { id: "u:block:entry1", blockType: "entry", startLine: 3, endLine: 3, condition: null },
+          { id: "u:block:dec1", blockType: "decision", startLine: 4, endLine: 4, condition: "x > 0" },
+          { id: "u:block:merge1", blockType: "merge", startLine: 6, endLine: 6, condition: null },
+        ],
+        edges: [
+          { from: "u:block:entry1", to: "u:block:dec1", edgeType: "sequential" },
+          { from: "u:block:dec1", to: "u:block:merge1", edgeType: "true" },
+          { from: "u:block:dec1", to: "u:block:merge1", edgeType: "false" },
+        ],
+      },
+    };
+    const snapshot = makeSnapshot(graph);
+    const provider = fakeProvider({
+      "grouping the files": { clusters: {} },
+      "grouping a codebase's architectural layers": { groups: {} },
+      "identifying api_flow": { flows: [] },
+    });
+    const wrapped: Provider = {
+      name: provider.name,
+      model: provider.model,
+      interpret: async (prompt: string) => {
+        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
+        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      },
+    };
+
+    const result = await runInterpreter({ snapshot, graph, provider: wrapped, promptRev: "p1", readSource: () => "def run(): ..." });
+
+    const runUnit = result.units.find((u) => u.id === "u:py:src.admin_tasks.run#f");
+    expect(runUnit).toBeTruthy();
+
+    const blockUnits = result.units.filter((u) => u.kind === "block");
+    expect(blockUnits).toHaveLength(3);
+    expect(blockUnits.every((u) => u.parent === runUnit!.id)).toBe(true);
+    expect(runUnit!.children).toEqual(expect.arrayContaining(blockUnits.map((b) => b.id)));
+
+    const decisionUnit = blockUnits.find((u) => u.id === "u:block:dec1");
+    expect(decisionUnit?.name).toBe("x > 0");
+
+    const cfEdges = result.edges.filter((e) => e.kind === "control_flow");
+    expect(cfEdges).toHaveLength(3);
+    expect(cfEdges.map((e) => e.flowType).sort()).toEqual(["false", "sequential", "true"]);
+  });
+
+  it("produces zero block units for a function with no blockGraph entry", async () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const provider = fakeProvider({
+      "grouping the files": { clusters: {} },
+      "grouping a codebase's architectural layers": { groups: {} },
+      "identifying api_flow": { flows: [] },
+    });
+    const wrapped: Provider = {
+      name: provider.name,
+      model: provider.model,
+      interpret: async (prompt: string) => {
+        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
+        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      },
+    };
+
+    const result = await runInterpreter({ snapshot, graph, provider: wrapped, promptRev: "p1", readSource: () => "def run(): ..." });
+
+    expect(result.units.filter((u) => u.kind === "block")).toHaveLength(0);
   });
 });
