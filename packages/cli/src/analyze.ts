@@ -11,6 +11,7 @@ import {
   writeInterpreterConfig,
   type InterpreterConfig,
   type Provider,
+  type ProviderUsage,
 } from "@scv/interpreter";
 import { headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
@@ -32,6 +33,7 @@ export interface RunAnalyzeOptions {
 export interface RunAnalyzeResult {
   snapshot: Snapshot;
   path: string;
+  usage: ProviderUsage;
 }
 
 function readSource(root: string) {
@@ -77,11 +79,12 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   } finally {
     cache.close();
   }
+  const usage = provider.usage;
 
   const snapshotsDir = path.join(scvDir, "snapshots");
   mkdirSync(snapshotsDir, { recursive: true });
   const outPath = path.join(snapshotsDir, `${rev.sha}.json`);
   writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
 
-  return { snapshot, path: outPath };
+  return { snapshot, path: outPath, usage };
 }

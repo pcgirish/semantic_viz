@@ -1,4 +1,4 @@
-export type { Provider, ProviderContext, ProviderResult } from "./provider.js";
+export type { Provider, ProviderContext, ProviderResult, ProviderUsage } from "./provider.js";
 export { OllamaProvider } from "./providers/ollama.js";
 export { AnthropicProvider } from "./providers/anthropic.js";
 export { ClaudeCliProvider } from "./providers/claude-cli.js";

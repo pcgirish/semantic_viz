@@ -37,6 +37,8 @@ describe("AnthropicProvider", () => {
 
     expect(result.text).toBe("it increments a counter");
     expect(result.tokens).toBe(18);
+    expect(result.inputTokens).toBe(10);
+    expect(result.outputTokens).toBe(8);
   });
 
   it("passes context.system as the top-level system field", async () => {

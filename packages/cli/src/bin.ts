@@ -17,7 +17,7 @@ program
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
   .option("--log-level <level>", "llm call logging: info; persisted to .scv/config.yaml")
   .action(async (root: string, opts: { provider?: string; model?: string; effort?: string; logLevel?: string }) => {
-    const { path: outPath, snapshot } = await runAnalyze({
+    const { path: outPath, snapshot, usage } = await runAnalyze({
       root,
       providerName: opts.provider as RunAnalyzeOptions["providerName"],
       model: opts.model,
@@ -26,6 +26,9 @@ program
     });
     console.log(
       `wrote ${outPath} (${snapshot.units.length} units, ${snapshot.edges.length} edges, ${snapshot.externals.length} externals)`,
+    );
+    console.log(
+      `usage: input tokens=${usage.inputTokens}, output tokens=${usage.outputTokens}, calls=${usage.calls}, cache hits=${usage.cacheHits}`,
     );
   });
 

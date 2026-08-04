@@ -43,6 +43,8 @@ describe("ClaudeCliProvider", () => {
 
     expect(result.text).toBe("it increments a counter");
     expect(result.tokens).toBe(12);
+    expect(result.inputTokens).toBe(5);
+    expect(result.outputTokens).toBe(7);
   });
 
   it("accepts a custom model and effort", async () => {

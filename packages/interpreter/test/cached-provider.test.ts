@@ -79,4 +79,22 @@ describe("CachedProvider", () => {
     expect(provider.name).toBe("fake");
     expect(provider.model).toBe("fake-model");
   });
+
+  it("reports input/output usage and does not charge tokens for cache hits", async () => {
+    const inner = {
+      ...fakeProvider(),
+      interpret: vi.fn(async (): Promise<ProviderResult> => ({
+        text: "fresh result",
+        tokens: 42,
+        inputTokens: 30,
+        outputTokens: 12,
+      })),
+    };
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt");
+    await provider.interpret("some prompt");
+
+    expect(provider.usage).toEqual({ calls: 2, cacheHits: 1, inputTokens: 30, outputTokens: 12 });
+  });
 });

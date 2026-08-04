@@ -61,8 +61,10 @@ export class ClaudeCliProvider implements Provider {
     });
 
     const data = JSON.parse(stdout) as ClaudeCliJsonOutput;
-    const tokens = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
-    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.result, tokens });
-    return { text: data.result, tokens };
+    const inputTokens = data.usage?.input_tokens ?? 0;
+    const outputTokens = data.usage?.output_tokens ?? 0;
+    const tokens = inputTokens + outputTokens;
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.result, tokens, inputTokens, outputTokens });
+    return { text: data.result, tokens, inputTokens, outputTokens };
   }
 }
