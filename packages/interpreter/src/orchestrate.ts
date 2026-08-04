@@ -175,6 +175,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
       semantics: result.semantics,
       cost: result.cost,
       tags: result.tags,
+      signature: result.signature,
       hash: { ...unit.hash, semantic: hashSemantics(result.semantics) },
     });
   });
