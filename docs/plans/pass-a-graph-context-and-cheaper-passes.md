@@ -65,9 +65,11 @@ single interception point); cache hits log zero new tokens. Print an end-of-run 
 cost if paid provider, by pass). This is what settles whether step 7 is worth building — don't
 guess.
 
-**6. Stop dropping Pass A's `ports` output.** Add `signature` to `PassAResult`, populate from
-`response.ports`. Set `unit.signature` in `orchestrate.ts`'s Pass A result mapping. Zero new
-tokens — this data is already generated and paid for.
+**6. Stop dropping Pass A's `ports` output.** Superseded by
+`review-reconciliation-security-and-correctness.md` step 4 — same fix, folded into that
+plan's schema-validation PR since both touch `Unit.signature`. Add `signature` to
+`PassAResult`, populate from `response.ports`. Set `unit.signature` in `orchestrate.ts`'s
+Pass A result mapping. Zero new tokens — this data is already generated and paid for.
 
 **7. Bounded tool-calling (build only if step 5's data justifies it).** Gives Pass A on-demand
 lookup beyond the static list: `getSource(qualname)`, `getCallers`/`getCallees` (uncapped),

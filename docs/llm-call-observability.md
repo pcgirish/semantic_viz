@@ -1,9 +1,11 @@
-# LLM call observability (future work)
+# LLM call observability
 
-Not implemented. Design notes for later, prompted by two things found while fixing
-layer semantics: Pass A/B/C calls have no visibility into token cost, and Pass A sends
-one prompt per leaf unit — if several units share a file, that file's source is
-re-sent once per unit with no way to currently detect it.
+Token direction reporting is implemented for provider calls and `scv analyze` summaries.
+The per-call SQLite trace and file-duplication analysis remain future work. This document
+tracks both the shipped usage reporting and the follow-up design, prompted by two things
+found while fixing layer semantics: Pass A/B/C calls have no visibility into token cost,
+and Pass A sends one prompt per leaf unit — if several units share a file, that file's
+source is re-sent once per unit with no way to currently detect it.
 
 ## Goal
 
@@ -19,10 +21,11 @@ only be scoped after (2) shows the data is actually duplicated at a wasteful sca
 
 ## What exists today
 
-`ProviderResult` (`packages/interpreter/src/provider.ts`) returns a single `tokens`
-number per call — for `OllamaProvider` this is `eval_count` (output tokens only;
-`prompt_eval_count`, the input side, is already in Ollama's response but currently
-discarded). Nothing aggregates or persists this; it's dropped after each call.
+`ProviderResult` (`packages/interpreter/src/provider.ts`) returns `inputTokens` and
+`outputTokens` alongside the legacy `tokens` field. Ollama reads both
+`prompt_eval_count` and `eval_count`; Anthropic and Claude CLI read their usage blocks.
+`CachedProvider` aggregates the directions for the current run and counts cache hits
+without charging cached tokens.
 
 ## Proposed shape
 
@@ -61,10 +64,9 @@ since every `interpret()` call already funnels through it. A cache hit should re
 
 ### Surfacing it
 
-Cheapest version: a summary line printed at the end of `scv analyze` — total in/out
-tokens, cost if applicable, maybe broken down by pass. Persisting per-call rows (above)
-is what enables the file-duplication query and cost trends across runs; the summary
-line can be a read over that same table.
+The shipped version prints a summary line at the end of `scv analyze` with total in/out
+tokens, provider-call count, and cache hits. Persisting per-call rows (above) would still
+be needed for file-duplication queries and cost trends across runs.
 
 ### Progress during the run, not just a summary after
 
