@@ -46,8 +46,8 @@ export interface PassAResult {
   };
   tags: string[];
   signature: {
-    in: z.infer<typeof PortSchema>[];
-    out: z.infer<typeof PortSchema>[];
+    in: { name: string; type: string | null; description?: string }[];
+    out: { name: string; type: string | null; description?: string }[];
     raises: string[];
     async: boolean;
   };
@@ -108,8 +108,8 @@ export async function runPassA(options: RunPassAOptions): Promise<PassAResult> {
     // Pass A's prompt doesn't ask for raises/async today — default them rather than expand
     // the LLM contract just to stop dropping the ports data already paid for.
     signature: {
-      in: response.ports.in,
-      out: response.ports.out,
+      in: response.ports.in.map((port) => ({ ...port, type: port.type ?? null })),
+      out: response.ports.out.map((port) => ({ ...port, type: port.type ?? null })),
       raises: [],
       async: false,
     },
