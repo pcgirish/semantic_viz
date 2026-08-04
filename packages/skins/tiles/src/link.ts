@@ -20,8 +20,8 @@ function midpoint(points: SceneLink["path"]): { x: number; y: number } {
 
 const FLOW_LABEL: Record<NonNullable<SceneLink["flowType"]>, string> = {
   sequential: "",
-  true: "T",
-  false: "F",
+  true: "yes",
+  false: "no",
   "loop-back": "↺",
   exception: "!",
 };
@@ -31,7 +31,7 @@ const FLOW_LABEL: Record<NonNullable<SceneLink["flowType"]>, string> = {
  * threshold, background edges go faint and only edges touching the focused unit draw at
  * full strength — the graph stays complete, the ink does not (docs/serve.md#3, "density
  * gating"). When the link carries a flowType (buildFlowchartScene output), a small
- * midpoint label (T/F/loop icon) is added — consistent with the existing link styling,
+ * midpoint label (yes/no/loop icon) is added — consistent with the existing link styling,
  * not a new visual language.
  */
 export function link(l: SceneLink, options: LinkOptions = {}): SVGGElement {

@@ -25,6 +25,7 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
   const blockIds = new Set(functionUnit.children);
   const blocks = units.filter((u) => u.kind === "block" && blockIds.has(u.id));
   const cfEdges = edges.filter((e) => e.kind === "control_flow" && blockIds.has(e.from) && blockIds.has(e.to));
+  const route = units.find((u) => u.kind === "api_flow" && u.steps?.includes(functionUnit.id))?.route;
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -55,6 +56,10 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
 
   return (
     <div className="flowchart">
+      <div className="flowchart-header">
+        <span className="flowchart-header-qualname">{functionUnit.qualname}</span>
+        {route && <span className="flowchart-header-route">{route}</span>}
+      </div>
       <svg ref={svgRef} className="flowchart-svg" data-testid="flowchart-svg" />
     </div>
   );

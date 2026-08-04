@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import type { SymbolGraph } from "@scv/extractor";
+import type { SymbolGraph, SymbolBlockGraph, SymbolUnit } from "@scv/extractor";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
 import type { Provider } from "./provider.js";
 import { runPassA } from "./pass-a.js";
+import { runPassABlocks } from "./pass-a-blocks.js";
 import { runPassB } from "./pass-b.js";
 import { runPassC, runPassCGroups, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
 import { traceFlow } from "./checker.js";
@@ -190,20 +191,52 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
   const blockUnits: Unit[] = [];
   const blockEdges: Edge[] = [];
   const blockChildrenByFunction = new Map<string, string[]>();
+  const functionsWithBlocks: { unit: Unit; symbolUnit: SymbolUnit; bg: SymbolBlockGraph }[] = [];
   for (const unit of units) {
     if (unit.kind !== "function") continue;
     const symbolUnit = graphById.get(unit.id);
     if (!symbolUnit) continue;
     const bg = graph.blockGraph[symbolUnit.qualname];
     if (!bg) continue;
+    functionsWithBlocks.push({ unit, symbolUnit, bg });
+  }
 
+  // Batched per-function LLM call giving each block a semantic label (Pass A-blocks,
+  // docs/plans/flowchart-block-labels-readability.md) instead of the raw blockType/condition
+  // fallback. Failure never blocks the run — an unlabeled function's blocks just keep the
+  // structural fallback, same as Pass A's own failure handling above.
+  const blockLabelsByFunction = new Map<string, Map<string, string>>();
+  await runInDependencyOrder(
+    functionsWithBlocks.map((f) => f.unit.id),
+    PASS_A_CONCURRENCY,
+    () => [],
+    async (unitId) => {
+      const { unit, symbolUnit, bg } = functionsWithBlocks.find((f) => f.unit.id === unitId)!;
+      const functionSource = readSource(symbolUnit.loc.file, symbolUnit.loc.start, symbolUnit.loc.end);
+      try {
+        const labels = await runPassABlocks({
+          blocks: bg.blocks,
+          source: functionSource,
+          functionQualname: symbolUnit.qualname,
+          provider,
+          promptRev,
+        });
+        blockLabelsByFunction.set(unit.id, labels);
+      } catch (err) {
+        console.error(`pass A blocks: ${symbolUnit.qualname}: skipped — ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+  );
+
+  for (const { unit, bg } of functionsWithBlocks) {
+    const labels = blockLabelsByFunction.get(unit.id);
     const childIds: string[] = [];
     for (const block of bg.blocks) {
       childIds.push(block.id);
       blockUnits.push({
         id: block.id,
         kind: "block",
-        name: block.condition ?? block.blockType,
+        name: labels?.get(block.id) ?? block.condition ?? block.blockType,
         qualname: block.id,
         lang: undefined,
         parent: unit.id,

@@ -135,4 +135,62 @@ describe("buildFlowchartScene", () => {
     const entry = scene.nodes.find((n) => n.id === "entry:0")!;
     expect(entry.blockType).toBe("entry");
   });
+
+  it("collapses a run of consecutive sequential blocks into a single node", () => {
+    const blocks = [
+      makeBlock({ id: "entry:0" }),
+      makeBlock({ id: "sequential:0" }),
+      makeBlock({ id: "sequential:1" }),
+      makeBlock({ id: "sequential:2" }),
+      makeBlock({ id: "exit:0" }),
+    ];
+    const edges = [
+      makeCfEdge({ id: "e1", from: "entry:0", to: "sequential:0", flowType: "sequential" }),
+      makeCfEdge({ id: "e2", from: "sequential:0", to: "sequential:1", flowType: "sequential" }),
+      makeCfEdge({ id: "e3", from: "sequential:1", to: "sequential:2", flowType: "sequential" }),
+      makeCfEdge({ id: "e4", from: "sequential:2", to: "exit:0", flowType: "sequential" }),
+    ];
+    const scene = buildFlowchartScene(blocks, edges);
+    const sequentialNodes = scene.nodes.filter((n) => n.blockType === "sequential");
+    expect(sequentialNodes).toHaveLength(1);
+    expect(sequentialNodes[0]!.id).toBe("sequential:0");
+    expect(scene.nodes).toHaveLength(3); // entry, collapsed sequential, exit
+    expect(scene.links).toHaveLength(2); // entry->collapsed, collapsed->exit
+  });
+
+  it("does not collapse a sequential block that feeds a decision (branch point, not a straight run)", () => {
+    const blocks = [
+      makeBlock({ id: "entry:0" }),
+      makeBlock({ id: "sequential:0" }),
+      makeBlock({ id: "decision:0" }),
+      makeBlock({ id: "exit:0" }),
+      makeBlock({ id: "exit:1" }),
+    ];
+    const edges = [
+      makeCfEdge({ id: "e1", from: "entry:0", to: "sequential:0", flowType: "sequential" }),
+      makeCfEdge({ id: "e2", from: "sequential:0", to: "decision:0", flowType: "sequential" }),
+      makeCfEdge({ id: "e3", from: "decision:0", to: "exit:0", flowType: "true" }),
+      makeCfEdge({ id: "e4", from: "decision:0", to: "exit:1", flowType: "false" }),
+    ];
+    const scene = buildFlowchartScene(blocks, edges);
+    expect(scene.nodes.find((n) => n.id === "sequential:0")).toBeDefined();
+    expect(scene.nodes.find((n) => n.id === "decision:0")).toBeDefined();
+  });
+
+  it("does not collapse a sequential block with more than one incoming edge (merge point)", () => {
+    const blocks = [
+      makeBlock({ id: "entry:0" }),
+      makeBlock({ id: "decision:0" }),
+      makeBlock({ id: "exit:0" }),
+      makeBlock({ id: "sequential:0" }), // fed by both branches
+    ];
+    const edges = [
+      makeCfEdge({ id: "e1", from: "entry:0", to: "decision:0", flowType: "sequential" }),
+      makeCfEdge({ id: "e2", from: "decision:0", to: "sequential:0", flowType: "true" }),
+      makeCfEdge({ id: "e3", from: "decision:0", to: "sequential:0", flowType: "false" }),
+      makeCfEdge({ id: "e4", from: "sequential:0", to: "exit:0", flowType: "sequential" }),
+    ];
+    const scene = buildFlowchartScene(blocks, edges);
+    expect(scene.nodes.find((n) => n.id === "sequential:0")).toBeDefined();
+  });
 });

@@ -40,6 +40,10 @@ function fakeProvider(): Provider {
       if (prompt.includes("identifying api_flow")) {
         return { text: JSON.stringify({ flows: [] }), tokens: 10 };
       }
+      if (prompt.includes("labeling the control-flow blocks")) {
+        const ids = [...prompt.matchAll(/- id: (\S+)/g)].map((m) => m[1]);
+        return { text: JSON.stringify({ labels: ids.map((blockId) => ({ blockId, label: "step" })) }), tokens: 10 };
+      }
       return { text: JSON.stringify(passAResponse), tokens: 10 };
     }),
   };
