@@ -55,12 +55,14 @@ export interface RunPassAOptions {
   /** Qualnames of units that call / are called by this unit, from the static call graph. */
   callers?: string[];
   callees?: string[];
+  /** Callee qualname -> already-known one-liner (`.semantics.what`), free with bottom-up ordering. */
+  knownCalleeOneLiners?: Map<string, string>;
 }
 
 /** Pass A — leaf semantics for one function or class. See analyze.md#2. */
 export async function runPassA(options: RunPassAOptions): Promise<PassAResult> {
-  const { unit, source, provider, callers = [], callees = [] } = options;
-  const prompt = passAPrompt(unit, source, callers, callees);
+  const { unit, source, provider, callers = [], callees = [], knownCalleeOneLiners = new Map() } = options;
+  const prompt = passAPrompt(unit, source, callers, callees, knownCalleeOneLiners);
   const response = await interpretJsonWithRetry({
     provider,
     prompt,
