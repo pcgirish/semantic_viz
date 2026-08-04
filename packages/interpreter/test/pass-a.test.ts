@@ -162,17 +162,18 @@ describe("runPassA", () => {
     });
 
     const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(call[1]).toEqual({ cacheKeyExtra: "digest-abc" });
+    expect(call[1]).toMatchObject({ cacheKeyExtra: "digest-abc" });
   });
 
-  it("omits context entirely when there is no callee digest", async () => {
+  it("omits cacheKeyExtra when there is no callee digest, but still passes callMeta", async () => {
     const provider = fakeProvider(validResponse);
     const unit = makeUnit();
 
     await runPassA({ unit, source: "def check(): ...", provider, promptRev: "p1" });
 
     const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(call[1]).toBeUndefined();
+    expect(call[1].cacheKeyExtra).toBeUndefined();
+    expect(call[1].callMeta).toEqual({ pass: "A", unitId: unit.id, qualname: unit.qualname, file: unit.loc.file });
   });
 
   it("caps a long callers/callees list and shows a remainder count", async () => {

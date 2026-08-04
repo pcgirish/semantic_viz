@@ -37,18 +37,23 @@ export class CachedProvider implements Provider {
       .update(context?.cacheKeyExtra ?? "")
       .digest("hex");
     const key = { inputHash, promptRev: this.promptRev, provider: this.inner.name, model: this.inner.model };
+    const callMeta = context?.callMeta;
 
     const cached = this.cache.get(key);
     if (cached) {
       this.usageState.cacheHits += 1;
+      if (callMeta) this.cache.logCall({ ...callMeta, inTokens: 0, outTokens: 0, cacheHit: true });
       return cached;
     }
 
     const innerContext: ProviderContext | undefined = context?.system !== undefined ? { system: context.system } : undefined;
     const result = await this.inner.interpret(prompt, innerContext);
-    this.usageState.inputTokens += result.inputTokens ?? 0;
-    this.usageState.outputTokens += result.outputTokens ?? result.tokens;
+    const inTokens = result.inputTokens ?? 0;
+    const outTokens = result.outputTokens ?? result.tokens;
+    this.usageState.inputTokens += inTokens;
+    this.usageState.outputTokens += outTokens;
     this.cache.set(key, result);
+    if (callMeta) this.cache.logCall({ ...callMeta, inTokens, outTokens, cacheHit: false });
     return result;
   }
 }

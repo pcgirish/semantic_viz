@@ -92,6 +92,63 @@ describe("CachedProvider", () => {
     expect(call[1]).toEqual({ system: "sys" });
   });
 
+  it("logs a per-call row on a cache miss, carrying callMeta and token counts", async () => {
+    const inner = {
+      ...fakeProvider(),
+      interpret: vi.fn(async (): Promise<ProviderResult> => ({ text: "fresh", tokens: 30, inputTokens: 20, outputTokens: 10 })),
+    };
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt", { callMeta: { pass: "A", unitId: "u:1", qualname: "mod.run", file: "mod.py" } });
+
+    const calls = cache.listCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      pass: "A",
+      unitId: "u:1",
+      qualname: "mod.run",
+      file: "mod.py",
+      inTokens: 20,
+      outTokens: 10,
+      cacheHit: false,
+    });
+  });
+
+  it("logs a cache-hit row with zero new tokens on a repeat call", async () => {
+    const inner = {
+      ...fakeProvider(),
+      interpret: vi.fn(async (): Promise<ProviderResult> => ({ text: "fresh", tokens: 30, inputTokens: 20, outputTokens: 10 })),
+    };
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt", { callMeta: { pass: "A" } });
+    await provider.interpret("some prompt", { callMeta: { pass: "A" } });
+
+    const calls = cache.listCalls();
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toMatchObject({ cacheHit: true, inTokens: 0, outTokens: 0 });
+  });
+
+  it("does not fold callMeta into the cache key — identical prompts from different call sites still share a hit", async () => {
+    const inner = fakeProvider();
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt", { callMeta: { pass: "A", unitId: "u:1" } });
+    await provider.interpret("some prompt", { callMeta: { pass: "A", unitId: "u:2" } });
+
+    expect(inner.interpret).toHaveBeenCalledTimes(1);
+  });
+
+  it("never forwards callMeta to the underlying provider", async () => {
+    const inner = fakeProvider();
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt", { system: "sys", callMeta: { pass: "A", unitId: "u:1" } });
+
+    const call = (inner.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1]).toEqual({ system: "sys" });
+  });
+
   it("exposes the underlying provider's name and model", () => {
     const inner = fakeProvider();
     const provider = new CachedProvider(inner, cache, "p1");

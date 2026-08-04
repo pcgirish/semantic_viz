@@ -75,7 +75,10 @@ export async function runPassA(options: RunPassAOptions): Promise<PassAResult> {
     prompt,
     label: `pass A: ${unit.qualname}`,
     schema: PassAResponseSchema,
-    context: calleeSemanticsDigest ? { cacheKeyExtra: calleeSemanticsDigest } : undefined,
+    context: {
+      ...(calleeSemanticsDigest ? { cacheKeyExtra: calleeSemanticsDigest } : {}),
+      callMeta: { pass: "A", unitId: unit.id, qualname: unit.qualname, file: unit.loc.file },
+    },
   });
 
   return {

@@ -52,6 +52,7 @@ export async function runPassC(options: RunPassCOptions): Promise<PassCResult> {
       prompt,
       label: `pass C: cluster "${name}"`,
       schema: PassCResponseSchema,
+      context: { callMeta: { pass: "C" } },
     });
     layers.push({
       name,
@@ -109,6 +110,7 @@ export async function runPassCGroups(options: RunPassCGroupsOptions): Promise<Pa
     prompt,
     label: "pass C: groups",
     schema: PassCGroupsResponseSchema,
+    context: { callMeta: { pass: "C" } },
   });
   const { clusters, repaired } = checkAndRepairClusters(response.groups, layerNames);
 
@@ -144,6 +146,7 @@ export async function proposeFlowEntryPoints(options: ProposeFlowEntryPointsOpti
     prompt,
     label: "pass C: flow entry points",
     schema: EntryPointsResponseSchema,
+    context: { callMeta: { pass: "C" } },
   });
 
   const knownIds = new Set(units.map((u) => u.id));
@@ -188,6 +191,7 @@ export async function narrateFlow(options: NarrateFlowOptions): Promise<FlowNarr
     prompt,
     label: `pass C: flow "${name}"`,
     schema: FlowNarrationResponseSchema,
+    context: { callMeta: { pass: "C" } },
   });
 
   return { ...response, source: "llm" };

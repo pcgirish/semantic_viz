@@ -8,6 +8,20 @@ export interface CacheKey {
   model: string;
 }
 
+export interface LlmCallRecord {
+  pass: "A" | "B" | "C" | "D";
+  unitId?: string;
+  qualname?: string;
+  file?: string;
+  inTokens: number;
+  outTokens: number;
+  cacheHit: boolean;
+}
+
+export interface LoggedLlmCall extends LlmCallRecord {
+  ts: string;
+}
+
 /** Content-addressed cache for Interpreter calls, keyed by input_hash + prompt_rev + provider + model (analyze.md#2, implement-analyze.md#llm-provider). */
 export class ContentCache {
   private readonly db: Database.Database;
@@ -35,6 +49,63 @@ export class ContentCache {
     if (!columns.some((column) => column.name === "output_tokens")) {
       this.db.exec("ALTER TABLE cache ADD COLUMN output_tokens INTEGER");
     }
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS llm_calls (
+        pass TEXT NOT NULL,
+        unit_id TEXT,
+        qualname TEXT,
+        file TEXT,
+        in_tokens INTEGER NOT NULL,
+        out_tokens INTEGER NOT NULL,
+        cache_hit INTEGER NOT NULL,
+        ts TEXT NOT NULL
+      )
+    `);
+  }
+
+  /** Records one LLM call (or cache hit) for cost/duplication analysis. See docs/llm-call-observability.md. */
+  logCall(record: LlmCallRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO llm_calls (pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, ts)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        record.pass,
+        record.unitId ?? null,
+        record.qualname ?? null,
+        record.file ?? null,
+        record.inTokens,
+        record.outTokens,
+        record.cacheHit ? 1 : 0,
+        new Date().toISOString(),
+      );
+  }
+
+  listCalls(): LoggedLlmCall[] {
+    const rows = this.db
+      .prepare("SELECT pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, ts FROM llm_calls ORDER BY ts")
+      .all() as {
+      pass: LlmCallRecord["pass"];
+      unit_id: string | null;
+      qualname: string | null;
+      file: string | null;
+      in_tokens: number;
+      out_tokens: number;
+      cache_hit: number;
+      ts: string;
+    }[];
+    return rows.map((row) => ({
+      pass: row.pass,
+      ...(row.unit_id === null ? {} : { unitId: row.unit_id }),
+      ...(row.qualname === null ? {} : { qualname: row.qualname }),
+      ...(row.file === null ? {} : { file: row.file }),
+      inTokens: row.in_tokens,
+      outTokens: row.out_tokens,
+      cacheHit: row.cache_hit === 1,
+      ts: row.ts,
+    }));
   }
 
   get(key: CacheKey): ProviderResult | undefined {
