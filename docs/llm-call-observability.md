@@ -115,6 +115,15 @@ Net: the sqlite per-call log above is the load-bearing piece. These frameworks a
 additive polish, not prerequisites — revisit only if the pipeline's control flow
 actually grows agentic branches, or if tracing needs to be shared outside this machine.
 
+## Bug this logging surfaced
+
+Reading actual query/response text via `--log-level info` found that Pass B/C's
+`oneLiners` input is broken — every file gets the literal fallback `"(no summary)"`,
+every run. Root cause, blast radius, and fix are documented in
+[`codebase-analysis.md` §3](codebase-analysis.md#3-clustering-and-architecture-grouping-pass-b--pass-c--new-grouping-step)
+(the doc that already tracks Pass B/C's current-vs-intended input shape) rather than
+here, since it's a phase-3 pipeline bug, not an observability gap.
+
 ## Open questions for whoever picks this up
 
 - Does grouping by `file` across Pass A calls actually show meaningful duplication in
