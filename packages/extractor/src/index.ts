@@ -12,4 +12,4 @@ export function extractRepo(root: string): SymbolGraph {
   return resolveGraph(files, knownModules, manifests, churn);
 }
 
-export type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "./symbol-graph.js";
+export type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit, SymbolBlock, SymbolBlockGraph, BlockType } from "./symbol-graph.js";

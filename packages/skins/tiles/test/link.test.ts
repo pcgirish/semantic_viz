@@ -47,7 +47,7 @@ describe("link", () => {
   it("renders a midpoint label for a flowType-carrying link", () => {
     const g = link(makeLink({ id: "e1", flowType: "true", path: [{ x: 0, y: 0 }, { x: 100, y: 100 }] }));
     const label = g.querySelector(".lk-label")!;
-    expect(label.textContent).toBe("T");
+    expect(label.textContent).toBe("yes");
   });
 
   it("renders no midpoint label when flowType is absent", () => {
@@ -55,9 +55,9 @@ describe("link", () => {
     expect(g.querySelector(".lk-label")).toBeNull();
   });
 
-  it("labels a false-branch link F and a loop-back link with a loop icon", () => {
+  it("labels a false-branch link no and a loop-back link with a loop icon", () => {
     const falseLink = link(makeLink({ id: "e1", flowType: "false" }));
-    expect(falseLink.querySelector(".lk-label")!.textContent).toBe("F");
+    expect(falseLink.querySelector(".lk-label")!.textContent).toBe("no");
     const loopLink = link(makeLink({ id: "e2", flowType: "loop-back" }));
     expect(loopLink.querySelector(".lk-label")!.textContent).toBe("↺");
   });
