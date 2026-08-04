@@ -62,7 +62,7 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   const rev = headRev(options.root);
   const structural = toSnapshot(graph, { root: options.root, rev });
 
-  const promptRev = options.promptRev ?? "p1";
+  const promptRev = options.promptRev ?? "p2";
   const baseProvider = options.provider ?? createProvider(loadInterpreterConfig(scvDir));
   const cache = new ContentCache(path.join(scvDir, "cache.sqlite"));
   const provider = new CachedProvider(baseProvider, cache, promptRev);
