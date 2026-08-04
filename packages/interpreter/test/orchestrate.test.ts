@@ -196,6 +196,34 @@ describe("runInterpreter", () => {
     expect(run?.hash.semantic).toBeTruthy();
   });
 
+  it("derives each file's oneLiner from its leaf units' semantics, not the module unit (which never gets Pass A semantics)", async () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    let passBPrompt = "";
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) {
+          passBPrompt = prompt;
+          return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        }
+        if (prompt.includes("identifying api_flow")) {
+          return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        }
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
+
+    expect(passBPrompt).not.toContain("(no summary)");
+    expect(passBPrompt).toContain("does a thing");
+  });
+
   it("adds a system unit and layer units from Pass B/C, grouping admin_tasks with scripts", async () => {
     const graph = makeGraph();
     const snapshot = makeSnapshot(graph);
