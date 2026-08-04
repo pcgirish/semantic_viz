@@ -243,13 +243,166 @@ describe("runInterpreter", () => {
     await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
 
     // edge: admin_tasks.run -> backfill.run
-    const callerPrompt = prompts.find((p) => p.includes("src.admin_tasks.run"));
+    const callerPrompt = prompts.find((p) => p.includes("Unit: src.admin_tasks.run"));
     expect(callerPrompt).toContain("Callees:");
     expect(callerPrompt).toContain("scripts.backfill.run");
 
-    const calleePrompt = prompts.find((p) => p.includes("scripts.backfill.run") && !p.includes("Unit: src.admin_tasks.run"));
+    const calleePrompt = prompts.find((p) => p.includes("Unit: scripts.backfill.run"));
     expect(calleePrompt).toContain("Callers:");
+    // Callee ran first (bottom-up order); its one-liner should be inlined in the caller's
+    // Callees: line for free, no extra call.
+    expect(callerPrompt).toContain("scripts.backfill.run — does a thing");
     expect(calleePrompt).toContain("src.admin_tasks.run");
+  });
+
+  it("processes Pass A bottom-up over the call graph — callees before callers — for a chain a -> b -> c", async () => {
+    const graph: SymbolGraph = {
+      units: [
+        {
+          id: "u:py:a#f",
+          kind: "function",
+          name: "a",
+          qualname: "mod.a",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "mod.py", start: 1, end: 3 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sa", text: "ta" },
+          metrics: { fanIn: 0, fanOut: 1, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:b#f",
+          kind: "function",
+          name: "b",
+          qualname: "mod.b",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "mod.py", start: 5, end: 7 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sb", text: "tb" },
+          metrics: { fanIn: 1, fanOut: 1, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:c#f",
+          kind: "function",
+          name: "c",
+          qualname: "mod.c",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "mod.py", start: 9, end: 11 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sc", text: "tc" },
+          metrics: { fanIn: 1, fanOut: 0, churn: 0, commits: 1 },
+          authors: [],
+        },
+      ],
+      edges: [
+        { id: "e:ab", from: "u:py:a#f", to: "u:py:b#f", kind: "calls", confidence: 1, evidence: { file: "mod.py", line: 1 } },
+        { id: "e:bc", from: "u:py:b#f", to: "u:py:c#f", kind: "calls", confidence: 1, evidence: { file: "mod.py", line: 5 } },
+      ],
+      externals: [],
+      blockGraph: {},
+    };
+    const snapshot = makeSnapshot(graph);
+    const order: string[] = [];
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        if (prompt.includes("Unit: mod.a")) order.push("a");
+        if (prompt.includes("Unit: mod.b")) order.push("b");
+        if (prompt.includes("Unit: mod.c")) order.push("c");
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def f(): ..." });
+
+    expect(order).toEqual(["c", "b", "a"]);
+  });
+
+  it("completes analysis on a call cycle a -> b -> a without hanging", async () => {
+    const graph: SymbolGraph = {
+      units: [
+        {
+          id: "u:py:a#f",
+          kind: "function",
+          name: "a",
+          qualname: "mod.a",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "mod.py", start: 1, end: 3 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sa", text: "ta" },
+          metrics: { fanIn: 1, fanOut: 1, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:b#f",
+          kind: "function",
+          name: "b",
+          qualname: "mod.b",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "mod.py", start: 5, end: 7 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "sb", text: "tb" },
+          metrics: { fanIn: 1, fanOut: 1, churn: 0, commits: 1 },
+          authors: [],
+        },
+      ],
+      edges: [
+        { id: "e:ab", from: "u:py:a#f", to: "u:py:b#f", kind: "calls", confidence: 1, evidence: { file: "mod.py", line: 1 } },
+        { id: "e:ba", from: "u:py:b#f", to: "u:py:a#f", kind: "calls", confidence: 1, evidence: { file: "mod.py", line: 5 } },
+      ],
+      externals: [],
+      blockGraph: {},
+    };
+    const snapshot = makeSnapshot(graph);
+    const provider = fakeProvider({
+      "grouping the files": { clusters: {} },
+      "grouping a codebase's architectural layers": { groups: {} },
+      "identifying api_flow": { flows: [] },
+    });
+    const wrapped: Provider = {
+      name: provider.name,
+      model: provider.model,
+      interpret: async (prompt: string) => {
+        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
+        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      },
+    };
+
+    const result = await runInterpreter({ snapshot, graph, provider: wrapped, promptRev: "p1", readSource: () => "def f(): ..." });
+
+    expect(result.units.filter((u) => u.semantics)).toHaveLength(2);
   });
 
   it("adds a system unit and layer units from Pass B/C, grouping admin_tasks with scripts", async () => {

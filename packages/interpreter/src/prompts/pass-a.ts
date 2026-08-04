@@ -10,9 +10,33 @@ function formatQualnameList(label: string, qualnames: string[]): string {
   return `${label}: ${list}\n`;
 }
 
+/**
+ * Renders each shown callee as `qualname — one-liner` when its semantics are already known
+ * (bottom-up ordering means the common case: the callee ran through Pass A first, free —
+ * no extra call), else bare qualname.
+ */
+function formatCallees(callees: string[], knownOneLiners: Map<string, string>): string {
+  if (callees.length === 0) return "";
+  const shown = callees.slice(0, MAX_GRAPH_CONTEXT_ITEMS);
+  const remainder = callees.length - shown.length;
+  const list = shown
+    .map((qualname) => {
+      const oneLiner = knownOneLiners.get(qualname);
+      return oneLiner ? `${qualname} — ${oneLiner}` : qualname;
+    })
+    .join(", ") + (remainder > 0 ? `, +${remainder} more` : "");
+  return `Callees: ${list}\n`;
+}
+
 /** Pass A prompt: leaf semantics for one function or class. See analyze.md#2. */
-export function passAPrompt(unit: SymbolUnit, source: string, callers: string[] = [], callees: string[] = []): string {
-  const graphContext = formatQualnameList("Callers", callers) + formatQualnameList("Callees", callees);
+export function passAPrompt(
+  unit: SymbolUnit,
+  source: string,
+  callers: string[] = [],
+  callees: string[] = [],
+  knownCalleeOneLiners: Map<string, string> = new Map(),
+): string {
+  const graphContext = formatQualnameList("Callers", callers) + formatCallees(callees, knownCalleeOneLiners);
 
   return `You are analyzing a single ${unit.kind} from a codebase to produce structured semantics.
 
