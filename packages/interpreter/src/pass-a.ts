@@ -52,12 +52,15 @@ export interface RunPassAOptions {
   source: string;
   provider: Provider;
   promptRev: string;
+  /** Qualnames of units that call / are called by this unit, from the static call graph. */
+  callers?: string[];
+  callees?: string[];
 }
 
 /** Pass A — leaf semantics for one function or class. See analyze.md#2. */
 export async function runPassA(options: RunPassAOptions): Promise<PassAResult> {
-  const { unit, source, provider } = options;
-  const prompt = passAPrompt(unit, source);
+  const { unit, source, provider, callers = [], callees = [] } = options;
+  const prompt = passAPrompt(unit, source, callers, callees);
   const response = await interpretJsonWithRetry({
     provider,
     prompt,

@@ -117,4 +117,49 @@ describe("runPassA", () => {
       runPassA({ unit, source: "def check(): ...", provider, promptRev: "p1" }),
     ).rejects.toThrow();
   });
+
+  it("includes Callers:/Callees: sections in the prompt when given static graph context", async () => {
+    const provider = fakeProvider(validResponse);
+    const unit = makeUnit();
+
+    await runPassA({
+      unit,
+      source: "def check(): ...",
+      provider,
+      promptRev: "p1",
+      callers: ["src.api.handle_request"],
+      callees: ["src.redis_client.incr"],
+    });
+
+    const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("Callers:");
+    expect(call[0]).toContain("src.api.handle_request");
+    expect(call[0]).toContain("Callees:");
+    expect(call[0]).toContain("src.redis_client.incr");
+  });
+
+  it("omits Callers:/Callees: sections entirely when there is no graph context", async () => {
+    const provider = fakeProvider(validResponse);
+    const unit = makeUnit();
+
+    await runPassA({ unit, source: "def check(): ...", provider, promptRev: "p1" });
+
+    const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).not.toContain("Callers:");
+    expect(call[0]).not.toContain("Callees:");
+  });
+
+  it("caps a long callers/callees list and shows a remainder count", async () => {
+    const provider = fakeProvider(validResponse);
+    const unit = makeUnit();
+    const callers = Array.from({ length: 12 }, (_, i) => `caller${i}`);
+
+    await runPassA({ unit, source: "def check(): ...", provider, promptRev: "p1", callers, callees: [] });
+
+    const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("caller0");
+    expect(call[0]).toContain("caller7");
+    expect(call[0]).not.toContain("caller8");
+    expect(call[0]).toContain("+4 more");
+  });
 });
