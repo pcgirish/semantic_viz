@@ -71,6 +71,14 @@ describe("runAnalyze", () => {
     expect(written.snapshot.edges.length).toBeGreaterThan(0);
   });
 
+  it("returns input/output token usage for the analysis run", async () => {
+    const provider = fakeProvider();
+    const written = await runAnalyze({ root: orderlyRoot, scvDir, provider });
+    const callCount = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    expect(written.usage).toEqual({ calls: callCount, cacheHits: 0, inputTokens: 0, outputTokens: callCount * 10 });
+  });
+
   it("lifts leaf units with Pass A semantics and adds a system unit", async () => {
     const written = await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider() });
     const lifted = written.snapshot.units.find((u) => u.kind === "function" && u.semantics);

@@ -53,8 +53,10 @@ export class AnthropicProvider implements Provider {
       usage: { input_tokens: number; output_tokens: number };
     };
     const text = data.content.find((block) => block.type === "text")?.text ?? "";
-    const tokens = data.usage.input_tokens + data.usage.output_tokens;
-    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: text, tokens });
-    return { text, tokens };
+    const inputTokens = data.usage.input_tokens;
+    const outputTokens = data.usage.output_tokens;
+    const tokens = inputTokens + outputTokens;
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: text, tokens, inputTokens, outputTokens });
+    return { text, tokens, inputTokens, outputTokens };
   }
 }

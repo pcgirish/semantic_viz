@@ -23,31 +23,56 @@ export class ContentCache {
         model TEXT NOT NULL,
         text TEXT NOT NULL,
         tokens INTEGER NOT NULL,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
         PRIMARY KEY (input_hash, prompt_rev, provider, model)
       )
     `);
+    const columns = this.db.prepare("PRAGMA table_info(cache)").all() as { name: string }[];
+    if (!columns.some((column) => column.name === "input_tokens")) {
+      this.db.exec("ALTER TABLE cache ADD COLUMN input_tokens INTEGER");
+    }
+    if (!columns.some((column) => column.name === "output_tokens")) {
+      this.db.exec("ALTER TABLE cache ADD COLUMN output_tokens INTEGER");
+    }
   }
 
   get(key: CacheKey): ProviderResult | undefined {
     const row = this.db
       .prepare(
-        "SELECT text, tokens FROM cache WHERE input_hash = ? AND prompt_rev = ? AND provider = ? AND model = ?",
+        "SELECT text, tokens, input_tokens, output_tokens FROM cache WHERE input_hash = ? AND prompt_rev = ? AND provider = ? AND model = ?",
       )
       .get(key.inputHash, key.promptRev, key.provider, key.model) as
-      | { text: string; tokens: number }
+      | { text: string; tokens: number; input_tokens: number | null; output_tokens: number | null }
       | undefined;
-    return row ? { text: row.text, tokens: row.tokens } : undefined;
+    if (!row) return undefined;
+    return {
+      text: row.text,
+      tokens: row.tokens,
+      ...(row.input_tokens === null ? {} : { inputTokens: row.input_tokens }),
+      ...(row.output_tokens === null ? {} : { outputTokens: row.output_tokens }),
+    };
   }
 
   set(key: CacheKey, result: ProviderResult): void {
     this.db
       .prepare(
-        `INSERT INTO cache (input_hash, prompt_rev, provider, model, text, tokens)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO cache (input_hash, prompt_rev, provider, model, text, tokens, input_tokens, output_tokens)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (input_hash, prompt_rev, provider, model)
-         DO UPDATE SET text = excluded.text, tokens = excluded.tokens`,
+         DO UPDATE SET text = excluded.text, tokens = excluded.tokens,
+           input_tokens = excluded.input_tokens, output_tokens = excluded.output_tokens`,
       )
-      .run(key.inputHash, key.promptRev, key.provider, key.model, result.text, result.tokens);
+      .run(
+        key.inputHash,
+        key.promptRev,
+        key.provider,
+        key.model,
+        result.text,
+        result.tokens,
+        result.inputTokens ?? null,
+        result.outputTokens ?? null,
+      );
   }
 
   close(): void {

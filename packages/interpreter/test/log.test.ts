@@ -15,6 +15,8 @@ describe("logLlmCall", () => {
       prompt: "summarize foo",
       response: "foo does bar",
       tokens: 42,
+      inputTokens: 30,
+      outputTokens: 12,
     });
 
     expect(spy).toHaveBeenCalledTimes(1);
@@ -25,6 +27,8 @@ describe("logLlmCall", () => {
     expect(line).toContain("summarize foo");
     expect(line).toContain("foo does bar");
     expect(line).toContain("42");
+    expect(line).toContain("input_tokens=30");
+    expect(line).toContain("output_tokens=12");
   });
 
   it("does not log when level is undefined", () => {

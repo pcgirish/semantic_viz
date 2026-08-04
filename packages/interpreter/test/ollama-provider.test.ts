@@ -11,7 +11,7 @@ describe("OllamaProvider", () => {
   it("posts to /api/generate with think disabled and the configured model", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(
-        JSON.stringify({ model: "qwen3.5:0.8b-mlx", response: "it increments a counter", eval_count: 12 }),
+        JSON.stringify({ model: "qwen3.5:0.8b-mlx", response: "it increments a counter", prompt_eval_count: 34, eval_count: 12 }),
         { status: 200 },
       ),
     );
@@ -31,6 +31,8 @@ describe("OllamaProvider", () => {
 
     expect(result.text).toBe("it increments a counter");
     expect(result.tokens).toBe(12);
+    expect(result.inputTokens).toBe(34);
+    expect(result.outputTokens).toBe(12);
   });
 
   it("passes context.system through as the system prompt", async () => {

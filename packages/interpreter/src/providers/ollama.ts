@@ -39,9 +39,13 @@ export class OllamaProvider implements Provider {
       throw new Error(`ollama request failed: ${res.status} ${await res.text()}`);
     }
 
-    const data = (await res.json()) as { response: string; eval_count?: number };
-    const tokens = data.eval_count ?? 0;
-    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.response, tokens });
-    return { text: data.response, tokens };
+    const data = (await res.json()) as { response: string; prompt_eval_count?: number; eval_count?: number };
+    const inputTokens = data.prompt_eval_count ?? 0;
+    const outputTokens = data.eval_count ?? 0;
+    // Keep Ollama's historical `tokens` value as the generated-token count; callers that
+    // need both sides should use inputTokens/outputTokens.
+    const tokens = outputTokens;
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.response, tokens, inputTokens, outputTokens });
+    return { text: data.response, tokens, inputTokens, outputTokens };
   }
 }
