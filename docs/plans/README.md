@@ -15,6 +15,8 @@ diffable and durable.
 | `look-into-what-shows-abstract-valley.md` | Variable sides in Architecture view, fan-based sizing |
 | `flows-pass-c.md` | Pass C: generate `api_flow` units (Flows view) |
 | `soft-bubbling-valley.md` | Group layers into architectural groups, render region boxes |
+| `function-flowchart-extraction.md` | Function-internal flowchart extraction (TypeScript + Python) |
+| `pass-a-graph-context-and-cheaper-passes.md` | Pass A graph context (callers/callees, bottom-up ordering, cache-key fix), LLM call logging, drop fewer/cheaper-pass gaps |
 
 New plans: write to `~/.claude/plans/` as usual during plan mode, then copy the approved
 file here (and commit) once implementation starts, so its history is preserved.
