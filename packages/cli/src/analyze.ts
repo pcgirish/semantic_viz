@@ -25,6 +25,7 @@ export interface RunAnalyzeOptions {
   providerName?: InterpreterConfig["provider"];
   model?: string;
   effort?: InterpreterConfig["effort"];
+  logLevel?: InterpreterConfig["logLevel"];
   promptRev?: string;
 }
 
@@ -45,12 +46,13 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
   mkdirSync(scvDir, { recursive: true });
 
-  if (options.providerName || options.model || options.effort) {
+  if (options.providerName || options.model || options.effort || options.logLevel) {
     const current = loadInterpreterConfig(scvDir);
     writeInterpreterConfig(scvDir, {
       provider: options.providerName ?? current.provider,
       model: options.model ?? current.model,
       effort: options.effort ?? current.effort,
+      logLevel: options.logLevel ?? current.logLevel,
     });
   }
 
