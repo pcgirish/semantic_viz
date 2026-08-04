@@ -62,8 +62,33 @@ export interface SymbolExternal {
   reachedBy: string[];
 }
 
+export type BlockType = "entry" | "sequential" | "decision" | "loop" | "try" | "catch" | "exit" | "merge";
+export type ControlFlowEdgeType = "sequential" | "true" | "false" | "loop-back" | "exception";
+
+export interface SymbolBlock {
+  id: string;
+  blockType: BlockType;
+  startLine: number;
+  endLine: number;
+  condition: string | null;
+}
+
+export interface SymbolControlFlowEdge {
+  from: string;
+  to: string;
+  edgeType: ControlFlowEdgeType;
+}
+
+export interface SymbolBlockGraph {
+  blocks: SymbolBlock[];
+  edges: SymbolControlFlowEdge[];
+}
+
 export interface SymbolGraph {
   units: SymbolUnit[];
   edges: SymbolEdge[];
   externals: SymbolExternal[];
+  /** function unit qualname -> its internal control-flow blocks/edges, only present for
+   *  functions with actual branching (see resolveBlockGraph in resolve.ts). */
+  blockGraph: Record<string, SymbolBlockGraph>;
 }

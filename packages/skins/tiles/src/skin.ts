@@ -15,7 +15,7 @@ export type CameraMove = { kind: "pan-zoom"; target?: string; path?: string[] };
 
 export type Skin = {
   node: (n: SceneNode) => SVGGElement;
-  link: (l: SceneLink, options?: LinkOptions) => SVGPathElement;
+  link: (l: SceneLink, options?: LinkOptions) => SVGGElement;
   region?: (r: SceneRegion) => SVGGElement;
   theme: Theme;
   camera: "fixed" | "orbit" | "walk" | "fly";

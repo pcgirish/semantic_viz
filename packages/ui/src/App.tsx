@@ -3,6 +3,7 @@ import type { Delta, Snapshot } from "@scv/schema";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
+import { Flowchart } from "./Flowchart.js";
 import { Flows } from "./Flows.js";
 import { Inspector } from "./Inspector.js";
 import { InspectQueue } from "./InspectQueue.js";
@@ -36,6 +37,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const focusStack = useAppStore((s) => s.focusStack);
   const ascend = useAppStore((s) => s.ascend);
   const goTo = useAppStore((s) => s.goTo);
+  const flowchartFunctionId = useAppStore((s) => s.flowchartFunctionId);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +146,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const selectedExternal = mode === "depends" ? (externals.find((x) => x.id === selection) ?? null) : null;
   const flowUnits = units.filter((u) => u.kind === "api_flow");
   const changedStepIds = delta ? new Set(delta.unit_deltas.map((d) => d.unit)) : undefined;
+  const flowchartFunction = mode === "flowchart" ? (units.find((u) => u.id === flowchartFunctionId) ?? null) : null;
 
   return (
     <div className="app">
@@ -190,6 +193,8 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           <DependsOn externals={externals} onSelect={(id) => select(id)} />
         ) : mode === "flows" ? (
           <Flows flows={flowUnits} units={units} edges={edges} onSelectStep={(id) => select(id)} changedStepIds={changedStepIds} />
+        ) : mode === "flowchart" && flowchartFunction ? (
+          <Flowchart functionUnit={flowchartFunction} units={units} edges={edges} />
         ) : (
           <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
         )}

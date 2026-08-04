@@ -18,6 +18,10 @@ export type SceneNode = {
   layer: string; // nearest ancestor unit's stable id with kind "layer", or "" if none
   group: string; // nearest layer ancestor's group name, or "" if none
   complexity: number; // raw cyclomatic complexity, or 0 if unavailable
+  // block units only (buildFlowchartScene) — blockType drives shape (decision/loop render
+  // as a diamond regardless of `sides`); condition is the diamond's label text.
+  blockType?: "entry" | "sequential" | "decision" | "loop" | "try" | "catch" | "exit" | "merge";
+  condition?: string;
 };
 
 export type SceneRegion = {
@@ -40,6 +44,9 @@ export type SceneLink = {
   bundle: string[];
   kind: string;
   state: EdgeKindState;
+  // control_flow links only (buildFlowchartScene) — which branch this edge represents,
+  // so the skin can label true/false/loop-back at the link's midpoint.
+  flowType?: "sequential" | "true" | "false" | "loop-back" | "exception";
 };
 
 export type Scene = {

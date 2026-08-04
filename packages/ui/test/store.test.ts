@@ -70,4 +70,30 @@ describe("useAppStore", () => {
     expect(useAppStore.getState().focus).toBe(before.focus);
     expect(useAppStore.getState().focusStack).toEqual(before.focusStack);
   });
+
+  it("showFlowchart switches to flowchart mode focused on the given function and clears selection", () => {
+    useAppStore.getState().select("u:a");
+    useAppStore.getState().showFlowchart("u:fn:create_order");
+    const s = useAppStore.getState();
+    expect(s.mode).toBe("flowchart");
+    expect(s.flowchartFunctionId).toBe("u:fn:create_order");
+    expect(s.selection).toBeNull();
+  });
+
+  it("ascend from flowchart mode restores the mode that was active before entering it", () => {
+    useAppStore.getState().setMode("depends");
+    useAppStore.getState().showFlowchart("u:fn:create_order");
+    useAppStore.getState().ascend();
+    const s = useAppStore.getState();
+    expect(s.mode).toBe("depends");
+    expect(s.flowchartFunctionId).toBeNull();
+  });
+
+  it("ascend from a non-flowchart mode still pops the focus stack as before", () => {
+    useAppStore.getState().drill("u:layer:x");
+    useAppStore.getState().drill("u:module:y");
+    useAppStore.getState().ascend();
+    expect(useAppStore.getState().focus).toBe("u:layer:x");
+    expect(useAppStore.getState().mode).toBe("current");
+  });
 });

@@ -61,6 +61,49 @@ describe("orderly fixture validates against scv/1", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("accepts a block unit", () => {
+    const snapshot = loadFixture("orderly.snapshot.base.json");
+    const [firstUnit, ...restUnits] = snapshot.units;
+    const blockUnit = {
+      ...firstUnit,
+      id: "u:block:abc123",
+      kind: "block",
+      name: "x > 0",
+      qualname: "u:block:abc123",
+      parent: firstUnit.id,
+      children: [],
+      semantics: null,
+      signature: null,
+    };
+    const result = SnapshotSchema.safeParse({
+      ...snapshot,
+      units: [blockUnit, ...restUnits],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a control_flow edge with a flowType", () => {
+    const snapshot = loadFixture("orderly.snapshot.base.json");
+    const [firstEdge, ...restEdges] = snapshot.edges;
+    const cfEdge = { ...firstEdge, kind: "control_flow", flowType: "true" };
+    const result = SnapshotSchema.safeParse({
+      ...snapshot,
+      edges: [cfEdge, ...restEdges],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a control_flow edge with an invalid flowType", () => {
+    const snapshot = loadFixture("orderly.snapshot.base.json");
+    const [firstEdge, ...restEdges] = snapshot.edges;
+    const cfEdge = { ...firstEdge, kind: "control_flow", flowType: "maybe" };
+    const result = SnapshotSchema.safeParse({
+      ...snapshot,
+      edges: [cfEdge, ...restEdges],
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("JSON Schema emit", () => {

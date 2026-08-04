@@ -200,3 +200,42 @@ describe("extractRepo on a repo with both Python and TypeScript manifests", () =
     expect(vite?.version).toBe("^5.0.0");
   });
 });
+
+describe("extractRepo — blockGraph (control-flow blocks)", () => {
+  const graph = extractRepo(orderlyRoot);
+
+  it("gives a branching function a populated blockGraph entry", () => {
+    const createOrder = graph.units.find((u) => u.qualname === "src.orders.create_order.create_order");
+    expect(createOrder).toBeDefined();
+    const bg = graph.blockGraph[createOrder!.qualname];
+    expect(bg).toBeDefined();
+    expect(bg!.blocks.some((b) => b.blockType === "decision")).toBe(true);
+    expect(bg!.edges.length).toBeGreaterThan(0);
+  });
+
+  it("gives a function with no branching no blockGraph entry", () => {
+    const priceItems = graph.units.find((u) => u.qualname === "src.orders.pricing.price_items");
+    expect(priceItems).toBeDefined();
+    expect(graph.blockGraph[priceItems!.qualname]).toBeUndefined();
+  });
+
+  it("block ids are stable across repeated extraction", () => {
+    const graph2 = extractRepo(orderlyRoot);
+    const createOrder = graph.units.find((u) => u.qualname === "src.orders.create_order.create_order")!;
+    const ids1 = graph.blockGraph[createOrder.qualname]!.blocks.map((b) => b.id).sort();
+    const ids2 = graph2.blockGraph[createOrder.qualname]!.blocks.map((b) => b.id).sort();
+    expect(ids1).toEqual(ids2);
+  });
+
+  it("does not double-count a nested function's blocks into the outer function's block graph", () => {
+    // parse() is a top-level sibling of create_order in the same file, not nested inside
+    // it — its own blocks (a single exit block for the raise) must not appear under
+    // create_order's blockGraph entry.
+    const createOrder = graph.units.find((u) => u.qualname === "src.orders.create_order.create_order")!;
+    const parseUnit = graph.units.find((u) => u.qualname === "src.orders.create_order.parse");
+    expect(parseUnit).toBeDefined();
+    const bg = graph.blockGraph[createOrder.qualname]!;
+    // create_order has 2 if-statements (2 decisions) — parse()'s blocks must not inflate this
+    expect(bg.blocks.filter((b) => b.blockType === "decision").length).toBe(2);
+  });
+});
