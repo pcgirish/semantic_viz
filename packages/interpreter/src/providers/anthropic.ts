@@ -1,8 +1,10 @@
 import type { Provider, ProviderContext, ProviderResult } from "../provider.js";
+import { logLlmCall, type LogLevel } from "../log.js";
 
 export interface AnthropicProviderOptions {
   model: string;
   maxTokens?: number;
+  logLevel?: LogLevel;
 }
 
 const API_URL = "https://api.anthropic.com/v1/messages";
@@ -13,10 +15,12 @@ export class AnthropicProvider implements Provider {
   readonly name = "anthropic";
   readonly model: string;
   private readonly maxTokens: number;
+  private readonly logLevel?: LogLevel;
 
   constructor(options: AnthropicProviderOptions) {
     this.model = options.model;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+    this.logLevel = options.logLevel;
   }
 
   async interpret(prompt: string, context?: ProviderContext): Promise<ProviderResult> {
@@ -49,6 +53,8 @@ export class AnthropicProvider implements Provider {
       usage: { input_tokens: number; output_tokens: number };
     };
     const text = data.content.find((block) => block.type === "text")?.text ?? "";
-    return { text, tokens: data.usage.input_tokens + data.usage.output_tokens };
+    const tokens = data.usage.input_tokens + data.usage.output_tokens;
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: text, tokens });
+    return { text, tokens };
   }
 }

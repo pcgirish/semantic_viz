@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import type { Provider, ProviderContext, ProviderResult } from "../provider.js";
+import { logLlmCall, type LogLevel } from "../log.js";
 
 interface ClaudeCliJsonOutput {
   result: string;
@@ -9,6 +10,7 @@ interface ClaudeCliJsonOutput {
 export interface ClaudeCliProviderOptions {
   model?: string;
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  logLevel?: LogLevel;
 }
 
 const DEFAULT_MODEL = "sonnet";
@@ -23,10 +25,12 @@ export class ClaudeCliProvider implements Provider {
   readonly name = "claude-cli";
   readonly model: string;
   readonly effortLevel: string;
+  private readonly logLevel?: LogLevel;
 
   constructor(options: ClaudeCliProviderOptions = {}) {
     this.model = options.model ?? DEFAULT_MODEL;
     this.effortLevel = options.effort ?? DEFAULT_EFFORT;
+    this.logLevel = options.logLevel;
   }
 
   async interpret(prompt: string, context?: ProviderContext): Promise<ProviderResult> {
@@ -58,6 +62,7 @@ export class ClaudeCliProvider implements Provider {
 
     const data = JSON.parse(stdout) as ClaudeCliJsonOutput;
     const tokens = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.result, tokens });
     return { text: data.result, tokens };
   }
 }

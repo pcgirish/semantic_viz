@@ -1,8 +1,10 @@
 import type { Provider, ProviderContext, ProviderResult } from "../provider.js";
+import { logLlmCall, type LogLevel } from "../log.js";
 
 export interface OllamaProviderOptions {
   model: string;
   host?: string;
+  logLevel?: LogLevel;
 }
 
 const DEFAULT_HOST = "http://localhost:11434";
@@ -12,10 +14,12 @@ export class OllamaProvider implements Provider {
   readonly name = "ollama";
   readonly model: string;
   private readonly host: string;
+  private readonly logLevel?: LogLevel;
 
   constructor(options: OllamaProviderOptions) {
     this.model = options.model;
     this.host = options.host ?? DEFAULT_HOST;
+    this.logLevel = options.logLevel;
   }
 
   async interpret(prompt: string, context?: ProviderContext): Promise<ProviderResult> {
@@ -36,6 +40,8 @@ export class OllamaProvider implements Provider {
     }
 
     const data = (await res.json()) as { response: string; eval_count?: number };
-    return { text: data.response, tokens: data.eval_count ?? 0 };
+    const tokens = data.eval_count ?? 0;
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.response, tokens });
+    return { text: data.response, tokens };
   }
 }
