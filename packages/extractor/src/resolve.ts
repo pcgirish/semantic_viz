@@ -1,7 +1,7 @@
 import { builtinModules } from "node:module";
 import path from "node:path";
 import type { BlockFact, ControlFlowEdgeFact, DefFact, Fact, FileFacts, ImportFact } from "./facts.js";
-import { moduleQualname } from "./qualname.js";
+import { moduleQualname, flattenTestQualname, isTestPath } from "./qualname.js";
 import { normalizeSource, shortHash, sloc } from "./hash.js";
 import { langForFile } from "./grammars/registry.js";
 import type { RepoManifests } from "./manifest.js";
@@ -78,15 +78,24 @@ export function resolveGraph(
 ): SymbolGraph {
   const unitsByQualname = new Map<string, UnitBuild>();
   const childrenOf = new Map<string, string[]>();
+  // Test-folder flattening (flattenTestQualname) can make two distinct files (e.g.
+  // tests/__init__.py and tests/test_rate_limiter.py) share one module qualname — mint the
+  // module unit once per qualname and skip re-emitting it for later files.
+  const moduleUnitKeyByQualname = new Map<string, string>();
 
   for (const ff of files) {
-    const modQualname = moduleQualname(ff.file);
+    const modQualname = flattenTestQualname(moduleQualname(ff.file), ff.file);
     const defFacts = ff.facts.filter((f): f is DefFact => f.kind === "def");
     const nameStack: string[] = [];
     for (const def of defFacts) {
       let qualname: string;
       let parentQualname: string;
       if (def.unitKind === "module") {
+        const existingKey = moduleUnitKeyByQualname.get(modQualname);
+        if (existingKey) {
+          nameStack.push(modQualname);
+          continue;
+        }
         qualname = modQualname;
         parentQualname = "";
       } else if (def.parentName === null) {
@@ -99,7 +108,9 @@ export function resolveGraph(
         parentQualname = parentEntry ? parentEntry.qualname : modQualname;
         qualname = `${parentQualname}.${def.name}`;
       }
-      unitsByQualname.set(`${ff.file}::${def.name}::${def.startLine}`, { fact: def, qualname, parentQualname });
+      const key = `${ff.file}::${def.name}::${def.startLine}`;
+      unitsByQualname.set(key, { fact: def, qualname, parentQualname });
+      if (def.unitKind === "module") moduleUnitKeyByQualname.set(qualname, key);
       nameStack.push(qualname);
     }
   }
@@ -161,7 +172,7 @@ export function resolveGraph(
 
   // imports: binding -> resolved module qualname (if it's a repo module)
   for (const ff of files) {
-    const modQualname = moduleQualname(ff.file);
+    const modQualname = flattenTestQualname(moduleQualname(ff.file), ff.file);
     const moduleUnit = units.find((u) => u.qualname === modQualname && u.kind === "module");
     if (!moduleUnit) continue;
     const importFacts = ff.facts.filter((f): f is ImportFact => f.kind === "import");
@@ -345,6 +356,8 @@ function resolveBlockGraph(files: FileFacts[], byFileAndName: Map<string, string
       // gets no blockGraph entry at all — not an empty placeholder (matches how a
       // leaf function shows no flowchart rather than a trivial one-block diagram).
       if (!blocks.some((b) => BRANCHING_TYPES.has(b.blockType))) continue;
+      // Test functions don't need flowchart analysis (docs/plans/test-folder-flat-module-no-analysis.md).
+      if (isTestPath(ff.file)) continue;
 
       const globalId = (blockId: string) => `u:block:${shortHash(`${qualname}:${blockId}`)}`;
 

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SymbolGraph, SymbolBlockGraph, SymbolUnit } from "@scv/extractor";
+import { isTestPath } from "@scv/extractor";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
 import type { Provider } from "./provider.js";
 import { runPassA } from "./pass-a.js";
@@ -87,6 +88,13 @@ export interface RunInterpreterOptions {
 
 const LEAF_KINDS = new Set(["function", "class"]);
 
+/** Test code gets no LLM-generated summary/grouping/flow narration — only its structural
+ *  fields (name, loc, hash) are kept in the snapshot (docs/plans/test-folder-flat-module-no-analysis.md). */
+function isTestUnit(unit: Unit): boolean {
+  const file = unit.loc.files[0];
+  return file !== undefined && isTestPath(file);
+}
+
 function hashSemantics(semantics: unknown): string | null {
   if (!semantics) return null;
   return createHash("sha1").update(JSON.stringify(semantics)).digest("hex");
@@ -127,7 +135,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
   // already-known one-liners inline (free — no extra LLM call). Reorder only leaf units by the
   // call graph; everything else keeps declaration order and runs through unchanged below.
   const snapshotUnitById = new Map(snapshot.units.map((u) => [u.id, u]));
-  const leafIds = snapshot.units.filter((u) => LEAF_KINDS.has(u.kind)).map((u) => u.id);
+  const leafIds = snapshot.units.filter((u) => LEAF_KINDS.has(u.kind) && !isTestUnit(u)).map((u) => u.id);
   const callEdgeRefs = graph.edges.filter((e) => e.kind === "calls").map((e) => ({ from: e.from, to: e.to }));
   const processingOrder = topoOrder(leafIds, callEdgeRefs);
 
@@ -276,7 +284,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
 
   const unitsByFile = new Map<string, Unit[]>();
   for (const unit of unitsWithBlockChildren) {
-    if (unit.kind !== "module") continue;
+    if (unit.kind !== "module" || isTestUnit(unit)) continue;
     for (const file of unit.loc.files) {
       (unitsByFile.get(file) ?? unitsByFile.set(file, []).get(file)!).push(unit);
     }
@@ -285,7 +293,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
 
   const leafUnitsByFile = new Map<string, Unit[]>();
   for (const unit of unitsWithBlockChildren) {
-    if (!LEAF_KINDS.has(unit.kind)) continue;
+    if (!LEAF_KINDS.has(unit.kind) || isTestUnit(unit)) continue;
     for (const file of unit.loc.files) {
       (leafUnitsByFile.get(file) ?? leafUnitsByFile.set(file, []).get(file)!).push(unit);
     }
@@ -400,7 +408,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
 
   const callEdges: CallEdge[] = snapshot.edges.filter((e) => e.kind === "calls").map((e) => ({ from: e.from, to: e.to }));
   const flowUnitSummaries: FlowUnitSummary[] = units
-    .filter((u) => LEAF_KINDS.has(u.kind))
+    .filter((u) => LEAF_KINDS.has(u.kind) && !isTestUnit(u))
     .map((u) => ({ id: u.id, qualname: u.qualname, what: u.semantics?.what ?? "" }));
   const unitById = new Map(units.map((u) => [u.id, u]));
 

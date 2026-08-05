@@ -239,3 +239,47 @@ describe("extractRepo — blockGraph (control-flow blocks)", () => {
     expect(bg.blocks.filter((b) => b.blockType === "decision").length).toBe(2);
   });
 });
+
+describe("extractRepo — test folder flattening", () => {
+  const testFolderRoot = fileURLToPath(new URL("./fixtures/test-folder-sample", import.meta.url));
+  const graph = extractRepo(testFolderRoot);
+
+  it("flattens a nested test file to one module level under tests", () => {
+    expect(graph.units.find((u) => u.qualname === "tests.integration" && u.kind === "module")).toBeDefined();
+    expect(graph.units.find((u) => u.qualname === "tests.integration.test_widget")).toBeUndefined();
+  });
+
+  it("leaves a file directly under tests/ as the tests module itself", () => {
+    expect(graph.units.find((u) => u.qualname === "tests" && u.kind === "module")).toBeDefined();
+    expect(graph.units.find((u) => u.qualname === "tests.test_rate_limiter")).toBeUndefined();
+  });
+
+  it("still resolves test functions as units, parented under the flat module", () => {
+    const testFn = graph.units.find((u) => u.qualname === "tests.integration.test_build_widget_branches");
+    expect(testFn).toBeDefined();
+    const parentModule = graph.units.find((u) => u.id === testFn!.parent);
+    expect(parentModule?.qualname).toBe("tests.integration");
+  });
+
+  it("gives no blockGraph entry to a test function even when it branches", () => {
+    const testFn = graph.units.find((u) => u.qualname === "tests.integration.test_build_widget_branches");
+    expect(testFn).toBeDefined();
+    expect(graph.blockGraph[testFn!.qualname]).toBeUndefined();
+  });
+
+  it("still gives a non-test function with identical branching a blockGraph entry", () => {
+    const prodFn = graph.units.find((u) => u.qualname === "src.widget.build_widget");
+    expect(prodFn).toBeDefined();
+    expect(graph.blockGraph[prodFn!.qualname]).toBeDefined();
+  });
+
+  it("merges multiple files flattening to the same test module qualname into one module unit", () => {
+    const testsModules = graph.units.filter((u) => u.qualname === "tests" && u.kind === "module");
+    expect(testsModules).toHaveLength(1);
+    // both tests/test_rate_limiter.py and tests/integration/test_widget.py's ancestor
+    // dir contribute to "tests" — the single merged module unit parents both.
+    const testsModule = testsModules[0]!;
+    const rateLimiterFn = graph.units.find((u) => u.qualname === "tests.test_direct_under_tests");
+    expect(rateLimiterFn?.parent).toBe(testsModule.id);
+  });
+});

@@ -927,3 +927,95 @@ describe("runInterpreter", () => {
     expect(result.units.filter((u) => u.kind === "block")).toHaveLength(0);
   });
 });
+
+describe("runInterpreter — test units are excluded from LLM passes", () => {
+  function makeGraphWithTestUnit(): SymbolGraph {
+    const graph = makeGraph();
+    graph.units.push(
+      {
+        id: "u:py:tests.test_admin_tasks#m",
+        kind: "module",
+        name: "test_admin_tasks",
+        qualname: "tests",
+        lang: "python",
+        parent: null,
+        children: ["u:py:tests.test_admin_tasks.test_run#f"],
+        loc: { file: "tests/test_admin_tasks.py", start: 1, end: 10 },
+        sloc: 4,
+        params: [],
+        returns: null,
+        bases: [],
+        hash: { struct: "s-test-mod", text: "t-test-mod" },
+        metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
+        authors: [],
+      },
+      {
+        id: "u:py:tests.test_admin_tasks.test_run#f",
+        kind: "function",
+        name: "test_run",
+        qualname: "tests.test_run",
+        lang: "python",
+        parent: "u:py:tests.test_admin_tasks#m",
+        children: [],
+        loc: { file: "tests/test_admin_tasks.py", start: 3, end: 8 },
+        sloc: 3,
+        params: [],
+        returns: null,
+        bases: [],
+        hash: { struct: "s-test-fn", text: "t-test-fn" },
+        metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
+        authors: [],
+      },
+    );
+    return graph;
+  }
+
+  it("never calls the provider for a unit under a flattened tests module", async () => {
+    const graph = makeGraphWithTestUnit();
+    const snapshot = makeSnapshot(graph);
+    const calledFor: string[] = [];
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        calledFor.push(prompt);
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    await runInterpreter({
+      snapshot,
+      graph,
+      provider,
+      promptRev: "p1",
+      readSource: (file) => (file.startsWith("tests/") ? "def test_run(): ..." : "def run(): ..."),
+    });
+
+    expect(calledFor.some((p) => p.includes("test_run"))).toBe(false);
+  });
+
+  it("still runs Pass A for a sibling non-test unit while excluding the test unit", async () => {
+    const graph = makeGraphWithTestUnit();
+    const snapshot = makeSnapshot(graph);
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    const result = await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
+
+    const run = result.units.find((u) => u.id === "u:py:src.admin_tasks.run#f");
+    const testRun = result.units.find((u) => u.id === "u:py:tests.test_admin_tasks.test_run#f");
+    expect(run?.semantics?.what).toBe("does a thing");
+    expect(testRun?.semantics).toBeFalsy();
+  });
+});
