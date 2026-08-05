@@ -29,6 +29,7 @@ export class AnthropicProvider implements Provider {
       throw new Error("ANTHROPIC_API_KEY is not set");
     }
 
+    const startedAt = performance.now();
     const res = await fetch(API_URL, {
       method: "POST",
       headers: {
@@ -52,11 +53,12 @@ export class AnthropicProvider implements Provider {
       content: { type: string; text: string }[];
       usage: { input_tokens: number; output_tokens: number };
     };
+    const durationMs = Math.round(performance.now() - startedAt);
     const text = data.content.find((block) => block.type === "text")?.text ?? "";
     const inputTokens = data.usage.input_tokens;
     const outputTokens = data.usage.output_tokens;
     const tokens = inputTokens + outputTokens;
-    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: text, tokens, inputTokens, outputTokens });
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: text, tokens, inputTokens, outputTokens, durationMs });
     return { text, tokens, inputTokens, outputTokens };
   }
 }

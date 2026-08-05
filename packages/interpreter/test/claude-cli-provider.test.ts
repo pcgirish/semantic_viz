@@ -94,4 +94,21 @@ describe("ClaudeCliProvider", () => {
     expect(provider.name).toBe("claude-cli");
     expect(provider.model).toBe("sonnet");
   });
+
+  it("logs the elapsed call duration in duration_ms", async () => {
+    execFileMock.mockImplementation((_cmd, _args, _opts, cb) => {
+      setTimeout(() => cb(null, JSON.stringify({ result: "ok", usage: { input_tokens: 1, output_tokens: 1 } }), ""), 10);
+      return { stdin: { end: stdinEndMock } };
+    });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const provider = new ClaudeCliProvider({ logLevel: "info" });
+    await provider.interpret("prompt");
+
+    const [line] = spy.mock.calls[0] as [string];
+    const match = /duration_ms=(\d+)/.exec(line);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBeGreaterThanOrEqual(10);
+    spy.mockRestore();
+  });
 });
