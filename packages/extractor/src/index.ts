@@ -13,3 +13,4 @@ export function extractRepo(root: string): SymbolGraph {
 }
 
 export type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit, SymbolBlock, SymbolBlockGraph, BlockType } from "./symbol-graph.js";
+export { isTestPath } from "./qualname.js";
