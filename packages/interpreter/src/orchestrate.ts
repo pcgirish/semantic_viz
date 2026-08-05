@@ -76,6 +76,11 @@ async function runInDependencyOrder(
   }
 }
 
+/** Called as each phase makes progress: on dispatch (`done` unchanged, `current` names the
+ *  entity just started) and on completion (`done` incremented). Lets a log consumer
+ *  reconstruct "currently in process" at any point, not just the last completed item. */
+export type ReportProgress = (phase: string, done: number, total: number, current?: string) => void;
+
 export interface RunInterpreterOptions {
   snapshot: Snapshot;
   graph: SymbolGraph;
@@ -84,6 +89,15 @@ export interface RunInterpreterOptions {
   /** Reads a leaf unit's source text for Pass A. Defaults to reading `unit.loc.file` from disk relative to `root`. */
   readSource: (file: string, start: number, end: number) => string;
   systemName?: string;
+  /** Defaults to logging `[INFO] progress phase=... done/total current=... elapsed=...` to stderr. */
+  reportProgress?: ReportProgress;
+}
+
+function fmtElapsed(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m${seconds}s` : `${seconds}s`;
 }
 
 const LEAF_KINDS = new Set(["function", "class"]);
@@ -113,6 +127,11 @@ function layerIdFor(files: string[]): string {
 /** Runs Pass A (leaf semantics), Pass B (clustering), and Pass C (layer + system narration) over a structural snapshot, producing a fully-lifted scv/1 snapshot. Mirrors docs/mock/tools/build.py's interpret(). */
 export async function runInterpreter(options: RunInterpreterOptions): Promise<Snapshot> {
   const { snapshot, graph, provider, promptRev, readSource, systemName } = options;
+  const runStart = performance.now();
+  const reportProgress: ReportProgress =
+    options.reportProgress ??
+    ((phase, done, total, current) =>
+      console.error(`[INFO] progress phase=${phase} ${done}/${total} current=${current ?? ""} elapsed=${fmtElapsed(performance.now() - runStart)}`));
   const graphById = new Map(graph.units.map((u) => [u.id, u]));
 
   // Precomputed once (O(edges)) rather than per-unit (O(edges × units)) — static caller/callee
@@ -141,13 +160,18 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
 
   const knownOneLiners = new Map<string, string>();
   const passAResultById = new Map<string, Unit>();
+  let passADone = 0;
+  const passATotal = processingOrder.length;
   await runInDependencyOrder(processingOrder, PASS_A_CONCURRENCY, (id) => calleeIdsById.get(id) ?? [], async (id) => {
     const unit = snapshotUnitById.get(id)!;
     const symbolUnit = graphById.get(unit.id);
     if (!symbolUnit) {
       passAResultById.set(id, unit);
+      passADone += 1;
+      reportProgress("pass A", passADone, passATotal, unit.qualname);
       return;
     }
+    reportProgress("pass A", passADone, passATotal, symbolUnit.qualname);
 
     const source = readSource(symbolUnit.loc.file, symbolUnit.loc.start, symbolUnit.loc.end);
     // A callee processed earlier in this run (bottom-up) has its fresh hash in
@@ -175,6 +199,8 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     } catch (err) {
       console.error(`pass A: ${unit.qualname ?? unit.id}: skipped — ${err instanceof Error ? err.message : String(err)}`);
       passAResultById.set(id, unit);
+      passADone += 1;
+      reportProgress("pass A", passADone, passATotal, symbolUnit.qualname);
       return;
     }
 
@@ -187,6 +213,8 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
       signature: result.signature,
       hash: { ...unit.hash, semantic: hashSemantics(result.semantics) },
     });
+    passADone += 1;
+    reportProgress("pass A", passADone, passATotal, symbolUnit.qualname);
   });
 
   const units: Unit[] = snapshot.units.map((unit) => passAResultById.get(unit.id) ?? unit);
@@ -214,12 +242,15 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
   // fallback. Failure never blocks the run — an unlabeled function's blocks just keep the
   // structural fallback, same as Pass A's own failure handling above.
   const blockLabelsByFunction = new Map<string, Map<string, string>>();
+  let passABlocksDone = 0;
+  const passABlocksTotal = functionsWithBlocks.length;
   await runInDependencyOrder(
     functionsWithBlocks.map((f) => f.unit.id),
     PASS_A_CONCURRENCY,
     () => [],
     async (unitId) => {
       const { unit, symbolUnit, bg } = functionsWithBlocks.find((f) => f.unit.id === unitId)!;
+      reportProgress("pass A blocks", passABlocksDone, passABlocksTotal, symbolUnit.qualname);
       const functionSource = readSource(symbolUnit.loc.file, symbolUnit.loc.start, symbolUnit.loc.end);
       try {
         const labels = await runPassABlocks({
@@ -233,6 +264,8 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
       } catch (err) {
         console.error(`pass A blocks: ${symbolUnit.qualname}: skipped — ${err instanceof Error ? err.message : String(err)}`);
       }
+      passABlocksDone += 1;
+      reportProgress("pass A blocks", passABlocksDone, passABlocksTotal, symbolUnit.qualname);
     },
   );
 
@@ -323,7 +356,9 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     importEdges.push({ from, to, weight });
   }
 
+  reportProgress("pass B", 0, 1, "clustering files");
   const passB = await runPassB({ files, oneLiners, edges: importEdges, provider, promptRev });
+  reportProgress("pass B", 1, 1, "clustering files");
 
   const newUnits: Unit[] = [];
   const layerIds: string[] = [];
@@ -337,7 +372,9 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     for (const member of memberUnits) parentOverride.set(member.id, layerId);
   }
 
+  reportProgress("pass C", 0, 1, "narrating layers");
   const passC = await runPassC({ clusters: passB.clusters, oneLiners, provider, promptRev });
+  reportProgress("pass C", 1, 1, "narrating layers");
 
   // Layer-to-layer edge weights, rolled up the same way importEdges rolls up file-pair
   // weights above — one level higher, keyed by layer id via parentOverride — so the
@@ -365,12 +402,14 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     groupEdges.push({ from: fromName, to: toName, weight });
   }
 
+  reportProgress("pass C groups", 0, 1, "grouping layers");
   const passCGroups = await runPassCGroups({
     layers: passC.layers.map((l) => ({ name: l.name, why: l.why })),
     edges: groupEdges,
     provider,
     promptRev,
   });
+  reportProgress("pass C groups", 1, 1, "grouping layers");
   const groupByLayerName = new Map<string, string>();
   for (const [groupName, layerNames] of Object.entries(passCGroups.groups)) {
     for (const layerName of layerNames) groupByLayerName.set(layerName, groupName);
@@ -413,14 +452,19 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
   const unitById = new Map(units.map((u) => [u.id, u]));
 
   if (flowUnitSummaries.length > 0) {
+    reportProgress("pass C flows: entry points", 0, 1, "proposing entry points");
     const entryPoints = await proposeFlowEntryPoints({ units: flowUnitSummaries, callEdges, provider, promptRev });
+    reportProgress("pass C flows: entry points", 1, 1, "proposing entry points");
     const knownUnitIds = new Set(units.map((u) => u.id));
 
+    let flowNarrationDone = 0;
+    const flowNarrationTotal = entryPoints.length;
     for (const entry of entryPoints) {
       const steps = traceFlow(entry.unit, knownUnitIds, callEdges);
       if (!steps || steps.length < 2) continue;
 
       const stepUnits = steps.map((id) => unitById.get(id)).filter((u): u is Unit => Boolean(u));
+      reportProgress("pass C flows: narration", flowNarrationDone, flowNarrationTotal, entry.route);
       const narration = await narrateFlow({
         route: entry.route,
         name: entry.name,
@@ -428,6 +472,8 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
         provider,
         promptRev,
       });
+      flowNarrationDone += 1;
+      reportProgress("pass C flows: narration", flowNarrationDone, flowNarrationTotal, entry.route);
 
       // Hash the traced steps, not the LLM's route/name text — two distinct entry points can
       // get the same route label from the LLM (e.g. two similarly-shaped handlers both read as
