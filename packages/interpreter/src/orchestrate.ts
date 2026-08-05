@@ -93,7 +93,9 @@ export interface RunInterpreterOptions {
   reportProgress?: ReportProgress;
 }
 
-function fmtElapsed(ms: number): string {
+/** Renders elapsed milliseconds as e.g. `1m42s` or `8s`, shared between per-line progress
+ *  logging and the end-of-run summary so the format is consistent. */
+export function fmtElapsed(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;

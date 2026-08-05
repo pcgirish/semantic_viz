@@ -34,6 +34,7 @@ export interface RunAnalyzeResult {
   snapshot: Snapshot;
   path: string;
   usage: ProviderUsage;
+  elapsedMs: number;
 }
 
 function readSource(root: string) {
@@ -67,6 +68,7 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   const cache = new ContentCache(path.join(scvDir, "cache.sqlite"));
   const provider = new CachedProvider(baseProvider, cache, promptRev);
 
+  const runStart = performance.now();
   let snapshot: Snapshot;
   try {
     snapshot = await runInterpreter({
@@ -79,6 +81,7 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   } finally {
     cache.close();
   }
+  const elapsedMs = Math.round(performance.now() - runStart);
   const usage = provider.usage;
 
   const snapshotsDir = path.join(scvDir, "snapshots");
@@ -86,5 +89,5 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   const outPath = path.join(snapshotsDir, `${rev.sha}.json`);
   writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
 
-  return { snapshot, path: outPath, usage };
+  return { snapshot, path: outPath, usage, elapsedMs };
 }

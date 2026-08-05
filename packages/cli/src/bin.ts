@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { Command } from "commander";
+import { fmtElapsed } from "@scv/interpreter";
 import { runAnalyze, type RunAnalyzeOptions } from "./analyze.js";
 import { runDiff } from "./diff.js";
 
@@ -17,7 +18,7 @@ program
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
   .option("--log-level <level>", "llm call logging: info; persisted to .scv/config.yaml")
   .action(async (root: string, opts: { provider?: string; model?: string; effort?: string; logLevel?: string }) => {
-    const { path: outPath, snapshot, usage } = await runAnalyze({
+    const { path: outPath, snapshot, usage, elapsedMs } = await runAnalyze({
       root,
       providerName: opts.provider as RunAnalyzeOptions["providerName"],
       model: opts.model,
@@ -26,6 +27,9 @@ program
     });
     console.log(
       `wrote ${outPath} (${snapshot.units.length} units, ${snapshot.edges.length} edges, ${snapshot.externals.length} externals)`,
+    );
+    console.log(
+      `elapsed: ${fmtElapsed(elapsedMs)} (llm calls: ${fmtElapsed(usage.totalDurationMs)})`,
     );
     console.log(
       `usage: input tokens=${usage.inputTokens}, output tokens=${usage.outputTokens}, calls=${usage.calls}, cache hits=${usage.cacheHits}`,
