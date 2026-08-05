@@ -20,6 +20,7 @@ diffable and durable.
 | `review-reconciliation-security-and-correctness.md` | Reconciles `docs/review/` findings: server path traversal, extractor symlink exfiltration, risk-floor bypass, missing runtime validation, dependency CVEs, docs/impl drift |
 | `flowchart-block-labels-readability.md` | Semantic block labels (batched per-function LLM step), yes/no edge labels, sequential-block collapsing, flowchart header framing |
 | `test-folder-flat-module-no-analysis.md` | Flatten test-folder hierarchy to one module level, skip flowchart/block extraction and all LLM passes for test units |
+| `llm-call-timing-and-progress.md` | Per-call LLM timing, sub-phase in-flight progress logging, duration on INFO lines, end-of-run timing summary |
 
 New plans: write to `~/.claude/plans/` as usual during plan mode, then copy the approved
 file here (and commit) once implementation starts, so its history is preserved.
