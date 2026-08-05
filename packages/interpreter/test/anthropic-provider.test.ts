@@ -80,4 +80,26 @@ describe("AnthropicProvider", () => {
     expect(provider.name).toBe("anthropic");
     expect(provider.model).toBe("claude-sonnet-5");
   });
+
+  it("logs the elapsed call duration in duration_ms", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    const fetchMock = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return new Response(
+        JSON.stringify({ content: [{ type: "text", text: "ok" }], usage: { input_tokens: 1, output_tokens: 1 } }),
+        { status: 200 },
+      );
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const provider = new AnthropicProvider({ model: "m", logLevel: "info" });
+    await provider.interpret("prompt");
+
+    const [line] = spy.mock.calls[0] as [string];
+    const match = /duration_ms=(\d+)/.exec(line);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBeGreaterThanOrEqual(10);
+    spy.mockRestore();
+  });
 });

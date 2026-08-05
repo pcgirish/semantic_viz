@@ -75,4 +75,22 @@ describe("OllamaProvider", () => {
     expect(provider.name).toBe("ollama");
     expect(provider.model).toBe("qwen3.5:0.8b-mlx");
   });
+
+  it("logs the elapsed call duration in duration_ms", async () => {
+    const fetchMock = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return new Response(JSON.stringify({ model: "m", response: "ok", eval_count: 1 }), { status: 200 });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const provider = new OllamaProvider({ model: "m", logLevel: "info" });
+    await provider.interpret("prompt");
+
+    const [line] = spy.mock.calls[0] as [string];
+    const match = /duration_ms=(\d+)/.exec(line);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBeGreaterThanOrEqual(10);
+    spy.mockRestore();
+  });
 });

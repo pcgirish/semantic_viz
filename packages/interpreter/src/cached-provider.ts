@@ -9,7 +9,7 @@ import type { Provider, ProviderContext, ProviderResult, ProviderUsage } from ".
  * even ones whose source text never moved. See analyze.md#2 "Cost control".
  */
 export class CachedProvider implements Provider {
-  private readonly usageState: ProviderUsage = { calls: 0, cacheHits: 0, inputTokens: 0, outputTokens: 0 };
+  private readonly usageState: ProviderUsage = { calls: 0, cacheHits: 0, inputTokens: 0, outputTokens: 0, totalDurationMs: 0 };
 
   constructor(
     private readonly inner: Provider,
@@ -42,18 +42,21 @@ export class CachedProvider implements Provider {
     const cached = this.cache.get(key);
     if (cached) {
       this.usageState.cacheHits += 1;
-      if (callMeta) this.cache.logCall({ ...callMeta, inTokens: 0, outTokens: 0, cacheHit: true });
+      if (callMeta) this.cache.logCall({ ...callMeta, inTokens: 0, outTokens: 0, cacheHit: true, durationMs: 0 });
       return cached;
     }
 
     const innerContext: ProviderContext | undefined = context?.system !== undefined ? { system: context.system } : undefined;
+    const startedAt = performance.now();
     const result = await this.inner.interpret(prompt, innerContext);
+    const durationMs = Math.round(performance.now() - startedAt);
     const inTokens = result.inputTokens ?? 0;
     const outTokens = result.outputTokens ?? result.tokens;
     this.usageState.inputTokens += inTokens;
     this.usageState.outputTokens += outTokens;
+    this.usageState.totalDurationMs += durationMs;
     this.cache.set(key, result);
-    if (callMeta) this.cache.logCall({ ...callMeta, inTokens, outTokens, cacheHit: false });
+    if (callMeta) this.cache.logCall({ ...callMeta, inTokens, outTokens, cacheHit: false, durationMs });
     return result;
   }
 }

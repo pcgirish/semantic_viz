@@ -23,6 +23,7 @@ export class OllamaProvider implements Provider {
   }
 
   async interpret(prompt: string, context?: ProviderContext): Promise<ProviderResult> {
+    const startedAt = performance.now();
     const res = await fetch(`${this.host}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -40,12 +41,13 @@ export class OllamaProvider implements Provider {
     }
 
     const data = (await res.json()) as { response: string; prompt_eval_count?: number; eval_count?: number };
+    const durationMs = Math.round(performance.now() - startedAt);
     const inputTokens = data.prompt_eval_count ?? 0;
     const outputTokens = data.eval_count ?? 0;
     // Keep Ollama's historical `tokens` value as the generated-token count; callers that
     // need both sides should use inputTokens/outputTokens.
     const tokens = outputTokens;
-    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.response, tokens, inputTokens, outputTokens });
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.response, tokens, inputTokens, outputTokens, durationMs });
     return { text: data.response, tokens, inputTokens, outputTokens };
   }
 }

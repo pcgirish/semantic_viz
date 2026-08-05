@@ -75,6 +75,7 @@ describe("ContentCache", () => {
         inTokens: 100,
         outTokens: 20,
         cacheHit: false,
+        durationMs: 450,
       });
 
       const calls = cache.listCalls();
@@ -87,6 +88,7 @@ describe("ContentCache", () => {
         inTokens: 100,
         outTokens: 20,
         cacheHit: false,
+        durationMs: 450,
       });
       expect(calls[0]!.ts).toBeTruthy();
       cache.close();
@@ -94,7 +96,7 @@ describe("ContentCache", () => {
 
     it("records cache hits with zero new tokens", () => {
       const cache = new ContentCache(dbPath);
-      cache.logCall({ pass: "A", unitId: "u:1", qualname: "a", file: "a.py", inTokens: 0, outTokens: 0, cacheHit: true });
+      cache.logCall({ pass: "A", unitId: "u:1", qualname: "a", file: "a.py", inTokens: 0, outTokens: 0, cacheHit: true, durationMs: 0 });
 
       const calls = cache.listCalls();
       expect(calls[0]!.cacheHit).toBe(true);
@@ -105,7 +107,7 @@ describe("ContentCache", () => {
 
     it("allows a call with no unit context (Pass B/C)", () => {
       const cache = new ContentCache(dbPath);
-      cache.logCall({ pass: "B", inTokens: 50, outTokens: 10, cacheHit: false });
+      cache.logCall({ pass: "B", inTokens: 50, outTokens: 10, cacheHit: false, durationMs: 0 });
 
       const calls = cache.listCalls();
       expect(calls[0]!.pass).toBe("B");
@@ -115,7 +117,7 @@ describe("ContentCache", () => {
 
     it("persists logged calls across instances backed by the same file", () => {
       const first = new ContentCache(dbPath);
-      first.logCall({ pass: "A", unitId: "u:1", qualname: "a", file: "a.py", inTokens: 5, outTokens: 5, cacheHit: false });
+      first.logCall({ pass: "A", unitId: "u:1", qualname: "a", file: "a.py", inTokens: 5, outTokens: 5, cacheHit: false, durationMs: 0 });
       first.close();
 
       const second = new ContentCache(dbPath);

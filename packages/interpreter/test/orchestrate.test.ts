@@ -926,6 +926,47 @@ describe("runInterpreter", () => {
 
     expect(result.units.filter((u) => u.kind === "block")).toHaveLength(0);
   });
+
+  it("reports Pass A progress with phase, done/total counts, and the in-flight qualname", async () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const provider = fakeProvider({
+      "grouping the files": { clusters: {} },
+      "grouping a codebase's architectural layers": { groups: {} },
+      "identifying api_flow": { flows: [] },
+    });
+    const wrapped: Provider = {
+      name: provider.name,
+      model: provider.model,
+      interpret: async (prompt: string) => {
+        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
+        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      },
+    };
+
+    const calls: { phase: string; done: number; total: number; current?: string }[] = [];
+    await runInterpreter({
+      snapshot,
+      graph,
+      provider: wrapped,
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+      reportProgress: (phase, done, total, current) => {
+        calls.push({ phase, done, total, current });
+      },
+    });
+
+    const passACalls = calls.filter((c) => c.phase === "pass A");
+    expect(passACalls.length).toBeGreaterThan(0);
+    expect(passACalls.every((c) => c.total === 2)).toBe(true);
+    const dispatchedQualnames = new Set(passACalls.map((c) => c.current));
+    expect(dispatchedQualnames).toEqual(new Set(["scripts.backfill.run", "src.admin_tasks.run"]));
+    const completionCalls = passACalls.filter((c) => c.done > 0);
+    expect(completionCalls.length).toBeGreaterThanOrEqual(2);
+    expect(Math.max(...completionCalls.map((c) => c.done))).toBe(2);
+  });
 });
 
 describe("runInterpreter — test units are excluded from LLM passes", () => {

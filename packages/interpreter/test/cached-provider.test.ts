@@ -172,6 +172,40 @@ describe("CachedProvider", () => {
     await provider.interpret("some prompt");
     await provider.interpret("some prompt");
 
-    expect(provider.usage).toEqual({ calls: 2, cacheHits: 1, inputTokens: 30, outputTokens: 12 });
+    expect(provider.usage).toMatchObject({ calls: 2, cacheHits: 1, inputTokens: 30, outputTokens: 12 });
+    expect(provider.usage.totalDurationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("records elapsed time for a real call in usage.totalDurationMs", async () => {
+    const inner = {
+      ...fakeProvider(),
+      interpret: vi.fn(async (): Promise<ProviderResult> => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return { text: "fresh", tokens: 1 };
+      }),
+    };
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt");
+
+    expect(provider.usage.totalDurationMs).toBeGreaterThanOrEqual(10);
+  });
+
+  it("logs durationMs on the per-call row for both a real call and a cache hit", async () => {
+    const inner = {
+      ...fakeProvider(),
+      interpret: vi.fn(async (): Promise<ProviderResult> => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return { text: "fresh", tokens: 1 };
+      }),
+    };
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await provider.interpret("some prompt", { callMeta: { pass: "A" } });
+    await provider.interpret("some prompt", { callMeta: { pass: "A" } });
+
+    const calls = cache.listCalls();
+    expect(calls[0]!.durationMs).toBeGreaterThanOrEqual(10);
+    expect(calls[1]!.durationMs).toBeGreaterThanOrEqual(0);
   });
 });

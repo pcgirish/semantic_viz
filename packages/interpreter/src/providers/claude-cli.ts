@@ -48,6 +48,7 @@ export class ClaudeCliProvider implements Provider {
       args.push("--append-system-prompt", context.system);
     }
 
+    const startedAt = performance.now();
     const stdout = await new Promise<string>((resolve, reject) => {
       const child = execFile("claude", args, { maxBuffer: 10 * 1024 * 1024 }, (error, out) => {
         if (error) {
@@ -60,11 +61,12 @@ export class ClaudeCliProvider implements Provider {
       child.stdin?.end();
     });
 
+    const durationMs = Math.round(performance.now() - startedAt);
     const data = JSON.parse(stdout) as ClaudeCliJsonOutput;
     const inputTokens = data.usage?.input_tokens ?? 0;
     const outputTokens = data.usage?.output_tokens ?? 0;
     const tokens = inputTokens + outputTokens;
-    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.result, tokens, inputTokens, outputTokens });
+    logLlmCall(this.logLevel, { provider: this.name, model: this.model, prompt, response: data.result, tokens, inputTokens, outputTokens, durationMs });
     return { text: data.result, tokens, inputTokens, outputTokens };
   }
 }

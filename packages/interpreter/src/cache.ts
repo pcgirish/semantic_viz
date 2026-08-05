@@ -16,6 +16,7 @@ export interface LlmCallRecord {
   inTokens: number;
   outTokens: number;
   cacheHit: boolean;
+  durationMs: number;
 }
 
 export interface LoggedLlmCall extends LlmCallRecord {
@@ -62,14 +63,18 @@ export class ContentCache {
         ts TEXT NOT NULL
       )
     `);
+    const callColumns = this.db.prepare("PRAGMA table_info(llm_calls)").all() as { name: string }[];
+    if (!callColumns.some((column) => column.name === "duration_ms")) {
+      this.db.exec("ALTER TABLE llm_calls ADD COLUMN duration_ms INTEGER NOT NULL DEFAULT 0");
+    }
   }
 
   /** Records one LLM call (or cache hit) for cost/duplication analysis. See docs/llm-call-observability.md. */
   logCall(record: LlmCallRecord): void {
     this.db
       .prepare(
-        `INSERT INTO llm_calls (pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, ts)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO llm_calls (pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, duration_ms, ts)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         record.pass,
@@ -79,13 +84,14 @@ export class ContentCache {
         record.inTokens,
         record.outTokens,
         record.cacheHit ? 1 : 0,
+        record.durationMs,
         new Date().toISOString(),
       );
   }
 
   listCalls(): LoggedLlmCall[] {
     const rows = this.db
-      .prepare("SELECT pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, ts FROM llm_calls ORDER BY ts")
+      .prepare("SELECT pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, duration_ms, ts FROM llm_calls ORDER BY ts")
       .all() as {
       pass: LlmCallRecord["pass"];
       unit_id: string | null;
@@ -94,6 +100,7 @@ export class ContentCache {
       in_tokens: number;
       out_tokens: number;
       cache_hit: number;
+      duration_ms: number;
       ts: string;
     }[];
     return rows.map((row) => ({
@@ -104,6 +111,7 @@ export class ContentCache {
       inTokens: row.in_tokens,
       outTokens: row.out_tokens,
       cacheHit: row.cache_hit === 1,
+      durationMs: row.duration_ms,
       ts: row.ts,
     }));
   }

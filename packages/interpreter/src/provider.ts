@@ -28,6 +28,7 @@ export interface ProviderUsage {
   cacheHits: number;
   inputTokens: number;
   outputTokens: number;
+  totalDurationMs: number;
 }
 
 export interface Provider {

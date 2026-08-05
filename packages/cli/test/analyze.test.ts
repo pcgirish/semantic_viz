@@ -80,7 +80,12 @@ describe("runAnalyze", () => {
     const written = await runAnalyze({ root: orderlyRoot, scvDir, provider });
     const callCount = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls.length;
 
-    expect(written.usage).toEqual({ calls: callCount, cacheHits: 0, inputTokens: 0, outputTokens: callCount * 10 });
+    expect(written.usage).toMatchObject({ calls: callCount, cacheHits: 0, inputTokens: 0, outputTokens: callCount * 10 });
+  });
+
+  it("returns total wall-clock elapsed time for the analysis run", async () => {
+    const written = await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider() });
+    expect(written.elapsedMs).toBeGreaterThanOrEqual(0);
   });
 
   it("lifts leaf units with Pass A semantics and adds a system unit", async () => {
