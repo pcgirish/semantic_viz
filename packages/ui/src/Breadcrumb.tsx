@@ -1,5 +1,6 @@
 import { Button, PathBreadcrumb } from "@scv/design-system";
 import type { Unit } from "@scv/schema";
+import { isDomainId } from "./App.js";
 
 export type BreadcrumbProps = {
   focus: string | null;
@@ -15,7 +16,8 @@ export function Breadcrumb({ focus, focusStack, units, onGoTo, onBack }: Breadcr
 
   const unitsById = new Map(units.map((u) => [u.id, u]));
   const path = [...focusStack, focus];
-  const segments = path.map((id) => ({ label: unitsById.get(id)?.name ?? id }));
+  // A synthetic domain id (`group:<name>`) has no matching real unit — label it from the id.
+  const segments = path.map((id) => ({ label: isDomainId(id) ? id.slice("group:".length) : (unitsById.get(id)?.name ?? id) }));
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--gap-md)" }}>
