@@ -94,6 +94,29 @@ describe("Inspector", () => {
     expect(screen.getByText(/86%/)).toBeInTheDocument();
   });
 
+  it("shows a header confidence badge alongside the semantics confidence readout", () => {
+    const unit = makeUnit({
+      id: "check",
+      semantics: { what: "w", how: "h", when: "wh", where: "wr", why: "y", confidence: 0.93, source: "llm" },
+    });
+    render(<Inspector unit={unit} units={[unit]} edges={[]} />);
+    expect(screen.getByText("conf 0.93")).toBeInTheDocument();
+  });
+
+  it("shows authors as badges, dominant contributor (most lines) first", () => {
+    const unit = makeUnit({
+      id: "check",
+      authors: [
+        { name: "agent", lines: 4 },
+        { name: "Ada", lines: 40 },
+      ],
+    });
+    render(<Inspector unit={unit} units={[unit]} edges={[]} />);
+    const ada = screen.getByText("Ada");
+    const agent = screen.getByText("agent");
+    expect(ada.compareDocumentPosition(agent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("visually distinguishes low-confidence semantics (< 0.6) from high-confidence", () => {
     const lowUnit = makeUnit({
       id: "low",

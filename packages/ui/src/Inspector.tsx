@@ -88,8 +88,20 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
         {fileOf(unit) && <span>{fileOf(unit)}</span>}
       </div>
 
-      {unit.tags.length > 0 && (
+      {(unit.tags.length > 0 || semanticsConfidence !== undefined || (unit.authors?.length ?? 0) > 0) && (
         <ul className="tags" style={{ display: "flex", gap: 6, flexWrap: "wrap", listStyle: "none", padding: 0, margin: "0 0 12px" }}>
+          {semanticsConfidence !== undefined && (
+            <li>
+              <Badge tone={lowConfidence ? "risk" : "cool"}>conf {semanticsConfidence.toFixed(2)}</Badge>
+            </li>
+          )}
+          {[...(unit.authors ?? [])]
+            .sort((a, b) => b.lines - a.lines)
+            .map((a) => (
+              <li key={a.name}>
+                <Badge title={`${a.lines} lines`}>{a.name}</Badge>
+              </li>
+            ))}
           {unit.tags.map((t) => (
             <li key={t}>
               <Badge>{t}</Badge>
