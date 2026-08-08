@@ -132,7 +132,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       from: string;
       to: string;
       kind: typeof kind;
-      route: "ortho" | "curve";
+      route: "ortho" | "ortho-v";
+      clearY?: number;
       heavy: boolean;
     }[] = [];
     for (let i = 0; i < l.path.length - 1; i++) {
@@ -140,8 +141,11 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       const end = l.path[i + 1]!;
       // Mirror the mock's routing split (codedream-ui-mock.html's renderCurrentMode): a
       // same-rank hop (equal y) goes Manhattan/ortho, entering the node face at 90deg
-      // top/bottom; a cross-rank hop is a smooth bezier curve instead, so parallel edges
-      // don't all run flush along a shared row border and elbow into each other.
+      // top/bottom; a cross-rank hop uses the same vertical-port Manhattan routing as
+      // Flowchart.tsx (ortho-v) rather than a bezier — a curve's approach bends sideways
+      // right up to the node face, so even though its tangent lands exactly vertical at
+      // the endpoint, the arrowhead reads as misaligned with the visibly diagonal line
+      // feeding into it.
       const sameRank = start.y === end.y;
       segments.push({
         x1: start.x - base.x,
@@ -151,7 +155,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
         from: l.from,
         to: l.to,
         kind,
-        route: sameRank ? "ortho" : "curve",
+        route: sameRank ? "ortho" : "ortho-v",
+        clearY: sameRank ? undefined : (start.y + end.y) / 2 - base.y,
         heavy,
       });
     }
