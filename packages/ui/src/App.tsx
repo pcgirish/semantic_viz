@@ -182,7 +182,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         {(mode === "current" || mode === "depends") && (
           <div data-testid="legend-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
             <Tray title="Layers" dock="left">
-              <Legend units={units} />
+              <Legend units={units} mode={mode === "depends" ? "depends" : "current"} />
             </Tray>
           </div>
         )}
