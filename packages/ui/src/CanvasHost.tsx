@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, PolyNode, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type Scene } from "@scv/layout";
@@ -158,26 +158,38 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     return segments;
   });
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+  useEffect(() => {
     const scroll = scrollRef.current;
     if (!scroll) return;
 
-    const rect = scroll.getBoundingClientRect();
-    const px = e.clientX - rect.left + scroll.scrollLeft;
-    const py = e.clientY - rect.top + scroll.scrollTop;
+    // React 17+ attaches wheel listeners as passive, so preventDefault() from a
+    // synthetic onWheel handler is silently ignored. Firefox then lets the wheel
+    // gesture fall through to native scroll/zoom instead of just running our zoom
+    // logic, unlike Safari/Chrome which are more lenient. A native, non-passive
+    // listener is required to actually suppress that.
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
 
-    const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
-    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scaleRef.current * factor));
-    const ratio = nextScale / scaleRef.current;
-    scaleRef.current = nextScale;
+      const rect = scroll.getBoundingClientRect();
+      const px = e.clientX - rect.left + scroll.scrollLeft;
+      const py = e.clientY - rect.top + scroll.scrollTop;
 
-    setRenderSize({ w: base.w * nextScale, h: base.h * nextScale });
+      const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scaleRef.current * factor));
+      const ratio = nextScale / scaleRef.current;
+      scaleRef.current = nextScale;
 
-    // Keep the point under the cursor stationary: it scales by `ratio` in content
-    // space, so the scroll offset must grow by the same amount around that point.
-    scroll.scrollLeft = px * ratio - (e.clientX - rect.left);
-    scroll.scrollTop = py * ratio - (e.clientY - rect.top);
-  };
+      setRenderSize({ w: base.w * nextScale, h: base.h * nextScale });
+
+      // Keep the point under the cursor stationary: it scales by `ratio` in content
+      // space, so the scroll offset must grow by the same amount around that point.
+      scroll.scrollLeft = px * ratio - (e.clientX - rect.left);
+      scroll.scrollTop = py * ratio - (e.clientY - rect.top);
+    };
+
+    scroll.addEventListener("wheel", onWheel, { passive: false });
+    return () => scroll.removeEventListener("wheel", onWheel);
+  }, [base.w, base.h]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Tile clicks call stopPropagation, so this only fires for empty-canvas mousedowns.
@@ -222,7 +234,6 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       ref={scrollRef}
       className="canvas-scroll"
       data-testid="canvas-svg"
-      onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
