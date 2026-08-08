@@ -25,6 +25,14 @@ function shaFromSnapshotUrl(url: string): string {
   return url.split("/").pop() ?? "";
 }
 
+const MODE_LABEL: Record<string, string> = {
+  current: "Current",
+  delta: "Delta",
+  flows: "API Flow",
+  flowchart: "Flowchart",
+  depends: "Depends on",
+};
+
 export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [revs, setRevs] = useState<RevSummary[]>([]);
@@ -158,7 +166,17 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Toolbar
-        left={mode === "flowchart" ? undefined : <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />}
+        left={
+          mode === "flowchart" ? undefined : (
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+              <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>orderly</span>
+              <span style={{ color: "var(--text-dim)", font: "var(--weight-regular) var(--text-sm) var(--font-core)" }}>
+                {shortSha(sha)} · {MODE_LABEL[mode]} mode
+              </span>
+              <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />
+            </div>
+          )
+        }
         center={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-6)" }}>
             <SegmentedControl
