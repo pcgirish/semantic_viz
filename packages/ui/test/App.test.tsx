@@ -84,6 +84,77 @@ function makeNestedSnapshot(): Snapshot {
   } as unknown as Snapshot;
 }
 
+function makeGroupedSnapshot(): Snapshot {
+  return {
+    schema: "scv/1",
+    snapshot_id: "s1",
+    repo: { root: "orderly", vcs: "git" },
+    rev: { sha: "abc123", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a", author_kind: "human" },
+    provenance: { extractor: "scv-ts/0.1.0" },
+    units: [
+      {
+        kind: "system",
+        id: "u:sys:orderly",
+        name: "orderly",
+        qualname: "orderly",
+        parent: null,
+        children: ["u:layer:api", "u:layer:auth", "u:layer:db"],
+        loc: { files: [], sloc: 30 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+      },
+      {
+        kind: "layer",
+        id: "u:layer:api",
+        name: "api_routes",
+        qualname: "api_routes",
+        parent: "u:sys:orderly",
+        children: [],
+        loc: { files: [], sloc: 10 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+        group: "api surface",
+      },
+      {
+        kind: "layer",
+        id: "u:layer:auth",
+        name: "auth",
+        qualname: "auth",
+        parent: "u:sys:orderly",
+        children: [],
+        loc: { files: [], sloc: 10 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+        group: "api surface",
+      },
+      {
+        kind: "layer",
+        id: "u:layer:db",
+        name: "database_connection",
+        qualname: "database_connection",
+        parent: "u:sys:orderly",
+        children: [],
+        loc: { files: [], sloc: 10 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+        group: "platform",
+      },
+    ],
+    edges: [
+      { id: "e1", from: "u:layer:api", to: "u:layer:db", kind: "calls", weight: 1, source: "static", confidence: 1 },
+    ],
+    externals: [],
+  } as unknown as Snapshot;
+}
+
 describe("App", () => {
   beforeEach(() => {
     useAppStore.setState(useAppStore.getInitialState());
@@ -162,6 +233,45 @@ describe("App", () => {
     expect(container.querySelectorAll(".tile")).toHaveLength(1);
     expect(container.querySelector('.tile[data-id="u:a"]')).toBeNull();
     expect(container.querySelector('.tile[data-id="u:sys:orderly"]')).toBeNull();
+  });
+
+  it("groups the system's layer children by their group field into a synthetic domain tier at the root", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeGroupedSnapshot()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+    });
+
+    // 2 domains ("api surface", "platform"), not the 3 real layer units flat.
+    expect(container.querySelectorAll(".tile")).toHaveLength(2);
+    expect(container.querySelector('.tile[data-id="group:platform"]')).not.toBeNull();
+    expect(container.querySelector('.tile[data-id="u:layer:api"]')).toBeNull();
+  });
+
+  it("drilling into a synthetic domain tile reveals its real member layer units", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeGroupedSnapshot()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+    });
+
+    fireEvent.doubleClick(container.querySelector('.tile[data-id="group:api surface"]')!);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:layer:api"]')).not.toBeNull();
+      expect(container.querySelector('.tile[data-id="u:layer:auth"]')).not.toBeNull();
+    });
+    expect(container.querySelectorAll(".tile")).toHaveLength(2);
+
+    fireEvent.doubleClick(screen.getByTestId("canvas-svg"));
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+    });
   });
 
   it("drilling into a tile shows its children; double-click on empty canvas ascends back", async () => {

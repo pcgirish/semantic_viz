@@ -17,7 +17,7 @@ export interface ConnectorEdge{
   from?:string;
   to?:string;
   /** per-edge override of the layer's routing */
-  route?:"curve"|"ortho";
+  route?:"curve"|"ortho"|"ortho-v";
   /** per-edge elbow radius in px */
   elbow?:number;
   /** per-edge stub length before the first turn */
@@ -30,8 +30,8 @@ export interface ConnectorLayerProps{
   arrows?:boolean;
   /** shared focus state: edges touching focus.id brighten, unrelated edges dim */
   focus?:{id:string|null;near?:string[];far?:string[];sticky?:boolean};
-  /** curve = single bezier (default); ortho = Manhattan route with rounded elbows */
-  route?:"curve"|"ortho";
+  /** curve = single bezier (default); ortho = Manhattan route with rounded elbows; ortho-v = fixed vertical-port Manhattan route */
+  route?:"curve"|"ortho"|"ortho-v";
   /** elbow corner radius in px for ortho routing (default 10) */
   elbow?:number;
   /** stub length in px before the first turn on vertical-first ortho routes (default 14) */

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Delta, Snapshot } from "@scv/schema";
+import type { Delta, Snapshot, Unit } from "@scv/schema";
 import { PathBreadcrumb, SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
@@ -24,6 +24,49 @@ type RevSummary = { sha: string; kind: string; pr?: number; message?: string; ts
 
 function shaFromSnapshotUrl(url: string): string {
   return url.split("/").pop() ?? "";
+}
+
+const DOMAIN_PREFIX = "group:";
+
+/** True for a synthetic domain pseudo-id (`group:<name>`) — has no matching real `Unit`. */
+export function isDomainId(id: string): boolean {
+  return id.startsWith(DOMAIN_PREFIX);
+}
+
+function domainId(group: string): string {
+  return `${DOMAIN_PREFIX}${group}`;
+}
+
+/**
+ * Synthetic client-side-only "domain" tier, grouping the system's layer-kind children by
+ * their existing `group` field (mock parity — docs/mock/codedream-ui-mock.html shows 5
+ * broad domains at the root, but the real analyzer's layer units are module-granularity;
+ * `group` already carries the missing broader tier, driving the sidebar LAYERS panel, just
+ * unused for canvas drill-level construction until now). No analyze/schema change: this
+ * reads only fields already present in the .scv snapshot.
+ */
+function buildDomainUnits(systemUnit: Unit, unitsById: Map<string, Unit>): Unit[] {
+  const layerChildren = systemUnit.children.map((id) => unitsById.get(id)).filter((u): u is Unit => !!u && u.kind === "layer");
+  const byGroup = new Map<string, Unit[]>();
+  for (const layer of layerChildren) {
+    const group = layer.group ?? "ungrouped";
+    const list = byGroup.get(group) ?? [];
+    list.push(layer);
+    byGroup.set(group, list);
+  }
+  return [...byGroup.entries()].map(([group, members]) => ({
+    id: domainId(group),
+    kind: "layer",
+    name: `${group} · ${members.length}`,
+    qualname: group,
+    parent: systemUnit.id,
+    children: members.map((m) => m.id),
+    loc: { files: [], sloc: members.reduce((sum, m) => sum + m.loc.sloc, 0) },
+    tags: [],
+    metrics: {},
+    hash: {},
+    provenance: { source: "static" },
+  }));
 }
 
 const MODE_LABEL: Record<string, string> = {
@@ -127,15 +170,49 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     // the visible node set, not the graph (docs/serve.md#3).
     const unitsById = new Map(units.map((u) => [u.id, u]));
     const systemUnit = units.find((u) => u.kind === "system") ?? null;
-    const focusedUnit = (focus && unitsById.get(focus)) || systemUnit;
-    // api_flow units are listed among the system unit's children (so Flows.tsx can find
-    // them) but belong only in the dedicated Flows view, not the structural
-    // Current/Delta/Depends-on tree.
-    const visibleUnits = (
-      focusedUnit ? units.filter((u) => focusedUnit.children.includes(u.id)) : units.filter((u) => u.parent === null)
-    ).filter((u) => u.kind !== "api_flow");
-    const visibleIds = new Set(visibleUnits.map((u) => u.id));
-    const visibleEdges = edges.filter((e) => visibleIds.has(e.from) && visibleIds.has(e.to));
+
+    const rootDomainUnits = systemUnit ? buildDomainUnits(systemUnit, unitsById) : [];
+    // Only worth a synthetic grouping level when it actually groups something; a single
+    // domain (or none) collapses back to the plain flat list of the system's children.
+    const useDomainTier = rootDomainUnits.length > 1;
+
+    let visibleUnits: Unit[];
+    let visibleEdges: typeof edges;
+    if (focus === null && systemUnit && useDomainTier) {
+      // System root: show the synthetic domain tier (mock parity) instead of the real,
+      // module-granular layer units directly — same data, one grouped level inserted
+      // client-side only (App.tsx docblock plan, items 1-3).
+      const domainUnits = rootDomainUnits;
+      visibleUnits = domainUnits;
+      const layerToDomain = new Map(domainUnits.flatMap((d) => d.children.map((childId) => [childId, d.id])));
+      const rolledEdgeIds = new Set<string>();
+      visibleEdges = [];
+      for (const e of edges) {
+        const fromDomain = layerToDomain.get(e.from);
+        const toDomain = layerToDomain.get(e.to);
+        if (!fromDomain || !toDomain || fromDomain === toDomain) continue;
+        const key = `${fromDomain}->${toDomain}`;
+        if (rolledEdgeIds.has(key)) continue;
+        rolledEdgeIds.add(key);
+        visibleEdges.push({ ...e, id: key, from: fromDomain, to: toDomain, rollup: true });
+      }
+    } else {
+      const focusIsDomain = useDomainTier && !!focus && isDomainId(focus);
+      const focusedUnit = focusIsDomain ? null : (focus && unitsById.get(focus)) || systemUnit;
+      const domainUnit = focusIsDomain ? (rootDomainUnits.find((d) => d.id === focus) ?? null) : null;
+      // api_flow units are listed among the system unit's children (so Flows.tsx can find
+      // them) but belong only in the dedicated Flows view, not the structural
+      // Current/Delta/Depends-on tree.
+      visibleUnits = (
+        domainUnit
+          ? units.filter((u) => domainUnit.children.includes(u.id))
+          : focusedUnit
+            ? units.filter((u) => focusedUnit.children.includes(u.id))
+            : units.filter((u) => u.parent === null)
+      ).filter((u) => u.kind !== "api_flow");
+      const visibleIds = new Set(visibleUnits.map((u) => u.id));
+      visibleEdges = edges.filter((e) => visibleIds.has(e.from) && visibleIds.has(e.to));
+    }
 
     // docs/serve.md#4 "Delta": a unit_delta is a direct hit; otherwise fall back to the
     // rollup so a collapsed ancestor still shows a hidden descendant's change ("a hot leaf
