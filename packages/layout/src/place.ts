@@ -6,7 +6,7 @@ const MIN_DIM = 96; // large enough to hold a name label + metadata line (docs/m
 const MAX_DIM = 1200; // cap tile size so a lone/huge node never stretches full-canvas
 const AREA_SCALE = 4; // px^2 per sloc unit before sqrt
 const GAP = 16;
-const ROW_GAP = 32;
+const ROW_GAP = 64; // wide enough for skip-level edges to bow around intervening rows' boxes instead of skimming through them
 const DUMMY_DIM = 6; // small fixed-width pass-through marker for an expanded edge's midpoint
 const MAX_ROW_TILES = 6; // wrap threshold for a flat (single-rank) row — a grid reads better than one long strip
 
