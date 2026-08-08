@@ -110,15 +110,20 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   }, [hover, scene.links]);
 
   const connectorEdges = scene.links.map((l) => {
-    const from = scene.nodes.find((n) => n.id === l.from);
-    const to = scene.nodes.find((n) => n.id === l.to);
+    // route.ts's spreadPorts already fans each node's in/out edges across its border
+    // (docs/serve.md#3 fix #3) — path[0]/path[last] are those spread ports, not box
+    // centres, so reusing them here is what keeps parallel edges from converging on a
+    // single pixel. Recomputing from scene.nodes box centres (as this used to) throws
+    // that spread away and re-clusters every edge at the node's midpoint.
+    const start = l.path[0];
+    const end = l.path[l.path.length - 1];
     // Outgoing from the hovered node reads as "depends-on" (call); incoming reads as "used-by" (risk).
     const kind = hover && l.from === hover ? ("call" as const) : hover && l.to === hover ? ("risk" as const) : ("import" as const);
     return {
-      x1: (from?.x ?? 0) + (from?.w ?? 0) / 2 - base.x,
-      y1: (from?.y ?? 0) + (from?.h ?? 0) - base.y,
-      x2: (to?.x ?? 0) + (to?.w ?? 0) / 2 - base.x,
-      y2: (to?.y ?? 0) - base.y,
+      x1: (start?.x ?? 0) - base.x,
+      y1: (start?.y ?? 0) - base.y,
+      x2: (end?.x ?? 0) - base.x,
+      y2: (end?.y ?? 0) - base.y,
       from: l.from,
       to: l.to,
       kind,
