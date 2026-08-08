@@ -674,7 +674,7 @@ describe("App", () => {
       expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^flows$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^api flow$/i }));
 
     await waitFor(() => {
       expect(screen.getAllByText("GET /orders/{id}").length).toBeGreaterThan(0);
@@ -691,7 +691,7 @@ describe("App", () => {
       expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^flows$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^api flow$/i }));
 
     await waitFor(() => {
       expect(container.querySelector(".flow-step")).not.toBeNull();

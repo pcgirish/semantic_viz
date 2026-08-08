@@ -30,6 +30,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [revs, setRevs] = useState<RevSummary[]>([]);
   const [delta, setDelta] = useState<Delta | null>(null);
   const [sha, setSha] = useState(() => shaFromSnapshotUrl(snapshotUrl));
+  const [skin, setSkin] = useState<"dark" | "light">("dark");
   const selection = useAppStore((s) => s.selection);
   const focus = useAppStore((s) => s.focus);
   const mode = useAppStore((s) => s.mode);
@@ -39,6 +40,10 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const ascend = useAppStore((s) => s.ascend);
   const goTo = useAppStore((s) => s.goTo);
   const flowchartFunctionId = useAppStore((s) => s.flowchartFunctionId);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-skin", skin);
+  }, [skin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,16 +160,26 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
       <Toolbar
         left={mode === "flowchart" ? undefined : <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />}
         center={
-          <SegmentedControl
-            value={mode === "flowchart" ? "current" : mode}
-            onChange={(value) => setMode(value as "current" | "delta" | "depends" | "flows")}
-            options={[
-              { value: "current", label: "Current" },
-              { value: "delta", label: "Delta" },
-              { value: "depends", label: "Depends on" },
-              { value: "flows", label: "Flows" },
-            ]}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-6)" }}>
+            <SegmentedControl
+              value={mode === "flowchart" ? "current" : mode}
+              onChange={(value) => setMode(value as "current" | "delta" | "depends" | "flows")}
+              options={[
+                { value: "current", label: "Current" },
+                { value: "delta", label: "Delta" },
+                { value: "flows", label: "API Flow" },
+                { value: "depends", label: "Depends on" },
+              ]}
+            />
+            <SegmentedControl
+              value={skin}
+              onChange={(value) => setSkin(value as "dark" | "light")}
+              options={[
+                { value: "dark", label: "Dark" },
+                { value: "light", label: "Light" },
+              ]}
+            />
+          </div>
         }
         right={
           <Select

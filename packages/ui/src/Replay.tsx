@@ -75,11 +75,11 @@ export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
           {playbackMsg}
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 0, border: "var(--border-w) solid var(--border-1)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
-          <Button variant={dense ? "ghost" : "solid"} size="sm" faceted={false} aria-pressed={!dense} onClick={() => setDense(false)} style={{ borderRadius: 0 }}>
-            PR
-          </Button>
           <Button variant={dense ? "solid" : "ghost"} size="sm" faceted={false} aria-pressed={dense} onClick={() => setDense(true)} style={{ borderRadius: 0 }}>
-            Commit
+            Commits
+          </Button>
+          <Button variant={dense ? "ghost" : "solid"} size="sm" faceted={false} aria-pressed={!dense} onClick={() => setDense(false)} style={{ borderRadius: 0 }}>
+            PRs
           </Button>
         </div>
       </div>
