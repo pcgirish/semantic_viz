@@ -215,7 +215,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         ) : (
           <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
         )}
-        <Inspector unit={selectedUnit} units={units} edges={edges} external={selectedExternal} />
+        <Inspector
+          unit={selectedUnit}
+          units={units}
+          edges={edges}
+          external={selectedExternal}
+          deltaQueue={mode === "delta" ? delta?.inspect_queue : undefined}
+        />
       </div>
       {revs.length > 0 && <Replay revs={revs} sha={sha} onScrub={setSha} />}
     </div>
