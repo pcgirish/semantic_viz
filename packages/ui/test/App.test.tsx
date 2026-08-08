@@ -540,7 +540,7 @@ describe("App", () => {
     expect(railIndex).toBeLessThan(canvasIndex);
   });
 
-  it("renders the legend as a fixed left rail in Depends-on mode too", async () => {
+  it("renders the entry-points rail (not the layers legend) in Depends-on mode", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }),
@@ -555,8 +555,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("legend-rail")).not.toBeNull();
+      expect(screen.getByTestId("entry-points-rail")).not.toBeNull();
     });
+    expect(screen.queryByTestId("legend-rail")).toBeNull();
   });
 
   it("shows the inspect queue rail in Delta mode even when no delta exists yet (e.g. earliest rev)", async () => {

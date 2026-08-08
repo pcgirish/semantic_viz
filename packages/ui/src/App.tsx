@@ -4,6 +4,7 @@ import { PathBreadcrumb, SegmentedControl, Select, Toolbar, Tray } from "@scv/de
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
+import { EntryPointsRail } from "./EntryPointsRail.js";
 import { Flowchart } from "./Flowchart.js";
 import { Flows } from "./Flows.js";
 import { Inspector } from "./Inspector.js";
@@ -232,10 +233,17 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         {mode === "delta" && (
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
-        {(mode === "current" || mode === "depends") && (
+        {mode === "current" && (
           <div data-testid="legend-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
             <Tray title="Layers" dock="left">
-              <Legend units={units} mode={mode === "depends" ? "depends" : "current"} />
+              <Legend units={units} mode="current" />
+            </Tray>
+          </div>
+        )}
+        {mode === "depends" && (
+          <div data-testid="entry-points-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
+            <Tray title="Entry Points" dock="left">
+              <EntryPointsRail externals={externals} onSelect={(id) => select(id)} />
             </Tray>
           </div>
         )}
