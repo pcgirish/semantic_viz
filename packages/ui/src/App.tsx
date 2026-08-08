@@ -69,6 +69,33 @@ function buildDomainUnits(systemUnit: Unit, unitsById: Map<string, Unit>): Unit[
   }));
 }
 
+/**
+ * Maps every unit to the domain tile its owning layer belongs to, walking each unit's
+ * ancestor chain rather than only checking direct layer children — real edges connect
+ * module/function-kind leaves nested under a layer, not the layer itself, so a shallow
+ * children-only lookup misses nearly every edge (only matches the rare edge that happens
+ * to run layer-to-layer directly).
+ */
+export function buildUnitToDomain(domainUnits: Unit[], unitsById: Map<string, Unit>): Map<string, string> {
+  const layerToDomain = new Map(domainUnits.flatMap((d) => d.children.map((childId) => [childId, d.id])));
+  const cache = new Map<string, string | undefined>();
+  const resolve = (unitId: string): string | undefined => {
+    if (cache.has(unitId)) return cache.get(unitId);
+    cache.set(unitId, undefined); // break cycles defensively
+    const direct = layerToDomain.get(unitId);
+    const unit = unitsById.get(unitId);
+    const result = direct ?? (unit?.parent ? resolve(unit.parent) : undefined);
+    cache.set(unitId, result);
+    return result;
+  };
+  const result = new Map<string, string>();
+  for (const id of unitsById.keys()) {
+    const domain = resolve(id);
+    if (domain) result.set(id, domain);
+  }
+  return result;
+}
+
 const MODE_LABEL: Record<string, string> = {
   current: "Current",
   delta: "Delta",
@@ -184,12 +211,12 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
       // client-side only (App.tsx docblock plan, items 1-3).
       const domainUnits = rootDomainUnits;
       visibleUnits = domainUnits;
-      const layerToDomain = new Map(domainUnits.flatMap((d) => d.children.map((childId) => [childId, d.id])));
+      const unitToDomain = buildUnitToDomain(domainUnits, unitsById);
       const rolledEdgeIds = new Set<string>();
       visibleEdges = [];
       for (const e of edges) {
-        const fromDomain = layerToDomain.get(e.from);
-        const toDomain = layerToDomain.get(e.to);
+        const fromDomain = unitToDomain.get(e.from);
+        const toDomain = unitToDomain.get(e.to);
         if (!fromDomain || !toDomain || fromDomain === toDomain) continue;
         const key = `${fromDomain}->${toDomain}`;
         if (rolledEdgeIds.has(key)) continue;

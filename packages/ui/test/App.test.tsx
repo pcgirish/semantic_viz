@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
 import type { Snapshot } from "@scv/schema";
-import { App } from "../src/App.js";
+import { App, buildUnitToDomain } from "../src/App.js";
 import { useAppStore } from "../src/store.js";
 
 function makeSnapshot(): Snapshot {
@@ -155,6 +155,120 @@ function makeGroupedSnapshot(): Snapshot {
   } as unknown as Snapshot;
 }
 
+function makeGroupedSnapshotWithLeafEdges(): Snapshot {
+  return {
+    schema: "scv/1",
+    snapshot_id: "s1",
+    repo: { root: "orderly", vcs: "git" },
+    rev: { sha: "abc123", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a", author_kind: "human" },
+    provenance: { extractor: "scv-ts/0.1.0" },
+    units: [
+      {
+        kind: "system",
+        id: "u:sys:orderly",
+        name: "orderly",
+        qualname: "orderly",
+        parent: null,
+        children: ["u:layer:api", "u:layer:db"],
+        loc: { files: [], sloc: 20 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+      },
+      {
+        kind: "layer",
+        id: "u:layer:api",
+        name: "api_routes",
+        qualname: "api_routes",
+        parent: "u:sys:orderly",
+        children: ["u:mod:api_handler"],
+        loc: { files: [], sloc: 10 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+        group: "api surface",
+      },
+      {
+        kind: "layer",
+        id: "u:layer:db",
+        name: "database_connection",
+        qualname: "database_connection",
+        parent: "u:sys:orderly",
+        children: ["u:mod:db_conn"],
+        loc: { files: [], sloc: 10 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+        group: "platform",
+      },
+      // Real snapshots only carry edges between leaf module/function units nested under a
+      // layer, never between the layer units themselves — this is what the domain rollup
+      // must walk up through, not just check direct layer children.
+      {
+        kind: "module",
+        id: "u:mod:api_handler",
+        name: "api_handler",
+        qualname: "api_handler",
+        parent: "u:layer:api",
+        children: [],
+        loc: { files: [], sloc: 5 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "static" },
+      },
+      {
+        kind: "module",
+        id: "u:mod:db_conn",
+        name: "db_conn",
+        qualname: "db_conn",
+        parent: "u:layer:db",
+        children: [],
+        loc: { files: [], sloc: 5 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "static" },
+      },
+    ],
+    edges: [
+      {
+        id: "e1",
+        from: "u:mod:api_handler",
+        to: "u:mod:db_conn",
+        kind: "calls",
+        weight: 1,
+        source: "static",
+        confidence: 1,
+      },
+    ],
+    externals: [],
+  } as unknown as Snapshot;
+}
+
+describe("buildUnitToDomain", () => {
+  it("maps a leaf unit nested under a layer to that layer's domain, not just direct layer children", () => {
+    const domainUnits = [
+      { id: "group:api surface", children: ["u:layer:api"] },
+      { id: "group:platform", children: ["u:layer:db"] },
+    ] as unknown as import("@scv/schema").Unit[];
+    const unitsById = new Map([
+      ["u:layer:api", { id: "u:layer:api", parent: "u:sys:orderly" }],
+      ["u:layer:db", { id: "u:layer:db", parent: "u:sys:orderly" }],
+      ["u:mod:api_handler", { id: "u:mod:api_handler", parent: "u:layer:api" }],
+      ["u:mod:db_conn", { id: "u:mod:db_conn", parent: "u:layer:db" }],
+    ] as unknown as [string, import("@scv/schema").Unit][]);
+
+    const result = buildUnitToDomain(domainUnits, unitsById);
+
+    expect(result.get("u:mod:api_handler")).toBe("group:api surface");
+    expect(result.get("u:mod:db_conn")).toBe("group:platform");
+  });
+});
+
 describe("App", () => {
   beforeEach(() => {
     useAppStore.setState(useAppStore.getInitialState());
@@ -271,6 +385,21 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+    });
+  });
+
+  it("rolls up an edge between leaf units in different domains to a domain-to-domain edge, not just edges between layer units directly", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeGroupedSnapshotWithLeafEdges()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+    });
+
+    await waitFor(() => {
+      const canvas = screen.getByTestId("canvas-svg");
+      expect(canvas.querySelectorAll("svg path")).not.toHaveLength(0);
     });
   });
 
