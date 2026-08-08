@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot } from "@scv/schema";
-import { SegmentedControl, Select } from "@scv/design-system";
+import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
@@ -150,35 +150,40 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const flowchartFunction = mode === "flowchart" ? (units.find((u) => u.id === flowchartFunctionId) ?? null) : null;
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />
-        <SegmentedControl
-          value={mode === "flowchart" ? "current" : mode}
-          onChange={(value) => setMode(value as "current" | "delta" | "depends" | "flows")}
-          options={[
-            { value: "current", label: "Current" },
-            { value: "delta", label: "Delta" },
-            { value: "depends", label: "Depends on" },
-            { value: "flows", label: "Flows" },
-          ]}
-        />
-        <Select
-          data-testid="rev-picker"
-          aria-label="revision"
-          value={sha}
-          onChange={(e) => setSha(e.target.value)}
-          options={revs.map((r) => ({ value: r.sha, label: shortSha(r.sha) }))}
-        />
-      </header>
-      <div className="body">
+    <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <Toolbar
+        left={<Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />}
+        center={
+          <SegmentedControl
+            value={mode === "flowchart" ? "current" : mode}
+            onChange={(value) => setMode(value as "current" | "delta" | "depends" | "flows")}
+            options={[
+              { value: "current", label: "Current" },
+              { value: "delta", label: "Delta" },
+              { value: "depends", label: "Depends on" },
+              { value: "flows", label: "Flows" },
+            ]}
+          />
+        }
+        right={
+          <Select
+            data-testid="rev-picker"
+            aria-label="revision"
+            value={sha}
+            onChange={(e) => setSha(e.target.value)}
+            options={revs.map((r) => ({ value: r.sha, label: shortSha(r.sha) }))}
+          />
+        }
+      />
+      <div className="body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {mode === "delta" && (
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
         {(mode === "current" || mode === "depends") && (
-          <div className="rail">
-            <div className="sec">Layers</div>
-            <Legend units={units} />
+          <div data-testid="legend-rail" style={{ flex: "none" }}>
+            <Tray title="Layers" dock="left">
+              <Legend units={units} />
+            </Tray>
           </div>
         )}
         {mode === "depends" ? (
