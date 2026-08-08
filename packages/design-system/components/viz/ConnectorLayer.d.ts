@@ -5,9 +5,10 @@ export interface ConnectorEdge{
   x1:number;y1:number;x2:number;y2:number;
   /**
    * import = hairline, call = accent, flow = animated dash, weak = dashed, risk = red,
-   * control = 3 slow travelling dots (indigo), data = 5 fast travelling dots (cyan)
+   * control = 3 slow travelling dots (indigo), data = 5 fast travelling dots (cyan),
+   * hover-in/hover-out = incoming/outgoing edge recolor while a node is hovered
    */
-  kind?:"import"|"call"|"flow"|"weak"|"risk"|"control"|"data";
+  kind?:"import"|"call"|"flow"|"weak"|"risk"|"control"|"data"|"hover-in"|"hover-out";
   label?:string;
   heavy?:boolean;
   dim?:boolean;

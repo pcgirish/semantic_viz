@@ -7,6 +7,10 @@ const KIND={
   flow:{stroke:"var(--connector-flow)",dash:"6 6",flow:true},
   weak:{stroke:"var(--connector)",dash:"4 4"},
   risk:{stroke:"var(--temp-6)",dash:null},
+  // Hover-trace recolor (docs mock's bindHoverTrace): edges into the hovered node vs
+  // edges out of it get distinct colors, independent of the edge's own call/import kind.
+  "hover-in":{stroke:"var(--cool-azure)",dash:null},
+  "hover-out":{stroke:"var(--temp-4)",dash:null},
   control:{stroke:"rgba(91,110,232,.45)",dash:null,dots:{fill:"var(--cool-indigo-lift)",r:3,count:3,dur:2.4}},
   data:{stroke:"rgba(31,182,193,.4)",dash:null,dots:{fill:"var(--cool-cyan-lift)",r:2.5,count:5,dur:1.8}}
 };

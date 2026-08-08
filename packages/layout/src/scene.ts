@@ -44,6 +44,9 @@ export type SceneLink = {
   bundle: string[];
   kind: string;
   state: EdgeKindState;
+  // Max weight among bundled edges (route.ts) — drives connector thickness in skins
+  // (docs mock's heavy/weight fixture pairing).
+  weight?: number;
   // control_flow links only (buildFlowchartScene) — which branch this edge represents,
   // so the skin can label true/false/loop-back at the link's midpoint.
   flowType?: "sequential" | "true" | "false" | "loop-back" | "exception";

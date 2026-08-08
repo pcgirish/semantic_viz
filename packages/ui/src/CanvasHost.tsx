@@ -117,8 +117,24 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     // straight through them. Emitting a single x1/y1->x2/y2 segment from path[0]/path[last]
     // (as this used to) discards those waypoints and draws exactly that chord — the "messy
     // pool of connectors" sweeping diagonally across unrelated rows.
-    const kind = hover && l.from === hover ? ("call" as const) : hover && l.to === hover ? ("risk" as const) : ("import" as const);
-    const segments: { x1: number; y1: number; x2: number; y2: number; from: string; to: string; kind: typeof kind; route: "ortho" | "curve" }[] = [];
+    // Mock's bindHoverTrace: edges *into* the hovered node (to === hover) go azure
+    // ("incoming"), edges *out of* it (from === hover) go temp-4/orange ("outgoing").
+    const kind =
+      hover && l.to === hover ? ("hover-in" as const) : hover && l.from === hover ? ("hover-out" as const) : ("import" as const);
+    // Mock fixture data (docs/mock/codedream-ui-mock.html): every edge has weight:1 except
+    // one weight:3 edge marked heavy:true — so anything above the baseline weight is heavy.
+    const heavy = (l.weight ?? 1) > 1;
+    const segments: {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      from: string;
+      to: string;
+      kind: typeof kind;
+      route: "ortho" | "curve";
+      heavy: boolean;
+    }[] = [];
     for (let i = 0; i < l.path.length - 1; i++) {
       const start = l.path[i]!;
       const end = l.path[i + 1]!;
@@ -136,6 +152,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
         to: l.to,
         kind,
         route: sameRank ? "ortho" : "curve",
+        heavy,
       });
     }
     return segments;
