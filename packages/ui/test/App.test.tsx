@@ -194,6 +194,29 @@ describe("App", () => {
     });
   });
 
+  it("shows a flowchart-crumb path (root › Call Graph › function) in Flowchart mode, and clicking root exits back", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:layer:ops"]')).not.toBeNull();
+    });
+
+    useAppStore.getState().showFlowchart("u:a");
+
+    await waitFor(() => {
+      expect(screen.getByText("orderly")).toBeInTheDocument();
+      expect(screen.getByText("Call Graph")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("orderly"));
+
+    await waitFor(() => {
+      expect(useAppStore.getState().mode).toBe("current");
+    });
+  });
+
   it("shows a rev picker populated from /api/revs, newest first", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/revs") {
@@ -517,7 +540,7 @@ describe("App", () => {
     expect(railIndex).toBeLessThan(canvasIndex);
   });
 
-  it("renders the legend as a fixed left rail in Depends-on mode too", async () => {
+  it("renders the entry-points rail (not the layers legend) in Depends-on mode", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }),
@@ -532,8 +555,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("legend-rail")).not.toBeNull();
+      expect(screen.getByTestId("entry-points-rail")).not.toBeNull();
     });
+    expect(screen.queryByTestId("legend-rail")).toBeNull();
   });
 
   it("shows the inspect queue rail in Delta mode even when no delta exists yet (e.g. earliest rev)", async () => {
@@ -651,10 +675,10 @@ describe("App", () => {
       expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^flows$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^api flow$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("GET /orders/{id}")).toBeInTheDocument();
+      expect(screen.getAllByText("GET /orders/{id}").length).toBeGreaterThan(0);
     });
     expect(container.querySelector(".canvas-scroll")).toBeNull();
   });
@@ -668,7 +692,7 @@ describe("App", () => {
       expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^flows$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^api flow$/i }));
 
     await waitFor(() => {
       expect(container.querySelector(".flow-step")).not.toBeNull();

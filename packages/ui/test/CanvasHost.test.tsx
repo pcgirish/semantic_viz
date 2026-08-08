@@ -3,6 +3,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import type { Edge, Unit } from "@scv/schema";
 import { CanvasHost } from "../src/CanvasHost.js";
 import { useAppStore } from "../src/store.js";
+import { tempHex } from "@scv/design-system";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
   return {
@@ -41,22 +42,24 @@ describe("CanvasHost", () => {
     expect(container.querySelectorAll(".tile")).toHaveLength(2);
   });
 
-  it("sets --layer-color on a tile whose unit has a layer ancestor", () => {
+  it("colors a tile's facet by its layer ancestor's hue (serve.md#2: hue encodes layer)", () => {
     const units = [
       makeUnit({ id: "u:layer:abc", kind: "layer", name: "orders" }),
       makeUnit({ id: "a", parent: "u:layer:abc" }),
     ];
     const { container } = render(<CanvasHost units={units} edges={[]} />);
     const tile = container.querySelector('[data-id="a"]') as HTMLElement;
-    expect(tile.style.getPropertyValue("--layer-color")).not.toBe("");
-    expect(tile.style.getPropertyValue("--layer-color")).not.toBe("var(--ext)");
+    const path = tile.querySelector("path") as SVGPathElement;
+    expect(path.getAttribute("stroke")).not.toBe("");
+    expect(path.getAttribute("fill")).not.toBe("none");
   });
 
-  it("falls back to var(--ext) for a tile with no layer ancestor", () => {
+  it("falls back to the default dormant temp color for a tile with no layer ancestor", () => {
     const units = [makeUnit({ id: "a" })];
     const { container } = render(<CanvasHost units={units} edges={[]} />);
     const tile = container.querySelector('[data-id="a"]') as HTMLElement;
-    expect(tile.style.getPropertyValue("--layer-color")).toBe("var(--ext)");
+    const path = tile.querySelector("path") as SVGPathElement;
+    expect(path.getAttribute("stroke")).toContain(tempHex(1));
   });
 
   it("draws a region behind the node layer for a group with 2+ layers", () => {
@@ -125,9 +128,12 @@ describe("CanvasHost", () => {
     const { container } = render(<CanvasHost units={units} edges={edges} />);
     fireEvent.mouseOver(container.querySelector('.tile[data-id="a"]')!);
 
-    const paths = [...container.querySelectorAll("svg path")].filter((p) => (p.getAttribute("stroke") || "").startsWith("var(--connector"));
+    const connectorStrokes = ["var(--connector)", "var(--connector-active)", "var(--cool-azure)", "var(--temp-4)"];
+    const paths = [...container.querySelectorAll("svg path")].filter((p) => connectorStrokes.includes(p.getAttribute("stroke") || ""));
     expect(paths).toHaveLength(2);
-    const touching = paths.find((p) => p.getAttribute("stroke") === "var(--connector-active)")!;
+    // Hovering "a" (source of e1) recolors its outgoing edge azure/orange (hover-out), per
+    // the mock's bindHoverTrace — not the generic near-focus "call" cyan.
+    const touching = paths.find((p) => p.getAttribute("stroke") === "var(--temp-4)")!;
     const unrelated = paths.find((p) => p !== touching)!;
     expect(touching.getAttribute("opacity")).toBe("1");
     expect(unrelated.getAttribute("opacity")).toBe("var(--focus-dim-edge)");

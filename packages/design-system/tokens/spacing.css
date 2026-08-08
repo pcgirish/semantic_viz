@@ -10,10 +10,9 @@
 --gap-stack:12px;
 --gap-section:32px;
 --rail-w:56px;           /* icon rail */
---tray-w:288px;          /* side tray */
+--tray-w:320px;          /* side tray */
 --tray-w-wide:360px;
---inspector-w:340px;
---bar-h:44px;            /* top bar / toolbar */
+--bar-h:50px;            /* top bar / toolbar */
 --row-h:28px;            /* dense list row */
 --row-h-lg:36px;
 --page-max:1240px;

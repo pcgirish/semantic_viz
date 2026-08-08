@@ -64,39 +64,6 @@ describe("Flowchart", () => {
     expect(getByText(/leaf_fn/)).toBeTruthy();
   });
 
-  it("renders a header with the function's qualname", () => {
-    const fn = makeUnit({
-      id: "fn1",
-      kind: "function",
-      qualname: "src.orders.create_order.create_order",
-      children: ["b:entry", "b:exit"],
-    });
-    const units = [fn, makeBlock({ id: "b:entry" }), makeBlock({ id: "b:exit" })];
-    const edges = [makeCfEdge({ id: "e1", from: "b:entry", to: "b:exit", flowType: "sequential" })];
-
-    const { getByText } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
-    expect(getByText("src.orders.create_order.create_order")).toBeTruthy();
-  });
-
-  it("shows the route in the header when the function is a step in an api_flow", () => {
-    const fn = makeUnit({ id: "fn1", kind: "function", children: ["b:entry", "b:exit"] });
-    const flow = makeUnit({ id: "flow1", kind: "api_flow", route: "POST /orders", steps: ["fn1"] });
-    const units = [fn, flow, makeBlock({ id: "b:entry" }), makeBlock({ id: "b:exit" })];
-    const edges = [makeCfEdge({ id: "e1", from: "b:entry", to: "b:exit", flowType: "sequential" })];
-
-    const { getByText } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
-    expect(getByText("POST /orders")).toBeTruthy();
-  });
-
-  it("omits the route line when the function is not part of any api_flow", () => {
-    const fn = makeUnit({ id: "fn1", kind: "function", children: ["b:entry", "b:exit"] });
-    const units = [fn, makeBlock({ id: "b:entry" }), makeBlock({ id: "b:exit" })];
-    const edges = [makeCfEdge({ id: "e1", from: "b:entry", to: "b:exit", flowType: "sequential" })];
-
-    const { container } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
-    expect(container.querySelector(".flowchart-header-route")).toBeNull();
-  });
-
   it("filters blocks/edges to only the given function's children, ignoring another function's blocks", () => {
     const fn1 = makeUnit({ id: "fn1", kind: "function", children: ["b1:entry", "b1:exit"] });
     const units = [

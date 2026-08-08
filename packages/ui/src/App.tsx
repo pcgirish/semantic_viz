@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot } from "@scv/schema";
-import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
+import { PathBreadcrumb, SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
+import { EntryPointsRail } from "./EntryPointsRail.js";
 import { Flowchart } from "./Flowchart.js";
 import { Flows } from "./Flows.js";
 import { Inspector } from "./Inspector.js";
@@ -25,11 +26,20 @@ function shaFromSnapshotUrl(url: string): string {
   return url.split("/").pop() ?? "";
 }
 
+const MODE_LABEL: Record<string, string> = {
+  current: "Current",
+  delta: "Delta",
+  flows: "API Flow",
+  flowchart: "Flowchart",
+  depends: "Depends on",
+};
+
 export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [revs, setRevs] = useState<RevSummary[]>([]);
   const [delta, setDelta] = useState<Delta | null>(null);
   const [sha, setSha] = useState(() => shaFromSnapshotUrl(snapshotUrl));
+  const [skin, setSkin] = useState<"dark" | "light">("dark");
   const selection = useAppStore((s) => s.selection);
   const focus = useAppStore((s) => s.focus);
   const mode = useAppStore((s) => s.mode);
@@ -39,6 +49,10 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const ascend = useAppStore((s) => s.ascend);
   const goTo = useAppStore((s) => s.goTo);
   const flowchartFunctionId = useAppStore((s) => s.flowchartFunctionId);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-skin", skin);
+  }, [skin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,22 +162,43 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const flowUnits = units.filter((u) => u.kind === "api_flow");
   const changedStepIds = delta ? new Set(delta.unit_deltas.map((d) => d.unit)) : undefined;
   const flowchartFunction = mode === "flowchart" ? (units.find((u) => u.id === flowchartFunctionId) ?? null) : null;
+  const rootUnit = units.find((u) => u.kind === "system") ?? null;
 
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Toolbar
-        left={<Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />}
+        left={
+          mode === "flowchart" ? undefined : (
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+              <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>orderly</span>
+              <span style={{ color: "var(--text-dim)", font: "var(--weight-regular) var(--text-sm) var(--font-core)" }}>
+                {shortSha(sha)} · {MODE_LABEL[mode]} mode
+              </span>
+              <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />
+            </div>
+          )
+        }
         center={
-          <SegmentedControl
-            value={mode === "flowchart" ? "current" : mode}
-            onChange={(value) => setMode(value as "current" | "delta" | "depends" | "flows")}
-            options={[
-              { value: "current", label: "Current" },
-              { value: "delta", label: "Delta" },
-              { value: "depends", label: "Depends on" },
-              { value: "flows", label: "Flows" },
-            ]}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-6)" }}>
+            <SegmentedControl
+              value={mode === "flowchart" ? "current" : mode}
+              onChange={(value) => setMode(value as "current" | "delta" | "depends" | "flows")}
+              options={[
+                { value: "current", label: "Current" },
+                { value: "delta", label: "Delta" },
+                { value: "flows", label: "API Flow" },
+                { value: "depends", label: "Depends on" },
+              ]}
+            />
+            <SegmentedControl
+              value={skin}
+              onChange={(value) => setSkin(value as "dark" | "light")}
+              options={[
+                { value: "dark", label: "Dark" },
+                { value: "light", label: "Light" },
+              ]}
+            />
+          </div>
         }
         right={
           <Select
@@ -175,14 +210,40 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           />
         }
       />
+      {mode === "flowchart" && flowchartFunction && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            padding: "var(--space-3) var(--space-6)",
+            background: "var(--surface-0)",
+            borderBottom: "var(--border-w) solid var(--border-hair)",
+          }}
+        >
+          <PathBreadcrumb
+            segments={[{ label: rootUnit?.name ?? "root" }, { label: "Call Graph" }, { label: flowchartFunction.name }]}
+            onPick={(i) => {
+              if (i === 0) ascend();
+            }}
+          />
+        </div>
+      )}
       <div className="body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {mode === "delta" && (
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
-        {(mode === "current" || mode === "depends") && (
-          <div data-testid="legend-rail" style={{ flex: "none" }}>
+        {mode === "current" && (
+          <div data-testid="legend-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
             <Tray title="Layers" dock="left">
-              <Legend units={units} />
+              <Legend units={units} mode="current" />
+            </Tray>
+          </div>
+        )}
+        {mode === "depends" && (
+          <div data-testid="entry-points-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
+            <Tray title="Entry Points" dock="left">
+              <EntryPointsRail externals={externals} onSelect={(id) => select(id)} />
             </Tray>
           </div>
         )}
@@ -195,7 +256,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         ) : (
           <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
         )}
-        <Inspector unit={selectedUnit} units={units} edges={edges} external={selectedExternal} />
+        <Inspector
+          unit={selectedUnit}
+          units={units}
+          edges={edges}
+          external={selectedExternal}
+          deltaQueue={mode === "delta" ? delta?.inspect_queue : undefined}
+        />
       </div>
       {revs.length > 0 && <Replay revs={revs} sha={sha} onScrub={setSha} />}
     </div>

@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, PolyNode, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type Scene } from "@scv/layout";
-import { hashLayerToColor } from "@scv/skin-tiles";
+import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
 
 const HIGH_RISK = 0.5;
@@ -109,42 +109,92 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     return { id: hover, near, far: [] };
   }, [hover, scene.links]);
 
-  const connectorEdges = scene.links.map((l) => {
-    const from = scene.nodes.find((n) => n.id === l.from);
-    const to = scene.nodes.find((n) => n.id === l.to);
-    // Outgoing from the hovered node reads as "depends-on" (call); incoming reads as "used-by" (risk).
-    const kind = hover && l.from === hover ? ("call" as const) : hover && l.to === hover ? ("risk" as const) : ("import" as const);
-    return {
-      x1: (from?.x ?? 0) + (from?.w ?? 0) / 2 - base.x,
-      y1: (from?.y ?? 0) + (from?.h ?? 0) - base.y,
-      x2: (to?.x ?? 0) + (to?.w ?? 0) / 2 - base.x,
-      y2: (to?.y ?? 0) - base.y,
-      from: l.from,
-      to: l.to,
-      kind,
-    };
+  const connectorEdges = scene.links.flatMap((l) => {
+    // route.ts's spreadPorts already fans each node's in/out edges across its border
+    // (docs/serve.md#3 fix #3), and for a skip-level edge (e.g. rank 1 -> rank 4) `path`
+    // also carries a waypoint at every intervening rank (expand.ts's dummy nodes) so the
+    // edge can be routed around the boxes in between rather than drawn as one long chord
+    // straight through them. Emitting a single x1/y1->x2/y2 segment from path[0]/path[last]
+    // (as this used to) discards those waypoints and draws exactly that chord — the "messy
+    // pool of connectors" sweeping diagonally across unrelated rows.
+    // Mock's bindHoverTrace: edges *into* the hovered node (to === hover) go azure
+    // ("incoming"), edges *out of* it (from === hover) go temp-4/orange ("outgoing").
+    const kind =
+      hover && l.to === hover ? ("hover-in" as const) : hover && l.from === hover ? ("hover-out" as const) : ("import" as const);
+    // Mock fixture data (docs/mock/codedream-ui-mock.html): every edge has weight:1 except
+    // one weight:3 edge marked heavy:true — so anything above the baseline weight is heavy.
+    const heavy = (l.weight ?? 1) > 1;
+    const segments: {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      from: string;
+      to: string;
+      kind: typeof kind;
+      route: "ortho" | "ortho-v";
+      clearY?: number;
+      heavy: boolean;
+    }[] = [];
+    for (let i = 0; i < l.path.length - 1; i++) {
+      const start = l.path[i]!;
+      const end = l.path[i + 1]!;
+      // Mirror the mock's routing split (codedream-ui-mock.html's renderCurrentMode): a
+      // same-rank hop (equal y) goes Manhattan/ortho, entering the node face at 90deg
+      // top/bottom; a cross-rank hop uses the same vertical-port Manhattan routing as
+      // Flowchart.tsx (ortho-v) rather than a bezier — a curve's approach bends sideways
+      // right up to the node face, so even though its tangent lands exactly vertical at
+      // the endpoint, the arrowhead reads as misaligned with the visibly diagonal line
+      // feeding into it.
+      const sameRank = start.y === end.y;
+      segments.push({
+        x1: start.x - base.x,
+        y1: start.y - base.y,
+        x2: end.x - base.x,
+        y2: end.y - base.y,
+        from: l.from,
+        to: l.to,
+        kind,
+        route: sameRank ? "ortho" : "ortho-v",
+        clearY: sameRank ? undefined : (start.y + end.y) / 2 - base.y,
+        heavy,
+      });
+    }
+    return segments;
   });
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+  useEffect(() => {
     const scroll = scrollRef.current;
     if (!scroll) return;
 
-    const rect = scroll.getBoundingClientRect();
-    const px = e.clientX - rect.left + scroll.scrollLeft;
-    const py = e.clientY - rect.top + scroll.scrollTop;
+    // React 17+ attaches wheel listeners as passive, so preventDefault() from a
+    // synthetic onWheel handler is silently ignored. Firefox then lets the wheel
+    // gesture fall through to native scroll/zoom instead of just running our zoom
+    // logic, unlike Safari/Chrome which are more lenient. A native, non-passive
+    // listener is required to actually suppress that.
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
 
-    const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
-    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scaleRef.current * factor));
-    const ratio = nextScale / scaleRef.current;
-    scaleRef.current = nextScale;
+      const rect = scroll.getBoundingClientRect();
+      const px = e.clientX - rect.left + scroll.scrollLeft;
+      const py = e.clientY - rect.top + scroll.scrollTop;
 
-    setRenderSize({ w: base.w * nextScale, h: base.h * nextScale });
+      const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scaleRef.current * factor));
+      const ratio = nextScale / scaleRef.current;
+      scaleRef.current = nextScale;
 
-    // Keep the point under the cursor stationary: it scales by `ratio` in content
-    // space, so the scroll offset must grow by the same amount around that point.
-    scroll.scrollLeft = px * ratio - (e.clientX - rect.left);
-    scroll.scrollTop = py * ratio - (e.clientY - rect.top);
-  };
+      setRenderSize({ w: base.w * nextScale, h: base.h * nextScale });
+
+      // Keep the point under the cursor stationary: it scales by `ratio` in content
+      // space, so the scroll offset must grow by the same amount around that point.
+      scroll.scrollLeft = px * ratio - (e.clientX - rect.left);
+      scroll.scrollTop = py * ratio - (e.clientY - rect.top);
+    };
+
+    scroll.addEventListener("wheel", onWheel, { passive: false });
+    return () => scroll.removeEventListener("wheel", onWheel);
+  }, [base.w, base.h]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Tile clicks call stopPropagation, so this only fires for empty-canvas mousedowns.
@@ -189,7 +239,6 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       ref={scrollRef}
       className="canvas-scroll"
       data-testid="canvas-svg"
-      onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -216,22 +265,46 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
             key={r.id}
             className="region"
             data-id={r.id}
-            style={{ position: "absolute", left: r.x - base.x, top: r.y - base.y, width: r.w, height: r.h, pointerEvents: "none" }}
+            style={{
+              position: "absolute",
+              left: r.x - base.x,
+              top: r.y - base.y,
+              width: r.w,
+              height: r.h,
+              pointerEvents: "none",
+              border: "var(--border-w) dashed var(--border-1)",
+              borderRadius: "var(--radius-md)",
+              background: "rgba(152,174,191,0.035)",
+            }}
           >
-            <div className="region-body" style={{ position: "absolute", inset: 0, strokeWidth: 1.5, opacity: 0.5 }} />
             <span
               className="region-label"
-              style={{ font: "600 10px var(--font-display)", letterSpacing: "0.05em", fill: "var(--text-faint)" } as React.CSSProperties}
+              style={{
+                position: "absolute",
+                top: -9,
+                left: 12,
+                padding: "1px 8px 1px 6px",
+                background: "var(--surface-3)",
+                color: "var(--text-faint)",
+                font: "600 10px var(--font-mono)",
+                textTransform: "uppercase",
+                letterSpacing: "0.09em",
+                clipPath: "var(--clip-chamfer-sm)",
+                border: "var(--border-w) solid var(--border-1)",
+                whiteSpace: "nowrap",
+              }}
             >
               {r.name.toUpperCase()}
             </span>
           </div>
         ))}
-        <ConnectorLayer edges={connectorEdges} route="ortho" arrows={false} focus={focus} />
+        <ConnectorLayer edges={connectorEdges} focus={focus} />
         {scene.nodes.map((n) => {
           const d = deltaByUnit?.get(n.id);
           const highRisk = d?.risk !== null && d?.risk !== undefined && d.risk >= HIGH_RISK;
-          const layerColor = n.layer ? hashLayerToColor(n.layer) : "";
+          // serve.md#2: hue encodes layer (categorical), not `heat` — heat is always 0
+          // from layout.ts today, so falling back to it would render every tile dormant-gray.
+          const layerColor = n.layer ? hashLayerToColor(n.layer, codedreamLayerPalette) : undefined;
           const deltaStyle = deltaTileStyle(d);
           return (
             <PolyNode
@@ -242,7 +315,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
               label={n.name}
               shape={shapeFor(n)}
               size={n.w}
-              temp={n.heat}
+              color={layerColor}
               focus={focus}
               onFocusNode={(id: string) => setHover(id)}
               style={{
@@ -250,7 +323,6 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
                 left: n.x - base.x,
                 top: n.y - base.y,
                 height: n.h,
-                "--layer-color": layerColor || "var(--ext)",
                 ...deltaStyle,
                 ...(highRisk ? { filter: "drop-shadow(0 0 0 1px var(--temp-6))" } : {}),
               } as React.CSSProperties}

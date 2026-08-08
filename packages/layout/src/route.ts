@@ -10,6 +10,7 @@ export type RouteChain = {
   ids: string[]; // all bundled edge ids sharing this (from, to) pair
   kind: string;
   back?: true;
+  weight?: number;
 };
 
 function centre(box: Box): { x: number; y: number } {
@@ -96,6 +97,7 @@ export function route(chains: RouteChain[], boxes: Map<string, Box>): SceneLink[
     const existing = bundled.get(key);
     if (existing) {
       existing.ids.push(...c.ids);
+      existing.weight = Math.max(existing.weight ?? 0, c.weight ?? 0);
     } else {
       bundled.set(key, { ...c, ids: [...c.ids] });
     }
@@ -125,6 +127,7 @@ export function route(chains: RouteChain[], boxes: Map<string, Box>): SceneLink[
       bundle: c.ids,
       kind: c.kind,
       state: "current",
+      weight: c.weight,
     };
   });
 }

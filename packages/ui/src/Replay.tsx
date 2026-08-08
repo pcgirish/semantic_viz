@@ -52,15 +52,36 @@ export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
   // keep the human/agent distinction: agent commits render one stop warmer.
   const authorTemp = (kind: string): number => (kind === "agent" ? 2 : 1);
 
+  const playbackMsg = current
+    ? `${shortSha(current.sha)}${current.message ? ` · ${current.message}` : ""}${current.pr ? ` (PR #${current.pr})` : ""}`
+    : "";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-md)" }}>
-      <div style={{ display: "flex", gap: "var(--gap-sm)" }}>
-        <Button variant={dense ? "ghost" : "solid"} size="sm" aria-pressed={!dense} onClick={() => setDense(false)}>
-          PR
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) var(--space-6) 0" }}>
+        <Button variant="outline" tone="neutral" size="sm" aria-label="Play" disabled title="Play">
+          ▶
         </Button>
-        <Button variant={dense ? "solid" : "ghost"} size="sm" aria-pressed={dense} onClick={() => setDense(true)}>
-          Commit
-        </Button>
+        <div
+          style={{
+            font: "var(--weight-medium) var(--text-xs) var(--font-mono)",
+            color: "var(--text-body)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: 320,
+          }}
+        >
+          {playbackMsg}
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 0, border: "var(--border-w) solid var(--border-1)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+          <Button variant={dense ? "solid" : "ghost"} size="sm" faceted={false} aria-pressed={dense} onClick={() => setDense(true)} style={{ borderRadius: 0 }}>
+            Commits
+          </Button>
+          <Button variant={dense ? "ghost" : "solid"} size="sm" faceted={false} aria-pressed={!dense} onClick={() => setDense(false)} style={{ borderRadius: 0 }}>
+            PRs
+          </Button>
+        </div>
       </div>
       <CommitTimeline
         commits={chronological.map((r) => ({
@@ -75,17 +96,6 @@ export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
           if (rev) onScrub(rev.sha);
         }}
       />
-      <div style={{ display: "flex", gap: "var(--gap-md)", font: "var(--type-metric)", color: "var(--text-faint)" }}>
-        {chronological.map((r) => (
-          <span key={r.sha}>{shortSha(r.sha)}</span>
-        ))}
-      </div>
-      {current && (
-        <div style={{ font: "var(--type-ui)", color: "var(--text-dim)" }}>
-          {current.message && <strong style={{ color: "var(--text-hi)" }}>{current.message}</strong>}{" "}
-          {current.author} · {current.author_kind}
-        </div>
-      )}
     </div>
   );
 }

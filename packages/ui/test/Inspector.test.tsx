@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import type { Edge, External, Unit } from "@scv/schema";
+import type { Delta, Edge, External, Unit } from "@scv/schema";
 import { Inspector } from "../src/Inspector.js";
 
 function makeExternal(overrides: Partial<External> & { id: string; name: string }): External {
@@ -36,6 +36,23 @@ describe("Inspector", () => {
 
   it("renders an empty state carrying information, not a blank tray, when nothing is selected", () => {
     render(<Inspector unit={null} units={[]} edges={[]} />);
+    expect(screen.getByText(/nothing selected/i)).toBeInTheDocument();
+  });
+
+  it("shows a 'Deserves inspection' summary of the delta queue when nothing is selected yet", () => {
+    const deltaQueue: Delta["inspect_queue"] = [
+      { rank: 1, unit: "u:a", qualname: "pkg.a", status: "modified", risk: 0.92, confidence: 0.5, ground_truth: null },
+      { rank: 2, unit: "u:b", qualname: "pkg.b", status: "added", risk: 0.4, confidence: 0.9, ground_truth: null },
+    ];
+    render(<Inspector unit={null} units={[]} edges={[]} deltaQueue={deltaQueue} />);
+    expect(screen.getByText("Deserves inspection")).toBeInTheDocument();
+    expect(screen.getByText("pkg.a")).toBeInTheDocument();
+    expect(screen.getByText("risk 92%")).toBeInTheDocument();
+    expect(screen.getByText(/select any node/i)).toBeInTheDocument();
+  });
+
+  it("falls back to the plain empty state when the delta queue is empty", () => {
+    render(<Inspector unit={null} units={[]} edges={[]} deltaQueue={[]} />);
     expect(screen.getByText(/nothing selected/i)).toBeInTheDocument();
   });
 
@@ -92,6 +109,29 @@ describe("Inspector", () => {
     render(<Inspector unit={unit} units={[unit]} edges={[]} />);
     expect(screen.getByText("Rate limits a request")).toBeInTheDocument();
     expect(screen.getByText(/86%/)).toBeInTheDocument();
+  });
+
+  it("shows a header confidence badge alongside the semantics confidence readout", () => {
+    const unit = makeUnit({
+      id: "check",
+      semantics: { what: "w", how: "h", when: "wh", where: "wr", why: "y", confidence: 0.93, source: "llm" },
+    });
+    render(<Inspector unit={unit} units={[unit]} edges={[]} />);
+    expect(screen.getByText("conf 0.93")).toBeInTheDocument();
+  });
+
+  it("shows authors as badges, dominant contributor (most lines) first", () => {
+    const unit = makeUnit({
+      id: "check",
+      authors: [
+        { name: "agent", lines: 4 },
+        { name: "Ada", lines: 40 },
+      ],
+    });
+    render(<Inspector unit={unit} units={[unit]} edges={[]} />);
+    const ada = screen.getByText("Ada");
+    const agent = screen.getByText("agent");
+    expect(ada.compareDocumentPosition(agent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("visually distinguishes low-confidence semantics (< 0.6) from high-confidence", () => {

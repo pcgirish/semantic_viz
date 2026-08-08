@@ -9,6 +9,7 @@ function points(shape,w,h,cut=7){
     case "triangle": return [[.5*w,0],[w,h],[0,h]];
     case "tag": return [[0,0],[w-9,0],[w,.5*h],[w-9,h],[0,h]];
     case "square": return [[0,0],[w,0],[w,h],[0,h]];
+    case "pill": return [[0,0],[w,0],[w,h],[0,h]];
     default: return [[cut,0],[w,0],[w,h-cut],[w-cut,h],[0,h],[0,cut]];
   }
 }
@@ -41,6 +42,8 @@ export function Facet({
   const gid=React.useId().replace(/[^a-zA-Z0-9]/g,"");
   const pad=strokeWidth/2;
   const pts=points(shape,width-strokeWidth,height-strokeWidth,cut).map(([x,y])=>[x+pad,y+pad]);
+  // Pill = a rect rounded to a full stadium — reuse the vertex-rounding join radius at its max (half height).
+  const r=shape==="pill"?(height-strokeWidth)/2:join;
   return (
     <div style={{position:"relative",width,height,...style}} {...rest}>
       <svg width={width} height={height} style={{position:"absolute",inset:0,overflow:"visible",filter:glow?`drop-shadow(0 0 6px ${glow})`:undefined}}>
@@ -51,7 +54,7 @@ export function Facet({
             </linearGradient>
           </defs>
         )}
-        <path d={facetPath(pts,join)} fill={fillTo?`url(#f${gid})`:fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+        <path d={facetPath(pts,r)} fill={fillTo?`url(#f${gid})`:fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round"/>
       </svg>
       {children!=null&&(
         <div style={{position:"absolute",inset:0,display:"grid",placeItems:"center",gap:2,padding:8,textAlign:"center"}}>{children}</div>

@@ -4,22 +4,22 @@ import { Icon } from "../core/Icon.jsx";
 import { focusRole } from "./focus.js";
 import { Facet } from "./Facet.jsx";
 
-const SHAPES={hex:"hex",chamfer:"chamfer",diamond:"diamond",square:"square","hex-tall":"hex-tall"};
+const SHAPES={hex:"hex",chamfer:"chamfer",diamond:"diamond",square:"square","hex-tall":"hex-tall",pill:"pill"};
 
 /**
  * A codebase object on the canvas: file, module, symbol or package.
  * Faceted polygon with rounded vertices, temperature-tinted, optionally extruded for the 3D skin.
  */
 export function PolyNode({
-  label,sublabel,temp=1,shape="chamfer",size=88,icon,selected,dim,focus,id,
+  label,sublabel,temp=1,color,shape="chamfer",size=88,height,icon,selected,dim,focus,id,
   filled,extrude=0,onClick,onFocusNode,style,...rest
 }){
-  const c=tempHex(temp);
+  const c=color||tempHex(temp);
   const role=focusRole(id,focus);
   const isSelected=selected||role==="self";
   const isDim=dim||role==="muted";
   const s=SHAPES[shape]||"chamfer";
-  const h=shape==="hex"?Math.round(size*0.88):size;
+  const h=height??(shape==="hex"?Math.round(size*0.88):size);
   const solid=filled||isSelected;
   return (
     <div onClick={onClick} onMouseOver={onFocusNode?()=>onFocusNode(id,"hover"):undefined}

@@ -1,5 +1,5 @@
 import { Badge, Card, RiskMeter, Tray } from "@scv/design-system";
-import type { Edge, External, Unit } from "@scv/schema";
+import type { Delta, Edge, External, Unit } from "@scv/schema";
 
 export type InspectorProps = {
   unit: Unit | null;
@@ -10,6 +10,10 @@ export type InspectorProps = {
    *  priority over `unit` when both are set, since the two selections are mutually exclusive
    *  in practice (only one view is active at a time). */
   external?: External | null;
+  /** Delta mode's ranked flagged units (docs/serve.md#4 "Delta" — "the inspect queue is
+   *  the primary interface"). Shown as a summary here only while nothing is selected yet,
+   *  so the tray answers "what deserves a look" before the user has picked anything. */
+  deltaQueue?: Delta["inspect_queue"];
 };
 
 const LOW_CONFIDENCE = 0.6;
@@ -24,7 +28,7 @@ function fileOf(unit: Unit): string | undefined {
  * pass exists yet) — that state is shown explicitly rather than left blank, matching the
  * doc's rule that "empty states carry information rather than apologising."
  */
-export function Inspector({ unit, units, edges, external }: InspectorProps): JSX.Element {
+export function Inspector({ unit, units, edges, external, deltaQueue }: InspectorProps): JSX.Element {
   if (external) {
     const reachedBy = external.reached_by.map((id) => units.find((u) => u.id === id)).filter((u): u is Unit => Boolean(u));
     return (
@@ -67,6 +71,26 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
   }
 
   if (!unit) {
+    if (deltaQueue && deltaQueue.length > 0) {
+      return (
+        <Tray title="Inspector" dock="right">
+          <Card title="Deserves inspection">
+            <ul style={{ display: "flex", flexDirection: "column", gap: 6, listStyle: "none", padding: 0, margin: 0 }}>
+              {deltaQueue.map((e) => (
+                <li key={e.unit}>
+                  <strong>{e.qualname}</strong>
+                  <div style={{ color: "var(--text-dim)", fontSize: "var(--text-xs)" }}>risk {Math.round(e.risk * 100)}%</div>
+                  <div style={{ color: "var(--text-faint)", fontSize: "var(--text-xs)" }}>{e.status}</div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <p style={{ color: "var(--text-dim)", fontSize: "var(--text-xs)", padding: "8px 4px" }}>
+            Select any node to see its full risk breakdown and change summary.
+          </p>
+        </Tray>
+      );
+    }
     return (
       <Tray title="Inspector" dock="right">
         Nothing selected.
@@ -74,8 +98,20 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
     );
   }
 
-  const dependsOn = edges.filter((e) => e.from === unit.id).map((e) => units.find((u) => u.id === e.to)).filter((u): u is Unit => Boolean(u));
-  const usedBy = edges.filter((e) => e.to === unit.id).map((e) => units.find((u) => u.id === e.from)).filter((u): u is Unit => Boolean(u));
+  const dependsOn = edges
+    .filter((e) => e.from === unit.id)
+    .map((e) => {
+      const target = units.find((u) => u.id === e.to);
+      return target && { edgeId: e.id, unit: target };
+    })
+    .filter((d): d is { edgeId: string; unit: Unit } => Boolean(d));
+  const usedBy = edges
+    .filter((e) => e.to === unit.id)
+    .map((e) => {
+      const source = units.find((u) => u.id === e.from);
+      return source && { edgeId: e.id, unit: source };
+    })
+    .filter((d): d is { edgeId: string; unit: Unit } => Boolean(d));
 
   const semanticsConfidence = unit.semantics?.confidence;
   const lowConfidence = semanticsConfidence !== undefined && semanticsConfidence < LOW_CONFIDENCE;
@@ -88,8 +124,20 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
         {fileOf(unit) && <span>{fileOf(unit)}</span>}
       </div>
 
-      {unit.tags.length > 0 && (
+      {(unit.tags.length > 0 || semanticsConfidence !== undefined || (unit.authors?.length ?? 0) > 0) && (
         <ul className="tags" style={{ display: "flex", gap: 6, flexWrap: "wrap", listStyle: "none", padding: 0, margin: "0 0 12px" }}>
+          {semanticsConfidence !== undefined && (
+            <li>
+              <Badge tone={lowConfidence ? "risk" : "cool"}>conf {semanticsConfidence.toFixed(2)}</Badge>
+            </li>
+          )}
+          {[...(unit.authors ?? [])]
+            .sort((a, b) => b.lines - a.lines)
+            .map((a) => (
+              <li key={a.name}>
+                <Badge title={`${a.lines} lines`}>{a.name}</Badge>
+              </li>
+            ))}
           {unit.tags.map((t) => (
             <li key={t}>
               <Badge>{t}</Badge>
@@ -154,8 +202,8 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
       <Card title="Depends on">
         {dependsOn.length > 0 ? (
           <ul>
-            {dependsOn.map((u) => (
-              <li key={u.id}>{u.name}</li>
+            {dependsOn.map((d) => (
+              <li key={d.edgeId}>{d.unit.name}</li>
             ))}
           </ul>
         ) : (
@@ -166,8 +214,8 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
       <Card title="Used by">
         {usedBy.length > 0 ? (
           <ul>
-            {usedBy.map((u) => (
-              <li key={u.id}>{u.name}</li>
+            {usedBy.map((d) => (
+              <li key={d.edgeId}>{d.unit.name}</li>
             ))}
           </ul>
         ) : (
