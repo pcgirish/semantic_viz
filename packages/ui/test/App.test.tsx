@@ -249,6 +249,127 @@ function makeGroupedSnapshotWithLeafEdges(): Snapshot {
   } as unknown as Snapshot;
 }
 
+function makeUngroupedSnapshotWithDeepLeafEdges(): Snapshot {
+  return {
+    schema: "scv/1",
+    snapshot_id: "s1",
+    repo: { root: "orderly", vcs: "git" },
+    rev: { sha: "abc123", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a", author_kind: "human" },
+    provenance: { extractor: "scv-ts/0.1.0" },
+    units: [
+      {
+        kind: "system",
+        id: "u:sys:orderly",
+        name: "orderly",
+        qualname: "orderly",
+        parent: null,
+        children: ["u:layer:api", "u:layer:db"],
+        loc: { files: [], sloc: 20 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+      },
+      // No `group` field on either layer — mirrors a real snapshot where the domain tier
+      // never activates, so root falls back to the plain layer list (`u.parent === null`).
+      {
+        kind: "layer",
+        id: "u:layer:api",
+        name: "api_routes",
+        qualname: "api_routes",
+        parent: null,
+        children: ["u:mod:api"],
+        loc: { files: [], sloc: 10 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+      },
+      {
+        kind: "layer",
+        id: "u:layer:db",
+        name: "database_connection",
+        qualname: "database_connection",
+        parent: null,
+        children: ["u:mod:db"],
+        loc: { files: [], sloc: 10 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "llm" },
+      },
+      {
+        kind: "module",
+        id: "u:mod:api",
+        name: "api",
+        qualname: "api",
+        parent: null,
+        children: ["u:fn:api_handler"],
+        loc: { files: [], sloc: 5 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "static" },
+      },
+      {
+        kind: "module",
+        id: "u:mod:db",
+        name: "db",
+        qualname: "db",
+        parent: null,
+        children: ["u:fn:db_query"],
+        loc: { files: [], sloc: 5 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "static" },
+      },
+      // Two levels below the visible layer tiles — a function nested inside a module nested
+      // inside a layer, linked to its parent via `.parent` (unlike the layer/module tier
+      // above, which is only linked via the parent's `children` list, matching real .scv
+      // snapshots where mid-tier containers leave their own `.parent` unset).
+      {
+        kind: "function",
+        id: "u:fn:api_handler",
+        name: "api_handler",
+        qualname: "api.api_handler",
+        parent: "u:mod:api",
+        children: [],
+        loc: { files: [], sloc: 3 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "static" },
+      },
+      {
+        kind: "function",
+        id: "u:fn:db_query",
+        name: "db_query",
+        qualname: "db.db_query",
+        parent: "u:mod:db",
+        children: [],
+        loc: { files: [], sloc: 3 },
+        tags: [],
+        metrics: {},
+        hash: { struct: null, text: null, semantic: null },
+        provenance: { source: "static" },
+      },
+    ],
+    edges: [
+      {
+        id: "e1",
+        from: "u:fn:api_handler",
+        to: "u:fn:db_query",
+        kind: "calls",
+        weight: 1,
+        source: "static",
+        confidence: 1,
+      },
+    ],
+    externals: [],
+  } as unknown as Snapshot;
+}
+
 describe("buildUnitToDomain", () => {
   it("maps a leaf unit nested under a layer to that layer's domain, not just direct layer children", () => {
     const domainUnits = [
@@ -399,7 +520,23 @@ describe("App", () => {
 
     await waitFor(() => {
       const canvas = screen.getByTestId("canvas-svg");
-      expect(canvas.querySelectorAll("svg path")).not.toHaveLength(0);
+      expect(canvas.querySelectorAll("svg > g > path")).not.toHaveLength(0);
+    });
+  });
+
+  it("rolls up an edge between deeply nested functions to a connector between their root layer tiles when no domain grouping applies", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeUngroupedSnapshotWithDeepLeafEdges()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:layer:api"]')).not.toBeNull();
+      expect(container.querySelector('.tile[data-id="u:layer:db"]')).not.toBeNull();
+    });
+
+    await waitFor(() => {
+      const canvas = screen.getByTestId("canvas-svg");
+      expect(canvas.querySelectorAll("svg > g > path")).not.toHaveLength(0);
     });
   });
 

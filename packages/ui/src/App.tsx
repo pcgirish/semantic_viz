@@ -70,19 +70,21 @@ function buildDomainUnits(systemUnit: Unit, unitsById: Map<string, Unit>): Unit[
 }
 
 /**
- * Maps every unit to the domain tile its owning layer belongs to, walking each unit's
- * ancestor chain rather than only checking direct layer children — real edges connect
- * module/function-kind leaves nested under a layer, not the layer itself, so a shallow
- * children-only lookup misses nearly every edge (only matches the rare edge that happens
- * to run layer-to-layer directly).
+ * Maps every unit to whichever visible unit is its nearest ancestor, so edges between real
+ * leaf units (module/function, arbitrarily nested) roll up to the tile actually shown —
+ * used both for the synthetic domain tier and the plain layer tier at root. Ownership is
+ * "children" (a layer's own `children` list), not `unit.parent` — this snapshot format
+ * links containers to members via `children` and leaves member `.parent` unset, so walking
+ * `.parent` alone misses everything.
  */
-export function buildUnitToDomain(domainUnits: Unit[], unitsById: Map<string, Unit>): Map<string, string> {
-  const layerToDomain = new Map(domainUnits.flatMap((d) => d.children.map((childId) => [childId, d.id])));
+export function buildUnitToAncestor(visibleUnits: Unit[], unitsById: Map<string, Unit>): Map<string, string> {
+  const childToVisible = new Map<string, string>(visibleUnits.flatMap((v) => v.children.map((childId): [string, string] => [childId, v.id])));
+  for (const v of visibleUnits) childToVisible.set(v.id, v.id); // a visible unit is its own nearest ancestor
   const cache = new Map<string, string | undefined>();
   const resolve = (unitId: string): string | undefined => {
     if (cache.has(unitId)) return cache.get(unitId);
     cache.set(unitId, undefined); // break cycles defensively
-    const direct = layerToDomain.get(unitId);
+    const direct = childToVisible.get(unitId);
     const unit = unitsById.get(unitId);
     const result = direct ?? (unit?.parent ? resolve(unit.parent) : undefined);
     cache.set(unitId, result);
@@ -90,11 +92,14 @@ export function buildUnitToDomain(domainUnits: Unit[], unitsById: Map<string, Un
   };
   const result = new Map<string, string>();
   for (const id of unitsById.keys()) {
-    const domain = resolve(id);
-    if (domain) result.set(id, domain);
+    const ancestor = resolve(id);
+    if (ancestor) result.set(id, ancestor);
   }
   return result;
 }
+
+/** @deprecated kept as a thin alias — call sites should use {@link buildUnitToAncestor}. */
+export const buildUnitToDomain = buildUnitToAncestor;
 
 const MODE_LABEL: Record<string, string> = {
   current: "Current",
@@ -204,25 +209,11 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     const useDomainTier = rootDomainUnits.length > 1;
 
     let visibleUnits: Unit[];
-    let visibleEdges: typeof edges;
     if (focus === null && systemUnit && useDomainTier) {
       // System root: show the synthetic domain tier (mock parity) instead of the real,
       // module-granular layer units directly — same data, one grouped level inserted
       // client-side only (App.tsx docblock plan, items 1-3).
-      const domainUnits = rootDomainUnits;
-      visibleUnits = domainUnits;
-      const unitToDomain = buildUnitToDomain(domainUnits, unitsById);
-      const rolledEdgeIds = new Set<string>();
-      visibleEdges = [];
-      for (const e of edges) {
-        const fromDomain = unitToDomain.get(e.from);
-        const toDomain = unitToDomain.get(e.to);
-        if (!fromDomain || !toDomain || fromDomain === toDomain) continue;
-        const key = `${fromDomain}->${toDomain}`;
-        if (rolledEdgeIds.has(key)) continue;
-        rolledEdgeIds.add(key);
-        visibleEdges.push({ ...e, id: key, from: fromDomain, to: toDomain, rollup: true });
-      }
+      visibleUnits = rootDomainUnits;
     } else {
       const focusIsDomain = useDomainTier && !!focus && isDomainId(focus);
       const focusedUnit = focusIsDomain ? null : (focus && unitsById.get(focus)) || systemUnit;
@@ -237,8 +228,21 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
             ? units.filter((u) => focusedUnit.children.includes(u.id))
             : units.filter((u) => u.parent === null)
       ).filter((u) => u.kind !== "api_flow");
-      const visibleIds = new Set(visibleUnits.map((u) => u.id));
-      visibleEdges = edges.filter((e) => visibleIds.has(e.from) && visibleIds.has(e.to));
+    }
+    // Every tile (real layer, real module, or a synthetic domain) can own descendants many
+    // levels deep — edges almost always connect those deep leaves, not the tiles themselves,
+    // so roll each edge's endpoints up to whichever visible tile is their nearest ancestor.
+    const unitToVisible = buildUnitToAncestor(visibleUnits, unitsById);
+    const rolledEdgeIds = new Set<string>();
+    const visibleEdges: typeof edges = [];
+    for (const e of edges) {
+      const fromVisible = unitToVisible.get(e.from);
+      const toVisible = unitToVisible.get(e.to);
+      if (!fromVisible || !toVisible || fromVisible === toVisible) continue;
+      const key = `${fromVisible}->${toVisible}`;
+      if (rolledEdgeIds.has(key)) continue;
+      rolledEdgeIds.add(key);
+      visibleEdges.push({ ...e, id: key, from: fromVisible, to: toVisible, rollup: fromVisible !== e.from || toVisible !== e.to });
     }
 
     // docs/serve.md#4 "Delta": a unit_delta is a direct hit; otherwise fall back to the
