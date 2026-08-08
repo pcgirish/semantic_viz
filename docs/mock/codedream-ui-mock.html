@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html data-skin="dark" lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeDream UI Migration Mock — semantic_viz</title>
+  <style>
+    :root {
+      --ink-1000: #06090D; --ink-950: #0A0F15; --ink-900: #0E151D; --ink-850: #121B25; --ink-800: #17222E;
+      --ink-750: #1D2A38; --ink-700: #243343; --ink-600: #33475C; --ink-500: #4E6579; --ink-400: #6F8798;
+      --ink-300: #98AEBF; --ink-200: #C3D3DF; --ink-150: #DCE7EF; --ink-100: #EBF2F7; --ink-050: #F5F9FB; --ink-000: #FFFFFF;
+      --cool-cyan: #1FB6C1; --cool-cyan-lift: #5FD9E1; --cool-indigo: #5B6EE8; --cool-indigo-lift: #8F9CF5;
+      --cool-azure: #3D7FFF; --cool-azure-lift: #7FA9FF;
+      --temp-0: #3A4C5F; --temp-1: #1FB6C1; --temp-2: #2ED3A7; --temp-3: #C9D93F;
+      --temp-4: #F2A93B; --temp-5: #F2713B; --temp-6: #E8434F; --temp-7: #CC2E6E;
+      --canvas: var(--ink-1000); --surface-0: var(--ink-950); --surface-1: var(--ink-900); --surface-2: var(--ink-850);
+      --surface-3: var(--ink-800); --surface-tray: rgba(14, 21, 29, 0.82); --border-hair: rgba(152, 174, 191, 0.14);
+      --border-1: rgba(152, 174, 191, 0.22); --text-hi: #EDF3F8; --text-body: #C3D3DF; --text-dim: #98AEBF;
+      --text-faint: #6F8798; --text-inverse: #0A0F15; --node-fill: var(--ink-800);
+      --connector: rgba(152, 174, 191, 0.28); --connector-active: var(--cool-cyan); --connector-flow: var(--cool-azure);
+      --connector-w: 2px; --connector-w-heavy: 3.5px; --focus-dim: 0.35; --focus-dim-edge: 0.15;
+      --font-core: "Space Grotesk", "Helvetica Neue", Helvetica, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+      --text-xs: 12px; --text-sm: 13px; --text-base: 14px; --text-md: 15px;
+      --weight-regular: 400; --weight-medium: 500; --weight-semibold: 600; --weight-bold: 700;
+      --lh-snug: 1.18; --lh-body: 1.5;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+      --space-6: 24px; --space-8: 32px; --space-10: 40px;
+      --gutter-tray: 12px; --gap-inline: 8px; --gap-stack: 12px; --gap-section: 32px;
+      --rail-w: 240px; --tray-w: 288px; --radius-xs: 3px; --radius-sm: 5px; --radius-md: 8px;
+      --radius-tray: 10px; --radius-node: 6px; --border-w: 1px;
+      --clip-chamfer: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+      --clip-chamfer-sm: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+      --clip-hex: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+      --clip-diamond: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+      --shadow-tray: 0 18px 40px -20px rgba(6, 9, 13, 0.85);
+    }
+    [data-skin="light"] {
+      --canvas: var(--ink-050); --surface-0: var(--ink-000); --surface-1: var(--ink-050);
+      --surface-2: var(--ink-100); --surface-3: var(--ink-150); --surface-tray: rgba(255, 255, 255, 0.86);
+      --border-hair: rgba(36, 51, 67, 0.1); --border-1: rgba(36, 51, 67, 0.16);
+      --text-hi: #0E151D; --text-body: #243343; --text-dim: #4E6579; --text-faint: #6F8798;
+      --text-inverse: #FFFFFF; --node-fill: var(--ink-000); --connector: rgba(36, 51, 67, 0.24);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      padding: 0; font: var(--weight-regular) var(--text-base)/var(--lh-body) var(--font-core);
+      background: var(--canvas); color: var(--text-body); overflow: hidden;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: center; height: 56px;
+      border-bottom: var(--border-w) solid var(--border-hair); padding: 0 var(--space-6);
+      background: var(--surface-0);
+    }
+    .header-left { display: flex; align-items: center; gap: var(--space-4); }
+    .header h1 { margin: 0; font: var(--weight-bold) 18px/1 var(--font-core); color: var(--text-hi); }
+    .breadcrumb-text { font: var(--text-xs) var(--font-mono); color: var(--text-dim); }
+    .drill-crumb { font: var(--text-xs) var(--font-mono); }
+    .drill-crumb button { background: none; border: none; color: var(--cool-cyan); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+    .drill-crumb button:hover { color: var(--cool-cyan-lift); }
+    .drill-crumb span { color: var(--text-faint); margin: 0 var(--space-1); }
+    .badge-author { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+      border-radius: 50%; font: var(--weight-bold) 9px/1 var(--font-mono); margin-right: var(--space-2); flex: none;
+    }
+    .badge-author.agent { background: rgba(91,110,232,.22); color: var(--cool-indigo-lift); border: 1px solid var(--cool-indigo); }
+    .badge-author.human { background: rgba(46,211,167,.18); color: var(--cool-mint,#2ED3A7); border: 1px solid #2ED3A7; }
+    .rail-item-head { display: flex; align-items: center; }
+    .conf-pill { display: inline-block; padding: 1px 6px; border-radius: var(--radius-xs); background: var(--surface-3);
+      color: var(--text-dim); font: var(--text-xs) var(--font-mono); margin-top: var(--space-1);
+    }
+    .header-controls { display: flex; align-items: center; gap: var(--space-6); }
+    .control-group { display: flex; align-items: center; gap: var(--space-3); }
+    .control-label { font: var(--weight-semibold) var(--text-xs) var(--font-core); color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.09em; }
+    .segmented-control { display: flex; gap: 0; border: var(--border-w) solid var(--border-1); border-radius: var(--radius-sm); background: var(--surface-2); }
+    .segmented-control button {
+      padding: var(--space-2) var(--space-4); border: none; background: transparent; color: var(--text-dim);
+      cursor: pointer; font: var(--weight-medium) var(--text-xs) var(--font-core); text-transform: uppercase;
+      letter-spacing: 0.09em; transition: all 200ms ease;
+    }
+    .segmented-control button:not(:last-child) { border-right: var(--border-w) solid var(--border-1); }
+    .segmented-control button:hover { background: var(--surface-3); color: var(--text-body); }
+    .segmented-control button.active { background: var(--cool-cyan); color: var(--text-inverse); }
+    .main { display: flex; height: calc(100% - 56px); flex: 1; }
+    .rail-outer {
+      width: var(--rail-w); background: var(--surface-1); border-right: var(--border-w) solid var(--border-hair);
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .rail {
+      flex: 1; min-height: 0; padding: var(--gutter-tray); overflow-y: auto;
+      display: flex; flex-direction: column; gap: var(--gap-stack);
+    }
+    .rail-legend { flex: none; border-top: var(--border-w) solid var(--border-hair); background: var(--surface-0); }
+    .rail-legend summary {
+      padding: var(--space-2) var(--gutter-tray); cursor: pointer; list-style: none;
+      font: var(--weight-semibold) var(--text-xs) var(--font-core); color: var(--text-faint);
+      text-transform: uppercase; letter-spacing: 0.09em; display: flex; align-items: center; gap: 6px;
+      user-select: none;
+    }
+    .rail-legend summary::-webkit-details-marker { display: none; }
+    .rail-legend summary::before { content: "▸"; font-size: 9px; transition: transform 150ms ease; color: var(--text-dim); }
+    .rail-legend[open] summary::before { transform: rotate(90deg); }
+    .rail-legend summary:hover { color: var(--text-body); }
+    .rail-legend-body { padding: 0 var(--gutter-tray) var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); }
+    .rail-section { display: flex; flex-direction: column; gap: var(--space-2); }
+    .rail-label { font: var(--weight-semibold) var(--text-xs) var(--font-core); color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.09em; }
+    .rail-item { padding: var(--space-2) var(--space-3); background: var(--surface-2); border-radius: var(--radius-md);
+      border: var(--border-w) solid var(--border-1); cursor: pointer; font-size: var(--text-xs); color: var(--text-body);
+      transition: all 200ms ease;
+    }
+    .rail-item:hover { background: var(--surface-3); }
+    .rail-item.flag-high { border-left: 3px solid var(--temp-6); }
+    .center-area { flex: 1; display: flex; flex-direction: column; }
+    .canvas {
+      flex: 1; position: relative; overflow: auto; background: var(--surface-1);
+    }
+    .nodes-container { position: relative; }
+    .flow-container { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-6); }
+    .flow-step { padding: var(--space-4); background: var(--surface-2); border-radius: var(--radius-md);
+      border: var(--border-w) solid var(--border-1); display: flex; align-items: center; gap: var(--space-4);
+      position: relative; min-height: 60px;
+    }
+    .flow-step-num { font: var(--weight-bold) var(--text-md) var(--font-core); color: var(--cool-cyan); min-width: 32px; }
+    .flow-step-info { flex: 1; }
+    .flow-step-name { font: var(--weight-semibold) var(--text-sm) var(--font-core); color: var(--text-hi); }
+    .flow-step-detail { font: var(--text-xs) var(--font-mono); color: var(--text-dim); margin-top: var(--space-1); }
+    .flow-connector { position: absolute; left: 50%; width: 2px; height: 32px; background: var(--connector-flow); transform: translateX(-1px); }
+    .bubble-container { display: flex; flex-wrap: wrap; gap: var(--space-8); padding: var(--space-6); align-items: flex-start; }
+    .bubble { width: 100px; height: 100px; border-radius: 50%; cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; font: var(--weight-semibold) var(--text-sm) var(--font-mono);
+      text-align: center; padding: var(--space-2); border: var(--border-w) solid; transition: all 200ms ease;
+      position: relative;
+    }
+    .bubble:hover { transform: scale(1.05); }
+    .bubble .count { font: var(--text-xs) var(--font-mono); color: var(--text-dim); margin-top: var(--space-2); }
+    .node {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      width: 88px; height: 88px; cursor: pointer; position: absolute;
+      font: var(--weight-semibold) var(--text-sm)/1.15 var(--font-mono); color: var(--text-hi);
+      word-break: break-word; text-align: center; padding: var(--space-2);
+      transition: transform 200ms ease, opacity 150ms ease;
+    }
+    .node > span { position: relative; z-index: 1; pointer-events: none; }
+    .node:hover { transform: translateY(-2px); }
+    .node.dim { opacity: 0.28; }
+    #connectors path { transition: opacity 150ms ease; }
+    #connectors path.dim { opacity: 0.15; }
+    .layer-box {
+      position: absolute; border: var(--border-w) dashed var(--border-1); border-radius: var(--radius-md,8px);
+      background: rgba(152,174,191,0.035); pointer-events: none;
+    }
+    .layer-box-label {
+      position: absolute; top: -9px; left: 12px; display: inline-flex; align-items: center; gap: 5px;
+      padding: 1px 8px 1px 6px; background: var(--surface-3); color: var(--text-faint);
+      font: var(--weight-semibold) 10px var(--font-mono); text-transform: uppercase; letter-spacing: 0.09em;
+      clip-path: var(--clip-chamfer-sm, polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px));
+      border: var(--border-w) solid var(--border-1); white-space: nowrap;
+    }
+    .tray {
+      width: var(--tray-w); background: var(--surface-tray); border-left: var(--border-w) solid var(--border-1);
+      padding: var(--gutter-tray); overflow-y: auto; display: flex; flex-direction: column; gap: var(--gap-stack);
+      box-shadow: var(--shadow-tray);
+    }
+    .stat-block { padding: var(--space-3); background: var(--surface-2); border-radius: var(--radius-md);
+      border: var(--border-w) solid var(--border-1);
+    }
+    .stat-block h4 { margin: 0 0 var(--space-2) 0; font: var(--weight-semibold) var(--text-xs)/1 var(--font-core);
+      color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.09em;
+    }
+    .stat-block p { margin: 0; font: var(--weight-medium) var(--text-sm) var(--font-mono);
+      color: var(--text-body);
+    }
+    .risk-bar { display: flex; height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; margin-top: var(--space-2); }
+    .risk-fill { height: 100%; background: var(--temp-6); }
+    .mode-hidden { display: none; }
+    svg { display: block; }
+    .graph-container { position: relative; padding: var(--space-8); min-width: 100%; min-height: 100%; }
+    .graph-node { position: absolute; background: var(--surface-2); border: var(--border-w) solid var(--border-1);
+      border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); cursor: pointer;
+      font: var(--weight-semibold) var(--text-sm) var(--font-core); color: var(--text-hi);
+      display: flex; align-items: center; gap: var(--space-2); transition: border-color 150ms ease; white-space: nowrap;
+    }
+    .graph-node:hover { border-color: var(--cool-cyan); }
+    .graph-node.selected { border-color: var(--cool-cyan); box-shadow: 0 0 0 1px var(--cool-cyan); }
+    .graph-node.consumer { background: var(--surface-1); color: var(--text-body); font-weight: var(--weight-medium); }
+    .graph-node.contract { border-color: var(--temp-4); }
+    .graph-node.flagged { border-color: var(--temp-6); }
+    .graph-node .note { display: block; font: var(--weight-regular) 10px var(--font-mono); color: var(--temp-5); margin-top: 2px; white-space: normal; max-width: 160px; }
+    .graph-group-label { position: absolute; font: var(--weight-semibold) var(--text-xs) var(--font-core); color: var(--text-faint);
+      text-transform: uppercase; letter-spacing: 0.09em; top: 4px; left: 8px;
+    }
+    .graph-group-box { position: absolute; border: 1px dashed var(--border-1); border-radius: var(--radius-md); }
+    .flow-node { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center;
+      font: var(--weight-semibold) var(--text-sm) var(--font-core); color: var(--text-hi); cursor: pointer;
+      padding: var(--space-2) var(--space-3); border: var(--border-w) solid var(--border-1); background: var(--surface-2);
+      transition: border-color 150ms ease;
+    }
+    .flow-node:hover, .flow-node.selected { border-color: var(--cool-cyan); }
+    .flow-node.terminal { border-radius: 999px; background: var(--surface-1); }
+    .flow-node.decision { background: none; border: none; }
+    .flowchart-crumb { align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-6);
+      background: var(--surface-0); border-bottom: var(--border-w) solid var(--border-hair); font: var(--text-xs) var(--font-mono);
+    }
+    .flowchart-crumb:not(.mode-hidden) { display: flex; }
+    .flowchart-crumb button { padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); border: var(--border-w) solid var(--border-1);
+      background: var(--surface-2); color: var(--text-dim); cursor: pointer; font: inherit;
+    }
+    .flowchart-crumb button:hover { background: var(--surface-3); color: var(--text-body); }
+    .flowchart-crumb .path a { color: var(--cool-cyan); cursor: pointer; text-decoration: underline; }
+    .flowchart-crumb .path span { color: var(--text-faint); margin: 0 var(--space-1); }
+    .playback-tray { background: var(--surface-0); border-top: var(--border-w) solid var(--border-hair); }
+    .playback-controls { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-6) 0; }
+    .playback-controls button { background: var(--surface-2); border: var(--border-w) solid var(--border-1); border-radius: var(--radius-sm);
+      color: var(--text-body); cursor: pointer; font-size: 13px; width: 26px; height: 22px; display: flex; align-items: center; justify-content: center;
+    }
+    .playback-controls button:hover { background: var(--surface-3); }
+    .playback-density { margin-left: auto; display: flex; gap: 0; border: var(--border-w) solid var(--border-1); border-radius: var(--radius-sm); overflow: hidden; }
+    .playback-density button { border-radius: 0; border: none; border-right: var(--border-w) solid var(--border-1); width: auto; padding: 0 var(--space-3); height: 22px;
+      font: var(--weight-medium) 10px var(--font-core); text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-dim);
+    }
+    .playback-density button:last-child { border-right: none; }
+    .playback-density button.active { background: var(--cool-cyan); color: var(--text-inverse); }
+    .playback-msg { color: var(--text-body); font: var(--weight-medium) var(--text-xs) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+    .playback-scrubber { position: relative; height: 58px; padding: 0 var(--space-6); display: flex; align-items: flex-end; gap: 3px; }
+    .playback-baseline { position: absolute; left: var(--space-6); right: var(--space-6); bottom: 27px; height: 1px; background: var(--border-hair); }
+    .commit-tick { position: relative; flex: 1; min-width: 5px; max-width: 26px; height: 100%; padding: 0; background: transparent; border: none;
+      cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px;
+    }
+    .commit-tick-cursor { position: absolute; bottom: -2px; left: -2px; right: -2px;
+      border: 1.5px solid var(--cool-cyan); border-radius: var(--radius-xs);
+      background: rgba(31,182,193,0.08); box-shadow: 0 0 8px rgba(31,182,193,0.35); pointer-events: none;
+    }
+    .commit-tick-bar { width: 100%; transition: opacity 150ms ease; }
+    .commit-tick-dot { clip-path: var(--clip-diamond); transition: all 150ms ease; }
+    .commit-tick:hover .commit-tick-bar { opacity: 1 !important; }
+  </style>
+</head>
+<body data-skin="dark">
+  <div class="header">
+    <div class="header-left">
+      <h1>orderly</h1>
+      <div class="breadcrumb-text" id="header-info">6ab4e5e · Current mode</div>
+    </div>
+    <div class="header-controls">
+      <div class="control-group">
+        <div class="control-label">View</div>
+        <div class="segmented-control" id="mode-control">
+          <button data-mode="current" class="active">Current</button>
+          <button data-mode="delta">Delta</button>
+          <button data-mode="flows">API Flow</button>
+          <button data-mode="depends">Depends on</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-label">Skin</div>
+        <div class="segmented-control" id="skin-control">
+          <button data-skin="dark" class="active">Dark</button>
+          <button data-skin="light">Light</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="rail-outer">
+      <div class="rail" id="rail"></div>
+      <details class="rail-legend" id="rail-legend" open>
+        <summary>Legend</summary>
+        <div class="rail-legend-body" id="rail-legend-body"></div>
+      </details>
+    </div>
+    <div class="center-area">
+      <div class="flowchart-crumb mode-hidden" id="flowchart-crumb"></div>
+      <div class="flowchart-crumb mode-hidden" id="drill-crumb"></div>
+      <div class="canvas" id="canvas">
+        <svg id="connectors" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; overflow: visible;"></svg>
+        <div class="nodes-container" id="nodes"></div>
+        <div class="flow-container mode-hidden" id="flow-container"></div>
+        <div class="bubble-container mode-hidden" id="bubble-container"></div>
+        <div class="graph-container mode-hidden" id="graph-container" style="display:none;"></div>
+      </div>
+      <div class="playback-tray" id="playback-tray"></div>
+    </div>
+    <div class="tray" id="tray"></div>
+  </div>
+
+  <script>
+    const FIXTURE = {
+      units: [
+        {id:"u:sys:orderly",kind:"system",name:"orderly",qualname:"orderly",parent:null,children:["u:layer:edge","u:layer:domain","u:layer:infra","u:layer:support","u:layer:tests"],semantics:{what:"A FastAPI order-taking service",how:"Six semantic layers. Requests enter through a rate-limited, token-authenticated router, drop into the orders domain, and fan out to Postgres and Stripe.",when:"Live in prod since 2024-11; this snapshot is HEAD of main.",where:"Single-region deploy, us-east-1; Postgres RDS + Stripe API as externals.",why:"Order intake for the mobile app and partner integrations."},risk:0.2,status:"stable",interpreter:"Small, well-layered service. Risk concentrates in the domain layer (payments + order writes) — that's expected for a transactional path, not a smell."},
+        {id:"u:layer:edge",kind:"layer",name:"API edge",qualname:"edge",parent:"u:sys:orderly",children:["u:py:src.api.routes#m","u:py:src.auth#m","u:py:src.api#m"],semantics:{what:"Everything that touches an untrusted request before the domain sees it.",when:"routes/auth last touched in 6ab4e5e (this revision).",where:"src/api/, src/auth.py.",why:"Isolates trust boundary so the domain layer can assume validated, authenticated input."},risk:0.5,interpreter:"Just gained a rate limiter (agent-authored, unflagged in git history) — worth a look since it sits directly in front of auth."},
+        {id:"u:layer:domain",kind:"layer",name:"Order domain",qualname:"domain",parent:"u:sys:orderly",children:["u:py:src.orders#m","u:py:src.orders.create_order#m","u:py:src.orders.pricing#m","u:py:src.orders.repo#m","u:py:src.payments#m"],semantics:{what:"Order lifecycle and the money that makes it real.",when:"Core write path, touched most recently 2026-08-05.",where:"src/orders/, src/payments.py.",why:"Single place order creation, pricing and charging happen, so refunds/rollback stay consistent."},risk:0.8,interpreter:"Highest-risk layer in the system — correctly so, it's the only one that moves money. charge() and create_order() deserve the most review attention here."},
+        {id:"u:layer:infra",kind:"layer",name:"Infrastructure",qualname:"infra",parent:"u:sys:orderly",children:["u:py:src.db#m","u:py:src.db.connection#m","u:py:src.config#m"],semantics:{what:"Database access and process settings.",when:"Stable, no changes in last 5 revisions.",where:"src/db/, src/config.py.",why:"Thin wrapper so the domain layer never talks to Postgres directly."},risk:0.3,interpreter:"Quiet and thin — low churn, low fan-in complexity. Not a current concern."},
+        {id:"u:layer:support",kind:"layer",name:"Support",qualname:"support",parent:"u:sys:orderly",children:["u:py:src.utils#m","u:py:src.utils.logging#m","u:py:src.utils.events#m"],semantics:{what:"Structured logging and a domain event emitter.",when:"Unchanged since initial commit.",where:"src/utils/.",why:"Cross-cutting observability without coupling domain code to a specific sink."},risk:0.1,interpreter:"Boilerplate support code, no risk signal."},
+        {id:"u:layer:tests",kind:"layer",name:"Tests",qualname:"tests",parent:"u:sys:orderly",children:["u:py:tests#m"],semantics:{what:"Unit tests for the limiter, integration tests for orders.",when:"Added alongside the rate limiter in this revision.",where:"tests/.",why:"Guards the two riskiest paths (auth, order write) against regression."},risk:0.0,interpreter:"Coverage exists for the new limiter but not yet for the interaction between limiter and auth — flagged in Delta mode."},
+        {id:"u:py:src.api.routes#m",kind:"module",name:"routes",qualname:"src.api.routes",parent:"u:layer:edge",children:[],loc:{sloc:8},semantics:{what:"The public route table. Two endpoints: POST /public/orders, GET /public/orders/{id}.",how:"Thin FastAPI router; delegates to rate_limit → verify_token → create_order.",when:"Modified 6ab4e5e — added rate_limit call.",where:"src/api/routes.py:1-8.",why:"Single entry point keeps auth/rate-limit ordering explicit and auditable."},risk:0.6,author:"agent",confidence:0.93,interpreter:"Agent-authored change wires the new limiter ahead of auth — order matters here (unauthenticated requests get throttled before touching verify_token) and looks correct."},
+        {id:"u:py:src.auth#m",kind:"module",name:"auth",qualname:"src.auth",parent:"u:layer:edge",children:["u:py:src.auth.verify_token#f"],loc:{sloc:8},semantics:{what:"Bearer-style token check against a hard-coded set.",when:"Last human-authored change, predates this revision.",where:"src/auth.py.",why:"Cheap auth for a small partner list; not meant to scale past current partner count."},risk:0.7,author:"human",interpreter:"Human-written, stable. Hard-coded token set is a known simplification, not a defect — tracked separately from this revision's changes."},
+        {id:"u:py:src.auth.verify_token#f",kind:"function",name:"verify_token",qualname:"src.auth.verify_token",parent:"u:py:src.auth#m",children:[],loc:{sloc:4},semantics:{what:"Rejects requests without a known token.",how:"Constant-time compare against an in-memory set loaded from config.",when:"6ab4e5e — no functional change, but now runs after rate_limit instead of first.",where:"src/auth.py:12-16.",why:"Last line of defense before requests reach the order domain."},risk:0.9,author:"agent",confidence:0.78,interpreter:"Flagged for inspection: confidence 0.78 is below the 0.80 threshold, and this is the critical auth path. Re-ordering behind rate_limit is intentional but worth a human confirm."},
+        {id:"u:py:src.api#m",kind:"module",name:"api",qualname:"src.api",parent:"u:layer:edge",children:[],loc:{sloc:0},semantics:{what:"Package marker only — no logic, just makes src/api a Python package.",where:"src/api/__init__.py."},risk:0.0},
+        {id:"u:py:src.orders#m",kind:"module",name:"orders",qualname:"src.orders",parent:"u:layer:domain",children:[],loc:{sloc:1},semantics:{what:"Package marker; re-exports create_order for the routes layer.",where:"src/orders/__init__.py."},risk:0.1},
+        {id:"u:py:src.orders.create_order#m",kind:"module",name:"create_order",qualname:"src.orders.create_order",parent:"u:layer:domain",children:["u:py:src.orders.create_order.create_order#f","u:py:src.orders.create_order.parse#f"],loc:{sloc:19},semantics:{what:"The write path: parse, price, insert, charge, emit, respond 201.",when:"Stable across recent revisions.",where:"src/orders/create_order.py.",why:"Groups the whole order-creation transaction in one module so rollback logic stays local."},risk:0.85,interpreter:"Highest-traffic write path; risk score reflects money-moving logic, not instability."},
+        {id:"u:py:src.orders.create_order.create_order#f",kind:"function",name:"create_order",qualname:"src.orders.create_order.create_order",parent:"u:py:src.orders.create_order#m",children:[],loc:{sloc:12},semantics:{what:"Handler for order creation.",how:"parse → price → insert → charge → emit → 201; rollback + 402 on charge failure.",when:"Unchanged in this revision.",where:"src/orders/create_order.py:20-32.",why:"Encodes the compensating-transaction pattern: DB insert happens before charge so a failed charge can cleanly roll back the row."},risk:0.8,author:"agent",confidence:0.85,interpreter:"Correct compensating-transaction shape (insert → charge → rollback-on-fail). No new risk this revision; carried over from baseline."},
+        {id:"u:py:src.orders.create_order.parse#f",kind:"function",name:"parse",qualname:"src.orders.create_order.parse",parent:"u:py:src.orders.create_order#m",children:[],loc:{sloc:2},semantics:{what:"Request body validation."},risk:0.4},
+        {id:"u:py:src.orders.pricing#m",kind:"module",name:"pricing",qualname:"src.orders.pricing",parent:"u:layer:domain",children:["u:py:src.orders.pricing.price_items#f"],loc:{sloc:2},semantics:{what:"Line-item pricing.",where:"src/orders/pricing.py.",why:"Isolated so pricing rules can change without touching the write path."},risk:0.5},
+        {id:"u:py:src.orders.pricing.price_items#f",kind:"function",name:"price_items",qualname:"src.orders.pricing.price_items",parent:"u:py:src.orders.pricing#m",children:[],loc:{sloc:2},semantics:{what:"Sums unit_price × qty in one generator expression.",how:"sum(i.unit_price * i.qty for i in items) — no rounding or currency handling yet.",where:"src/orders/pricing.py:1-2."},risk:0.3},
+        {id:"u:py:src.orders.repo#m",kind:"module",name:"repo",qualname:"src.orders.repo",parent:"u:layer:domain",children:["u:py:src.orders.repo.insert_order#f","u:py:src.orders.repo.find_order#f","u:py:src.orders.repo.rollback#f"],loc:{sloc:7},semantics:{what:"Order persistence: insert, find, hard delete.",where:"src/orders/repo.py.",why:"Only module that talks to the orders table directly — keeps SQL out of the handler."},risk:0.7},
+        {id:"u:py:src.orders.repo.insert_order#f",kind:"function",name:"insert_order",qualname:"src.orders.repo.insert_order",parent:"u:py:src.orders.repo#m",children:[],loc:{sloc:2},semantics:{what:"Inserts one order row.",where:"src/orders/repo.py:1-2."},risk:0.5},
+        {id:"u:py:src.orders.repo.find_order#f",kind:"function",name:"find_order",qualname:"src.orders.repo.find_order",parent:"u:py:src.orders.repo#m",children:[],loc:{sloc:2},semantics:{what:"Looks up one order by id for GET /orders/:id.",where:"src/orders/repo.py:3-4."},risk:0.3},
+        {id:"u:py:src.orders.repo.rollback#f",kind:"function",name:"rollback",qualname:"src.orders.repo.rollback",parent:"u:py:src.orders.repo#m",children:[],loc:{sloc:1},semantics:{what:"Hard-deletes the order row when payment fails after insert.",why:"Keeps the compensating transaction in create_order() atomic from the caller's view."},risk:0.6},
+        {id:"u:py:src.payments#m",kind:"module",name:"payments",qualname:"src.payments",parent:"u:layer:domain",children:["u:py:src.payments.charge#f"],loc:{sloc:5},semantics:{what:"Payment processing.",where:"src/payments.py.",why:"Only module allowed to call Stripe — keeps the API key and retry logic in one place."},risk:0.9},
+        {id:"u:py:src.payments.charge#f",kind:"function",name:"charge",qualname:"src.payments.charge",parent:"u:py:src.payments#m",children:[],loc:{sloc:3},semantics:{what:"Stripe charge call; raises on decline.",how:"Calls stripe.Charge.create; propagates StripeError to the caller for rollback.",where:"src/payments.py:1-3."},risk:0.95,interpreter:"Highest single risk score in the system — correct, since it's the only function that can lose money on a bug. No changes this revision."},
+        {id:"u:py:src.db#m",kind:"module",name:"db",qualname:"src.db",parent:"u:layer:infra",children:[],loc:{sloc:0},semantics:{what:"Package marker only.",where:"src/db/__init__.py."},risk:0.0},
+        {id:"u:py:src.db.connection#m",kind:"module",name:"connection",qualname:"src.db.connection",parent:"u:layer:infra",children:["u:py:src.db.connection.execute#f","u:py:src.db.connection.fetch_one#f"],loc:{sloc:5},semantics:{what:"Thin Postgres connection wrapper.",where:"src/db/connection.py.",why:"Single choke point for DB access so pooling/retries live in one place."},risk:0.3},
+        {id:"u:py:src.db.connection.execute#f",kind:"function",name:"execute",qualname:"src.db.connection.execute",parent:"u:py:src.db.connection#m",children:[],loc:{sloc:2},semantics:{what:"Runs a write query against the pooled connection.",where:"src/db/connection.py:1-2."},risk:0.3},
+        {id:"u:py:src.db.connection.fetch_one#f",kind:"function",name:"fetch_one",qualname:"src.db.connection.fetch_one",parent:"u:py:src.db.connection#m",children:[],loc:{sloc:2},semantics:{what:"Runs a read query, returns the first row.",where:"src/db/connection.py:3-4."},risk:0.2},
+        {id:"u:py:src.config#m",kind:"module",name:"config",qualname:"src.config",parent:"u:layer:infra",children:[],loc:{sloc:5},semantics:{what:"Process settings loaded from environment: DB url, Stripe key, token list.",where:"src/config.py.",why:"Never read .env directly elsewhere — this is the one place secrets enter the process."},risk:0.4},
+        {id:"u:py:src.utils#m",kind:"module",name:"utils",qualname:"src.utils",parent:"u:layer:support",children:[],loc:{sloc:0},semantics:{what:"Package marker only.",where:"src/utils/__init__.py."},risk:0.0},
+        {id:"u:py:src.utils.logging#m",kind:"module",name:"logging",qualname:"src.utils.logging",parent:"u:layer:support",children:[],loc:{sloc:3},semantics:{what:"Structured (JSON) logging setup shared by every layer.",where:"src/utils/logging.py.",why:"Consistent log shape for downstream aggregation."},risk:0.1},
+        {id:"u:py:src.utils.events#m",kind:"module",name:"events",qualname:"src.utils.events",parent:"u:layer:support",children:["u:py:src.utils.events.emit#f"],loc:{sloc:2},semantics:{what:"Minimal in-process domain event emitter.",where:"src/utils/events.py.",why:"Decouples order confirmation from any specific downstream consumer (email, analytics)."},risk:0.2},
+        {id:"u:py:src.utils.events.emit#f",kind:"function",name:"emit",qualname:"src.utils.events.emit",parent:"u:py:src.utils.events#m",children:[],loc:{sloc:1},semantics:{what:"Fires a named event with a payload dict; no subscribers wired yet in this snapshot.",where:"src/utils/events.py:1."},risk:0.1},
+        {id:"u:py:tests#m",kind:"module",name:"tests",qualname:"tests",parent:"u:layer:tests",children:[],loc:{sloc:3},semantics:{what:"Unit tests for the rate limiter, integration tests for the order write path.",where:"tests/.",why:"Covers the two surfaces that changed most recently."},risk:0.0},
+        {id:"u:py:src.utils.throttle#m",kind:"module",name:"rate_limit",qualname:"src.utils.throttle",parent:"u:layer:edge",children:[],loc:{sloc:9},semantics:{what:"Token-bucket rate limiter, new this revision.",how:"60 requests/min per token, keyed off the same bearer token auth uses; returns 429 with Retry-After on trip.",when:"Added 6ab4e5e, not yet in a prior snapshot.",where:"src/utils/throttle.py.",why:"Partner clients were bursting the order endpoint; this caps blast radius before auth even runs."},risk:0.65,author:"agent",confidence:0.81,interpreter:"New module, no history to compare against. Placement ahead of verify_token is deliberate — throttles abuse before spending a token check on it — but it's the least-tested surface in this revision (see Tests)."}
+      ],
+      edges: [
+        {from:"u:layer:edge",to:"u:layer:domain",kind:"imports",weight:1},
+        {from:"u:layer:edge",to:"u:layer:support",kind:"calls",weight:1},
+        {from:"u:layer:edge",to:"u:layer:support",kind:"imports",weight:1},
+        {from:"u:layer:domain",to:"u:layer:infra",kind:"calls",weight:3,heavy:true},
+        {from:"u:layer:domain",to:"u:layer:infra",kind:"imports",weight:1},
+        {from:"u:layer:domain",to:"u:layer:support",kind:"calls",weight:1},
+        {from:"u:layer:domain",to:"u:layer:support",kind:"imports",weight:1},
+        {from:"u:py:src.api.routes#m",to:"u:py:src.utils.throttle#m",kind:"imports",weight:1},
+        {from:"u:py:src.api.routes#m",to:"u:py:src.auth#m",kind:"imports",weight:1},
+        {from:"u:py:src.api.routes#m",to:"u:py:src.orders#m",kind:"imports",weight:1},
+        {from:"u:py:src.db.connection#m",to:"u:py:src.config#m",kind:"imports",weight:1},
+        {from:"u:py:src.orders#m",to:"u:py:src.orders.create_order#m",kind:"imports",weight:1},
+        {from:"u:py:src.orders.create_order#m",to:"u:py:src.orders.pricing#m",kind:"imports",weight:1},
+        {from:"u:py:src.orders.create_order#m",to:"u:py:src.orders.repo#m",kind:"imports",weight:1},
+        {from:"u:py:src.orders.create_order#m",to:"u:py:src.payments#m",kind:"imports",weight:1},
+        {from:"u:py:src.orders.create_order#m",to:"u:py:src.utils.events#m",kind:"imports",weight:1},
+        {from:"u:py:src.orders.create_order.create_order#f",to:"u:py:src.orders.create_order.parse#f",kind:"calls",weight:1},
+        {from:"u:py:src.orders.create_order.create_order#f",to:"u:py:src.orders.pricing.price_items#f",kind:"calls",weight:1},
+        {from:"u:py:src.orders.create_order.create_order#f",to:"u:py:src.orders.repo.insert_order#f",kind:"calls",weight:1},
+        {from:"u:py:src.orders.create_order.create_order#f",to:"u:py:src.orders.repo.rollback#f",kind:"calls",weight:1},
+        {from:"u:py:src.orders.create_order.create_order#f",to:"u:py:src.payments.charge#f",kind:"calls",weight:1},
+        {from:"u:py:src.orders.create_order.create_order#f",to:"u:py:src.utils.events.emit#f",kind:"calls",weight:1},
+        {from:"u:py:src.orders.repo.find_order#f",to:"u:py:src.db.connection.fetch_one#f",kind:"calls",weight:1},
+        {from:"u:py:src.orders.repo.insert_order#f",to:"u:py:src.db.connection.execute#f",kind:"calls",weight:1},
+        {from:"u:py:src.orders.repo.rollback#f",to:"u:py:src.db.connection.execute#f",kind:"calls",weight:1},
+        {from:"u:py:src.payments.charge#f",to:"u:py:src.db.connection.execute#f",kind:"calls",weight:1},
+        {from:"u:py:src.auth.verify_token#f",to:"u:py:src.db.connection.fetch_one#f",kind:"calls",weight:1}
+      ],
+      externals: [
+        {id:"ext:fastapi",name:"fastapi",kind:"external",version:"0.104.1",reached_by:["u:py:src.api.routes#m","u:py:src.api#m"],depth:1,call_sites:5},
+        {id:"ext:structlog",name:"structlog",kind:"external",version:"23.2.0",reached_by:["u:py:src.utils.logging#m","u:py:src.utils.events#m"],depth:1,call_sites:3}
+      ],
+      apiFlow: {
+        routes: [
+          {
+            id:"post-orders", method:"POST", path:"/orders", note:"now 429 + Retry-After",
+            consumers: [{id:"mobile", name:"Mobile app"}, {id:"partner", name:"Partner clients"}],
+            steps: [
+              {id:"u:py:src.api.routes#m", name:"api/routes", author:"agent"},
+              {id:"u:py:src.utils.throttle#m", name:"rate_limit (new)", author:"agent", flagged:true, edgeLabel:"guards"},
+              {id:"u:py:src.auth.verify_token#f", name:"verify_token", author:"human", edgeLabel:"authenticates"},
+              {id:"u:py:src.orders.create_order.create_order#f", name:"create_order", author:"agent", edgeLabel:"handles", flowchart:true}
+            ]
+          },
+          {
+            id:"get-order", method:"GET", path:"/orders/:id", note:"now 429 + Retry-After",
+            consumers: [{id:"mobile", name:"Mobile app"}, {id:"partner", name:"Partner clients"}],
+            steps: [
+              {id:"u:py:src.api.routes#m", name:"api/routes", author:"agent"},
+              {id:"u:py:src.utils.throttle#m", name:"rate_limit (new)", author:"agent", flagged:true, edgeLabel:"guards"},
+              {id:"u:py:src.orders.repo.find_order#f", name:"find_order", edgeLabel:"handles"}
+            ]
+          },
+          {
+            id:"get-health", method:"GET", path:"/health",
+            consumers: [{id:"mobile", name:"Mobile app"}, {id:"partner", name:"Partner clients"}],
+            steps: [
+              {id:"u:py:src.api.routes#m", name:"api/routes", author:"agent", edgeLabel:"handles"}
+            ]
+          }
+        ]
+      },
+      flowchart: {
+        root: "u:py:src.orders.create_order.create_order#f",
+        title: "create_order() flowchart",
+        nodes: [
+          {id:"start", kind:"terminal", label:"POST /orders", author:"agent"},
+          {id:"validate", kind:"process", label:"validate payload", author:"agent"},
+          {id:"valid", kind:"decision", label:"valid?"},
+          {id:"price", kind:"process", label:"price items", author:"agent"},
+          {id:"persist", kind:"process", label:"persist order (db)", author:"agent"},
+          {id:"return400", kind:"process", label:"return 400", author:"agent"},
+          {id:"charge", kind:"process", label:"charge payment", author:"agent"},
+          {id:"chargeok", kind:"decision", label:"charge ok?"},
+          {id:"rollback", kind:"process", label:"rollback + 402", author:"agent"},
+          {id:"emit", kind:"terminal", label:"emit confirmation · 201", author:"agent"}
+        ],
+        edges: [
+          {from:"start", to:"validate"},
+          {from:"validate", to:"valid"},
+          {from:"valid", to:"price", label:"yes"},
+          {from:"valid", to:"return400", label:"no"},
+          {from:"price", to:"persist"},
+          {from:"persist", to:"charge"},
+          {from:"charge", to:"chargeok"},
+          {from:"chargeok", to:"emit", label:"yes"},
+          {from:"chargeok", to:"rollback", label:"no"}
+        ]
+      },
+      history: {
+        commits: [
+          {sha:"9825f73", pr:68, message:"Flatten test-folder hierarchy, skip flowchart/LLM analysis for tests", author:"human", churn:14, temp:1},
+          {sha:"7b767bd", pr:68, message:"fix: normalize Pass A port type to satisfy Signature schema", author:"agent", churn:6, temp:2},
+          {sha:"8aa999f", pr:69, message:"feat: semantic flowchart block labels, yes/no edges, sequential collapsing", author:"agent", churn:41, temp:3},
+          {sha:"c994af1", pr:71, message:"feat: LLM call timing, sub-phase progress, and analysis-run summary", author:"agent", churn:52, temp:4},
+          {sha:"6ab4e5e", pr:72, message:"feat: rate limiter on order routes", author:"agent", churn:23, temp:6}
+        ]
+      }
+    };
+
+    let mode = 'current';
+    let drill = [];
+    let preFlowchartMode = 'current';
+    let preFlowchartDrill = null;
+    let selected = null;
+    let historyDensity = 'commit';
+    let historyIndex = FIXTURE.history.commits.length - 1;
+
+    function getUnitById(id) { return FIXTURE.units.find(u => u.id === id); }
+    function getChildren(id) { const u = getUnitById(id); return u?.children?.map(getUnitById).filter(Boolean) || []; }
+    function getEdgesFor(id) { return FIXTURE.edges.filter(e => e.from === id || e.to === id); }
+
+    function orthoPath(x1,y1,x2,y2,radius=10,stub=14){
+      const dx=x2-x1,dy=y2-y1,sx=Math.sign(dx)||1,sy=Math.sign(dy)||1;
+      if(Math.abs(dy)<2) return `M ${x1} ${y1} H ${x2}`;
+      if(Math.abs(dx)<2) return `M ${x1} ${y1} V ${y2}`;
+      if(Math.abs(dx)>=Math.abs(dy)){
+        const mx=x1+dx/2,r=Math.max(2,Math.min(radius,Math.abs(mx-x1),Math.abs(x2-mx),Math.abs(dy)/2));
+        return `M ${x1} ${y1} H ${mx-r*sx} Q ${mx} ${y1} ${mx} ${y1+r*sy} V ${y2-r*sy} Q ${mx} ${y2} ${mx+r*sx} ${y2} H ${x2}`;
+      }
+      const sx1=x1+stub*sx,my=y1+dy/2;
+      const r=Math.max(2,Math.min(radius,Math.abs(my-y1),Math.abs(y2-my),Math.abs(x2-sx1)/2||radius,Math.abs(stub)-1));
+      return `M ${x1} ${y1} H ${sx1-r*sx} Q ${sx1} ${y1} ${sx1} ${y1+r*sy} V ${my-r*sy} Q ${sx1} ${my} ${sx1+r*sx} ${my} H ${x2-r*sx} Q ${x2} ${my} ${x2} ${my+r*sy} V ${y2}`;
+    }
+
+    /** Bottom-exit into a top-center entry, routed below the source's row so it never
+     *  crosses another node placed between source and target in the same row. */
+    function orthoPathBottomToTop(x1,y1,x2,y2,clearY,radius=10){
+      const dx=x2-x1,sx=Math.sign(dx)||1;
+      if(Math.abs(dx)<2) return `M ${x1} ${y1} V ${y2}`;
+      const r=Math.max(2,Math.min(radius,Math.abs(clearY-y1),Math.abs(y2-clearY),Math.abs(dx)/2));
+      return `M ${x1} ${y1} V ${clearY-r} Q ${x1} ${clearY} ${x1+r*sx} ${clearY} H ${x2-r*sx} Q ${x2} ${clearY} ${x2} ${clearY+r} V ${y2}`;
+    }
+
+    function tempHex(temp) {
+      const temps = ['#3A4C5F','#1FB6C1','#2ED3A7','#C9D93F','#F2A93B','#F2713B','#E8434F','#CC2E6E'];
+      return temps[Math.min(Math.max(Math.round(temp),0),7)];
+    }
+    const TEMP_STOPS = [
+      {key:'dormant',label:'Dormant',token:'#3A4C5F'},{key:'stable',label:'Stable',token:'#1FB6C1'},
+      {key:'active',label:'Active',token:'#2ED3A7'},{key:'warm',label:'Warm',token:'#C9D93F'},
+      {key:'changed',label:'Changed',token:'#F2A93B'},{key:'hot',label:'Hot',token:'#F2713B'},
+      {key:'risk',label:'Risk',token:'#E8434F'},{key:'critical',label:'Critical',token:'#CC2E6E'}
+    ];
+
+    /** Faceted-shape vertices, unit space. Mirrors CodeDream's Facet.jsx points(). */
+    function facetPoints(shape, w, h, cut = 7) {
+      switch (shape) {
+        case 'hex': return [[.25*w,0],[.75*w,0],[w,.5*h],[.75*w,h],[.25*w,h],[0,.5*h]];
+        case 'diamond': return [[.5*w,0],[w,.5*h],[.5*w,h],[0,.5*h]];
+        case 'square': return [[0,0],[w,0],[w,h],[0,h]];
+        default: return [[cut,0],[w,0],[w,h-cut],[w-cut,h],[0,h],[0,cut]];
+      }
+    }
+    /** Rounded-vertex polygon path — quadratic joins trimmed back along each edge, so the
+     *  outline never breaks at a chamfer corner (unlike CSS border + clip-path). */
+    function facetPath(pts, r = 4) {
+      const n = pts.length, out = [];
+      const lerp = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];
+      const dist = (a,b) => Math.hypot(b[0]-a[0], b[1]-a[1]);
+      for (let i = 0; i < n; i++) {
+        const prev = pts[(i-1+n)%n], cur = pts[i], next = pts[(i+1)%n];
+        const rIn = Math.min(r, dist(prev,cur)/2), rOut = Math.min(r, dist(cur,next)/2);
+        const a = lerp(cur, prev, rIn/dist(prev,cur) || 0), b = lerp(cur, next, rOut/dist(cur,next) || 0);
+        out.push(`${i===0?'M':'L'} ${a[0].toFixed(2)} ${a[1].toFixed(2)}`);
+        out.push(`Q ${cur[0].toFixed(2)} ${cur[1].toFixed(2)} ${b[0].toFixed(2)} ${b[1].toFixed(2)}`);
+      }
+      return out.join(' ') + ' Z';
+    }
+    /** Renders a Facet-style faceted shape as inline SVG inside a container div, with a
+     *  gradient fill and continuous stroke — the corner-gap-free replacement for
+     *  `clip-path` on a bordered div. */
+    function facetSVG(shape, w, h, { stroke = 'var(--border-1)', strokeWidth = 1, fill = 'none', fillTo, glow, cut = 7 } = {}) {
+      const gid = 'f' + Math.random().toString(36).slice(2, 9);
+      const pad = strokeWidth / 2;
+      const pts = facetPoints(shape, w - strokeWidth, h - strokeWidth, cut).map(([x,y]) => [x+pad, y+pad]);
+      const d = facetPath(pts, 4);
+      const gradient = fillTo ? `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="${fill}"/><stop offset="1" stop-color="${fillTo}"/></linearGradient></defs>` : '';
+      const fillAttr = fillTo ? `url(#${gid})` : fill;
+      const filter = glow ? `filter:drop-shadow(0 0 6px ${glow});` : '';
+      return `<svg width="${w}" height="${h}" style="position:absolute;inset:0;overflow:visible;${filter}">${gradient}<path d="${d}" fill="${fillAttr}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round"/></svg>`;
+    }
+
+    function hashTemp(id) {
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+      return h % 5;
+    }
+
+    function rankChildren(children, edges) {
+      const ids = new Set(children.map(c => c.id));
+      const local = edges.filter(e => ids.has(e.from) && ids.has(e.to));
+      const rank = {};
+      children.forEach(c => rank[c.id] = 0);
+      let changed = true, guard = 0;
+      while (changed && guard++ < children.length + 1) {
+        changed = false;
+        local.forEach(e => {
+          if (rank[e.to] <= rank[e.from]) {
+            rank[e.to] = rank[e.from] + 1;
+            changed = true;
+          }
+        });
+      }
+      return { rank, local };
+    }
+
+    function renderRail() {
+      const rail = document.getElementById('rail');
+      rail.innerHTML = '';
+
+      if (mode === 'current' || mode === 'delta') {
+        rail.innerHTML = `
+          <div class="rail-section">
+            <div class="rail-label">Layers</div>
+            <div id="layer-list"></div>
+          </div>
+        `;
+        const layerList = document.getElementById('layer-list');
+        const layers = getChildren('u:sys:orderly');
+        layerList.innerHTML = layers.map(l => {
+          const color = tempHex(mode === 'delta' ? Math.round((l.risk ?? 0) * 7) : hashTemp(l.id));
+          return `<div style="display:flex;align-items:center;gap:6px;font-size:var(--text-xs);color:var(--text-body);padding:2px 0;">
+            <span style="width:9px;height:9px;flex:none;background:${color};clip-path:var(--clip-hex);"></span>${l.name}
+          </div>`;
+        }).join('');
+      } else if (mode === 'depends') {
+        rail.innerHTML = `
+          <div class="rail-section">
+            <div class="rail-label">Entry Points</div>
+            ${FIXTURE.externals.map(e => `
+              <div class="rail-item" onclick="select('${e.id}')">
+                <strong>${e.name}</strong><br>
+                <small style="color: var(--text-dim);">v${e.version}</small><br>
+                <small style="color: var(--text-faint);">${e.call_sites} call sites</small>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else if (mode === 'flows') {
+        rail.innerHTML = `
+          <div class="rail-section">
+            <div class="rail-label">Entry points · ${FIXTURE.apiFlow.routes.length}</div>
+            ${FIXTURE.apiFlow.routes.map(r => `
+              <div class="rail-item${r.id === selectedRoute ? ' flag-high' : ''}" onclick="selectRoute('${r.id}')">
+                <strong>${r.method} ${r.path}</strong><br>
+                <small style="color: var(--text-dim);">${r.steps.length} hops</small>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else if (mode === 'flowchart') {
+        rail.innerHTML = `
+          <div class="rail-section">
+            <div class="rail-label">Reading this</div>
+            <div style="font-size: var(--text-xs); color: var(--text-dim); line-height: 1.6;">
+              Control flow for the selected function. Diamonds branch on a condition; pills are entry/exit.
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    /** Collapsible legend strip pinned under the rail — Complexity glyphs always apply;
+     *  Temperature scale only means something once nodes carry a temp (delta/risk modes);
+     *  Navigating hint only makes sense where drill/select exists (current/delta). */
+    function renderLegend() {
+      const wrap = document.getElementById('rail-legend');
+      const body = document.getElementById('rail-legend-body');
+      const showNav = mode === 'current' || mode === 'delta';
+      const showTemp = mode === 'delta' || mode === 'current';
+      if (!showNav && !showTemp) { wrap.style.display = 'none'; return; }
+      wrap.style.display = 'block';
+      body.innerHTML = `
+        ${showTemp ? `
+          <div class="rail-section">
+            <div class="rail-label">Temperature scale</div>
+            <div style="display:flex;gap:2px;margin-top:4px;">
+              ${TEMP_STOPS.map(s => `<span title="${s.label}" style="flex:1;height:12px;background:${s.token};clip-path:var(--clip-chamfer-sm);"></span>`).join('')}
+            </div>
+            <div style="display:flex;justify-content:space-between;font:10px var(--font-mono);color:var(--text-faint);text-transform:uppercase;letter-spacing:0.09em;margin-top:4px;">
+              <span>Dormant</span><span>Critical</span>
+            </div>
+          </div>
+        ` : ''}
+        <div class="rail-section">
+          <div class="rail-label">Complexity</div>
+          <div style="font-size: var(--text-xs); color: var(--text-dim); line-height: 1.8;">
+            △ 1-2 · Trivial<br>◇ 3-5 · Ordinary<br>● 6-12 · Involved<br>● 13+ · Look here
+          </div>
+        </div>
+        ${showNav ? `
+          <div class="rail-section">
+            <div class="rail-label">Connectors</div>
+            <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;font-size:var(--text-xs);color:var(--text-dim);">
+              <span><span style="display:inline-block;width:14px;height:2px;background:var(--connector-active);vertical-align:middle;margin-right:6px;"></span>calls</span>
+              <span><span style="display:inline-block;width:14px;height:2px;background:var(--cool-indigo);vertical-align:middle;margin-right:6px;"></span>imports</span>
+            </div>
+            <div class="rail-label" style="margin-top:8px;">On hover</div>
+            <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;font-size:var(--text-xs);color:var(--text-dim);">
+              <span><span style="display:inline-block;width:14px;height:2px;background:var(--cool-azure);vertical-align:middle;margin-right:6px;"></span>incoming</span>
+              <span><span style="display:inline-block;width:14px;height:2px;background:var(--temp-4);vertical-align:middle;margin-right:6px;"></span>outgoing</span>
+            </div>
+          </div>
+        ` : ''}
+        ${showNav ? `
+          <div class="rail-section">
+            <div class="rail-label">Navigating</div>
+            <div style="font-size: var(--text-xs); color: var(--text-dim); line-height: 1.6;">
+              Click a node to inspect it. Double-click (hex nodes) to open. Double-click empty canvas, or Zoom out above, to go back up.
+            </div>
+          </div>
+        ` : ''}
+      `;
+    }
+
+    function selectRoute(id) {
+      selectedRoute = id;
+      selected = null;
+      render();
+    }
+
+    function badgeHTML(text, tone) {
+      const tones = {neutral:['var(--surface-3)','var(--text-dim)'],cool:['rgba(31,182,193,.14)','var(--cool-cyan-lift)'],
+        risk:['rgba(232,67,79,.16)','#FF8189'],warm:['rgba(242,169,59,.16)','var(--temp-4)']};
+      const [bg, fg] = tones[tone] || tones.neutral;
+      return `<span style="display:inline-flex;align-items:center;height:19px;padding:0 7px;background:${bg};color:${fg};clip-path:var(--clip-chamfer-sm);font:var(--weight-semibold) 10px var(--font-mono);text-transform:uppercase;letter-spacing:0.09em;">${text}</span>`;
+    }
+
+    function riskMeterHTML(risk) {
+      const value = Math.round((risk ?? 0) * 7);
+      const color = tempHex(value);
+      const segs = Array.from({length:7}).map((_,i) =>
+        `<span style="flex:1;height:6px;background:${i<value?color:'var(--surface-3)'};clip-path:var(--clip-chamfer-sm);"></span>`
+      ).join('');
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font:var(--weight-semibold) var(--text-xs) var(--font-mono);color:${color};">${value}/7</span>
+        </div><div style="display:flex;gap:3px;">${segs}</div>`;
+    }
+
+    function renderTray() {
+      const tray = document.getElementById('tray');
+      tray.innerHTML = '';
+
+      if (mode === 'delta' && !selected) {
+        const flagged = [
+          {id: 'u:py:src.auth.verify_token#f', name: 'verify_token', risk: 0.95, reason: 'Critical auth path changed'},
+          {id: 'u:py:src.payments.charge#f', name: 'charge', risk: 0.90, reason: 'Payment logic refactored'},
+          {id: 'u:py:src.api.routes#m', name: 'routes', risk: 0.70, reason: 'API endpoint modified'}
+        ];
+        tray.innerHTML = `
+          <div class="stat-block">
+            <h4>Deserves inspection</h4>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:var(--space-2);">
+              ${flagged.map(f => `
+                <div class="rail-item flag-high" onclick="select('${f.id}')" style="cursor:pointer;">
+                  <strong>${f.name}</strong><br>
+                  <small style="color: var(--text-dim);">risk ${(f.risk * 100).toFixed(0)}%</small><br>
+                  <small style="color: var(--text-faint);">${f.reason}</small>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div style="color:var(--text-dim);padding:var(--space-2) var(--space-1);font-size:var(--text-xs);">Select any node to see its full risk breakdown and change summary.</div>
+        `;
+        return;
+      }
+      if (!selected) {
+        tray.innerHTML = '<div style="color:var(--text-dim);padding:var(--space-4);">Select a node</div>';
+        return;
+      }
+      const u = getUnitById(selected) || FIXTURE.externals.find(e => e.id === selected);
+      if (!u) return;
+
+      let html = '';
+
+      html += `<div class="stat-block">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);">
+          <h4 style="margin:0;">${u.name}</h4>
+          ${authorBadge(u.author)}
+        </div>
+        <p style="margin-top:4px;">${u.qualname || u.name}</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:var(--space-2);">
+          ${u.kind ? badgeHTML(u.kind, 'neutral') : ''}
+          ${u.confidence !== undefined ? badgeHTML('conf ' + u.confidence.toFixed(2), u.confidence < 0.8 ? 'risk' : 'cool') : ''}
+          ${u.loc?.sloc ? badgeHTML(u.loc.sloc + ' sloc', 'neutral') : ''}
+        </div>
+      </div>`;
+
+      if (u.risk !== undefined) {
+        html += `<div class="stat-block"><h4>Risk</h4>${riskMeterHTML(u.risk)}</div>`;
+      }
+
+      if (u.interpreter) {
+        html += `<div class="stat-block" style="border-left:2px solid var(--cool-indigo);">
+          <h4 style="color:var(--cool-indigo-lift);">Interpreter summary</h4>
+          <p style="font:var(--weight-regular) var(--text-sm) var(--font-core);color:var(--text-body);line-height:var(--lh-body);">${u.interpreter}</p>
+        </div>`;
+      }
+
+      if (u.semantics) {
+        const rows = [['What', u.semantics.what], ['How', u.semantics.how], ['When', u.semantics.when],
+          ['Where', u.semantics.where], ['Why', u.semantics.why]].filter(([,v]) => v);
+        if (rows.length) {
+          html += `<div class="stat-block">` + rows.map(([label, val]) =>
+            `<h4 style="margin-top:var(--space-2);">${label}</h4><p style="font:var(--weight-regular) var(--text-sm) var(--font-core);color:var(--text-body);">${val}</p>`
+          ).join('') + `</div>`;
+        }
+      }
+
+      if (u.version) html += `<div class="stat-block"><h4>Version</h4><p>${u.version}</p></div>`;
+      if (mode === 'depends' && u.reached_by) {
+        html += `<div class="stat-block"><h4>Reached By</h4><p style="font-size: var(--text-xs);">${u.reached_by.join('<br>')}</p></div>`;
+      }
+      tray.innerHTML = html;
+    }
+
+    function ascend() {
+      if (drill.length === 0) return;
+      drill.pop();
+      selected = null;
+      render();
+    }
+
+    function renderDrillCrumb(current) {
+      const el = document.getElementById('drill-crumb');
+      const path = [getUnitById('u:sys:orderly'), ...drill.map(getUnitById)];
+      el.classList.remove('mode-hidden');
+      el.innerHTML = `
+        ${drill.length > 0 ? `<button onclick="ascend()" title="Zoom out one level">← Zoom out</button>` : ''}
+        <span class="path">${path.map((u, i) =>
+          i === path.length - 1
+            ? `<b style="color:var(--text-hi);">${u.name}</b>`
+            : `<a onclick="drill=${JSON.stringify(drill.slice(0, i))};selected=null;render();">${u.name}</a><span>›</span>`
+        ).join('')}</span>
+      `;
+    }
+
+    function renderCurrentMode() {
+      document.getElementById('nodes').style.display = 'block';
+      document.getElementById('connectors').style.display = 'block';
+      document.getElementById('flow-container').classList.add('mode-hidden');
+      document.getElementById('bubble-container').classList.add('mode-hidden');
+
+      const current = drill.length > 0 ? getUnitById(drill[drill.length-1]) : getUnitById('u:sys:orderly');
+      renderDrillCrumb(current);
+      const children = getChildren(current.id);
+      const nodes = document.getElementById('nodes');
+      nodes.innerHTML = '';
+      const atRoot = current.id === 'u:sys:orderly';
+
+      const nodeSize = 88, colGap = 170, rowGap = atRoot ? 160 : 120;
+      const { rank, local } = rankChildren(children, FIXTURE.edges);
+      const byRank = {};
+      children.forEach(c => (byRank[rank[c.id]] = byRank[rank[c.id]] || []).push(c));
+
+      const positions = {};
+      Object.keys(byRank).sort((a, b) => a - b).forEach(r => {
+        byRank[r].forEach((child, i) => {
+          positions[child.id] = {x: 60 + Number(r) * colGap + nodeSize / 2, y: 50 + i * rowGap + nodeSize / 2};
+        });
+      });
+
+      const maxRank = Math.max(0, ...Object.keys(byRank).map(Number));
+      const maxRows = Math.max(...Object.values(byRank).map(a => a.length), 1);
+      nodes.style.width = (60 + (maxRank + 1) * colGap + nodeSize) + 'px';
+      nodes.style.height = (50 + maxRows * rowGap + nodeSize) + 'px';
+
+      // Architectural blocks: at system root, each child IS a layer — draw a dashed
+      // GroupFrame box around it (and its rank-siblings) to read as a module boundary,
+      // not just a floating tile.
+      if (atRoot) {
+        children.forEach((child) => {
+          const { x, y } = positions[child.id];
+          const pad = 26;
+          const box = document.createElement('div');
+          box.className = 'layer-box';
+          box.style.left = (x - nodeSize/2 - pad) + 'px';
+          box.style.top = (y - nodeSize/2 - pad) + 'px';
+          box.style.width = (nodeSize + pad*2) + 'px';
+          box.style.height = (nodeSize + pad*2) + 'px';
+          const childCount = getChildren(child.id).length;
+          box.innerHTML = `<span class="layer-box-label">${child.name}${childCount ? ' · ' + childCount : ''}</span>`;
+          nodes.appendChild(box);
+        });
+      }
+
+      children.forEach((child) => {
+        const { x, y } = positions[child.id];
+        const color = tempHex(mode === 'delta' ? Math.round((child.risk ?? 0) * 7) : hashTemp(child.id));
+        const shape = child.children && child.children.length > 0 ? 'hex' : 'chamfer';
+        const isSelected = selected === child.id;
+        const div = document.createElement('div');
+        div.className = 'node';
+        div.dataset.id = child.id;
+        div.style.left = (x - nodeSize/2) + 'px';
+        div.style.top = (y - nodeSize/2) + 'px';
+        div.style.width = nodeSize + 'px';
+        div.style.height = nodeSize + 'px';
+        const solid = isSelected;
+        div.innerHTML = facetSVG(shape, nodeSize, nodeSize, {
+          stroke: isSelected ? color : color + 'aa',
+          strokeWidth: isSelected ? 1.5 : 1,
+          fill: solid ? color : color + '3d',
+          fillTo: solid ? color + '66' : color + '12',
+          glow: isSelected ? color + 'aa' : undefined
+        }) + `<span style="color:${isSelected ? 'var(--text-hi)' : 'var(--text-hi)'}">${child.name}</span>`;
+        div.title = (child.qualname || child.name) + (child.children?.length ? ' — double-click to open' : '');
+        div.onclick = (e) => {
+          selected = selected === child.id ? null : child.id;
+          render();
+          e.stopPropagation();
+        };
+        div.ondblclick = (e) => {
+          if (child.id === FIXTURE.flowchart.root) {
+            enterFlowchart();
+          } else if (child.children && child.children.length > 0) {
+            drill.push(child.id);
+            selected = null;
+            render();
+          }
+          e.stopPropagation();
+        };
+        nodes.appendChild(div);
+      });
+
+      const svg = document.getElementById('connectors');
+      svg.setAttribute('width', nodes.style.width);
+      svg.setAttribute('height', nodes.style.height);
+      svg.innerHTML = '';
+
+      local.forEach((e) => {
+        const pFrom = positions[e.from], pTo = positions[e.to];
+        if (!pFrom || !pTo) return;
+        const sameCol = rank[e.from] === rank[e.to];
+        const x1 = pFrom.x + nodeSize / 2, y1 = pFrom.y, x2 = pTo.x - nodeSize / 2, y2 = pTo.y;
+        const d = sameCol ? orthoPath(pFrom.x, pFrom.y + nodeSize / 2, pTo.x, pTo.y - nodeSize / 2, 10, 14)
+          : `M ${x1} ${y1} C ${(x1+x2)/2} ${y1}, ${(x1+x2)/2} ${y2}, ${x2} ${y2}`;
+        const stroke = e.kind === 'calls' ? 'var(--connector-active)' : 'var(--cool-indigo)';
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', stroke);
+        path.setAttribute('stroke-width', e.heavy ? 'var(--connector-w-heavy)' : 'var(--connector-w)');
+        path.setAttribute('stroke-linecap', 'round');
+        path.dataset.from = e.from;
+        path.dataset.to = e.to;
+        path.dataset.baseStroke = stroke;
+        path.dataset.markerBase = arrowMarkerFor(svg, stroke);
+        path.setAttribute('marker-end', `url(#${path.dataset.markerBase})`);
+        svg.appendChild(path);
+      });
+
+      bindHoverTrace(nodes, svg);
+    }
+
+    /** Hover a node: dim everything not directly connected, and recolor edges by
+     *  direction relative to the hovered node — incoming (A→hovered) vs outgoing
+     *  (hovered→B) — temporarily overriding the calls/imports kind color. */
+    function bindHoverTrace(nodesEl, svg) {
+      const nodeDivs = [...nodesEl.querySelectorAll('.node[data-id]')];
+      const paths = [...svg.querySelectorAll('path[data-from]')];
+      nodeDivs.forEach((div) => {
+        const id = div.dataset.id;
+        div.onmouseenter = () => {
+          const incoming = new Set(), outgoing = new Set();
+          paths.forEach((p) => {
+            if (p.dataset.to === id) incoming.add(p.dataset.from);
+            if (p.dataset.from === id) outgoing.add(p.dataset.to);
+          });
+          nodeDivs.forEach((o) => {
+            const i = o.dataset.id;
+            o.classList.toggle('dim', i !== id && !incoming.has(i) && !outgoing.has(i));
+          });
+          paths.forEach((p) => {
+            if (p.dataset.to === id) {
+              p.setAttribute('stroke', 'var(--cool-azure)');
+              p.setAttribute('marker-end', `url(#${arrowMarkerFor(svg, 'var(--cool-azure)')})`);
+            } else if (p.dataset.from === id) {
+              p.setAttribute('stroke', 'var(--temp-4)');
+              p.setAttribute('marker-end', `url(#${arrowMarkerFor(svg, 'var(--temp-4)')})`);
+            } else {
+              p.classList.add('dim');
+            }
+          });
+        };
+        div.onmouseleave = () => {
+          nodeDivs.forEach((o) => o.classList.remove('dim'));
+          paths.forEach((p) => {
+            p.classList.remove('dim');
+            p.setAttribute('stroke', p.dataset.baseStroke);
+            p.setAttribute('marker-end', `url(#${p.dataset.markerBase})`);
+          });
+        };
+      });
+    }
+
+    /** Returns (creating if needed) a <marker> arrowhead filled with the given color,
+     *  memoized per-svg so repeated calls with the same color reuse one marker. */
+    function arrowMarkerFor(svg, color) {
+      let defs = svg.querySelector('defs');
+      if (!defs) {
+        defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        svg.insertBefore(defs, svg.firstChild);
+      }
+      const id = 'cd-arrow-' + color.replace(/[^a-z0-9]/gi, '');
+      if (!defs.querySelector('#' + id)) {
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', id);
+        marker.setAttribute('viewBox', '0 0 8 8');
+        marker.setAttribute('refX', '7');
+        marker.setAttribute('refY', '4');
+        marker.setAttribute('markerWidth', '7');
+        marker.setAttribute('markerHeight', '7');
+        marker.setAttribute('orient', 'auto');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M0 0 L8 4 L0 8 z');
+        path.setAttribute('fill', color);
+        marker.appendChild(path);
+        defs.appendChild(marker);
+      }
+      return id;
+    }
+
+    /** Draws a ConnectorLayer-style path (bezier by default, ortho for same-column pairs)
+     *  between two {x,y} anchor points into an existing <svg id="connectors">. */
+    function drawConnector(svg, x1, y1, x2, y2, opts = {}) {
+      const { ortho = false, clearY = null, label = null, stroke = 'var(--connector)', heavy = false } = opts;
+      const d = clearY != null
+        ? orthoPathBottomToTop(x1, y1, x2, y2, clearY, 10)
+        : ortho
+        ? orthoPath(x1, y1, x2, y2, 10, 14)
+        : `M ${x1} ${y1} C ${(x1+x2)/2} ${y1}, ${(x1+x2)/2} ${y2}, ${x2} ${y2}`;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', stroke);
+      path.setAttribute('stroke-width', heavy ? 'var(--connector-w-heavy)' : 'var(--connector-w)');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('marker-end', `url(#${arrowMarkerFor(svg, stroke)})`);
+      svg.appendChild(path);
+      if (label) {
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', (x1 + x2) / 2);
+        text.setAttribute('y', (y1 + y2) / 2 - 6);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('fill', 'var(--text-faint)');
+        text.setAttribute('style', `font: var(--text-xs) var(--font-mono);`);
+        text.textContent = label;
+        svg.appendChild(text);
+      }
+    }
+
+    function authorBadge(author) {
+      if (!author) return '';
+      return `<span class="badge-author ${author}" title="${author}">${author === 'agent' ? 'A' : 'H'}</span>`;
+    }
+
+    let selectedRoute = FIXTURE.apiFlow.routes[0].id;
+
+    /** API Flow — left rail lists every entry-point route; selecting one draws that route's
+     *  flow only: consumers fan into the route, then a left-to-right chain of the modules/
+     *  functions that serve it, each edge labeled with what it does (guards/authenticates/
+     *  handles). Graphical (boxes + routed arrows), not a linear numbered list. */
+    function renderFlowsMode() {
+      document.getElementById('nodes').style.display = 'none';
+      document.getElementById('connectors').style.display = 'block';
+      document.getElementById('flow-container').classList.add('mode-hidden');
+      document.getElementById('bubble-container').classList.add('mode-hidden');
+      const graph = document.getElementById('graph-container');
+      graph.style.display = 'block';
+      graph.classList.remove('mode-hidden');
+      graph.innerHTML = '';
+
+      const route = FIXTURE.apiFlow.routes.find(r => r.id === selectedRoute) || FIXTURE.apiFlow.routes[0];
+      const colGap = 200, rowGap = 100;
+      const w = 140 + (route.steps.length) * colGap, h = Math.max(340, 90 + route.consumers.length * rowGap);
+      graph.style.width = w + 'px';
+      graph.style.height = h + 'px';
+
+      const positions = {};
+      route.consumers.forEach((c, i) => positions[c.id] = { x: 30, y: 50 + i * rowGap });
+      const routeId = 'route:' + route.id;
+      positions[routeId] = { x: 260, y: h / 2 - 24 };
+      route.steps.forEach((s, i) => positions[s.id] = { x: 260 + (i + 1) * colGap, y: h / 2 - 24 });
+
+      function addNode(id, label, cls, opts = {}) {
+        const div = document.createElement('div');
+        div.className = `graph-node ${cls}`;
+        if (selected === id) div.classList.add('selected');
+        div.style.left = positions[id].x + 'px';
+        div.style.top = positions[id].y + 'px';
+        div.innerHTML = `${authorBadge(opts.author)}<span>${label}${opts.note ? `<span class="note">${opts.note}</span>` : ''}</span>`;
+        div.onclick = (e) => {
+          if (opts.flowchart) { enterFlowchart(); }
+          else select(id);
+          e.stopPropagation();
+        };
+        graph.appendChild(div);
+      }
+
+      route.consumers.forEach(c => addNode(c.id, c.name, 'consumer'));
+      addNode(routeId, `${route.method} ${route.path}`, 'contract', { note: route.note });
+      route.steps.forEach(s => addNode(s.id, s.name, s.flagged ? 'flagged' : 'contract', { author: s.author, flowchart: s.flowchart }));
+
+      const svg = document.getElementById('connectors');
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      svg.innerHTML = '';
+
+      requestAnimationFrame(() => {
+        const anchor = (id, side) => {
+          const el = [...graph.children].find(c => c.style.left === positions[id].x + 'px' && c.style.top === positions[id].y + 'px');
+          const p = positions[id];
+          const width = el ? el.offsetWidth : 140, height = el ? el.offsetHeight : 40;
+          return side === 'right' ? { x: p.x + width, y: p.y + height / 2 } : { x: p.x, y: p.y + height / 2 };
+        };
+        route.consumers.forEach(c => {
+          const a = anchor(c.id, 'right'), b = anchor(routeId, 'left');
+          drawConnector(svg, a.x, a.y, b.x, b.y, { stroke: 'var(--connector)' });
+        });
+        let prev = routeId;
+        route.steps.forEach(s => {
+          const a = anchor(prev, 'right'), b = anchor(s.id, 'left');
+          drawConnector(svg, a.x, a.y, b.x, b.y, { label: s.edgeLabel, stroke: s.flagged ? 'var(--temp-5)' : 'var(--connector-active)' });
+          prev = s.id;
+        });
+      });
+    }
+
+    /** Flowchart — real control-flow notation for one function: pill terminals, rectangle
+     *  process steps, diamond decisions with yes/no branches. Reached by drilling into
+     *  create_order from Current mode, mirrors the earlier build's flowchart screen. */
+    function renderFlowchartMode() {
+      document.getElementById('nodes').style.display = 'none';
+      document.getElementById('connectors').style.display = 'block';
+      document.getElementById('flow-container').classList.add('mode-hidden');
+      document.getElementById('bubble-container').classList.add('mode-hidden');
+      const graph = document.getElementById('graph-container');
+      graph.style.display = 'block';
+      graph.classList.remove('mode-hidden');
+      graph.innerHTML = '';
+
+      document.getElementById('flowchart-crumb').classList.remove('mode-hidden');
+      document.getElementById('flowchart-crumb').innerHTML = `
+        <span class="path"><a onclick="exitFlowchart()">orderly</a><span>›</span>Call Graph<span>›</span>${FIXTURE.flowchart.title}</span>
+      `;
+
+      const { nodes, edges } = FIXTURE.flowchart;
+      const col = { start:0, validate:1, valid:2, price:3, persist:4, return400:2, charge:4, chargeok:3, rollback:2, emit:3 };
+      const row = { start:0, validate:0, valid:0, price:0, persist:0, return400:1, charge:1, chargeok:1, rollback:2, emit:2 };
+      const colGap = 190, rowGap = 130, nodeW = 150, nodeH = 56;
+      const w = 60 + 5 * colGap + nodeW, h = 60 + 3 * rowGap + nodeH;
+      graph.style.width = w + 'px';
+      graph.style.height = h + 'px';
+
+      const positions = {};
+      nodes.forEach(n => {
+        positions[n.id] = { x: 60 + col[n.id] * colGap, y: 60 + row[n.id] * rowGap };
+      });
+
+      nodes.forEach(n => {
+        const div = document.createElement('div');
+        const shape = n.kind === 'decision' ? 'decision' : n.kind === 'terminal' ? 'terminal' : '';
+        div.className = `flow-node ${shape}`;
+        if (selected === n.id) div.classList.add('selected');
+        div.style.left = positions[n.id].x + 'px';
+        div.style.top = positions[n.id].y + 'px';
+        const isSelected = selected === n.id;
+        const stroke = isSelected ? 'var(--cool-cyan)' : 'var(--border-1)';
+        if (n.kind === 'decision') {
+          div.style.width = nodeW + 'px'; div.style.height = nodeH + 'px';
+          div.style.background = 'none'; div.style.border = 'none';
+          div.innerHTML = facetSVG('diamond', nodeW, nodeH, { stroke, strokeWidth: isSelected ? 1.5 : 1, fill: 'var(--surface-3)' });
+        } else {
+          div.style.minWidth = nodeW + 'px'; div.style.minHeight = nodeH + 'px';
+        }
+        div.innerHTML += `<span style="position:relative;z-index:1;display:inline-flex;align-items:center;gap:6px;">${authorBadge(n.author)}<span>${n.label}</span></span>`;
+        div.onclick = (e) => { select(n.id); e.stopPropagation(); };
+        graph.appendChild(div);
+      });
+
+      const svg = document.getElementById('connectors');
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      svg.innerHTML = '';
+
+      requestAnimationFrame(() => {
+        edges.forEach(e => {
+          const pf = positions[e.from], pt = positions[e.to];
+          const sameRow = row[e.from] === row[e.to];
+          const sameCol = col[e.from] === col[e.to];
+          const goesLeft = sameRow && pt.x < pf.x;
+          let x1, y1, x2, y2, ortho, clearY;
+          if (sameRow) {
+            x1 = pf.x + (goesLeft ? 0 : nodeW); y1 = pf.y + nodeH / 2;
+            x2 = pt.x + (goesLeft ? nodeW : 0); y2 = pt.y + nodeH / 2;
+            ortho = false; clearY = null;
+          } else if (sameCol) {
+            x1 = pf.x + nodeW / 2; y1 = pf.y + nodeH;
+            x2 = pt.x + nodeW / 2; y2 = pt.y;
+            ortho = true; clearY = null;
+          } else {
+            // Diagonal: differs in both row and column — exit the source from its bottom
+            // and enter the target at its top-center, routed below the source's row so
+            // the path never crosses another node sharing that row.
+            x1 = pf.x + nodeW / 2; y1 = pf.y + nodeH;
+            x2 = pt.x + nodeW / 2; y2 = pt.y;
+            ortho = false; clearY = pf.y + nodeH + (rowGap - nodeH) / 2;
+          }
+          drawConnector(svg, x1, y1, x2, y2, { ortho, clearY, label: e.label, stroke: e.label === 'no' ? 'var(--temp-5)' : 'var(--connector-active)' });
+        });
+      });
+    }
+
+    function setMode(m) {
+      mode = m;
+      drill = [];
+      selected = null;
+      document.querySelectorAll('#mode-control button').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+      render();
+    }
+
+    /** Flowchart has no top-level tab — it's reached only by drilling into a function tile
+     *  from Current/Delta mode or an API Flow step, and returning restores the mode and
+     *  drill depth you came from. */
+    function enterFlowchart() {
+      preFlowchartMode = mode;
+      preFlowchartDrill = drill.slice();
+      mode = 'flowchart';
+      selected = null;
+      render();
+    }
+
+    function exitFlowchart() {
+      mode = preFlowchartMode;
+      drill = preFlowchartDrill || [];
+      selected = null;
+      document.querySelectorAll('#mode-control button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      render();
+    }
+
+    function renderDependsMode() {
+      document.getElementById('nodes').style.display = 'none';
+      document.getElementById('connectors').style.display = 'none';
+      document.getElementById('flow-container').classList.add('mode-hidden');
+      document.getElementById('bubble-container').classList.remove('mode-hidden');
+
+      const bubbles = document.getElementById('bubble-container');
+      bubbles.innerHTML = FIXTURE.externals.map(ext => {
+        const color = tempHex(hashTemp(ext.id));
+        return `
+          <div class="bubble" onclick="select('${ext.id}')" style="background-color: ${color}3d; border-color: ${color};">
+            <div>${ext.name}</div>
+            <div class="count">${ext.call_sites} calls</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    const MODE_LABEL = { current: 'Current', delta: 'Delta', flows: 'API Flow', flowchart: 'Flowchart', depends: 'Depends on' };
+
+    /** Bottom playback tray — scrubs the commit/PR history. Bar height = churn, color =
+     *  temperature, diamond marks the selected point. Density toggle groups by PR instead
+     *  of by raw commit. */
+    function renderPlayback() {
+      const tray = document.getElementById('playback-tray');
+      const { commits } = FIXTURE.history;
+
+      let items = commits;
+      if (historyDensity === 'pr') {
+        const byPr = new Map();
+        commits.forEach(c => {
+          const cur = byPr.get(c.pr);
+          if (!cur || c.temp > cur.temp) byPr.set(c.pr, { ...c, count: (cur?.count || 0) + 1, churn: (cur?.churn || 0) + c.churn });
+          else cur.count = (cur.count || 1) + 1, cur.churn += c.churn;
+        });
+        items = [...byPr.values()];
+      }
+      const current = items[Math.min(historyIndex, items.length - 1)] || items[items.length - 1];
+
+      tray.innerHTML = `
+        <div class="playback-controls">
+          <button title="Play">▶</button>
+          <div class="playback-msg">${current.sha ? current.sha + ' · ' : ''}${current.message}${current.pr ? ` (PR #${current.pr})` : ''}</div>
+          <div class="playback-density">
+            <button data-density="commit" class="${historyDensity==='commit'?'active':''}">Commits</button>
+            <button data-density="pr" class="${historyDensity==='pr'?'active':''}">PRs</button>
+          </div>
+        </div>
+        <div class="playback-scrubber">
+          <div class="playback-baseline"></div>
+          ${items.map((c, i) => {
+            const col = tempHex(c.temp ?? 1);
+            const h = 6 + Math.min(24, (c.churn || 1) / 3);
+            const on = i === Math.min(historyIndex, items.length - 1);
+            const dotSize = on ? 7 : 5;
+            const cursorH = h + 4 + dotSize + 4;
+            return `<button class="commit-tick${on ? ' current' : ''}" data-idx="${i}" title="${c.sha || 'PR #'+c.pr} · ${c.message}">
+              ${on ? `<span class="commit-tick-cursor" style="height:${cursorH}px;"></span>` : ''}
+              <span class="commit-tick-bar" style="height:${h}px;background:${col};opacity:${on?1:0.55};"></span>
+              <span class="commit-tick-dot" style="width:${dotSize}px;height:${dotSize}px;background:${on?'var(--text-hi)':col};box-shadow:${on?'0 0 0 3px rgba(31,182,193,0.35)':'none'};"></span>
+            </button>`;
+          }).join('')}
+        </div>
+      `;
+      tray.querySelectorAll('.commit-tick').forEach(btn => {
+        btn.onclick = () => { historyIndex = Number(btn.dataset.idx); renderPlayback(); };
+      });
+      tray.querySelectorAll('.playback-density button').forEach(btn => {
+        btn.onclick = () => { historyDensity = btn.dataset.density; historyIndex = 999; renderPlayback(); };
+      });
+    }
+
+    function render() {
+      renderRail();
+      renderLegend();
+      renderTray();
+      renderPlayback();
+      document.getElementById('header-info').textContent = `6ab4e5e · ${MODE_LABEL[mode]} mode`;
+
+      ['nodes', 'connectors', 'flow-container', 'bubble-container', 'graph-container'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+      });
+      document.getElementById('flowchart-crumb').classList.add('mode-hidden');
+      document.getElementById('drill-crumb').classList.add('mode-hidden');
+
+      if (mode === 'current' || mode === 'delta') renderCurrentMode();
+      else if (mode === 'flows') renderFlowsMode();
+      else if (mode === 'flowchart') renderFlowchartMode();
+      else if (mode === 'depends') renderDependsMode();
+    }
+
+    function select(id) {
+      selected = selected === id ? null : id;
+      renderTray();
+    }
+
+    document.querySelectorAll('#mode-control button').forEach(btn => {
+      btn.addEventListener('click', (e) => setMode(e.target.dataset.mode));
+    });
+
+    document.getElementById('canvas').addEventListener('dblclick', (e) => {
+      if ((mode === 'current' || mode === 'delta') && e.target.id === 'canvas') ascend();
+    });
+
+    document.querySelectorAll('#skin-control button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#skin-control button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        document.documentElement.setAttribute('data-skin', e.target.dataset.skin);
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>
