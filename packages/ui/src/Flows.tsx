@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Badge, Card, Tray } from "@scv/design-system";
 import type { Edge, Unit } from "@scv/schema";
 
 export type FlowsProps = {
@@ -45,8 +46,7 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
 
   return (
     <div className="flows">
-      <nav className="flows-rail">
-        <h3>Entry points · {flows.length}</h3>
+      <Tray title={`Entry points · ${flows.length}`}>
         {[...groups.entries()].map(([kind, group]) => (
           <div key={kind} className="flows-group">
             <div className="flows-group-label">{kind}</div>
@@ -63,7 +63,7 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
             ))}
           </div>
         ))}
-      </nav>
+      </Tray>
 
       <div className="flows-path">
         {steps.map((step, i) => {
@@ -71,15 +71,12 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
           const changed = changedStepIds?.has(step.id) ?? false;
           return (
             <div key={step.id}>
-              <div
-                className={`flow-step${changed ? " changed" : ""}`}
-                onClick={() => onSelectStep(step.id)}
-              >
+              <Card className={`flow-step${changed ? " changed" : ""}`} onClick={() => onSelectStep(step.id)}>
                 <span className="flow-step-index">{i + 1}</span>
                 <div className="flow-step-body">
                   <div className="flow-step-head">
                     <b>{step.name}</b>
-                    {changed && <span className="flow-step-dot" aria-label="changed" />}
+                    {changed && <Badge className="flow-step-dot">changed</Badge>}
                   </div>
                   <div className="flow-step-meta">
                     {step.loc.files[0]} · {step.loc.sloc} sloc
@@ -87,7 +84,7 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
                   </div>
                   {step.semantics?.what && <p className="flow-step-what">{step.semantics.what}</p>}
                 </div>
-              </div>
+              </Card>
               {next && (
                 <div className="flow-edge">{edgeKind(edges, step.id, next.id) ?? "→"}</div>
               )}

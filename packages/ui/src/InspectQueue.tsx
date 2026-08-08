@@ -1,3 +1,4 @@
+import { FileRow, Tray } from "@scv/design-system";
 import type { Delta } from "@scv/schema";
 
 export type InspectQueueProps = {
@@ -15,23 +16,21 @@ const LOW_CONFIDENCE = 0.6;
 export function InspectQueue({ entries, onSelect }: InspectQueueProps): JSX.Element {
   return (
     <aside className="inspect-queue" data-testid="inspect-queue">
-      <h2>Inspect queue</h2>
-      {entries.length === 0 && <p className="empty">No delta available for this revision.</p>}
-      <ol>
-        {entries.map((e) => (
-          <li
-            key={e.unit}
-            className={e.confidence < LOW_CONFIDENCE ? "low-confidence" : undefined}
-            onClick={() => onSelect(e.unit)}
-          >
-            <span className="rank">{e.rank}</span>
-            <span className="qualname">{e.qualname}</span>
-            <span className="status">{e.status}</span>
-            <span className="risk">risk {e.risk.toFixed(2)}</span>
-            <span className="confidence">conf {Math.round(e.confidence * 100)}%</span>
-          </li>
-        ))}
-      </ol>
+      <Tray title="Inspect queue">
+        {entries.length === 0 && <p className="empty">No delta available for this revision.</p>}
+        <ol>
+          {entries.map((e) => (
+            <li key={e.unit} className={e.confidence < LOW_CONFIDENCE ? "low-confidence" : undefined}>
+              <FileRow
+                name={`${e.rank}. ${e.qualname}`}
+                path={`${e.status} · risk ${e.risk.toFixed(2)} · conf ${Math.round(e.confidence * 100)}%`}
+                temp={Math.round(e.risk * 7)}
+                onClick={() => onSelect(e.unit)}
+              />
+            </li>
+          ))}
+        </ol>
+      </Tray>
     </aside>
   );
 }

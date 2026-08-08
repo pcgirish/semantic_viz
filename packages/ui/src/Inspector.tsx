@@ -1,3 +1,4 @@
+import { Badge, Card, RiskMeter, Tray } from "@scv/design-system";
 import type { Edge, External, Unit } from "@scv/schema";
 
 export type InspectorProps = {
@@ -27,45 +28,48 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
   if (external) {
     const reachedBy = external.reached_by.map((id) => units.find((u) => u.id === id)).filter((u): u is Unit => Boolean(u));
     return (
-      <aside className="inspector">
-        <h2>{external.name}</h2>
-        <div className="meta">
-          <span>{external.id}</span>
-          <span>{external.ecosystem}</span>
-        </div>
-        <ul className="tags">
-          <li>depth {external.depth}</li>
-          <li>{external.direct ? "direct" : "transitive"}</li>
-        </ul>
-        <section>
-          <h3>Reach</h3>
-          <dl>
-            <dt>Version</dt>
-            <dd>{external.version}</dd>
-            <dt>Call sites</dt>
-            <dd>{external.reached_by.length}</dd>
-            <dt>Transitive</dt>
-            <dd>{external.transitive_count ?? "not computed"}</dd>
-          </dl>
-        </section>
-        <section>
-          <h3>Reached by</h3>
-          {reachedBy.length > 0 ? (
-            <ul>
-              {reachedBy.map((u) => (
-                <li key={u.id}>{u.name}</li>
-              ))}
-            </ul>
-          ) : (
-            <p>Nothing resolved — the unit that reaches this dependency isn't in this snapshot.</p>
-          )}
-        </section>
-      </aside>
+      <div className="inspector">
+        <Tray title={external.name} dock="right">
+          <div className="meta">
+            <span>{external.id}</span>
+            <span>{external.ecosystem}</span>
+          </div>
+          <ul className="tags">
+            <li>depth {external.depth}</li>
+            <li>{external.direct ? "direct" : "transitive"}</li>
+          </ul>
+          <Card title="Reach">
+            <dl>
+              <dt>Version</dt>
+              <dd>{external.version}</dd>
+              <dt>Call sites</dt>
+              <dd>{external.reached_by.length}</dd>
+              <dt>Transitive</dt>
+              <dd>{external.transitive_count ?? "not computed"}</dd>
+            </dl>
+          </Card>
+          <Card title="Reached by">
+            {reachedBy.length > 0 ? (
+              <ul>
+                {reachedBy.map((u) => (
+                  <li key={u.id}>{u.name}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>Nothing resolved — the unit that reaches this dependency isn't in this snapshot.</p>
+            )}
+          </Card>
+        </Tray>
+      </div>
     );
   }
 
   if (!unit) {
-    return <aside className="inspector">Nothing selected.</aside>;
+    return (
+      <div className="inspector">
+        <Tray title="Inspector" dock="right">Nothing selected.</Tray>
+      </div>
+    );
   }
 
   const dependsOn = edges.filter((e) => e.from === unit.id).map((e) => units.find((u) => u.id === e.to)).filter((u): u is Unit => Boolean(u));
@@ -75,105 +79,101 @@ export function Inspector({ unit, units, edges, external }: InspectorProps): JSX
   const lowConfidence = semanticsConfidence !== undefined && semanticsConfidence < LOW_CONFIDENCE;
 
   return (
-    <aside className="inspector">
-      <h2>{unit.name}</h2>
-      <div className="meta">
-        <span>{unit.id}</span>
-        <span>{unit.kind}</span>
-        {fileOf(unit) && <span>{fileOf(unit)}</span>}
-      </div>
+    <div className="inspector">
+      <Tray title={unit.name} dock="right">
+        <div className="meta">
+          <span>{unit.id}</span>
+          <span>{unit.kind}</span>
+          {fileOf(unit) && <span>{fileOf(unit)}</span>}
+        </div>
 
-      {unit.tags.length > 0 && (
-        <ul className="tags">
-          {unit.tags.map((t) => (
-            <li key={t}>{t}</li>
-          ))}
-        </ul>
-      )}
-
-      <section>
-        <h3>Signature</h3>
-        {unit.signature ? (
-          <div>
-            <div>in: {unit.signature.in.map((p) => p.name).join(", ") || "—"}</div>
-            <div>out: {unit.signature.out.map((p) => p.name).join(", ") || "—"}</div>
-            <div>raises: {unit.signature.raises.join(", ") || "—"}</div>
-          </div>
-        ) : (
-          <p>No signature.</p>
-        )}
-      </section>
-
-      <section className={lowConfidence ? "low-confidence" : undefined}>
-        <h3>What / how / when / where / why</h3>
-        {unit.semantics ? (
-          <>
-            <dl className="semantics">
-              <dt>what</dt>
-              <dd>{unit.semantics.what}</dd>
-              <dt>how</dt>
-              <dd>{unit.semantics.how}</dd>
-              <dt>when</dt>
-              <dd>{unit.semantics.when}</dd>
-              <dt>where</dt>
-              <dd>{unit.semantics.where}</dd>
-              <dt>why</dt>
-              <dd>{unit.semantics.why}</dd>
-            </dl>
-            <p className="confidence">
-              confidence: {Math.round(unit.semantics.confidence * 100)}% ({unit.semantics.source})
-            </p>
-          </>
-        ) : (
-          <p>Not yet available — no Interpreter pass has run on this snapshot.</p>
-        )}
-      </section>
-
-      <section>
-        <h3>Metrics</h3>
-        <dl>
-          <dt>sloc</dt>
-          <dd>{unit.metrics.sloc ?? unit.loc.sloc}</dd>
-          <dt>fan in</dt>
-          <dd>{unit.metrics.fan_in ?? "—"}</dd>
-          <dt>fan out</dt>
-          <dd>{unit.metrics.fan_out ?? "—"}</dd>
-          <dt>complexity</dt>
-          <dd>{unit.cost?.complexity ?? "—"}</dd>
-          <dt>I/O</dt>
-          <dd>{unit.cost?.io?.join(", ") || "—"}</dd>
-          <dt>cost estimate</dt>
-          <dd>{unit.cost?.estimate ?? "Not yet available"}</dd>
-          <dt>churn</dt>
-          <dd>{unit.metrics.churn ?? "—"}</dd>
-        </dl>
-      </section>
-
-      <section>
-        <h3>Depends on</h3>
-        {dependsOn.length > 0 ? (
-          <ul>
-            {dependsOn.map((u) => (
-              <li key={u.id}>{u.name}</li>
+        {unit.tags.length > 0 && (
+          <ul className="tags">
+            {unit.tags.map((t) => (
+              <li key={t}>
+                <Badge>{t}</Badge>
+              </li>
             ))}
           </ul>
-        ) : (
-          <p>Nothing. This unit calls out to nothing.</p>
         )}
-      </section>
 
-      <section>
-        <h3>Used by</h3>
-        {usedBy.length > 0 ? (
-          <ul>
-            {usedBy.map((u) => (
-              <li key={u.id}>{u.name}</li>
-            ))}
-          </ul>
-        ) : (
-          <p>Nothing. Removing this is free — or it is orphaned.</p>
-        )}
-      </section>
-    </aside>
+        <Card title="Signature">
+          {unit.signature ? (
+            <div>
+              <div>in: {unit.signature.in.map((p) => p.name).join(", ") || "—"}</div>
+              <div>out: {unit.signature.out.map((p) => p.name).join(", ") || "—"}</div>
+              <div>raises: {unit.signature.raises.join(", ") || "—"}</div>
+            </div>
+          ) : (
+            <p>No signature.</p>
+          )}
+        </Card>
+
+        <Card title="What / how / when / where / why" className={lowConfidence ? "low-confidence" : undefined}>
+          {unit.semantics ? (
+            <>
+              <dl className="semantics">
+                <dt>what</dt>
+                <dd>{unit.semantics.what}</dd>
+                <dt>how</dt>
+                <dd>{unit.semantics.how}</dd>
+                <dt>when</dt>
+                <dd>{unit.semantics.when}</dd>
+                <dt>where</dt>
+                <dd>{unit.semantics.where}</dd>
+                <dt>why</dt>
+                <dd>{unit.semantics.why}</dd>
+              </dl>
+              <RiskMeter value={unit.semantics.confidence * 7} label={`confidence: ${Math.round(unit.semantics.confidence * 100)}% (${unit.semantics.source})`} />
+            </>
+          ) : (
+            <p>Not yet available — no Interpreter pass has run on this snapshot.</p>
+          )}
+        </Card>
+
+        <Card title="Metrics">
+          <dl>
+            <dt>sloc</dt>
+            <dd>{unit.metrics.sloc ?? unit.loc.sloc}</dd>
+            <dt>fan in</dt>
+            <dd>{unit.metrics.fan_in ?? "—"}</dd>
+            <dt>fan out</dt>
+            <dd>{unit.metrics.fan_out ?? "—"}</dd>
+            <dt>complexity</dt>
+            <dd>{unit.cost?.complexity ?? "—"}</dd>
+            <dt>I/O</dt>
+            <dd>{unit.cost?.io?.join(", ") || "—"}</dd>
+            <dt>cost estimate</dt>
+            <dd>{unit.cost?.estimate ?? "Not yet available"}</dd>
+            <dt>churn</dt>
+            <dd>{unit.metrics.churn ?? "—"}</dd>
+          </dl>
+        </Card>
+
+        <Card title="Depends on">
+          {dependsOn.length > 0 ? (
+            <ul>
+              {dependsOn.map((u) => (
+                <li key={u.id}>{u.name}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>Nothing. This unit calls out to nothing.</p>
+          )}
+        </Card>
+
+        <Card title="Used by">
+          {usedBy.length > 0 ? (
+            <ul>
+              {usedBy.map((u) => (
+                <li key={u.id}>{u.name}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>Nothing. Removing this is free — or it is orphaned.</p>
+          )}
+        </Card>
+      </Tray>
+    </div>
   );
 }

@@ -577,7 +577,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("redis")).toBeInTheDocument();
+      expect(container.querySelector(".dep-row")).not.toBeNull();
     });
     expect(container.querySelector(".canvas-scroll")).toBeNull();
   });
@@ -597,10 +597,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
 
     await waitFor(() => {
-      expect(container.querySelector('[data-ext="x:pypi:redis@5.0.1"]')).not.toBeNull();
+      expect(container.querySelector(".dep-row svg g")).not.toBeNull();
     });
 
-    fireEvent.click(container.querySelector('[data-ext="x:pypi:redis@5.0.1"]')!);
+    fireEvent.click(container.querySelector(".dep-row svg g")!);
 
     await waitFor(() => {
       expect(container.querySelector(".inspector")!.textContent).toMatch(/redis/);

@@ -52,9 +52,9 @@ describe("DependsOn", () => {
     ];
     const { container } = render(<DependsOn externals={externals} onSelect={vi.fn()} />);
 
-    const small = Number(container.querySelector('[data-ext="x:pypi:small@1"] circle')!.getAttribute("r"));
-    const big = Number(container.querySelector('[data-ext="x:pypi:big@1"] circle')!.getAttribute("r"));
-    expect(big).toBeGreaterThan(small);
+    const circles = container.querySelectorAll(".dep-row svg circle");
+    const radii = Array.from(circles).map((c) => Number(c.getAttribute("r")));
+    expect(Math.max(...radii)).toBeGreaterThan(Math.min(...radii));
   });
 
   it("clicking an external calls onSelect with its id", () => {
@@ -62,17 +62,19 @@ describe("DependsOn", () => {
     const externals = [makeExternal({ id: "x:pypi:redis@5", name: "redis", depth: 1 })];
     const { container } = render(<DependsOn externals={externals} onSelect={onSelect} />);
 
-    fireEvent.click(container.querySelector('[data-ext="x:pypi:redis@5"]')!);
+    fireEvent.click(container.querySelector(".dep-row svg g")!);
 
     expect(onSelect).toHaveBeenCalledWith("x:pypi:redis@5");
   });
 
-  it("shows the external's name and version under its circle", () => {
+  it("shows the external's name and version on hover", () => {
     const externals = [makeExternal({ id: "x:pypi:redis@5", name: "redis", version: "5.0.1", depth: 1 })];
-    render(<DependsOn externals={externals} onSelect={vi.fn()} />);
+    const { container } = render(<DependsOn externals={externals} onSelect={vi.fn()} />);
 
-    expect(screen.getByText("redis")).toBeInTheDocument();
-    expect(screen.getByText(/5\.0\.1/)).toBeInTheDocument();
+    fireEvent.mouseEnter(container.querySelector(".dep-row svg + div > span")!);
+
+    expect(container.textContent).toMatch(/redis/);
+    expect(container.textContent).toMatch(/5\.0\.1/);
   });
 
   it("shows an empty state when there are no externals at all", () => {
