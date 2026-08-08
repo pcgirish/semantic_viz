@@ -84,23 +84,22 @@ describe("Replay", () => {
     expect(shas.sort()).toEqual(["head", "mid", "start"]);
   });
 
-  it("shows a short (7-char) sha caption under each bar, not the full hash, so the track is legible without hovering", () => {
+  it("shows a short (7-char) sha in the playback message, not the full hash, so it's legible without hovering", () => {
     const revs: ReplayRev[] = [
       { sha: "1ba50aba87d149ff29d8e0ca2e6b1372cc9152a1", kind: "pr", ts: "2026-01-01T00:00:00Z", author: "Ada", author_kind: "human", amount: 0.1 },
     ];
     render(<Replay revs={revs} sha={revs[0]!.sha} onScrub={vi.fn()} />);
 
-    expect(screen.getByText("1ba50ab")).toBeInTheDocument();
+    expect(screen.getByText("1ba50ab", { exact: false })).toBeInTheDocument();
     expect(screen.queryByText(revs[0]!.sha)).toBeNull();
   });
 
-  it("shows the current rev's message and author below the track, like the mock's timeline readout", () => {
+  it("shows the current rev's sha, message and PR number in the playback message, like the mock's readout", () => {
     const revs: ReplayRev[] = [
-      { sha: "bbb", kind: "pr", message: "tune default rate limits", ts: "2026-01-02T00:00:00Z", author: "j.moreau", author_kind: "human", amount: 0.5 },
+      { sha: "bbb", kind: "pr", pr: 412, message: "tune default rate limits", ts: "2026-01-02T00:00:00Z", author: "j.moreau", author_kind: "human", amount: 0.5 },
     ];
     render(<Replay revs={revs} sha="bbb" onScrub={vi.fn()} />);
 
-    expect(screen.getByText("tune default rate limits")).toBeInTheDocument();
-    expect(screen.getByText(/j\.moreau/)).toBeInTheDocument();
+    expect(screen.getByText("bbb · tune default rate limits (PR #412)")).toBeInTheDocument();
   });
 });
