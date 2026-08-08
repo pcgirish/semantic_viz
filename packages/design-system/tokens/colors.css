@@ -1,0 +1,95 @@
+:root{
+/* ── Cool base ramp (surfaces, structure) ─────────────── */
+--ink-1000:#06090D;--ink-950:#0A0F15;--ink-900:#0E151D;--ink-850:#121B25;--ink-800:#17222E;
+--ink-750:#1D2A38;--ink-700:#243343;--ink-600:#33475C;--ink-500:#4E6579;--ink-400:#6F8798;
+--ink-300:#98AEBF;--ink-200:#C3D3DF;--ink-150:#DCE7EF;--ink-100:#EBF2F7;--ink-050:#F5F9FB;--ink-000:#FFFFFF;
+
+/* ── Cool accents (regular / stable objects) ──────────── */
+--cool-cyan:#1FB6C1;--cool-cyan-dim:#14707A;--cool-cyan-lift:#5FD9E1;--cool-cyan-deep:#0B4B52;--cool-cyan-abyss:#06272B;
+--cool-mint:#2ED3A7;--cool-mint-dim:#188468;--cool-mint-lift:#6FEFC9;--cool-mint-deep:#0E5744;--cool-mint-abyss:#072E24;
+--cool-azure:#3D7FFF;--cool-azure-dim:#1E4CAD;--cool-azure-lift:#7FA9FF;--cool-azure-deep:#13306F;--cool-azure-abyss:#0A1A3C;
+--cool-indigo:#5B6EE8;--cool-indigo-dim:#31399E;--cool-indigo-lift:#8F9CF5;--cool-indigo-deep:#1F2467;--cool-indigo-abyss:#111335;
+--cool-teal:#0E8F8F;--cool-teal-dim:#0A6363;--cool-teal-lift:#4FC3C3;--cool-teal-deep:#064545;--cool-teal-abyss:#042A2A;
+--cool-blue:#1F72E0;--cool-blue-dim:#12488F;--cool-blue-lift:#66A3F2;--cool-blue-deep:#0C2F5F;--cool-blue-abyss:#071B38;
+--cool-green:#3FAE4A;--cool-green-dim:#256E2C;--cool-green-lift:#7FD98A;--cool-green-deep:#17491D;--cool-green-abyss:#0D2A11;
+
+/* ── Temperature scale: the core semantic axis.
+      Cool = untouched / structural. Warm = changed. Hot = risky. ── */
+--temp-0:#3A4C5F;  /* dormant   — no activity in range */
+--temp-1:#1FB6C1;  /* stable    — unchanged, healthy */
+--temp-2:#2ED3A7;  /* active    — touched, tests pass */
+--temp-3:#C9D93F;  /* warm      — light churn */
+--temp-4:#F2A93B;  /* changed   — real diff in this PR */
+--temp-5:#F2713B;  /* hot       — heavy churn / many authors */
+--temp-6:#E8434F;  /* risk      — no tests, high blast radius */
+--temp-7:#CC2E6E;  /* critical  — blocking / breaking */
+
+/* ── Diff semantics ───────────────────────────────────── */
+--diff-add:#2ED3A7;--diff-add-bg:rgba(46,211,167,.14);--diff-add-gutter:rgba(46,211,167,.42);
+--diff-del:#E8434F;--diff-del-bg:rgba(232,67,79,.14);--diff-del-gutter:rgba(232,67,79,.42);
+--diff-mod:#F2A93B;--diff-mod-bg:rgba(242,169,59,.13);--diff-mod-gutter:rgba(242,169,59,.42);
+--diff-move:#5B6EE8;--diff-move-bg:rgba(91,110,232,.13);
+--diff-rename:#1FB6C1;--diff-rename-bg:rgba(31,182,193,.13);
+
+/* ── Status ───────────────────────────────────────────── */
+--status-pass:#2ED3A7;--status-run:#3D7FFF;--status-wait:#6F8798;--status-warn:#F2A93B;--status-fail:#E8434F;
+
+/* ── Semantic aliases (dark is the default skin) ───────── */
+--canvas:var(--ink-1000);
+--surface-0:var(--ink-950);
+--surface-1:var(--ink-900);
+--surface-2:var(--ink-850);
+--surface-3:var(--ink-800);
+--surface-tray:rgba(14,21,29,.82);
+--surface-raised:var(--ink-800);
+--surface-sunken:var(--ink-1000);
+--surface-hover:rgba(255,255,255,.045);
+--surface-press:rgba(255,255,255,.02);
+--surface-selected:rgba(31,182,193,.14);
+
+--border-hair:rgba(152,174,191,.14);
+--border-1:rgba(152,174,191,.22);
+--border-2:rgba(152,174,191,.34);
+--border-accent:var(--cool-cyan);
+--border-focus:var(--cool-azure);
+
+--text-hi:#EDF3F8;
+--text-body:#C3D3DF;
+--text-dim:#98AEBF;
+--text-faint:#6F8798;
+--text-inverse:#0A0F15;
+--text-accent:var(--cool-cyan-lift);
+--text-link:var(--cool-cyan-lift);
+--text-link-hover:#9BE9EF;
+
+--accent:var(--cool-cyan);
+--accent-quiet:var(--cool-cyan-dim);
+--accent-lift:var(--cool-cyan-lift);
+
+/* Graph object roles */
+--node-fill:var(--ink-800);--node-edge:rgba(152,174,191,.3);--node-label:var(--text-body);
+--connector:rgba(152,174,191,.28);--connector-active:var(--cool-cyan);--connector-flow:var(--cool-azure);
+--group-stroke:rgba(91,110,232,.5);--group-fill:rgba(91,110,232,.07);--group-label:var(--cool-indigo-lift);
+--scrim:rgba(6,9,13,.66);
+
+/* Focus / connected-component highlighting */
+--focus-dim:.35;        /* @kind other */
+--focus-dim-edge:.22;   /* @kind other */
+--focus-near-edge:var(--cool-cyan);
+--focus-ring:var(--cool-cyan-lift);
+}
+
+/* Light skin — same semantics, inverted base. */
+[data-skin="light"]{
+--canvas:var(--ink-050);
+--surface-0:var(--ink-000);--surface-1:var(--ink-050);--surface-2:var(--ink-100);--surface-3:var(--ink-150);
+--surface-tray:rgba(255,255,255,.86);--surface-raised:var(--ink-000);--surface-sunken:var(--ink-100);
+--surface-hover:rgba(14,21,29,.045);--surface-press:rgba(14,21,29,.075);--surface-selected:rgba(31,182,193,.12);
+--border-hair:rgba(36,51,67,.1);--border-1:rgba(36,51,67,.16);--border-2:rgba(36,51,67,.28);
+--text-hi:#0E151D;--text-body:#243343;--text-dim:#4E6579;--text-faint:#6F8798;--text-inverse:#FFFFFF;
+--text-accent:var(--cool-cyan-dim);--text-link:var(--cool-cyan-dim);--text-link-hover:#0E5A62;
+--accent-lift:var(--cool-cyan-dim);
+--node-fill:var(--ink-000);--node-edge:rgba(36,51,67,.22);--node-label:var(--text-body);
+--connector:rgba(36,51,67,.24);--group-fill:rgba(91,110,232,.06);
+--scrim:rgba(14,21,29,.4);
+}

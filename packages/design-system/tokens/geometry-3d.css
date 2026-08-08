@@ -1,0 +1,31 @@
+/* 3D skin tokens — the flat UI and the 3D scene share one light rig and palette. */
+:root{
+--light-key:145deg; /* @kind other */
+/* key light direction, used by face gradients */;
+--face-top:rgba(255,255,255,.13);
+--face-side:rgba(6,9,13,.28);
+--face-bottom:rgba(6,9,13,.5);
+--geo-bevel:1px; /* @kind other */
+--geo-edge:rgba(195,211,223,.5);
+--geo-edge-hot:rgba(242,169,59,.75);
+--geo-specular:rgba(255,255,255,.34);
+--geo-ao:rgba(6,9,13,.55);
+
+--face-cool:linear-gradient(var(--light-key),#1FB6C1,#14707A); /* @kind other */
+--face-warm:linear-gradient(var(--light-key),#F2A93B,#B4661B); /* @kind other */
+--face-risk:linear-gradient(var(--light-key),#E8434F,#8E1C28); /* @kind other */
+--face-neutral:linear-gradient(var(--light-key),#243343,#0E151D); /* @kind other */
+
+--depth-1:2px; /* @kind other */
+--depth-2:4px; /* @kind other */
+--depth-3:8px; /* @kind other */
+--depth-4:16px; /* @kind other */
+/* extrusion depths */;
+--persp:900px; /* @kind other */
+--tilt-x:58deg; /* @kind other */
+--tilt-z:-32deg; /* @kind other */
+/* canonical isometric-ish camera */;
+--grid-cell:32px; /* @kind other */
+--grid-line:rgba(152,174,191,.07);
+--grid-line-major:rgba(152,174,191,.13);
+}

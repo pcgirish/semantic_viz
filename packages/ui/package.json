@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@scv/design-system": "*",
     "@scv/layout": "*",
     "@scv/schema": "*",
     "@scv/skin-tiles": "*",
