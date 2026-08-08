@@ -9,9 +9,11 @@ export interface PolyNodeProps extends React.HTMLAttributes<HTMLDivElement>{
   sublabel?:React.ReactNode;
   /** 0 dormant → 7 critical; drives fill, edge and glow */
   temp?:number;
-  shape?:"hex"|"hex-tall"|"chamfer"|"diamond"|"square";
-  /** px width (height follows for hex) */
+  shape?:"hex"|"hex-tall"|"chamfer"|"diamond"|"square"|"pill";
+  /** px width (height follows for hex, or equals size otherwise, unless height is set) */
   size?:number;
+  /** px height override — defaults per shape (size for most, 0.88*size for hex) */
+  height?:number;
   icon?:string;
   selected?:boolean;
   /** solid filled face instead of the outlined treatment (also implied by selected) */

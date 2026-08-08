@@ -5,7 +5,7 @@ import * as React from "react";
  * needs a stroke — a CSS border under clip-path loses every diagonal edge.
  */
 export interface FacetProps extends React.HTMLAttributes<HTMLDivElement>{
-  shape?:"chamfer"|"hex"|"hex-tall"|"diamond"|"triangle"|"tag"|"square";
+  shape?:"chamfer"|"hex"|"hex-tall"|"diamond"|"triangle"|"tag"|"square"|"pill";
   width?:number;
   height?:number;
   /** vertex rounding radius in px (default 4; 2 for chips) */
