@@ -15,9 +15,9 @@ export function SegmentedControl({ value, onChange, options = [], size = "md", s
         return (
           <button key={v} type="button" onClick={() => onChange && onChange(v)} style={{
             display: "inline-flex", alignItems: "center", gap: 6, height: h, padding: "0 10px",
-            background: on ? "var(--surface-3)" : "transparent",
-            color: on ? "var(--text-hi)" : "var(--text-dim)",
-            border: "var(--border-w) solid " + (on ? "var(--border-1)" : "transparent"),
+            background: on ? "var(--cool-cyan)" : "transparent",
+            color: on ? "var(--text-inverse)" : "var(--text-dim)",
+            border: "var(--border-w) solid " + (on ? "var(--cool-cyan)" : "transparent"),
             borderRadius: "var(--radius-xs)", font: "var(--type-ui)",
             fontSize: size === "sm" ? "var(--text-xs)" : "var(--text-base)", cursor: "pointer",
             transition: "background var(--t-hover),color var(--t-hover)"
