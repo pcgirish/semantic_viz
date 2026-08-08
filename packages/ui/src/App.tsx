@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot } from "@scv/schema";
-import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
+import { PathBreadcrumb, SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
@@ -148,6 +148,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const flowUnits = units.filter((u) => u.kind === "api_flow");
   const changedStepIds = delta ? new Set(delta.unit_deltas.map((d) => d.unit)) : undefined;
   const flowchartFunction = mode === "flowchart" ? (units.find((u) => u.id === flowchartFunctionId) ?? null) : null;
+  const rootUnit = units.find((u) => u.kind === "system") ?? null;
 
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -175,6 +176,25 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           />
         }
       />
+      {mode === "flowchart" && flowchartFunction && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            padding: "var(--space-3) var(--space-6)",
+            background: "var(--surface-0)",
+            borderBottom: "var(--border-w) solid var(--border-hair)",
+          }}
+        >
+          <PathBreadcrumb
+            segments={[{ label: rootUnit?.name ?? "root" }, { label: "Call Graph" }, { label: flowchartFunction.name }]}
+            onPick={(i) => {
+              if (i === 0) ascend();
+            }}
+          />
+        </div>
+      )}
       <div className="body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {mode === "delta" && (
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />

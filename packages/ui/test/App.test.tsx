@@ -194,6 +194,29 @@ describe("App", () => {
     });
   });
 
+  it("shows a flowchart-crumb path (root › Call Graph › function) in Flowchart mode, and clicking root exits back", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:layer:ops"]')).not.toBeNull();
+    });
+
+    useAppStore.getState().showFlowchart("u:a");
+
+    await waitFor(() => {
+      expect(screen.getByText("orderly")).toBeInTheDocument();
+      expect(screen.getByText("Call Graph")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("orderly"));
+
+    await waitFor(() => {
+      expect(useAppStore.getState().mode).toBe("current");
+    });
+  });
+
   it("shows a rev picker populated from /api/revs, newest first", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/revs") {
