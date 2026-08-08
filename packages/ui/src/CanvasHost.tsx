@@ -109,25 +109,36 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     return { id: hover, near, far: [] };
   }, [hover, scene.links]);
 
-  const connectorEdges = scene.links.map((l) => {
+  const connectorEdges = scene.links.flatMap((l) => {
     // route.ts's spreadPorts already fans each node's in/out edges across its border
-    // (docs/serve.md#3 fix #3) — path[0]/path[last] are those spread ports, not box
-    // centres, so reusing them here is what keeps parallel edges from converging on a
-    // single pixel. Recomputing from scene.nodes box centres (as this used to) throws
-    // that spread away and re-clusters every edge at the node's midpoint.
-    const start = l.path[0];
-    const end = l.path[l.path.length - 1];
-    // Outgoing from the hovered node reads as "depends-on" (call); incoming reads as "used-by" (risk).
+    // (docs/serve.md#3 fix #3), and for a skip-level edge (e.g. rank 1 -> rank 4) `path`
+    // also carries a waypoint at every intervening rank (expand.ts's dummy nodes) so the
+    // edge can be routed around the boxes in between rather than drawn as one long chord
+    // straight through them. Emitting a single x1/y1->x2/y2 segment from path[0]/path[last]
+    // (as this used to) discards those waypoints and draws exactly that chord — the "messy
+    // pool of connectors" sweeping diagonally across unrelated rows.
     const kind = hover && l.from === hover ? ("call" as const) : hover && l.to === hover ? ("risk" as const) : ("import" as const);
-    return {
-      x1: (start?.x ?? 0) - base.x,
-      y1: (start?.y ?? 0) - base.y,
-      x2: (end?.x ?? 0) - base.x,
-      y2: (end?.y ?? 0) - base.y,
-      from: l.from,
-      to: l.to,
-      kind,
-    };
+    const segments: { x1: number; y1: number; x2: number; y2: number; from: string; to: string; kind: typeof kind; route: "ortho" | "curve" }[] = [];
+    for (let i = 0; i < l.path.length - 1; i++) {
+      const start = l.path[i]!;
+      const end = l.path[i + 1]!;
+      // Mirror the mock's routing split (codedream-ui-mock.html's renderCurrentMode): a
+      // same-rank hop (equal y) goes Manhattan/ortho, entering the node face at 90deg
+      // top/bottom; a cross-rank hop is a smooth bezier curve instead, so parallel edges
+      // don't all run flush along a shared row border and elbow into each other.
+      const sameRank = start.y === end.y;
+      segments.push({
+        x1: start.x - base.x,
+        y1: start.y - base.y,
+        x2: end.x - base.x,
+        y2: end.y - base.y,
+        from: l.from,
+        to: l.to,
+        kind,
+        route: sameRank ? "ortho" : "curve",
+      });
+    }
+    return segments;
   });
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -254,7 +265,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
             </span>
           </div>
         ))}
-        <ConnectorLayer edges={connectorEdges} route="ortho" arrows={false} focus={focus} />
+        <ConnectorLayer edges={connectorEdges} arrows={false} focus={focus} />
         {scene.nodes.map((n) => {
           const d = deltaByUnit?.get(n.id);
           const highRisk = d?.risk !== null && d?.risk !== undefined && d.risk >= HIGH_RISK;

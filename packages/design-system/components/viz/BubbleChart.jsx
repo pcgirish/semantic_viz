@@ -56,20 +56,30 @@ export function BubbleChart({ bands = [], width = 660, minR = 10, maxR = 34, gap
                     fill={solid ? c : c + "35"} stroke={role === "self" ? c : role === "near" ? c + "cc" : c + "80"}
                     strokeWidth={role === "self" ? 2 : 1}
                     style={role === "self" ? { filter: `drop-shadow(0 0 6px ${c}aa)` } : undefined} />
-                  {it.r >= 16 && (
-                    <text x={it.cx} y={row.cy + 3} textAnchor="middle" fill={solid ? "var(--text-inverse)" : "var(--text-hi)"}
-                      style={{ font: Math.min(11, it.r / 2.4) + "px var(--font-mono)", fontWeight: 600, pointerEvents: "none" }}>{it.count}</text>
-                  )}
                 </g>
               );
             }))}
           </svg>
-          {/* Hit targets + tooltips laid separately so Tooltip's DOM wrapper doesn't disturb SVG layout. */}
+          {/* Name + count labels laid separately from the SVG so long names aren't clipped
+              to the circle's bounds — matches the mock's always-visible <div>name</div>/count
+              treatment rather than gating text on radius or hiding it behind hover. */}
           <div style={{ position: "absolute", inset: 0, top: 0 }}>
             {band.rows.map((row, ri) => row.items.map((it, ii) => (
               <Tooltip key={ri + "-" + ii} content={`${it.label}\n${it.count} ${it.unit || ""}`.trim()}
                 style={{ position: "absolute", left: it.cx - it.r, top: row.cy - it.r, width: it.r * 2, height: it.r * 2, pointerEvents: onSelect ? "auto" : "none" }}>
-                <span style={{ display: "block", width: "100%", height: "100%", cursor: onSelect ? "pointer" : "default" }} onClick={() => onSelect && onSelect(it.id)} />
+                <span
+                  onClick={() => onSelect && onSelect(it.id)}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    width: "100%", height: "100%", textAlign: "center", padding: "0 2px",
+                    cursor: onSelect ? "pointer" : "default", pointerEvents: "auto",
+                    color: focusRole(it.id, focus) === "self" || it.filled ? "var(--text-inverse)" : "var(--text-hi)",
+                    font: Math.min(10, it.r / 2.8) + "px var(--font-mono)", fontWeight: 600, lineHeight: 1.25,
+                  }}
+                >
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{it.label}</span>
+                  <span style={{ opacity: 0.75 }}>{it.count}{it.unit ? ` ${it.unit}` : ""}</span>
+                </span>
               </Tooltip>
             )))}
           </div>
