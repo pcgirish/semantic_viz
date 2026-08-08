@@ -1,3 +1,4 @@
+import { BubbleChart } from "@scv/design-system";
 import type { External } from "@scv/schema";
 
 export type DependsOnProps = {
@@ -5,12 +6,8 @@ export type DependsOnProps = {
   onSelect: (id: string) => void;
 };
 
-const ROW_HEIGHT = 140;
-const BASE_RADIUS = 22;
-const RADIUS_SCALE = 8;
-
 /**
- * Depends-on view: externals in rows by depth — direct at the top, transitive below —
+ * Depends-on view: externals in bands by depth — direct at the top, transitive below —
  * sized by transitive_count (docs/serve.md#4 "Depends on"). A separate view, not a filter:
  * "reading downward is reading how far your supply chain reaches."
  */
@@ -26,28 +23,21 @@ export function DependsOn({ externals, onSelect }: DependsOnProps): JSX.Element 
       {depths.map((depth) => {
         const row = externals.filter((x) => x.depth === depth);
         return (
-          <div key={depth} className="dep-row" data-depth={depth} style={{ height: ROW_HEIGHT }}>
-            <div className="dep-row-label">
-              depth {depth} · {row[0]!.direct ? "direct" : "transitive"}
-            </div>
-            <svg className="dep-row-canvas" viewBox={`0 0 ${row.length * ROW_HEIGHT} ${ROW_HEIGHT}`}>
-              {row.map((x, i) => {
-                const cx = i * ROW_HEIGHT + ROW_HEIGHT / 2;
-                const cy = ROW_HEIGHT / 2;
-                const r = BASE_RADIUS + Math.sqrt(x.transitive_count ?? 1) * RADIUS_SCALE;
-                return (
-                  <g key={x.id} className="dep-ext" data-ext={x.id} onClick={() => onSelect(x.id)}>
-                    <circle cx={cx} cy={cy} r={r} />
-                    <text x={cx} y={cy + 4} textAnchor="middle" className="dep-name">
-                      {x.name}
-                    </text>
-                    <text x={cx} y={cy + r + 14} textAnchor="middle" className="dep-meta">
-                      {x.version} · {x.reached_by.length} call site{x.reached_by.length === 1 ? "" : "s"}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+          <div key={depth} className="dep-row" data-depth={depth}>
+            <BubbleChart
+              bands={[
+                {
+                  label: `depth ${depth} · ${row[0]!.direct ? "direct" : "transitive"}`,
+                  items: row.map((x) => ({
+                    id: x.id,
+                    label: `${x.name}\n${x.version} · ${x.reached_by.length} call site${x.reached_by.length === 1 ? "" : "s"}`,
+                    count: x.transitive_count ?? 1,
+                    unit: "transitive",
+                  })),
+                },
+              ]}
+              onSelect={onSelect}
+            />
           </div>
         );
       })}
