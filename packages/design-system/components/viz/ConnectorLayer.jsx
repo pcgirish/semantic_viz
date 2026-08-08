@@ -47,12 +47,17 @@ export function ConnectorLayer({edges=[],width="100%",height="100%",arrows=true,
       )}
       {edges.map((e,i)=>{
         const role=edgeRole(e.from,e.to,focus);
-        const k=KIND[role==="near"?"call":e.kind]||KIND[e.kind]||KIND.import;
+        const isHoverKind=e.kind==="hover-in"||e.kind==="hover-out";
+        const k=KIND[role==="near"&&!isHoverKind?"call":e.kind]||KIND[e.kind]||KIND.import;
         const mx=(e.x1+e.x2)/2;
+        const my=(e.y1+e.y2)/2;
         const ortho=(e.route||route)==="ortho";
+        // Curve control points sit at the midpoint-y so the path leaves/enters each node
+        // vertically — matching top/bottom port attachment (route.ts) instead of bowing
+        // sideways out of the node face.
         const d=ortho
           ? orthoPath(e.x1,e.y1,e.x2,e.y2,e.elbow??elbow,e.stub??stub)
-          : `M ${e.x1} ${e.y1} C ${mx} ${e.y1}, ${mx} ${e.y2}, ${e.x2} ${e.y2}`;
+          : `M ${e.x1} ${e.y1} C ${e.x1} ${my}, ${e.x2} ${my}, ${e.x2} ${e.y2}`;
         const pid=`cd-${uid}-${i}`;
         return (
           <g key={i}>

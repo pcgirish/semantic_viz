@@ -282,7 +282,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
             </span>
           </div>
         ))}
-        <ConnectorLayer edges={connectorEdges} arrows={false} focus={focus} />
+        <ConnectorLayer edges={connectorEdges} focus={focus} />
         {scene.nodes.map((n) => {
           const d = deltaByUnit?.get(n.id);
           const highRisk = d?.risk !== null && d?.risk !== undefined && d.risk >= HIGH_RISK;

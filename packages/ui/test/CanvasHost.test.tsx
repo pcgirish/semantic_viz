@@ -128,9 +128,12 @@ describe("CanvasHost", () => {
     const { container } = render(<CanvasHost units={units} edges={edges} />);
     fireEvent.mouseOver(container.querySelector('.tile[data-id="a"]')!);
 
-    const paths = [...container.querySelectorAll("svg path")].filter((p) => (p.getAttribute("stroke") || "").startsWith("var(--connector"));
+    const connectorStrokes = ["var(--connector)", "var(--connector-active)", "var(--cool-azure)", "var(--temp-4)"];
+    const paths = [...container.querySelectorAll("svg path")].filter((p) => connectorStrokes.includes(p.getAttribute("stroke") || ""));
     expect(paths).toHaveLength(2);
-    const touching = paths.find((p) => p.getAttribute("stroke") === "var(--connector-active)")!;
+    // Hovering "a" (source of e1) recolors its outgoing edge azure/orange (hover-out), per
+    // the mock's bindHoverTrace — not the generic near-focus "call" cyan.
+    const touching = paths.find((p) => p.getAttribute("stroke") === "var(--temp-4)")!;
     const unrelated = paths.find((p) => p !== touching)!;
     expect(touching.getAttribute("opacity")).toBe("1");
     expect(unrelated.getAttribute("opacity")).toBe("var(--focus-dim-edge)");
