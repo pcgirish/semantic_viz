@@ -180,7 +180,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
         {(mode === "current" || mode === "depends") && (
-          <div data-testid="legend-rail" style={{ flex: "none" }}>
+          <div data-testid="legend-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
             <Tray title="Layers" dock="left">
               <Legend units={units} />
             </Tray>
