@@ -66,9 +66,8 @@ describe("Legend", () => {
       makeUnit({ id: "u:layer:b", kind: "layer", name: "billing", group: "api surface" }),
       makeUnit({ id: "u:layer:c", kind: "layer", name: "queue", group: "platform" }),
     ];
-    const { container, getByText } = render(<Legend units={units} />);
-    const groups = container.querySelectorAll(".lg-group");
-    expect(groups).toHaveLength(2);
+    const { getByText, getAllByText } = render(<Legend units={units} />);
+    expect(getAllByText("api surface").length + getAllByText("platform").length).toBe(2);
     expect(getByText("api surface")).not.toBeNull();
     expect(getByText("platform")).not.toBeNull();
     expect(getByText("orders")).not.toBeNull();

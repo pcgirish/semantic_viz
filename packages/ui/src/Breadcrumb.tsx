@@ -1,3 +1,4 @@
+import { Button, PathBreadcrumb } from "@scv/design-system";
 import type { Unit } from "@scv/schema";
 
 export type BreadcrumbProps = {
@@ -14,30 +15,19 @@ export function Breadcrumb({ focus, focusStack, units, onGoTo, onBack }: Breadcr
 
   const unitsById = new Map(units.map((u) => [u.id, u]));
   const path = [...focusStack, focus];
+  const segments = path.map((id) => ({ label: unitsById.get(id)?.name ?? id }));
 
   return (
-    <div className="crumb-bar">
-      <button type="button" className="back-btn" onClick={onBack}>
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--gap-md)" }}>
+      <Button variant="ghost" size="sm" onClick={onBack}>
         ‹ Back
-      </button>
-      <div id="crumb">
-        {path.map((id, i) => {
-          const name = unitsById.get(id)?.name ?? id;
-          const isLast = i === path.length - 1;
-          return (
-            <span key={id}>
-              {i > 0 && <i>›</i>}
-              {isLast ? (
-                <span className="here">{name}</span>
-              ) : (
-                <button type="button" onClick={() => onGoTo(i)}>
-                  {name}
-                </button>
-              )}
-            </span>
-          );
-        })}
-      </div>
+      </Button>
+      <PathBreadcrumb
+        segments={segments}
+        onPick={(i) => {
+          if (i < path.length - 1) onGoTo(i);
+        }}
+      />
     </div>
   );
 }

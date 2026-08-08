@@ -1,5 +1,6 @@
+import { GroupFrame } from "@scv/design-system";
 import type { Unit } from "@scv/schema";
-import { hashLayerToColor } from "@scv/skin-tiles";
+import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
 
 export type LegendProps = {
   units: Unit[];
@@ -8,7 +9,8 @@ export type LegendProps = {
 /**
  * Group header rows (the architecture-level grouping) with their member layers nested
  * as sub-bullets underneath, each still colored the same way tiles are (hashed stable
- * layer id). A layer with no group falls under a catch-all "other" header.
+ * layer id, CodeDream cool-accent palette). A layer with no group falls under a
+ * catch-all "other" header.
  */
 export function Legend({ units }: LegendProps): JSX.Element | null {
   const layers = units.filter((u) => u.kind === "layer");
@@ -23,15 +25,23 @@ export function Legend({ units }: LegendProps): JSX.Element | null {
   return (
     <>
       {[...layersByGroup.entries()].map(([group, groupLayers]) => (
-        <div className="lg-group" key={group}>
-          <div className="lg-group-header">{group}</div>
+        <GroupFrame label={group} key={group}>
           {groupLayers.map((layer) => (
-            <div className="lg" key={layer.id}>
-              <span className="chip" style={{ background: hashLayerToColor(layer.id) }} />
+            <div key={layer.id} style={{ display: "flex", alignItems: "center", gap: "var(--gap-sm)" }}>
+              <span
+                className="chip"
+                style={{
+                  display: "inline-block",
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: hashLayerToColor(layer.id, codedreamLayerPalette),
+                }}
+              />
               {layer.name}
             </div>
           ))}
-        </div>
+        </GroupFrame>
       ))}
     </>
   );

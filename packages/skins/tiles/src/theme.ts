@@ -37,6 +37,20 @@ export const layerPalette: string[] = [
   "#8E8E3E",
 ];
 
+/**
+ * CodeDream cool-accent palette (tokens/colors.css --cool-*), for layer coloring in the
+ * CodeDream-skinned UI. Same hashLayerToColor hashing, different color set (docs/plans/codedream-ui-migration.md decision 2).
+ */
+export const codedreamLayerPalette: string[] = [
+  "#1FB6C1", // cyan
+  "#2ED3A7", // mint
+  "#3D7FFF", // azure
+  "#5B6EE8", // indigo
+  "#0E8F8F", // teal
+  "#1F72E0", // blue
+  "#3FAE4A", // green
+];
+
 /** Deterministic FNV-1a hash of a layer id into a palette color. Empty id -> empty string. */
 export function hashLayerToColor(layerId: string, palette: string[] = layerPalette): string {
   if (!layerId) return "";
