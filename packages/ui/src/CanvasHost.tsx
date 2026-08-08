@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
+import { ConnectorLayer, GraphCanvas, PolyNode, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type Scene } from "@scv/layout";
-import { tilesSkin, hashLayerToColor } from "@scv/skin-tiles";
+import { hashLayerToColor } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
 
 const HIGH_RISK = 0.5;
@@ -16,19 +17,17 @@ export type CanvasHostProps = {
 };
 
 /**
- * Canvas host: builds a Scene from units/edges and draws it with the tiles skin's
- * node()/link() renderers (docs/serve.md#1 — layout produces the Scene, the skin draws
- * it, nothing else computes positions). Click selects, double-click drills; double-click
- * on empty canvas ascends (docs/serve.md#4, "Current" view navigation).
+ * Canvas host: builds a Scene from units/edges (@scv/layout, unchanged) and draws it as
+ * PolyNode tiles connected by a ConnectorLayer (docs/serve.md#1 — layout produces the
+ * Scene, the skin draws it, nothing else computes positions). Click selects, double-click
+ * drills; double-click on empty canvas ascends (docs/serve.md#4, "Current" view navigation).
  *
- * Hovering a unit highlights its depends_on (outgoing) and users (incoming) edges in
- * distinct classes and dims everything else (docs/serve.md#5 — "Direction is a distinct
- * visual question from connection").
- *
- * Panning uses the wrapping .canvas-scroll div's native scroll position, not the SVG's
- * viewBox — viewBox stays fixed to the scene's bounds in scene units, while the SVG's
- * width/height (CSS pixels) scale with zoom. That makes the browser's own scrollbars
- * work (drag, click-track, keyboard, trackpad) instead of only a bespoke drag handler.
+ * Hovering a unit highlights its depends_on (outgoing) and users (incoming) edges
+ * distinctly and dims everything else (docs/serve.md#5). Hover flows through PolyNode's
+ * `dim`/`selected` props rather than DOM classList mutation — a spike confirmed React
+ * preserves each tile's DOM node identity across a hover-only prop change (stable `key`),
+ * so a delta tile's pulse animation (applied via a class set once, independent of hover
+ * props) does not replay on hover.
  */
 type ViewBox = { x: number; y: number; w: number; h: number };
 
@@ -36,6 +35,16 @@ const MIN_SCALE = 0.1;
 const MAX_SCALE = 8;
 const ZOOM_FACTOR = 1.1;
 const DRAG_THRESHOLD = 3;
+
+const SHAPES: Array<"square" | "chamfer" | "hex" | "hex-tall"> = ["square", "chamfer", "hex", "hex-tall"];
+
+function shapeFor(n: { sides: 3 | 4 | 6 | 0; blockType?: string }): "diamond" | "square" | "chamfer" | "hex" | "hex-tall" {
+  if (n.blockType === "decision" || n.blockType === "loop") return "diamond";
+  if (n.sides === 0) return "hex-tall";
+  if (n.sides === 3) return "square";
+  if (n.sides === 6) return "hex";
+  return SHAPES[1]!;
+}
 
 function sceneBounds(scene: { nodes: Array<{ x: number; y: number; w: number; h: number }> }): ViewBox {
   if (scene.nodes.length === 0) return { x: 0, y: 0, w: 1, h: 1 };
@@ -49,122 +58,56 @@ function sceneBounds(scene: { nodes: Array<{ x: number; y: number; w: number; h:
 
 export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
   const showFlowchart = useAppStore((s) => s.showFlowchart);
   const [hover, setHover] = useState<string | null>(null);
 
-  // Base (fit-to-scene) box in scene units; the SVG's viewBox always equals this — only
-  // its CSS width/height change with zoom, so scroll position (not viewBox) is what pans.
-  const baseBoxRef = useRef<ViewBox>({ x: 0, y: 0, w: 1, h: 1 });
   const scaleRef = useRef(1);
   const [renderSize, setRenderSize] = useState({ w: 1, h: 1 });
   const dragRef = useRef<{ startX: number; startY: number; scrollLeft: number; scrollTop: number; moved: boolean } | null>(null);
-
-  // Nodes/links from the last build, kept around so hover can toggle classes on the
-  // existing elements instead of the whole scene being torn down and rebuilt — otherwise
-  // every hover replays each delta tile's pulse animation (docs/serve.md#4 "Replay").
-  const nodeElsRef = useRef(new Map<string, SVGGElement>());
-  const linkElsRef = useRef<Array<{ from: string; to: string; el: SVGElement }>>([]);
 
   // Last build's Scene, so the next build (e.g. a replay scrub landing on a new rev's
   // units/edges) seeds from it — docs/serve.md#3, "positions are seeded from the previous
   // snapshot ... this is a hard requirement, replay is unreadable if nodes teleport."
   const priorSceneRef = useRef<Scene | undefined>(undefined);
 
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    svg.innerHTML = "";
-    nodeElsRef.current = new Map();
-    linkElsRef.current = [];
+  const unitKindById = useMemo(() => new Map(units.map((u) => [u.id, u.kind])), [units]);
 
-    const scene = buildScene(units, edges, { priorScene: priorSceneRef.current });
-    priorSceneRef.current = scene;
-    const unitKindById = new Map(units.map((u) => [u.id, u.kind]));
-    const gated = scene.links.length > scene.nodes.length * 1.6;
+  const scene = useMemo(() => {
+    const s = buildScene(units, edges, { priorScene: priorSceneRef.current });
+    priorSceneRef.current = s;
+    return s;
+  }, [units, edges]);
 
-    const base = sceneBounds(scene);
-    baseBoxRef.current = base;
-    svg.setAttribute("viewBox", `${base.x} ${base.y} ${base.w} ${base.h}`);
+  const base = sceneBounds(scene);
+  if (renderSize.w === 1 && renderSize.h === 1 && (base.w !== 1 || base.h !== 1)) {
+    // First paint for this scene: seed renderSize from the fitted box at the current scale.
     setRenderSize({ w: base.w * scaleRef.current, h: base.h * scaleRef.current });
+  }
 
-    const regionLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    const linkLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    svg.appendChild(regionLayer);
-    svg.appendChild(linkLayer);
-    svg.appendChild(nodeLayer);
+  const focus: FocusState = useMemo(() => {
+    if (!hover) return { id: null, near: [], far: [] };
+    const { near } = neighbours(hover, scene.links, 1);
+    return { id: hover, near, far: [] };
+  }, [hover, scene.links]);
 
-    // Region boxes are the architecture-level grouping (dashed boxes around a group's
-    // layers), drawn behind links/tiles and inert — no click/drill, matching the mockup
-    // where regions group but don't add a new navigation level (docs/serve.md#1).
-    for (const r of scene.regions) {
-      const el = tilesSkin.region?.(r);
-      if (el) regionLayer.appendChild(el);
-    }
-
-    for (const l of scene.links) {
-      const wrap = tilesSkin.link(l, { gated });
-      const pathEl = wrap.querySelector("path") ?? wrap;
-      linkElsRef.current.push({ from: l.from, to: l.to, el: pathEl });
-      linkLayer.appendChild(wrap);
-    }
-    for (const n of scene.nodes) {
-      const el = tilesSkin.node(n);
-      const layerColor = n.layer ? hashLayerToColor(n.layer) : "";
-      el.style.setProperty("--layer-color", layerColor || "var(--ext)");
-      const d = deltaByUnit?.get(n.id);
-      if (d) {
-        el.classList.add(`status-${d.status}`, "pulse");
-        el.style.setProperty("--amount", String(d.amount));
-        if (d.risk !== null && d.risk >= HIGH_RISK) el.classList.add("high-risk");
-      }
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        select(n.id);
-      });
-      el.addEventListener("dblclick", (e) => {
-        e.stopPropagation();
-        // Double-clicking a function tile opens its flowchart detail view instead of
-        // drilling further down the structural tree — a function has no children to
-        // drill into in Current/Delta, so this replaces what would otherwise be a no-op.
-        if (unitKindById.get(n.id) === "function") showFlowchart(n.id);
-        else drill(n.id);
-      });
-      el.addEventListener("mouseenter", () => setHover(n.id));
-      el.addEventListener("mouseleave", () => setHover((h) => (h === n.id ? null : h)));
-      nodeElsRef.current.set(n.id, el);
-      nodeLayer.appendChild(el);
-    }
-  }, [units, edges, select, drill, showFlowchart, deltaByUnit]);
-
-  // Hover only toggles classes on the existing elements built above — it never rebuilds
-  // the scene, so a delta tile's pulse animation plays once (on scrub) and never replays
-  // just because the mouse moved over a tile.
-  useEffect(() => {
-    const related = new Set<string>();
-    if (hover) {
-      related.add(hover);
-      for (const { from, to } of linkElsRef.current) {
-        if (from === hover) related.add(to);
-        if (to === hover) related.add(from);
-      }
-    }
-
-    for (const { from, to, el } of linkElsRef.current) {
-      el.classList.remove("depends-on", "used-by", "dim");
-      if (!hover) continue;
-      if (from === hover) el.classList.add("depends-on");
-      else if (to === hover) el.classList.add("used-by");
-      else el.classList.add("dim");
-    }
-    for (const [id, el] of nodeElsRef.current) {
-      el.classList.toggle("dim", Boolean(hover) && !related.has(id));
-    }
-  }, [hover]);
+  const connectorEdges = scene.links.map((l) => {
+    const from = scene.nodes.find((n) => n.id === l.from);
+    const to = scene.nodes.find((n) => n.id === l.to);
+    // Outgoing from the hovered node reads as "depends-on" (call); incoming reads as "used-by" (risk).
+    const kind = hover && l.from === hover ? ("call" as const) : hover && l.to === hover ? ("risk" as const) : ("import" as const);
+    return {
+      x1: (from?.x ?? 0) + (from?.w ?? 0) / 2 - base.x,
+      y1: (from?.y ?? 0) + (from?.h ?? 0) - base.y,
+      x2: (to?.x ?? 0) + (to?.w ?? 0) / 2 - base.x,
+      y2: (to?.y ?? 0) - base.y,
+      from: l.from,
+      to: l.to,
+      kind,
+    };
+  });
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     const scroll = scrollRef.current;
@@ -179,7 +122,6 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     const ratio = nextScale / scaleRef.current;
     scaleRef.current = nextScale;
 
-    const base = baseBoxRef.current;
     setRenderSize({ w: base.w * nextScale, h: base.h * nextScale });
 
     // Keep the point under the cursor stationary: it scales by `ratio` in content
@@ -189,9 +131,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Tile clicks call stopPropagation, so this only fires for empty-canvas mousedowns
-    // (on the scroll container or the SVG background itself) — never a tile.
-    if (e.target !== svgRef.current && e.target !== scrollRef.current) return;
+    // Tile clicks call stopPropagation, so this only fires for empty-canvas mousedowns.
+    if (e.target !== scrollRef.current && (e.target as HTMLElement).dataset?.id) return;
     const scroll = scrollRef.current;
     if (!scroll) return;
     dragRef.current = { startX: e.clientX, startY: e.clientY, scrollLeft: scroll.scrollLeft, scrollTop: scroll.scrollTop, moved: false };
@@ -218,9 +159,9 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     scrollRef.current?.classList.remove("panning");
   };
 
-  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (dragRef.current?.moved) return;
-    if (e.target !== svgRef.current) return;
+    if ((e.target as HTMLElement).dataset?.id) return;
     ascend();
   };
 
@@ -228,20 +169,71 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     <div
       ref={scrollRef}
       className="canvas-scroll"
+      data-testid="canvas-svg"
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={() => {
+        handleMouseUp();
+        setHover(null);
+      }}
+      onDoubleClick={handleDoubleClick}
+      style={{ width: renderSize.w, height: renderSize.h }}
     >
-      <svg
-        ref={svgRef}
-        className="canvas"
-        data-testid="canvas-svg"
-        onDoubleClick={handleDoubleClick}
-        width={renderSize.w}
-        height={renderSize.h}
-      />
+      <GraphCanvas grid={false}>
+        {scene.regions.map((r) => (
+          <div
+            key={r.id}
+            className="region"
+            data-id={r.id}
+            style={{ position: "absolute", left: r.x - base.x, top: r.y - base.y, width: r.w, height: r.h, pointerEvents: "none" }}
+          >
+            <div className="region-body" style={{ position: "absolute", inset: 0 }} />
+            <span className="region-label">{r.name.toUpperCase()}</span>
+          </div>
+        ))}
+        <ConnectorLayer edges={connectorEdges} route="ortho" arrows={false} focus={focus} />
+        {scene.nodes.map((n) => {
+          const d = deltaByUnit?.get(n.id);
+          const statusClass = d ? `status-${d.status} pulse${d.risk !== null && d.risk >= HIGH_RISK ? " high-risk" : ""}` : "";
+          const layerColor = n.layer ? hashLayerToColor(n.layer) : "";
+          return (
+            <PolyNode
+              key={n.id}
+              id={n.id}
+              data-id={n.id}
+              className={`tile${statusClass ? ` ${statusClass}` : ""}`}
+              label={n.name}
+              shape={shapeFor(n)}
+              size={n.w}
+              temp={n.heat}
+              focus={focus}
+              onFocusNode={(id: string) => setHover(id)}
+              style={{
+                position: "absolute",
+                left: n.x - base.x,
+                top: n.y - base.y,
+                height: n.h,
+                "--layer-color": layerColor || "var(--ext)",
+                ...(d ? ({ "--amount": String(d.amount) } as React.CSSProperties) : {}),
+              } as React.CSSProperties}
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                select(n.id);
+              }}
+              onDoubleClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                // Double-clicking a function tile opens its flowchart detail view instead of
+                // drilling further down the structural tree — a function has no children to
+                // drill into in Current/Delta, so this replaces what would otherwise be a no-op.
+                if (unitKindById.get(n.id) === "function") showFlowchart(n.id);
+                else drill(n.id);
+              }}
+            />
+          );
+        })}
+      </GraphCanvas>
     </div>
   );
 }

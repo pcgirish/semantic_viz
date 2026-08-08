@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot } from "@scv/schema";
+import { SegmentedControl, Select } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
@@ -152,32 +153,23 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     <div className="app">
       <header className="topbar">
         <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />
-        <div className="view-toggle" role="group">
-          <button type="button" aria-pressed={mode === "current"} onClick={() => setMode("current")}>
-            Current
-          </button>
-          <button type="button" aria-pressed={mode === "delta"} onClick={() => setMode("delta")}>
-            Delta
-          </button>
-          <button type="button" aria-pressed={mode === "depends"} onClick={() => setMode("depends")}>
-            Depends on
-          </button>
-          <button type="button" aria-pressed={mode === "flows"} onClick={() => setMode("flows")}>
-            Flows
-          </button>
-        </div>
-        <select
+        <SegmentedControl
+          value={mode === "flowchart" ? "current" : mode}
+          onChange={(value) => setMode(value as "current" | "delta" | "depends" | "flows")}
+          options={[
+            { value: "current", label: "Current" },
+            { value: "delta", label: "Delta" },
+            { value: "depends", label: "Depends on" },
+            { value: "flows", label: "Flows" },
+          ]}
+        />
+        <Select
           data-testid="rev-picker"
           aria-label="revision"
           value={sha}
           onChange={(e) => setSha(e.target.value)}
-        >
-          {revs.map((r) => (
-            <option key={r.sha} value={r.sha} data-testid="rev-option">
-              {shortSha(r.sha)}
-            </option>
-          ))}
-        </select>
+          options={revs.map((r) => ({ value: r.sha, label: shortSha(r.sha) }))}
+        />
       </header>
       <div className="body">
         {mode === "delta" && (
