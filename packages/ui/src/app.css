@@ -66,34 +66,6 @@ button {
   border-bottom: 1px solid var(--hair);
 }
 
-.view-toggle {
-  display: flex;
-  border: 1px solid var(--hair);
-  border-radius: 3px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.view-toggle button {
-  padding: 5px 12px;
-  font-size: 12px;
-  color: var(--slate);
-  background: none;
-  border: none;
-  border-right: 1px solid var(--hair);
-  cursor: pointer;
-}
-
-.view-toggle button:last-child {
-  border-right: 0;
-}
-
-.view-toggle button[aria-pressed="true"] {
-  background: var(--ink);
-  color: #fff;
-  font-weight: 500;
-}
-
 .crumb-bar {
   display: flex;
   align-items: center;
@@ -247,12 +219,6 @@ button {
   align-items: center;
   justify-content: center;
   color: var(--muted, #888);
-}
-
-.lk-label {
-  font-size: 10px;
-  text-anchor: middle;
-  fill: var(--muted, #888);
 }
 
 .inspector,
@@ -440,71 +406,31 @@ button {
   border-style: dashed;
 }
 
-.tile .nm {
-  font: 600 13px var(--d);
-  letter-spacing: -0.015em;
+/* Delta mode (docs/serve.md#2): fill saturation encodes amount, ring encodes risk>=0.5,
+   added/removed get dedicated glyphs rather than colour alone. PolyNode has no per-status
+   hook of its own, so these apply directly to its root element via className. */
+.tile.status-modified,
+.tile.status-risk_changed,
+.tile.status-rollup {
+  background: color-mix(in srgb, var(--edge) calc(var(--amount, 0) * 70%), transparent);
+  border-radius: 6px;
 }
 
-.tile .mt {
-  font-family: var(--m);
-  fill: var(--slate);
+.tile.status-added {
+  outline: 2px solid var(--added);
+  border-radius: 6px;
 }
 
-.tile-body {
-  fill: color-mix(in srgb, var(--layer-color, var(--slate)) 22%, #ffffff);
-  stroke: var(--layer-color, var(--slate));
-  stroke-width: 1;
+.tile.status-removed {
+  outline: 1.6px dashed var(--removed);
+  border-radius: 6px;
 }
 
-.tile.dim .tile-body {
-  fill: var(--grid);
-  stroke: var(--hair);
-}
-
-.complexity-glyph {
-  fill: var(--layer-color, var(--slate));
-}
-
-.tile .cx {
-  font: 500 9.5px var(--m);
-  fill: var(--layer-color, var(--slate));
-}
-
-.tile.dim .complexity-glyph {
-  fill: var(--hair);
-}
-
-.ring {
-  stroke: var(--hi);
-  stroke-width: 1.5;
-}
-
-/* Delta mode (docs/serve.md#2): fill saturation encodes amount, offset ring encodes
-   risk>=0.5, added/removed get dedicated glyphs rather than colour alone. */
-.tile.status-modified .tile-body,
-.tile.status-risk_changed .tile-body,
-.tile.status-rollup .tile-body {
-  fill: color-mix(in srgb, var(--edge) calc(var(--amount, 0) * 70%), #ffffff);
-}
-
-.tile.status-added .tile-body {
-  stroke: var(--added);
-  stroke-width: 2;
-  stroke-dasharray: none;
-}
-
-.tile.status-removed .tile-body {
-  stroke: var(--removed);
-  stroke-width: 1.6;
-  stroke-dasharray: 5 3;
-  fill: #fdf1f1;
-}
-
-.tile.high-risk .tile-body {
+.tile.high-risk {
   filter: drop-shadow(0 0 0 1px var(--hi));
 }
 
-.tile.pulse .tile-body {
+.tile.pulse {
   animation: tile-pulse 900ms ease-out;
 }
 
@@ -529,29 +455,6 @@ button {
   font: 600 10px var(--d);
   letter-spacing: 0.05em;
   fill: var(--slate);
-}
-
-.lk {
-  stroke: var(--slate);
-  opacity: 0.3;
-}
-
-.lk.faint {
-  opacity: 0.07;
-}
-
-.lk.depends-on {
-  stroke: var(--dep);
-  opacity: 1;
-}
-
-.lk.used-by {
-  stroke: var(--usr);
-  opacity: 1;
-}
-
-.lk.dim {
-  opacity: 0.08;
 }
 
 .replay {

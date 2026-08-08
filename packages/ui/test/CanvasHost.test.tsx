@@ -67,13 +67,11 @@ describe("CanvasHost", () => {
       makeUnit({ id: "b", parent: "u:layer:l2" }),
     ];
     const { container } = render(<CanvasHost units={units} edges={[]} />);
-    const svg = screen.getByTestId("canvas-svg");
-    const layers = [...svg.children];
-    const regionLayerIndex = layers.findIndex((g) => g.querySelector(".region"));
-    const nodeLayerIndex = layers.findIndex((g) => g.querySelector(".tile"));
-    expect(regionLayerIndex).toBeGreaterThanOrEqual(0);
-    expect(regionLayerIndex).toBeLessThan(nodeLayerIndex);
-    expect(container.querySelector(".region")).not.toBeNull();
+    const regionEls = [...container.querySelectorAll(".region, .tile")];
+    const regionIndex = regionEls.findIndex((el) => el.classList.contains("region"));
+    const tileIndex = regionEls.findIndex((el) => el.classList.contains("tile"));
+    expect(regionIndex).toBeGreaterThanOrEqual(0);
+    expect(regionIndex).toBeLessThan(tileIndex);
   });
 
   it("does not draw a region for a single ungrouped layer", () => {
@@ -113,61 +111,60 @@ describe("CanvasHost", () => {
     useAppStore.getState().drill("u:x");
     const units = [makeUnit({ id: "a" })];
     render(<CanvasHost units={units} edges={[]} />);
-    const svg = screen.getByTestId("canvas-svg");
-    fireEvent.doubleClick(svg);
+    const scroll = screen.getByTestId("canvas-svg");
+    fireEvent.doubleClick(scroll);
     expect(useAppStore.getState().focus).toBeNull();
   });
 
-  it("hovering a tile marks its outgoing edges depends-on and incoming edges used-by, with different classes", () => {
-    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "c" })];
+  it("hovering a tile keeps its touching edges at full opacity and dims edges that don't touch it", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "c" }), makeUnit({ id: "d" })];
     const edges: Edge[] = [
       { id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 },
-      { id: "e2", from: "c", to: "a", kind: "calls", weight: 1, source: "static", confidence: 1 },
+      { id: "e2", from: "c", to: "d", kind: "calls", weight: 1, source: "static", confidence: 1 },
     ];
     const { container } = render(<CanvasHost units={units} edges={edges} />);
-    fireEvent.mouseEnter(container.querySelector('.tile[data-id="a"]')!);
+    fireEvent.mouseOver(container.querySelector('.tile[data-id="a"]')!);
 
-    const depLink = container.querySelector('.lk[data-from="a"][data-to="b"]')!;
-    const userLink = container.querySelector('.lk[data-from="c"][data-to="a"]')!;
-    expect(depLink.classList.contains("depends-on")).toBe(true);
-    expect(userLink.classList.contains("used-by")).toBe(true);
-    expect(depLink.classList.contains("used-by")).toBe(false);
+    const paths = [...container.querySelectorAll("svg path")].filter((p) => (p.getAttribute("stroke") || "").startsWith("var(--connector"));
+    expect(paths).toHaveLength(2);
+    const touching = paths.find((p) => p.getAttribute("stroke") === "var(--connector-active)")!;
+    const unrelated = paths.find((p) => p !== touching)!;
+    expect(touching.getAttribute("opacity")).toBe("1");
+    expect(unrelated.getAttribute("opacity")).toBe("var(--focus-dim-edge)");
   });
 
-  it("hovering a tile dims unrelated nodes and links", () => {
+  it("hovering a tile dims unrelated nodes", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "unrelated" })];
     const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
     const { container } = render(<CanvasHost units={units} edges={edges} />);
-    fireEvent.mouseEnter(container.querySelector('.tile[data-id="a"]')!);
+    fireEvent.mouseOver(container.querySelector('.tile[data-id="a"]')!);
 
-    const unrelatedTile = container.querySelector('.tile[data-id="unrelated"]')!;
-    const hoveredTile = container.querySelector('.tile[data-id="a"]')!;
-    expect(unrelatedTile.classList.contains("dim")).toBe(true);
-    expect(hoveredTile.classList.contains("dim")).toBe(false);
+    const unrelatedTile = container.querySelector('.tile[data-id="unrelated"]') as HTMLElement;
+    const hoveredTile = container.querySelector('.tile[data-id="a"]') as HTMLElement;
+    // jsdom's CSSOM can't parse a var() into its numeric `opacity` property (it coerces to
+    // "NaN"), unlike a real browser — so dimmed is asserted as "not opacity 1" here.
+    expect(unrelatedTile.style.opacity).not.toBe("1");
+    expect(hoveredTile.style.opacity).toBe("1");
   });
 
-  it("does not re-create delta tile nodes on hover, so the pulse animation doesn't replay every time the mouse moves over a tile", () => {
+  it("does not re-create delta tile DOM nodes on hover, so the pulse animation doesn't replay every time the mouse moves over a tile", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
     const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
     const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
 
     const tileBefore = container.querySelector('.tile[data-id="a"]')!;
-    fireEvent.mouseEnter(container.querySelector('.tile[data-id="b"]')!);
+    fireEvent.mouseOver(container.querySelector('.tile[data-id="b"]')!);
     const tileAfter = container.querySelector('.tile[data-id="a"]')!;
 
     expect(tileAfter).toBe(tileBefore);
   });
 
-  it("sets a viewBox fitted to the scene's bounds so nodes off the origin are visible", () => {
-    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
-    render(<CanvasHost units={units} edges={edges} />);
-    const svg = screen.getByTestId("canvas-svg");
-    const viewBox = svg.getAttribute("viewBox");
-    expect(viewBox).not.toBeNull();
-    const [, , w, h] = viewBox!.split(" ").map(Number);
-    expect(w).toBeGreaterThan(0);
-    expect(h).toBeGreaterThan(0);
+  it("applies a pulse class to tiles with a delta, so scrubbing rev-to-rev is visibly animated", () => {
+    const units = [makeUnit({ id: "a" })];
+    const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
+    const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
+
+    expect(container.querySelector('.tile[data-id="a"]')!.classList.contains("pulse")).toBe(true);
   });
 
   it("scene sits inside a native-scrolling container, so an oversized graph gets real scrollbars", () => {
@@ -175,43 +172,42 @@ describe("CanvasHost", () => {
     const { container } = render(<CanvasHost units={units} edges={[]} />);
     const scroll = container.querySelector(".canvas-scroll")!;
     expect(scroll).not.toBeNull();
-    expect(scroll.contains(screen.getByTestId("canvas-svg"))).toBe(true);
+    expect(scroll).toBe(screen.getByTestId("canvas-svg"));
   });
 
-  it("wheel zooms in: the SVG's rendered (CSS pixel) size grows on deltaY < 0", () => {
+  it("wheel zooms in: the container's rendered (CSS pixel) size grows on deltaY < 0", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    const { container } = render(<CanvasHost units={units} edges={[]} />);
-    const scroll = container.querySelector(".canvas-scroll")!;
+    render(<CanvasHost units={units} edges={[]} />);
+    const scroll = screen.getByTestId("canvas-svg") as HTMLElement;
     stubRect(scroll, 400, 300);
-    const svg = screen.getByTestId("canvas-svg");
-    const before = Number(svg.getAttribute("width"));
+    const before = scroll.style.width;
 
     fireEvent.wheel(scroll, { deltaY: -100, clientX: 100, clientY: 100 });
 
-    const after = Number(svg.getAttribute("width"));
-    expect(after).toBeGreaterThan(before);
+    const after = scroll.style.width;
+    expect(parseFloat(after)).toBeGreaterThan(parseFloat(before) || 0);
   });
 
-  it("wheel zoom-out shrinks the SVG's rendered size, clamped to a min scale", () => {
+  it("wheel zoom-out shrinks the container's rendered size, clamped to a min scale", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    const { container } = render(<CanvasHost units={units} edges={[]} />);
-    const scroll = container.querySelector(".canvas-scroll")!;
+    render(<CanvasHost units={units} edges={[]} />);
+    const scroll = screen.getByTestId("canvas-svg") as HTMLElement;
     stubRect(scroll, 400, 300);
-    const svg = screen.getByTestId("canvas-svg");
-    const before = Number(svg.getAttribute("width"));
+    fireEvent.wheel(scroll, { deltaY: -100, clientX: 100, clientY: 100 });
+    const before = parseFloat(scroll.style.width);
 
     for (let i = 0; i < 100; i++) {
       fireEvent.wheel(scroll, { deltaY: 100, clientX: 100, clientY: 100 });
     }
-    const after = Number(svg.getAttribute("width"));
+    const after = parseFloat(scroll.style.width);
     expect(after).toBeLessThan(before);
     expect(after).toBeGreaterThan(0);
   });
 
   it("dragging on empty canvas pans via native scroll instead of ascending", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    const { container } = render(<CanvasHost units={units} edges={[]} />);
-    const scroll = container.querySelector(".canvas-scroll")! as HTMLDivElement;
+    render(<CanvasHost units={units} edges={[]} />);
+    const scroll = screen.getByTestId("canvas-svg") as HTMLDivElement;
     stubRect(scroll, 400, 300);
     scroll.scrollLeft = 50;
     scroll.scrollTop = 50;
@@ -227,8 +223,8 @@ describe("CanvasHost", () => {
 
   it("only shows the scrollbar (via a 'panning' class) while a drag-pan is actually in progress", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    const { container } = render(<CanvasHost units={units} edges={[]} />);
-    const scroll = container.querySelector(".canvas-scroll")! as HTMLDivElement;
+    render(<CanvasHost units={units} edges={[]} />);
+    const scroll = screen.getByTestId("canvas-svg") as HTMLDivElement;
     stubRect(scroll, 400, 300);
 
     expect(scroll.classList.contains("panning")).toBe(false);
@@ -244,12 +240,11 @@ describe("CanvasHost", () => {
   it("double-clicking empty canvas still ascends after a drag/zoom sequence", () => {
     useAppStore.getState().drill("u:x");
     const units = [makeUnit({ id: "a" })];
-    const { container } = render(<CanvasHost units={units} edges={[]} />);
-    const scroll = container.querySelector(".canvas-scroll")!;
+    render(<CanvasHost units={units} edges={[]} />);
+    const scroll = screen.getByTestId("canvas-svg");
     stubRect(scroll, 400, 300);
-    const svg = screen.getByTestId("canvas-svg");
     fireEvent.wheel(scroll, { deltaY: -50, clientX: 50, clientY: 50 });
-    fireEvent.doubleClick(svg);
+    fireEvent.doubleClick(scroll);
     expect(useAppStore.getState().focus).toBeNull();
   });
 
@@ -258,30 +253,12 @@ describe("CanvasHost", () => {
     const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
     const { container } = render(<CanvasHost units={units} edges={edges} />);
     const tileA = container.querySelector('.tile[data-id="a"]')!;
-    fireEvent.mouseEnter(tileA);
-    fireEvent.mouseLeave(tileA);
+    fireEvent.mouseOver(tileA);
+    expect((container.querySelector('.tile[data-id="b"]') as HTMLElement).style.opacity).toBe("1");
 
-    expect(container.querySelector('.tile[data-id="b"]')!.classList.contains("dim")).toBe(false);
-  });
+    fireEvent.mouseLeave(screen.getByTestId("canvas-svg"));
 
-  it("applies a pulse class to tiles with a delta, so scrubbing rev-to-rev is visibly animated", () => {
-    const units = [makeUnit({ id: "a" })];
-    const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
-    const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
-
-    expect(container.querySelector('.tile[data-id="a"]')!.classList.contains("pulse")).toBe(true);
-  });
-
-  it("does not re-create delta tile nodes on hover, so the pulse animation doesn't replay every time the mouse moves over a tile", () => {
-    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
-    const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
-
-    const tileBefore = container.querySelector('.tile[data-id="a"]')!;
-    fireEvent.mouseEnter(container.querySelector('.tile[data-id="b"]')!);
-    const tileAfter = container.querySelector('.tile[data-id="a"]')!;
-
-    expect(tileAfter).toBe(tileBefore);
+    expect((container.querySelector('.tile[data-id="a"]') as HTMLElement).style.opacity).toBe("1");
   });
 
   it("keeps a node's relative x order stable across a units/edges change (replay scrub), so nodes don't teleport (docs/serve.md#3)", () => {
@@ -290,9 +267,8 @@ describe("CanvasHost", () => {
     // put y left of x — seeding from the prior build's positions must keep x left of y
     // regardless, so the node doesn't visibly jump sides on a rev scrub.
     const leftEdge = (id: string, container: HTMLElement) => {
-      const points = container.querySelector(`.tile[data-id="${id}"] polygon.tile-body`)!.getAttribute("points")!;
-      const xs = points.trim().split(/\s+/).map((pt) => Number(pt.split(",")[0]));
-      return Math.min(...xs);
+      const tile = container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement;
+      return parseFloat(tile.style.left);
     };
 
     const unitsRev1 = [makeUnit({ id: "root" }), makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "x" }), makeUnit({ id: "y" })];

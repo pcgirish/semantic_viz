@@ -216,8 +216,8 @@ describe("App", () => {
       expect(screen.getByTestId("rev-picker")).toBeInTheDocument();
     });
 
-    const options = screen.getAllByTestId("rev-option");
-    expect(options.map((o) => o.textContent)).toEqual(["bbb", "aaa"]);
+    const options = screen.getByTestId("rev-picker").querySelectorAll("option");
+    expect([...options].map((o) => o.textContent)).toEqual(["bbb", "aaa"]);
   });
 
   it("switching VIEW to Delta fetches the delta against the previous rev and renders the inspect queue", async () => {
