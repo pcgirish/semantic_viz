@@ -1,0 +1,33 @@
+:root{
+--radius-xs:3px;
+--radius-sm:5px;
+--radius-md:8px;
+--radius-lg:12px;
+--radius-xl:18px;
+--radius-2xl:26px;
+--radius-pill:999px;
+--radius-tray:10px;
+--radius-chip:5px;
+--radius-node:6px;
+
+--border-w:1px;
+--border-w-2:2px;
+--border-w-heavy:3px;
+
+/* Polygon language — nodes and chips are faceted, not rounded. */
+--clip-chamfer:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px); /* @kind other */
+--clip-chamfer-sm:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px); /* @kind other */
+--clip-hex:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); /* @kind other */
+--clip-hex-tall:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); /* @kind other */
+--clip-tri:polygon(50% 0,100% 100%,0 100%); /* @kind other */
+--clip-diamond:polygon(50% 0,100% 50%,50% 100%,0 50%); /* @kind other */
+--clip-tag:polygon(0 0,calc(100% - 9px) 0,100% 50%,calc(100% - 9px) 100%,0 100%); /* @kind other */
+
+/* Connector geometry */
+--connector-w:1.5px;
+--connector-w-heavy:2.5px;
+--connector-dash:4 4; /* @kind other */
+--connector-arrow:7px;
+--group-dash:6 5; /* @kind other */
+--group-radius:14px;
+}
