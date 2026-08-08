@@ -98,8 +98,20 @@ export function Inspector({ unit, units, edges, external, deltaQueue }: Inspecto
     );
   }
 
-  const dependsOn = edges.filter((e) => e.from === unit.id).map((e) => units.find((u) => u.id === e.to)).filter((u): u is Unit => Boolean(u));
-  const usedBy = edges.filter((e) => e.to === unit.id).map((e) => units.find((u) => u.id === e.from)).filter((u): u is Unit => Boolean(u));
+  const dependsOn = edges
+    .filter((e) => e.from === unit.id)
+    .map((e) => {
+      const target = units.find((u) => u.id === e.to);
+      return target && { edgeId: e.id, unit: target };
+    })
+    .filter((d): d is { edgeId: string; unit: Unit } => Boolean(d));
+  const usedBy = edges
+    .filter((e) => e.to === unit.id)
+    .map((e) => {
+      const source = units.find((u) => u.id === e.from);
+      return source && { edgeId: e.id, unit: source };
+    })
+    .filter((d): d is { edgeId: string; unit: Unit } => Boolean(d));
 
   const semanticsConfidence = unit.semantics?.confidence;
   const lowConfidence = semanticsConfidence !== undefined && semanticsConfidence < LOW_CONFIDENCE;
@@ -190,8 +202,8 @@ export function Inspector({ unit, units, edges, external, deltaQueue }: Inspecto
       <Card title="Depends on">
         {dependsOn.length > 0 ? (
           <ul>
-            {dependsOn.map((u) => (
-              <li key={u.id}>{u.name}</li>
+            {dependsOn.map((d) => (
+              <li key={d.edgeId}>{d.unit.name}</li>
             ))}
           </ul>
         ) : (
@@ -202,8 +214,8 @@ export function Inspector({ unit, units, edges, external, deltaQueue }: Inspecto
       <Card title="Used by">
         {usedBy.length > 0 ? (
           <ul>
-            {usedBy.map((u) => (
-              <li key={u.id}>{u.name}</li>
+            {usedBy.map((d) => (
+              <li key={d.edgeId}>{d.unit.name}</li>
             ))}
           </ul>
         ) : (

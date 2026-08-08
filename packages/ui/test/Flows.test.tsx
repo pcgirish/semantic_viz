@@ -41,7 +41,9 @@ describe("Flows", () => {
     render(<Flows flows={flows} units={units} edges={[]} onSelectStep={vi.fn()} />);
 
     expect(screen.getByText(/entry points/i)).toBeInTheDocument();
-    expect(screen.getByText("GET /orders/{id}")).toBeInTheDocument();
+    // "GET /orders/{id}" is the default-selected flow, so it appears both in the rail
+    // and in the graph's route/contract node.
+    expect(screen.getAllByText("GET /orders/{id}").length).toBeGreaterThan(0);
     expect(screen.getByText("POST /orders")).toBeInTheDocument();
   });
 

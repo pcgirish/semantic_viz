@@ -677,7 +677,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /^flows$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("GET /orders/{id}")).toBeInTheDocument();
+      expect(screen.getAllByText("GET /orders/{id}").length).toBeGreaterThan(0);
     });
     expect(container.querySelector(".canvas-scroll")).toBeNull();
   });

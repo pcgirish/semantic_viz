@@ -22,7 +22,6 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
   const blockIds = new Set(functionUnit.children);
   const blocks = units.filter((u) => u.kind === "block" && blockIds.has(u.id));
   const cfEdges = edges.filter((e) => e.kind === "control_flow" && blockIds.has(e.from) && blockIds.has(e.to));
-  const route = units.find((u) => u.kind === "api_flow" && u.steps?.includes(functionUnit.id))?.route;
 
   if (blocks.length === 0) {
     return (
@@ -51,7 +50,7 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
         y1: from.y + from.h - minY,
         x2: to.x + to.w / 2 - minX,
         y2: to.y - minY,
-        kind: "control" as const,
+        kind: "call" as const,
       };
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
@@ -69,10 +68,6 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
           "var(--surface-0)",
       }}
     >
-      <div className="flowchart-header">
-        <span className="flowchart-header-qualname">{functionUnit.qualname}</span>
-        {route && <span className="flowchart-header-route">{route}</span>}
-      </div>
       <div data-testid="flowchart-svg" className="flowchart-svg" style={{ width: "100%", height: "100%", display: "block" }}>
         <GraphCanvas grid={false} style={{ width: "100%", height: "100%" }}>
           <ConnectorLayer edges={connectorEdges} route="ortho" />

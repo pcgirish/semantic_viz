@@ -153,7 +153,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Toolbar
-        left={<Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />}
+        left={mode === "flowchart" ? undefined : <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />}
         center={
           <SegmentedControl
             value={mode === "flowchart" ? "current" : mode}

@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { Badge, Card, Tray } from "@scv/design-system";
+import { Badge, ConnectorLayer, GraphCanvas, Tray } from "@scv/design-system";
 import type { Edge, Unit } from "@scv/schema";
+
+const NODE_W = 200;
+const COL_GAP = 140;
+const ROW_H = 100;
 
 export type FlowsProps = {
   /** kind:"api_flow" units (docs/serve.md#4 "Flows"). */
@@ -51,6 +55,33 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
 
   const steps = (selectedFlow.steps ?? []).map((id) => unitsById.get(id)).filter((u): u is Unit => Boolean(u));
 
+  // Route contract node (col 0) then one step per column, left to right — mirrors the
+  // mock's graph-node chain (docs/mock renderFlowsMode) instead of a stacked card list.
+  const nodeY = 40;
+  const routeX = 0;
+  const stepX = (i: number) => (i + 1) * (NODE_W + COL_GAP);
+  const canvasW = stepX(steps.length - 1) + NODE_W + 40;
+  const canvasH = nodeY * 2 + ROW_H;
+
+  const connectorEdges: { x1: number; y1: number; x2: number; y2: number; kind: "call" | "import"; label?: string; from: string; to: string }[] = [];
+  let prevX = routeX;
+  let prevId = selectedFlow.id;
+  steps.forEach((step, i) => {
+    const kind = edgeKind(edges, prevId, step.id);
+    connectorEdges.push({
+      x1: prevX + NODE_W,
+      y1: nodeY + ROW_H / 2,
+      x2: stepX(i),
+      y2: nodeY + ROW_H / 2,
+      kind: kind === "calls" ? "call" : "import",
+      label: kind,
+      from: prevId,
+      to: step.id,
+    });
+    prevX = stepX(i);
+    prevId = step.id;
+  });
+
   return (
     <div className="flows" style={{ flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}>
       <Tray title={`Entry points · ${flows.length}`}>
@@ -88,36 +119,62 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
         ))}
       </Tray>
 
-      <div className="flows-path" style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: 20 }}>
-        {steps.map((step, i) => {
-          const next = steps[i + 1];
-          const changed = changedStepIds?.has(step.id) ?? false;
-          return (
-            <div key={step.id}>
-              <Card className="flow-step" tone={changed ? "warm" : "neutral"} onClick={() => onSelectStep(step.id)} style={{ cursor: "pointer", marginBottom: 8 }}>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <span style={{ font: "600 11px var(--type-mono, monospace)", color: "var(--text-faint)", flex: "none" }}>{i + 1}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <b>{step.name}</b>
-                      {changed && <Badge tone="mod">changed</Badge>}
-                    </div>
-                    <div style={{ font: "var(--type-metric)", color: "var(--text-faint)", marginTop: 2 }}>
-                      {step.loc.files[0]} · {step.loc.sloc} sloc
-                      {step.cost?.complexity !== undefined && ` · complexity ${step.cost.complexity}`}
-                    </div>
-                    {step.semantics?.what && <p style={{ fontSize: 11, margin: "4px 0 0" }}>{step.semantics.what}</p>}
-                  </div>
+      <div className="flows-path" style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+        <GraphCanvas style={{ width: canvasW, height: canvasH, minWidth: "100%", minHeight: "100%" }}>
+          <ConnectorLayer edges={connectorEdges} route="ortho" arrows />
+          <div
+            className="flow-node flow-node-contract"
+            style={{
+              position: "absolute",
+              left: routeX,
+              top: nodeY,
+              width: NODE_W,
+              minHeight: ROW_H * 0.6,
+              padding: "10px 14px",
+              background: "var(--surface-2)",
+              border: "var(--border-w) solid var(--temp-4)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--text-hi)",
+              font: "var(--weight-semibold) var(--text-sm) var(--font-core)",
+            }}
+          >
+            {selectedFlow.route ?? selectedFlow.name}
+          </div>
+          {steps.map((step, i) => {
+            const changed = changedStepIds?.has(step.id) ?? false;
+            return (
+              <div
+                key={step.id}
+                className="flow-step"
+                onClick={() => onSelectStep(step.id)}
+                style={{
+                  position: "absolute",
+                  left: stepX(i),
+                  top: nodeY,
+                  width: NODE_W,
+                  minHeight: ROW_H * 0.6,
+                  padding: "10px 14px",
+                  background: "var(--surface-2)",
+                  border: `var(--border-w) solid ${changed ? "var(--temp-6)" : "var(--border-1)"}`,
+                  borderRadius: "var(--radius-md)",
+                  color: "var(--text-hi)",
+                  cursor: "pointer",
+                  transition: "border-color 150ms ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <b style={{ font: "var(--weight-semibold) var(--text-sm) var(--font-core)" }}>{step.name}</b>
+                  {changed && <Badge tone="mod">changed</Badge>}
                 </div>
-              </Card>
-              {next && (
-                <div className="flow-edge" style={{ font: "var(--type-metric)", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.06em", padding: "4px 0 4px 40px" }}>
-                  {edgeKind(edges, step.id, next.id) ?? "→"}
+                <div style={{ font: "var(--type-metric)", color: "var(--text-faint)", marginTop: 4 }}>
+                  {step.loc.files[0]} · {step.loc.sloc} sloc
+                  {step.cost?.complexity !== undefined && ` · complexity ${step.cost.complexity}`}
                 </div>
-              )}
-            </div>
-          );
-        })}
+                {step.semantics?.what && <p style={{ fontSize: 11, margin: "4px 0 0", color: "var(--text-body)" }}>{step.semantics.what}</p>}
+              </div>
+            );
+          })}
+        </GraphCanvas>
       </div>
     </div>
   );
