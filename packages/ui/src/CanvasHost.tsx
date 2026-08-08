@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, PolyNode, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type Scene } from "@scv/layout";
-import { hashLayerToColor } from "@scv/skin-tiles";
+import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
 
 const HIGH_RISK = 0.5;
@@ -216,12 +216,34 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
             key={r.id}
             className="region"
             data-id={r.id}
-            style={{ position: "absolute", left: r.x - base.x, top: r.y - base.y, width: r.w, height: r.h, pointerEvents: "none" }}
+            style={{
+              position: "absolute",
+              left: r.x - base.x,
+              top: r.y - base.y,
+              width: r.w,
+              height: r.h,
+              pointerEvents: "none",
+              border: "var(--border-w) dashed var(--border-1)",
+              borderRadius: "var(--radius-md)",
+              background: "rgba(152,174,191,0.035)",
+            }}
           >
-            <div className="region-body" style={{ position: "absolute", inset: 0, strokeWidth: 1.5, opacity: 0.5 }} />
             <span
               className="region-label"
-              style={{ font: "600 10px var(--font-display)", letterSpacing: "0.05em", fill: "var(--text-faint)" } as React.CSSProperties}
+              style={{
+                position: "absolute",
+                top: -9,
+                left: 12,
+                padding: "1px 8px 1px 6px",
+                background: "var(--surface-3)",
+                color: "var(--text-faint)",
+                font: "600 10px var(--font-mono)",
+                textTransform: "uppercase",
+                letterSpacing: "0.09em",
+                clipPath: "var(--clip-chamfer-sm)",
+                border: "var(--border-w) solid var(--border-1)",
+                whiteSpace: "nowrap",
+              }}
             >
               {r.name.toUpperCase()}
             </span>
@@ -231,7 +253,9 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
         {scene.nodes.map((n) => {
           const d = deltaByUnit?.get(n.id);
           const highRisk = d?.risk !== null && d?.risk !== undefined && d.risk >= HIGH_RISK;
-          const layerColor = n.layer ? hashLayerToColor(n.layer) : "";
+          // serve.md#2: hue encodes layer (categorical), not `heat` — heat is always 0
+          // from layout.ts today, so falling back to it would render every tile dormant-gray.
+          const layerColor = n.layer ? hashLayerToColor(n.layer, codedreamLayerPalette) : undefined;
           const deltaStyle = deltaTileStyle(d);
           return (
             <PolyNode
@@ -242,7 +266,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
               label={n.name}
               shape={shapeFor(n)}
               size={n.w}
-              temp={n.heat}
+              color={layerColor}
               focus={focus}
               onFocusNode={(id: string) => setHover(id)}
               style={{
@@ -250,7 +274,6 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
                 left: n.x - base.x,
                 top: n.y - base.y,
                 height: n.h,
-                "--layer-color": layerColor || "var(--ext)",
                 ...deltaStyle,
                 ...(highRisk ? { filter: "drop-shadow(0 0 0 1px var(--temp-6))" } : {}),
               } as React.CSSProperties}

@@ -11,10 +11,10 @@ const SHAPES={hex:"hex",chamfer:"chamfer",diamond:"diamond",square:"square","hex
  * Faceted polygon with rounded vertices, temperature-tinted, optionally extruded for the 3D skin.
  */
 export function PolyNode({
-  label,sublabel,temp=1,shape="chamfer",size=88,icon,selected,dim,focus,id,
+  label,sublabel,temp=1,color,shape="chamfer",size=88,icon,selected,dim,focus,id,
   filled,extrude=0,onClick,onFocusNode,style,...rest
 }){
-  const c=tempHex(temp);
+  const c=color||tempHex(temp);
   const role=focusRole(id,focus);
   const isSelected=selected||role==="self";
   const isDim=dim||role==="muted";
