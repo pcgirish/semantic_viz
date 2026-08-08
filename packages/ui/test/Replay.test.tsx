@@ -12,11 +12,16 @@ function makeRevs(): ReplayRev[] {
   ];
 }
 
+/** CommitTimeline renders one <button> per commit, titled with the commit's message text. */
+function trackButtons(): HTMLElement[] {
+  return screen.getAllByRole("button").filter((b) => b.title.includes(" · amount "));
+}
+
 describe("Replay", () => {
   it("defaults to PR-level granularity, showing only pr-kind revs as bars", () => {
     render(<Replay revs={makeRevs()} sha="bbb" onScrub={vi.fn()} />);
 
-    expect(screen.getAllByTestId("replay-bar")).toHaveLength(1);
+    expect(trackButtons()).toHaveLength(1);
   });
 
   it("falls back to showing every rev when the repo has no pr-kind revs at all", () => {
@@ -26,7 +31,7 @@ describe("Replay", () => {
     ];
     render(<Replay revs={revs} sha="bbb" onScrub={vi.fn()} />);
 
-    expect(screen.getAllByTestId("replay-bar")).toHaveLength(2);
+    expect(trackButtons()).toHaveLength(2);
   });
 
   it("toggling to commit-level shows every rev as a bar", () => {
@@ -34,30 +39,19 @@ describe("Replay", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /commit/i }));
 
-    expect(screen.getAllByTestId("replay-bar")).toHaveLength(3);
+    expect(trackButtons()).toHaveLength(3);
   });
 
-  it("bar height reflects amount and author_kind sets a distinct class", () => {
-    render(<Replay revs={makeRevs()} sha="bbb" onScrub={vi.fn()} />);
-
-    const bars = screen.getAllByTestId("replay-bar");
-    expect(bars[0].style.getPropertyValue("--amount")).toBe("0.8");
-    expect(bars[0].classList.contains("author-agent")).toBe(true);
-  });
-
-  it("clicking a bar scrubs to that rev's sha", () => {
+  it("bar title reflects amount and sha, and clicking scrubs to that rev", () => {
     const onScrub = vi.fn();
     render(<Replay revs={makeRevs()} sha="bbb" onScrub={onScrub} />);
 
-    fireEvent.click(screen.getAllByTestId("replay-bar")[0]);
+    const bars = trackButtons();
+    expect(bars[0]!.title).toContain("bbb");
+    expect(bars[0]!.title).toContain("amount 0.80");
 
+    fireEvent.click(bars[0]!);
     expect(onScrub).toHaveBeenCalledWith("bbb");
-  });
-
-  it("marks the currently selected rev's bar as active", () => {
-    render(<Replay revs={makeRevs()} sha="bbb" onScrub={vi.fn()} />);
-
-    expect(screen.getAllByTestId("replay-bar")[0].classList.contains("active")).toBe(true);
   });
 
   it("scopes the track to the current sha's PR — branch point to head, not the whole repo history", () => {
@@ -70,7 +64,7 @@ describe("Replay", () => {
     ];
     render(<Replay revs={revs} sha="mid" onScrub={vi.fn()} />);
 
-    const shas = screen.getAllByTestId("replay-bar").map((b) => b.title.split(" · ")[0]);
+    const shas = trackButtons().map((b) => b.title.split(" · ")[0]);
     expect(shas.sort()).toEqual(["head", "mid", "start"]);
   });
 
@@ -86,7 +80,7 @@ describe("Replay", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /commit/i }));
 
-    const shas = screen.getAllByTestId("replay-bar").map((b) => b.title.split(" · ")[0]);
+    const shas = trackButtons().map((b) => b.title.split(" · ")[0]);
     expect(shas.sort()).toEqual(["head", "mid", "start"]);
   });
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button, CommitTimeline } from "@scv/design-system";
 
 /** git's default abbreviated-sha length — enough to disambiguate, short enough to scan. */
 export function shortSha(sha: string): string {
@@ -45,38 +46,43 @@ export function Replay({ revs, sha, onScrub }: ReplayProps): JSX.Element {
   const shown = dense || !hasPrs ? scoped : scoped.filter((r) => r.kind === "pr");
   const chronological = [...shown].sort((a, b) => a.ts.localeCompare(b.ts));
   const current = revs.find((r) => r.sha === sha);
+  const selectedIndex = chronological.findIndex((r) => r.sha === sha);
+
+  // CommitTimeline colors bars by temperature, not an author class — reuse that axis to
+  // keep the human/agent distinction: agent commits render one stop warmer.
+  const authorTemp = (kind: string): number => (kind === "agent" ? 2 : 1);
 
   return (
-    <div className="replay">
-      <div className="replay-controls">
-        <button type="button" aria-pressed={!dense} onClick={() => setDense(false)}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-md)" }}>
+      <div style={{ display: "flex", gap: "var(--gap-sm)" }}>
+        <Button variant={dense ? "ghost" : "solid"} size="sm" aria-pressed={!dense} onClick={() => setDense(false)}>
           PR
-        </button>
-        <button type="button" aria-pressed={dense} onClick={() => setDense(true)}>
+        </Button>
+        <Button variant={dense ? "solid" : "ghost"} size="sm" aria-pressed={dense} onClick={() => setDense(true)}>
           Commit
-        </button>
+        </Button>
       </div>
-      <div className="replay-track">
+      <CommitTimeline
+        commits={chronological.map((r) => ({
+          sha: r.sha,
+          message: `${r.sha} · ${r.author} · amount ${(r.amount ?? 0).toFixed(2)}`,
+          churn: (r.amount ?? 0) * 60,
+          temp: authorTemp(r.author_kind),
+        }))}
+        value={selectedIndex}
+        onChange={(i) => {
+          const rev = chronological[i];
+          if (rev) onScrub(rev.sha);
+        }}
+      />
+      <div style={{ display: "flex", gap: "var(--gap-md)", font: "var(--type-metric)", color: "var(--text-faint)" }}>
         {chronological.map((r) => (
-          <div
-            key={r.sha}
-            className={`replay-rev author-${r.author_kind}${r.sha === sha ? " active" : ""}`}
-            onClick={() => onScrub(r.sha)}
-          >
-            <div
-              data-testid="replay-bar"
-              className={`replay-bar author-${r.author_kind}${r.sha === sha ? " active" : ""}`}
-              style={{ "--amount": String(r.amount ?? 0) } as React.CSSProperties}
-              title={`${r.sha} · ${r.author} · amount ${(r.amount ?? 0).toFixed(2)}`}
-            />
-            <div className="replay-dot" />
-            <div className="replay-cap">{shortSha(r.sha)}</div>
-          </div>
+          <span key={r.sha}>{shortSha(r.sha)}</span>
         ))}
       </div>
       {current && (
-        <div className="replay-meta">
-          {current.message && <strong>{current.message}</strong>}
+        <div style={{ font: "var(--type-ui)", color: "var(--text-dim)" }}>
+          {current.message && <strong style={{ color: "var(--text-hi)" }}>{current.message}</strong>}{" "}
           {current.author} · {current.author_kind}
         </div>
       )}

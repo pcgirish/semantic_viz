@@ -419,11 +419,13 @@ describe("App", () => {
 
     render(<App snapshotUrl="/api/snapshot/bbb" />);
 
+    const replayBar = () => screen.getAllByRole("button").filter((b) => b.title.includes(" · amount "));
+
     await waitFor(() => {
-      expect(screen.getAllByTestId("replay-bar")).toHaveLength(2);
+      expect(replayBar()).toHaveLength(2);
     });
 
-    fireEvent.click(screen.getAllByTestId("replay-bar")[0]);
+    fireEvent.click(replayBar()[0]!);
 
     await waitFor(() => {
       expect(screen.getByTestId("rev-picker")).toHaveValue("aaa");
