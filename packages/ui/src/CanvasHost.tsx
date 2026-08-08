@@ -46,6 +46,22 @@ function shapeFor(n: { sides: 3 | 4 | 6 | 0; blockType?: string }): "diamond" | 
   return SHAPES[1]!;
 }
 
+// --temp-4 (#F2A93B, "changed") as an RGB triple — color-mix() can't be computed inline
+// from a JS number, so the delta amount->alpha mix below is done as literal rgba math.
+const CHANGED_RGB = "242, 169, 59";
+
+/** Delta-mode tile styling (docs/serve.md#2): fill saturation encodes amount, ring encodes
+ * risk>=0.5, added/removed get dedicated outlines rather than colour alone. */
+function deltaTileStyle(d: TileDeltaInfo | undefined): React.CSSProperties {
+  if (!d) return {};
+  if (d.status === "added") return { outline: "2px solid var(--temp-2)", borderRadius: 6 };
+  if (d.status === "removed") return { outline: "1.6px dashed var(--temp-6)", borderRadius: 6 };
+  if (d.status === "modified" || d.status === "risk_changed" || d.status === "rollup") {
+    return { background: `rgba(${CHANGED_RGB}, ${(d.amount ?? 0) * 0.7})`, borderRadius: 6 };
+  }
+  return {};
+}
+
 function sceneBounds(scene: { nodes: Array<{ x: number; y: number; w: number; h: number }> }): ViewBox {
   if (scene.nodes.length === 0) return { x: 0, y: 0, w: 1, h: 1 };
   const pad = 24;
@@ -147,6 +163,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
       drag.moved = true;
       scroll.classList.add("panning");
+      scroll.style.overflow = "auto";
     }
     if (!drag.moved) return;
 
@@ -156,7 +173,9 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
 
   const handleMouseUp = () => {
     dragRef.current = null;
-    scrollRef.current?.classList.remove("panning");
+    const scroll = scrollRef.current;
+    scroll?.classList.remove("panning");
+    if (scroll) scroll.style.overflow = "hidden";
   };
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -179,9 +198,19 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
         setHover(null);
       }}
       onDoubleClick={handleDoubleClick}
-      style={{ width: renderSize.w, height: renderSize.h }}
+      style={{
+        width: renderSize.w,
+        height: renderSize.h,
+        flex: 1,
+        minWidth: 0,
+        overflow: "hidden",
+        background:
+          "linear-gradient(var(--border-hair) 1px, transparent 1px) 0 0 / 100% 28px," +
+          "linear-gradient(90deg, var(--border-hair) 1px, transparent 1px) 0 0 / 28px 100%," +
+          "var(--surface-0)",
+      }}
     >
-      <GraphCanvas grid={false}>
+      <GraphCanvas grid={false} style={{ width: "100%", height: "100%" }}>
         {scene.regions.map((r) => (
           <div
             key={r.id}
@@ -189,21 +218,27 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
             data-id={r.id}
             style={{ position: "absolute", left: r.x - base.x, top: r.y - base.y, width: r.w, height: r.h, pointerEvents: "none" }}
           >
-            <div className="region-body" style={{ position: "absolute", inset: 0 }} />
-            <span className="region-label">{r.name.toUpperCase()}</span>
+            <div className="region-body" style={{ position: "absolute", inset: 0, strokeWidth: 1.5, opacity: 0.5 }} />
+            <span
+              className="region-label"
+              style={{ font: "600 10px var(--font-display)", letterSpacing: "0.05em", fill: "var(--text-faint)" } as React.CSSProperties}
+            >
+              {r.name.toUpperCase()}
+            </span>
           </div>
         ))}
         <ConnectorLayer edges={connectorEdges} route="ortho" arrows={false} focus={focus} />
         {scene.nodes.map((n) => {
           const d = deltaByUnit?.get(n.id);
-          const statusClass = d ? `status-${d.status} pulse${d.risk !== null && d.risk >= HIGH_RISK ? " high-risk" : ""}` : "";
+          const highRisk = d?.risk !== null && d?.risk !== undefined && d.risk >= HIGH_RISK;
           const layerColor = n.layer ? hashLayerToColor(n.layer) : "";
+          const deltaStyle = deltaTileStyle(d);
           return (
             <PolyNode
               key={n.id}
               id={n.id}
               data-id={n.id}
-              className={`tile${statusClass ? ` ${statusClass}` : ""}`}
+              className="tile"
               label={n.name}
               shape={shapeFor(n)}
               size={n.w}
@@ -216,7 +251,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
                 top: n.y - base.y,
                 height: n.h,
                 "--layer-color": layerColor || "var(--ext)",
-                ...(d ? ({ "--amount": String(d.amount) } as React.CSSProperties) : {}),
+                ...deltaStyle,
+                ...(highRisk ? { filter: "drop-shadow(0 0 0 1px var(--temp-6))" } : {}),
               } as React.CSSProperties}
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation();

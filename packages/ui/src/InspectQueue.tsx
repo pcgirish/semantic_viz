@@ -15,12 +15,23 @@ const LOW_CONFIDENCE = 0.6;
  */
 export function InspectQueue({ entries, onSelect }: InspectQueueProps): JSX.Element {
   return (
-    <aside className="inspect-queue" data-testid="inspect-queue">
+    <div data-testid="inspect-queue">
       <Tray title="Inspect queue">
-        {entries.length === 0 && <p className="empty">No delta available for this revision.</p>}
-        <ol>
+        {entries.length === 0 && (
+          <p style={{ color: "var(--text-faint)", fontSize: 11.5, fontStyle: "italic" }}>
+            No delta available for this revision.
+          </p>
+        )}
+        <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {entries.map((e) => (
-            <li key={e.unit} className={e.confidence < LOW_CONFIDENCE ? "low-confidence" : undefined}>
+            <li
+              key={e.unit}
+              className={e.confidence < LOW_CONFIDENCE ? "low-confidence" : undefined}
+              style={{
+                marginBottom: 4,
+                borderLeft: e.confidence < LOW_CONFIDENCE ? "3px dashed var(--modified)" : "3px solid transparent",
+              }}
+            >
               <FileRow
                 name={`${e.rank}. ${e.qualname}`}
                 path={`${e.status} · risk ${e.risk.toFixed(2)} · conf ${Math.round(e.confidence * 100)}%`}
@@ -31,6 +42,6 @@ export function InspectQueue({ entries, onSelect }: InspectQueueProps): JSX.Elem
           ))}
         </ol>
       </Tray>
-    </aside>
+    </div>
   );
 }

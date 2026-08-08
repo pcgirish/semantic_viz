@@ -30,7 +30,14 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(flows[0]?.id ?? null);
 
   if (flows.length === 0) {
-    return <div className="flows-empty">No entry points recorded for this snapshot.</div>;
+    return (
+      <div
+        className="flows-empty"
+        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", fontSize: 12 }}
+      >
+        No entry points recorded for this snapshot.
+      </div>
+    );
   }
 
   const selectedFlow = flows.find((f) => f.id === selectedFlowId) ?? flows[0]!;
@@ -45,48 +52,68 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
   const steps = (selectedFlow.steps ?? []).map((id) => unitsById.get(id)).filter((u): u is Unit => Boolean(u));
 
   return (
-    <div className="flows">
+    <div className="flows" style={{ flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}>
       <Tray title={`Entry points · ${flows.length}`}>
         {[...groups.entries()].map(([kind, group]) => (
-          <div key={kind} className="flows-group">
-            <div className="flows-group-label">{kind}</div>
+          <div key={kind} style={{ marginBottom: 8 }}>
+            <div style={{ font: "var(--type-label)", textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--text-faint)", margin: "12px 0 4px" }}>
+              {kind}
+            </div>
             {group.map((f) => (
               <button
                 key={f.id}
                 type="button"
-                className={`flows-entry${f.id === selectedFlow.id ? " sel" : ""}`}
                 onClick={() => setSelectedFlowId(f.id)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "7px 8px",
+                  marginBottom: 4,
+                  background: f.id === selectedFlow.id ? "var(--surface-3)" : "var(--surface-2)",
+                  color: "var(--text-hi)",
+                  border: "var(--border-w) solid var(--border-hair)",
+                  borderRadius: "var(--radius-xs)",
+                  cursor: "pointer",
+                  font: "inherit",
+                }}
               >
-                <b>{f.route ?? f.name}</b>
-                <em>{f.metrics.hops ?? (f.steps?.length ?? 0)} hops</em>
+                <b style={{ display: "block", fontSize: "var(--text-base)" }}>{f.route ?? f.name}</b>
+                <em style={{ fontStyle: "normal", fontSize: 9, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  {f.metrics.hops ?? (f.steps?.length ?? 0)} hops
+                </em>
               </button>
             ))}
           </div>
         ))}
       </Tray>
 
-      <div className="flows-path">
+      <div className="flows-path" style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: 20 }}>
         {steps.map((step, i) => {
           const next = steps[i + 1];
           const changed = changedStepIds?.has(step.id) ?? false;
           return (
             <div key={step.id}>
-              <Card className={`flow-step${changed ? " changed" : ""}`} onClick={() => onSelectStep(step.id)}>
-                <span className="flow-step-index">{i + 1}</span>
-                <div className="flow-step-body">
-                  <div className="flow-step-head">
-                    <b>{step.name}</b>
-                    {changed && <Badge className="flow-step-dot">changed</Badge>}
+              <Card className="flow-step" tone={changed ? "warm" : "neutral"} onClick={() => onSelectStep(step.id)} style={{ cursor: "pointer", marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <span style={{ font: "600 11px var(--type-mono, monospace)", color: "var(--text-faint)", flex: "none" }}>{i + 1}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <b>{step.name}</b>
+                      {changed && <Badge tone="mod">changed</Badge>}
+                    </div>
+                    <div style={{ font: "var(--type-metric)", color: "var(--text-faint)", marginTop: 2 }}>
+                      {step.loc.files[0]} · {step.loc.sloc} sloc
+                      {step.cost?.complexity !== undefined && ` · complexity ${step.cost.complexity}`}
+                    </div>
+                    {step.semantics?.what && <p style={{ fontSize: 11, margin: "4px 0 0" }}>{step.semantics.what}</p>}
                   </div>
-                  <div className="flow-step-meta">
-                    {step.loc.files[0]} · {step.loc.sloc} sloc
-                    {step.cost?.complexity !== undefined && ` · complexity ${step.cost.complexity}`}
-                  </div>
-                  {step.semantics?.what && <p className="flow-step-what">{step.semantics.what}</p>}
                 </div>
               </Card>
               {next && (
-                <div className="flow-edge">{edgeKind(edges, step.id, next.id) ?? "→"}</div>
+                <div className="flow-edge" style={{ font: "var(--type-metric)", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.06em", padding: "4px 0 4px 40px" }}>
+                  {edgeKind(edges, step.id, next.id) ?? "→"}
+                </div>
               )}
             </div>
           );

@@ -278,10 +278,10 @@ describe("App", () => {
       expect(screen.getByTestId("inspect-queue")).toHaveTextContent("a");
     });
 
-    expect(container.querySelector('.tile[data-id="u:a"]')?.classList.contains("status-modified")).toBe(true);
+    expect((container.querySelector('.tile[data-id="u:a"]') as HTMLElement).style.background).not.toBe("");
   });
 
-  it("selecting a tile in Delta mode doesn't recreate tile elements, so a delta tile's pulse doesn't replay on click", async () => {
+  it("selecting a tile in Delta mode doesn't recreate tile elements", async () => {
     const delta = {
       schema: "scv-delta/1",
       from: { snapshot_id: "s0", sha: "aaa" },
@@ -331,7 +331,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /delta/i }));
 
     await waitFor(() => {
-      expect(container.querySelector('.tile[data-id="u:a"]')?.classList.contains("status-modified")).toBe(true);
+      expect((container.querySelector('.tile[data-id="u:a"]') as HTMLElement).style.background).not.toBe("");
     });
 
     const tileBefore = container.querySelector('.tile[data-id="u:a"]')!;
@@ -395,9 +395,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /delta/i }));
 
     await waitFor(() => {
-      const tile = container.querySelector('.tile[data-id="u:layer:ops"]');
-      expect(tile?.classList.contains("status-rollup")).toBe(true);
-      expect(tile?.classList.contains("high-risk")).toBe(true);
+      const tile = container.querySelector('.tile[data-id="u:layer:ops"]') as HTMLElement;
+      expect(tile.style.background).not.toBe("");
+      expect(tile.style.filter).toContain("drop-shadow");
     });
   });
 
@@ -507,11 +507,11 @@ describe("App", () => {
     const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
 
     await waitFor(() => {
-      expect(container.querySelector(".rail")).not.toBeNull();
+      expect(screen.getByTestId("legend-rail")).not.toBeNull();
     });
 
     const bodyChildren = Array.from(container.querySelector(".body")!.children);
-    const railIndex = bodyChildren.findIndex((el) => el.classList.contains("rail"));
+    const railIndex = bodyChildren.findIndex((el) => el.getAttribute("data-testid") === "legend-rail");
     const canvasIndex = bodyChildren.findIndex((el) => el.classList.contains("canvas-scroll"));
     expect(railIndex).toBeGreaterThanOrEqual(0);
     expect(railIndex).toBeLessThan(canvasIndex);
@@ -532,7 +532,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
 
     await waitFor(() => {
-      expect(container.querySelector(".rail")).not.toBeNull();
+      expect(screen.getByTestId("legend-rail")).not.toBeNull();
     });
   });
 
@@ -603,7 +603,7 @@ describe("App", () => {
     fireEvent.click(container.querySelector(".dep-row svg g")!);
 
     await waitFor(() => {
-      expect(container.querySelector(".inspector")!.textContent).toMatch(/redis/);
+      expect(screen.getAllByText(/redis/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -677,7 +677,7 @@ describe("App", () => {
     fireEvent.click(container.querySelector(".flow-step")!);
 
     await waitFor(() => {
-      expect(container.querySelector(".inspector")!.textContent).toContain("u:a");
+      expect(screen.getByText("u:a")).toBeInTheDocument();
     });
   });
 });

@@ -147,7 +147,7 @@ describe("CanvasHost", () => {
     expect(hoveredTile.style.opacity).toBe("1");
   });
 
-  it("does not re-create delta tile DOM nodes on hover, so the pulse animation doesn't replay every time the mouse moves over a tile", () => {
+  it("does not re-create delta tile DOM nodes on hover", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
     const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
     const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
@@ -159,12 +159,27 @@ describe("CanvasHost", () => {
     expect(tileAfter).toBe(tileBefore);
   });
 
-  it("applies a pulse class to tiles with a delta, so scrubbing rev-to-rev is visibly animated", () => {
+  it("gives a modified tile a background whose alpha scales with delta amount", () => {
     const units = [makeUnit({ id: "a" })];
     const deltaByUnit = new Map([["a", { status: "modified", amount: 0.5, risk: 0.2 }]]);
     const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
 
-    expect(container.querySelector('.tile[data-id="a"]')!.classList.contains("pulse")).toBe(true);
+    const tile = container.querySelector('.tile[data-id="a"]') as HTMLElement;
+    expect(tile.style.background).toBe("rgba(242, 169, 59, 0.35)");
+  });
+
+  it("outlines an added tile and dashes an outline on a removed tile", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const deltaByUnit = new Map([
+      ["a", { status: "added", amount: 1, risk: null }],
+      ["b", { status: "removed", amount: 1, risk: null }],
+    ]);
+    const { container } = render(<CanvasHost units={units} edges={[]} deltaByUnit={deltaByUnit} />);
+
+    const added = container.querySelector('.tile[data-id="a"]') as HTMLElement;
+    const removed = container.querySelector('.tile[data-id="b"]') as HTMLElement;
+    expect(added.style.outline).toBe("2px solid var(--temp-2)");
+    expect(removed.style.outline).toBe("1.6px dashed var(--temp-6)");
   });
 
   it("scene sits inside a native-scrolling container, so an oversized graph gets real scrollbars", () => {

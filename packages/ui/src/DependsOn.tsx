@@ -13,17 +13,29 @@ export type DependsOnProps = {
  */
 export function DependsOn({ externals, onSelect }: DependsOnProps): JSX.Element {
   if (externals.length === 0) {
-    return <div className="depends-on-empty">No external dependencies recorded for this snapshot.</div>;
+    return (
+      <div
+        className="depends-on-empty"
+        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", fontSize: 12 }}
+      >
+        No external dependencies recorded for this snapshot.
+      </div>
+    );
   }
 
   const depths = [...new Set(externals.map((x) => x.depth))].sort((a, b) => a - b);
 
   return (
-    <div className="depends-on">
+    <div className="depends-on" style={{ flex: 1, minWidth: 0, overflowY: "auto", background: "var(--surface-0)" }}>
       {depths.map((depth) => {
         const row = externals.filter((x) => x.depth === depth);
         return (
-          <div key={depth} className="dep-row" data-depth={depth}>
+          <div
+            key={depth}
+            className="dep-row"
+            data-depth={depth}
+            style={{ borderBottom: "var(--border-w) solid var(--border-hair)" }}
+          >
             <BubbleChart
               bands={[
                 {

@@ -72,8 +72,26 @@ Each: implement → `npm test` && `npm run lint` → `project-review` skill → 
 ## Verification
 
 - After each phase: `npm test` and `npm run lint` clean (per CLAUDE.md required commands)
-- After Phase 3 (final): `npm run build` clean, `app.css` deleted, manual smoke test via dev server across all 5 modes (current/delta/depends/flows/flowchart) and both skins (dark/light)
+- After Phase 3: `npm run build` clean; found `app.css` still holds live layout/component CSS for App/Inspector/InspectQueue/DependsOn/Flowchart/Flows with no design-system equivalent wired up yet — full deletion deferred to Phase 4
 - Before CanvasHost work starts: small spike verifying the hover/pulse-animation behavior survives the `PolyNode` prop-driven model — this is the one open technical risk flagged above; if it doesn't work as expected, resolve before writing the full CanvasHost refactor
+
+**Phase 4 — retire app.css** (`feature/codedream-phase4`)
+
+Remaining consumers of `app.css`, found by grep after Phase 3: `App.tsx` (`.app`/`.topbar`/`.body`/`.rail`/`.sec`), `Inspector.tsx`/`InspectQueue.tsx` (`.inspector`/`.inspect-queue`/`.meta`/`.tags`/`.low-confidence`/`.semantics`), `DependsOn.tsx` (`.depends-on*`/`.dep-*`), `Flowchart.tsx` (`.flowchart*`), `Flows.tsx` (`.flows*`/`.flow-step*`/`.flow-edge`), `Replay.tsx` (`.replay*`).
+
+Mapping (design-system components confirmed present in `packages/design-system/components/`):
+- `.topbar` → `Toolbar` (left/center/right clusters — Breadcrumb | SegmentedControl | Select)
+- `.rail`, `.inspector`, `.inspect-queue`, `.flows-rail` (sidebar panels) → `Tray` (collapsible, `dock="left"|"right"`, `title`/`meta`/`actions`/`children`) — **not** `Rail` (that component is a top-level icon-nav rail, not a content sidebar; confirmed via its `.d.ts`, wrong fit)
+- Inspector's meta/tags/semantics blocks → `Card` (sections), `Badge`/`Tag` (tags, status, low-confidence marker)
+- `InspectQueue` entries → `Card` or `Badge`-based row, same low-confidence treatment
+- `DependsOn` rows/circles → keep bespoke SVG (`dep-ext`/circle sizing is a data visualization, not a component-library concern) but restyle via tokens instead of `app.css` custom properties
+- `Flows` entry list → `Card`/`Badge` rows (steps), `Tag` for group labels
+- `Replay` timeline → `CommitTimeline` (`components/code/CommitTimeline.jsx`: bar height = churn, color = temp, `value`/`onChange` — matches `.replay-track`/`.replay-rev`/`.replay-bar` almost directly)
+- Remaining `:root` custom properties (`--dep`/`--usr`/etc., already partially ported in Phase 1 decision #1) → finish porting any still read from `app.css` onto design-system tokens
+
+Sequencing: one component at a time, same TDD/test-rewrite discipline as Phases 1–3 (tests asserting on `app.css` class names become prop/structure assertions against the new components), all on one `feature/codedream-phase4` branch, single PR at the end — per user decision, not split further.
+
+After Phase 4: `npm run build` clean, `app.css` deleted for real, manual smoke test via dev server across all 5 modes (current/delta/depends/flows/flowchart) and both skins (dark/light), README.md updated (status table + a screenshots section).
 
 ## Next step: mock UI (before Phase 1)
 

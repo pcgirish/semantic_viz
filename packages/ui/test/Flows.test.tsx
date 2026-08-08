@@ -118,8 +118,8 @@ describe("Flows", () => {
     );
 
     const steps = container.querySelectorAll(".flow-step");
-    expect(steps[0]!.classList.contains("changed")).toBe(true);
-    expect(steps[1]!.classList.contains("changed")).toBe(false);
+    expect(steps[0]!.textContent).toMatch(/changed/i);
+    expect(steps[1]!.textContent).not.toMatch(/changed/i);
   });
 
   it("shows an empty state when the snapshot has no api_flow units", () => {

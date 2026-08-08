@@ -40,7 +40,8 @@ absent from the queue.
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
 | `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Not yet wired into `packages/ui` (`tilesSkin` is still hardcoded there) | Implemented |
-| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction, pulse-highlight on scrub) + Depends-on view + Flows view | Implemented |
+| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction) + Depends-on view + Flows view + Flowchart view, fully migrated onto `packages/design-system` (the CodeDream design system) — no bespoke `app.css` remains | Implemented |
+| `packages/design-system` | CodeDream design tokens (color, type, spacing, radius) + shared components (`Toolbar`, `SegmentedControl`, `Select`, `Tray`, `Card`, `Badge`, `BubbleChart`, ...) consumed by `packages/ui` | Implemented |
 
 A disposable Python prototype of the *full* pipeline (extract → interpret →
 diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
@@ -145,6 +146,27 @@ The top bar switches between four views:
 A Replay timeline along the bottom scrubs through revisions (rev picker or
 drag), toggles between PR- and commit-level density, and shows a per-rev
 amount bar with human/agent authorship distinguished.
+
+## Screenshots
+
+The UI runs on the CodeDream design system (`packages/design-system`), in
+both a dark and a light skin.
+
+| Current | Delta |
+|---|---|
+| ![Current mode, dark skin](docs/screenshots/current-dark.png) | ![Delta mode, dark skin](docs/screenshots/delta-dark.png) |
+
+| Depends on | Flows |
+|---|---|
+| ![Depends-on mode, dark skin](docs/screenshots/depends-dark.png) | ![Flows mode, dark skin](docs/screenshots/flows-dark.png) |
+
+| Flowchart (dark) | Current (light) |
+|---|---|
+| ![Flowchart mode, dark skin](docs/screenshots/flowchart-dark.png) | ![Current mode, light skin](docs/screenshots/current-light.png) |
+
+Known issue: the light skin's canvas background vignette is a known defect
+(`GraphCanvas`'s radial-gradient background is hardcoded for the dark skin) —
+tracked as a followup, not part of the design-system migration.
 
 ## Configuring the LLM provider
 
