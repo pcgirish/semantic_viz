@@ -7,8 +7,8 @@ import { runPassA } from "./pass-a.js";
 import { runPassABlocks } from "./pass-a-blocks.js";
 import { runPassB } from "./pass-b.js";
 import { runPassC, runPassCGroups, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
-import { traceFlow } from "./checker.js";
-import type { CallEdge, ImportEdge } from "./checker.js";
+import { traceFlow, traceFlowBranching } from "./checker.js";
+import type { CallEdge, ImportEdge, StepBranch } from "./checker.js";
 import type { FlowUnitSummary } from "./prompts/pass-c-flows.js";
 import { topoOrder } from "./topo-order.js";
 
@@ -447,7 +447,50 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     });
   }
 
-  const callEdges: CallEdge[] = snapshot.edges.filter((e) => e.kind === "calls").map((e) => ({ from: e.from, to: e.to }));
+  // Attributes each `calls` edge to the control-flow branch its call site sits in, so
+  // traceFlowBranching can label a fan-out ("success"/"failure") instead of an unlabeled
+  // tree. Joins on line ranges: a call's evidence line falls inside some block's
+  // [startLine, endLine], and that block's incoming control_flow edge (true/false/exception)
+  // says which branch it is. "true"/"false" become "success"/"failure" — the common shape for
+  // a validation if/else — everything else (exception, loop-back) passes through as-is.
+  const blockRangesByFunction = new Map<string, { id: string; startLine: number; endLine: number }[]>();
+  const branchTypeByBlockId = new Map<string, string>();
+  for (const { symbolUnit, bg } of functionsWithBlocks) {
+    blockRangesByFunction.set(symbolUnit.qualname, bg.blocks.map((b) => ({ id: b.id, startLine: b.startLine, endLine: b.endLine })));
+    for (const edge of bg.edges) {
+      if (edge.edgeType !== "sequential") branchTypeByBlockId.set(edge.to, edge.edgeType);
+    }
+  }
+  const qualnameByFile = new Map(functionsWithBlocks.map((f) => [f.symbolUnit.loc.file, f.symbolUnit.qualname]));
+  const unitByIdForLabeling = new Map(units.map((u) => [u.id, u]));
+  function branchLabelFor(fromUnitId: string, evidence: { file: string; line: number }[] | undefined): string | undefined {
+    const line = evidence?.[0]?.line;
+    if (line === undefined) return undefined;
+    const fromUnit = unitByIdForLabeling.get(fromUnitId);
+    const qualname = fromUnit ? qualnameByFile.get(fromUnit.loc.files[0] ?? "") : undefined;
+    const ranges = qualname ? blockRangesByFunction.get(qualname) : undefined;
+    const block = ranges?.find((r) => line >= r.startLine && line <= r.endLine);
+    const branchType = block ? branchTypeByBlockId.get(block.id) : undefined;
+    if (branchType === "true") return "success";
+    if (branchType === "false") return "failure";
+    return branchType;
+  }
+
+  // FastAPI-style DI/middleware (e.g. router `Depends()`) runs before a handler body but is
+  // never called from it, so it never shows up as a normal `calls` edge from the handler.
+  // `graph.edges` (the pre-schema SymbolGraph) carries `via: "di"` for these — the schema's
+  // Edge type doesn't — so read it from there, exclude it from the body trace's callEdges
+  // (else it fans out as just another branch), and splice each dependency in separately as a
+  // linear prefix ahead of the handler.
+  const diDependenciesByHandler = new Map<string, string[]>();
+  for (const edge of graph.edges) {
+    if (edge.via !== "di") continue;
+    (diDependenciesByHandler.get(edge.from) ?? diDependenciesByHandler.set(edge.from, []).get(edge.from)!).push(edge.to);
+  }
+
+  const callEdges: CallEdge[] = snapshot.edges
+    .filter((e) => e.kind === "calls" && !diDependenciesByHandler.get(e.from)?.includes(e.to))
+    .map((e) => ({ from: e.from, to: e.to, label: branchLabelFor(e.from, e.evidence) }));
   const flowUnitSummaries: FlowUnitSummary[] = units
     .filter((u) => LEAF_KINDS.has(u.kind) && !isTestUnit(u))
     .map((u) => ({ id: u.id, qualname: u.qualname, what: u.semantics?.what ?? "" }));
@@ -462,8 +505,16 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     let flowNarrationDone = 0;
     const flowNarrationTotal = entryPoints.length;
     for (const entry of entryPoints) {
-      const steps = traceFlow(entry.unit, knownUnitIds, callEdges);
-      if (!steps || steps.length < 2) continue;
+      const bodySteps = traceFlow(entry.unit, knownUnitIds, callEdges);
+      if (!bodySteps || bodySteps.length < 2) continue;
+      const bodyBranching = traceFlowBranching(entry.unit, knownUnitIds, callEdges) ?? undefined;
+
+      const diSteps = (diDependenciesByHandler.get(entry.unit) ?? []).filter((id) => knownUnitIds.has(id));
+      const steps = [...diSteps, ...bodySteps];
+      const stepsBranching = diSteps.reduceRight<StepBranch | undefined>(
+        (child, unit) => ({ unit, children: child ? [child] : [] }),
+        bodyBranching,
+      );
 
       const stepUnits = steps.map((id) => unitById.get(id)).filter((u): u is Unit => Boolean(u));
       reportProgress("pass C flows: narration", flowNarrationDone, flowNarrationTotal, entry.route);
@@ -491,6 +542,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
         children: [],
         route: entry.route,
         steps,
+        stepsBranching,
         loc: {
           files: [...new Set(stepUnits.flatMap((u) => u.loc.files))],
           start: null,

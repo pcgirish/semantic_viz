@@ -1,6 +1,6 @@
 import { builtinModules } from "node:module";
 import path from "node:path";
-import type { BlockFact, ControlFlowEdgeFact, DefFact, Fact, FileFacts, ImportFact } from "./facts.js";
+import type { BlockFact, ControlFlowEdgeFact, DefFact, DiRouterFact, Fact, FileFacts, ImportFact, RouteRegistrationFact } from "./facts.js";
 import { moduleQualname, flattenTestQualname, isTestPath } from "./qualname.js";
 import { normalizeSource, shortHash, sloc } from "./hash.js";
 import { langForFile } from "./grammars/registry.js";
@@ -289,6 +289,49 @@ export function resolveGraph(
           kind: "calls",
           confidence,
           evidence: { file: ff.file, line: ref.line },
+        });
+      }
+    }
+
+    // DI/middleware: resolve a bare or dotted name (same shape as a `ref`'s `name`) against
+    // this file's local defs and import bindings, reusing the calls-resolution rules above.
+    const resolveNameInFile = (name: string): string | null => {
+      if (name.includes(".")) {
+        const [obj, ...rest] = name.split(".");
+        const target = bindingTargets.get(obj!);
+        if (!target) return null;
+        const asFunction = `${target}.${rest.join(".")}`;
+        if (units.some((u) => u.qualname === asFunction)) return asFunction;
+        return units.some((u) => u.qualname === target) ? target : null;
+      }
+      const localQualname = byFileAndName.get(`${ff.file}::${name}`);
+      if (localQualname) return localQualname;
+      return bindingTargets.get(name) ?? null;
+    };
+
+    const diRouterFacts = ff.facts.filter((f): f is DiRouterFact => f.kind === "di_router");
+    const routeRegistrationFacts = ff.facts.filter((f): f is RouteRegistrationFact => f.kind === "route_registration");
+    const dependenciesByRouterVar = new Map<string, DiRouterFact>();
+    for (const di of diRouterFacts) dependenciesByRouterVar.set(di.routerVar, di);
+
+    for (const reg of routeRegistrationFacts) {
+      const router = dependenciesByRouterVar.get(reg.routerVar);
+      if (!router) continue;
+      const handlerQualname = resolveNameInFile(reg.handlerName);
+      const handlerUnit = handlerQualname ? units.find((u) => u.qualname === handlerQualname) : null;
+      if (!handlerUnit) continue;
+      for (const depName of router.dependencies) {
+        const depQualname = resolveNameInFile(depName);
+        const depUnit = depQualname ? units.find((u) => u.qualname === depQualname) : null;
+        if (!depUnit || depUnit.id === handlerUnit.id) continue;
+        edges.push({
+          id: `e:${edgeSeq++}`,
+          from: handlerUnit.id,
+          to: depUnit.id,
+          kind: "calls",
+          confidence: 1,
+          evidence: { file: ff.file, line: router.line },
+          via: "di",
         });
       }
     }

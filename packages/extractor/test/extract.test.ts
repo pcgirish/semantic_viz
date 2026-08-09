@@ -26,6 +26,24 @@ describe("extractRepo on the orderly fixture", () => {
     expect(edge).toBeDefined();
   });
 
+  it("emits DI edges from create_order/get_order to rate_limit and verify_token, wired via the public router's Depends()", () => {
+    const createOrder = graph.units.find((u) => u.qualname === "src.orders.create_order.create_order");
+    const getOrder = graph.units.find((u) => u.qualname === "src.orders.get_order.get_order");
+    const rateLimit = graph.units.find((u) => u.qualname === "src.api.middleware.rate_limiter.rate_limit");
+    const verifyToken = graph.units.find((u) => u.qualname === "src.auth.verify_token");
+    expect(createOrder).toBeDefined();
+    expect(getOrder).toBeDefined();
+    expect(rateLimit).toBeDefined();
+    expect(verifyToken).toBeDefined();
+
+    for (const handler of [createOrder!, getOrder!]) {
+      for (const dep of [rateLimit!, verifyToken!]) {
+        const edge = graph.edges.find((e) => e.from === handler.id && e.to === dep.id && e.via === "di");
+        expect(edge, `${handler.qualname} -> ${dep.qualname}`).toBeDefined();
+      }
+    }
+  });
+
   it("resolves >=90% of within-repo references at confidence 1", () => {
     const withinRepoEdges = graph.edges.filter(
       (e) => (e.kind === "imports" || e.kind === "calls") && !e.to.startsWith("ext:"),

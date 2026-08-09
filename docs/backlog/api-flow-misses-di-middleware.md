@@ -1,7 +1,8 @@
 # API Flow misses framework DI/middleware steps
 
-**Status:** open
+**Status:** closed
 **Found:** 2026-08-08
+**Closed:** 2026-08-08 — landed alongside API Flow branch-preserving tracing (see `docs/design.md`).
 
 ## Problem
 API Flow mode's steps are derived (Pass C) by tracing the route handler's own
@@ -28,13 +29,17 @@ request.
 step, but that's hand-authored fixture data, not derived — not a real
 behavior to match.)
 
-## Fix direction
-Pass C's flow-step tracer needs to recognize common DI/middleware
-attachment idioms (starting with FastAPI's `Depends()` on routers/routes)
-as flow steps, not just direct calls from the handler body. Likely needs a
-per-framework (or heuristic AST) pattern for "things that run before this
-handler" distinct from "things this handler calls."
+## Fix
+`packages/extractor/src/walk-python.ts` now extracts `APIRouter(dependencies=[Depends(...)])`
+(`DiRouterFact`) and route registrations in both call-form (`router.post(path)(handler)`) and
+decorator-form (`@router.get(path)` above a `def`) (`RouteRegistrationFact`).
+`packages/extractor/src/resolve.ts` joins these per-file into synthetic `calls` edges tagged
+`via: "di"` from each handler to its router's dependencies. `packages/interpreter/src/orchestrate.ts`
+reads these from the raw `SymbolGraph` (schema's `Edge` type doesn't carry `via`) and splices
+them in as a linear prefix ahead of the handler's own traced steps, in both `steps` and
+`stepsBranching`.
 
 ## Affected
-- `packages/analyze` Pass C (API flow step derivation)
+- `packages/extractor` (DI/route-registration fact extraction + edge resolution)
+- `packages/interpreter` Pass C (API flow step derivation, `orchestrate.ts`)
 - Surfaced in `packages/ui/src/Flows.tsx` (steps rendering)

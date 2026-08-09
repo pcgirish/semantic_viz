@@ -94,6 +94,21 @@ const UnitProvenanceSchema = z.object({
   pass: z.enum(["A", "B", "C", "D"]).optional(),
 });
 
+// kind:"api_flow" only — branch-preserving trace, additive to `steps` (docs/design.md#api-flow).
+export interface StepBranch {
+  unit: string;
+  label?: string;
+  children?: StepBranch[];
+}
+
+const StepBranchSchema: z.ZodType<StepBranch> = z.lazy(() =>
+  z.object({
+    unit: UnitId,
+    label: z.string().optional(),
+    children: z.array(StepBranchSchema).optional(),
+  })
+);
+
 export const UnitSchema = z.object({
   id: UnitId,
   kind: UnitKindSchema,
@@ -115,6 +130,9 @@ export const UnitSchema = z.object({
   // unit ids the request actually traverses, at whatever granularity the trace reached.
   route: z.string().optional(),
   steps: z.array(UnitId).optional(),
+  // kind:"api_flow" only — branching form of `steps`; present when the traced flow has
+  // fan-out (e.g. success/failure paths), absent for a purely linear flow.
+  stepsBranching: StepBranchSchema.optional(),
   // kind:"layer" only — the architectural group (e.g. "api surface") this layer belongs
   // to, one level above layer in the hierarchy without being a new parent/child edge.
   group: z.string().optional(),

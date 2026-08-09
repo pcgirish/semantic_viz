@@ -50,6 +50,10 @@ export interface SymbolEdge {
   kind: SymbolEdgeKind;
   confidence: number;
   evidence: { file: string; line: number };
+  /** "di" for a synthetic edge from a route handler to a framework-wired dependency (e.g.
+   *  FastAPI `Depends()`) that runs before the handler body but is never called from it.
+   *  Absent for a normal call/import/inherit edge. */
+  via?: "di";
 }
 
 export interface SymbolExternal {

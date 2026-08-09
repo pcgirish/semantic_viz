@@ -128,4 +128,43 @@ describe("Flows", () => {
     render(<Flows flows={[]} units={[]} edges={[]} onSelectStep={vi.fn()} />);
     expect(screen.getByText(/no entry points/i)).toBeInTheDocument();
   });
+
+  it("renders every labeled branch of stepsBranching, not just the longest linear path", () => {
+    const flows = [
+      makeFlow({
+        id: "u:flow:1",
+        route: "POST /auth/login",
+        steps: ["u:login", "u:issue_token"],
+        stepsBranching: {
+          unit: "u:login",
+          children: [
+            { unit: "u:issue_token", label: "success", children: [] },
+            { unit: "u:reject", label: "failure", children: [] },
+          ],
+        },
+      }),
+    ];
+    const units = [
+      makeUnit({ id: "u:login", name: "login" }),
+      makeUnit({ id: "u:issue_token", name: "issue_token" }),
+      makeUnit({ id: "u:reject", name: "reject" }),
+    ];
+    const { container } = render(<Flows flows={flows} units={units} edges={[]} onSelectStep={vi.fn()} />);
+
+    expect(screen.getByText("login")).toBeInTheDocument();
+    expect(screen.getByText("issue_token")).toBeInTheDocument();
+    expect(screen.getByText("reject")).toBeInTheDocument();
+    expect(container.querySelectorAll(".flow-step")).toHaveLength(3);
+    expect(screen.getByText("success")).toBeInTheDocument();
+    expect(screen.getByText("failure")).toBeInTheDocument();
+  });
+
+  it("falls back to the linear steps list when stepsBranching is absent", () => {
+    const flows = [makeFlow({ id: "u:flow:1", route: "GET /orders/{id}", steps: ["u:a", "u:b"] })];
+    const units = [makeUnit({ id: "u:a", name: "route_handler" }), makeUnit({ id: "u:b", name: "get_order" })];
+    render(<Flows flows={flows} units={units} edges={[]} onSelectStep={vi.fn()} />);
+
+    expect(screen.getByText("route_handler")).toBeInTheDocument();
+    expect(screen.getByText("get_order")).toBeInTheDocument();
+  });
 });

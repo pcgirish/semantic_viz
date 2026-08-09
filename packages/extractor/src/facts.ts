@@ -63,7 +63,30 @@ export interface ControlFlowEdgeFact {
   edgeType: "sequential" | "true" | "false" | "loop-back" | "exception";
 }
 
-export type Fact = DefFact | ImportFact | RefFact | InheritFact | BlockFact | ControlFlowEdgeFact;
+/** `<var> = APIRouter(..., dependencies=[Depends(fn), Depends(fn2(...))])` — captures the
+ *  router's DI-attached dependency callee names, which run before every route registered on
+ *  it but are never called from a handler body (docs/backlog/api-flow-misses-di-middleware.md). */
+export interface DiRouterFact {
+  kind: "di_router";
+  file: string;
+  line: number;
+  routerVar: string;
+  /** bare callee names passed to each `Depends(...)`, e.g. "rate_limit" from `Depends(rate_limit("public"))` */
+  dependencies: string[];
+}
+
+/** Binds a handler to the router it's registered on, either via call-form
+ *  (`router.post(path)(handler)`) or decorator-form (`@router.get(path)` above a `def`). */
+export interface RouteRegistrationFact {
+  kind: "route_registration";
+  file: string;
+  line: number;
+  routerVar: string;
+  /** dotted name of the handler as written, e.g. "orders.create_order.create_order" or "get_order" */
+  handlerName: string;
+}
+
+export type Fact = DefFact | ImportFact | RefFact | InheritFact | BlockFact | ControlFlowEdgeFact | DiRouterFact | RouteRegistrationFact;
 
 export interface FileFacts {
   file: string;

@@ -7,6 +7,9 @@ export interface ImportEdge {
 export interface CallEdge {
   from: string;
   to: string;
+  /** Branch label for this hop (e.g. "success", "error", "true"), when the caller can
+   *  attribute the call to a specific control-flow branch. Ignored by `traceFlow`. */
+  label?: string;
 }
 
 export type ClusterProposal = Record<string, string[]>;
@@ -119,4 +122,40 @@ export function traceFlow(entryUnitId: string, knownUnitIds: Set<string>, callEd
   }
 
   return longestFrom(entryUnitId, new Set([entryUnitId]));
+}
+
+export interface StepBranch {
+  unit: string;
+  label?: string;
+  children: StepBranch[];
+}
+
+export const MAX_BRANCH_DEPTH = 4;
+export const MAX_FAN_OUT = 3;
+
+/**
+ * Branch-preserving sibling of `traceFlow`: walks every outgoing `calls` edge from an entry
+ * unit (not just the longest), capped at `MAX_FAN_OUT` children per node and `MAX_BRANCH_DEPTH`
+ * hops deep so a conditional fan-out doesn't blow up into an unbounded tree. Cycle-safe via a
+ * per-branch visited set, same as `traceFlow`. Edge `label` (e.g. "success"/"failure") is
+ * carried through from the caller-supplied `CallEdge.label` when present.
+ */
+export function traceFlowBranching(entryUnitId: string, knownUnitIds: Set<string>, callEdges: CallEdge[]): StepBranch | null {
+  if (!knownUnitIds.has(entryUnitId)) return null;
+
+  const adjacency = new Map<string, CallEdge[]>();
+  for (const edge of callEdges) {
+    (adjacency.get(edge.from) ?? adjacency.set(edge.from, []).get(edge.from)!).push(edge);
+  }
+
+  function build(id: string, visited: Set<string>, depth: number): StepBranch {
+    const outgoing = (adjacency.get(id) ?? []).filter((e) => !visited.has(e.to)).slice(0, MAX_FAN_OUT);
+    const children = depth >= MAX_BRANCH_DEPTH ? [] : outgoing.map((e) => build(e.to, new Set([...visited, e.to]), depth + 1));
+    return {
+      unit: id,
+      children: children.map((child, i) => (outgoing[i]?.label ? { ...child, label: outgoing[i]!.label } : child)),
+    };
+  }
+
+  return build(entryUnitId, new Set([entryUnitId]), 0);
 }

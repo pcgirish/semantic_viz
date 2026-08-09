@@ -571,6 +571,258 @@ describe("runInterpreter", () => {
     expect(system?.children).toContain(flow?.id);
   });
 
+  it("populates stepsBranching with labeled success/failure paths for a handler with an if/else, alongside the existing linear steps", async () => {
+    const graph: SymbolGraph = {
+      units: [
+        {
+          id: "u:py:src.auth.login#f",
+          kind: "function",
+          name: "login",
+          qualname: "src.auth.login",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/auth.py", start: 1, end: 10 },
+          sloc: 8,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "s1", text: "t1" },
+          metrics: { fanIn: 0, fanOut: 2, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:src.auth.issue_token#f",
+          kind: "function",
+          name: "issue_token",
+          qualname: "src.auth.issue_token",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/auth.py", start: 12, end: 14 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "s2", text: "t2" },
+          metrics: { fanIn: 1, fanOut: 0, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:src.auth.reject#f",
+          kind: "function",
+          name: "reject",
+          qualname: "src.auth.reject",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/auth.py", start: 16, end: 18 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "s3", text: "t3" },
+          metrics: { fanIn: 1, fanOut: 0, churn: 0, commits: 1 },
+          authors: [],
+        },
+      ],
+      edges: [
+        {
+          id: "e:1",
+          from: "u:py:src.auth.login#f",
+          to: "u:py:src.auth.issue_token#f",
+          kind: "calls",
+          confidence: 1,
+          evidence: { file: "src/auth.py", line: 5 },
+        },
+        {
+          id: "e:2",
+          from: "u:py:src.auth.login#f",
+          to: "u:py:src.auth.reject#f",
+          kind: "calls",
+          confidence: 1,
+          evidence: { file: "src/auth.py", line: 7 },
+        },
+      ],
+      externals: [],
+      blockGraph: {
+        "src.auth.login": {
+          blocks: [
+            { id: "u:block:entry1", blockType: "entry", startLine: 1, endLine: 3, condition: null },
+            { id: "u:block:dec1", blockType: "decision", startLine: 4, endLine: 4, condition: "valid" },
+            { id: "u:block:true1", blockType: "sequential", startLine: 5, endLine: 5, condition: null },
+            { id: "u:block:false1", blockType: "sequential", startLine: 7, endLine: 7, condition: null },
+          ],
+          edges: [
+            { from: "u:block:entry1", to: "u:block:dec1", edgeType: "sequential" },
+            { from: "u:block:dec1", to: "u:block:true1", edgeType: "true" },
+            { from: "u:block:dec1", to: "u:block:false1", edgeType: "false" },
+          ],
+        },
+      },
+    };
+    const snapshot = makeSnapshot(graph);
+    const provider = fakeProvider({
+      "grouping the files": { clusters: {} },
+      "grouping a codebase's architectural layers": { groups: {} },
+      "identifying api_flow": { flows: [{ unit: "u:py:src.auth.login#f", name: "login", route: "POST /auth/login" }] },
+      "describing an api_flow": {
+        what: "Authenticates a user.",
+        how: "Validates credentials then issues or rejects.",
+        when: "On login.",
+        where: "src/auth.",
+        why: "Gates access.",
+        tags: ["auth"],
+        confidence: 0.8,
+      },
+    });
+    const wrapped: Provider = {
+      name: provider.name,
+      model: provider.model,
+      interpret: async (prompt: string) => {
+        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
+        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
+        if (prompt.includes("describing an api_flow")) return provider.interpret(prompt);
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      },
+    };
+
+    const result = await runInterpreter({ snapshot, graph, provider: wrapped, promptRev: "p1", readSource: () => "def login(): ..." });
+
+    const flow = result.units.find((u) => u.kind === "api_flow");
+    expect(flow).toBeTruthy();
+    expect(flow?.steps).toBeTruthy();
+    expect(flow?.stepsBranching).toBeTruthy();
+    expect(flow?.stepsBranching?.unit).toBe("u:py:src.auth.login#f");
+    const children = flow?.stepsBranching?.children ?? [];
+    expect(children).toHaveLength(2);
+    expect(children).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ unit: "u:py:src.auth.issue_token#f", label: "success" }),
+        expect.objectContaining({ unit: "u:py:src.auth.reject#f", label: "failure" }),
+      ]),
+    );
+  });
+
+  it("prepends DI/middleware edges (via: 'di') ahead of a handler's own body calls in both steps and stepsBranching", async () => {
+    const graph: SymbolGraph = {
+      units: [
+        {
+          id: "u:py:src.orders.create_order#f",
+          kind: "function",
+          name: "create_order",
+          qualname: "src.orders.create_order",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/orders/create_order.py", start: 1, end: 10 },
+          sloc: 8,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "s1", text: "t1" },
+          metrics: { fanIn: 0, fanOut: 2, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:src.orders.save#f",
+          kind: "function",
+          name: "save",
+          qualname: "src.orders.save",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/orders/create_order.py", start: 12, end: 14 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "s2", text: "t2" },
+          metrics: { fanIn: 1, fanOut: 0, churn: 0, commits: 1 },
+          authors: [],
+        },
+        {
+          id: "u:py:src.api.middleware.rate_limiter.rate_limit#f",
+          kind: "function",
+          name: "rate_limit",
+          qualname: "src.api.middleware.rate_limiter.rate_limit",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/api/middleware/rate_limiter.py", start: 1, end: 3 },
+          sloc: 2,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "s3", text: "t3" },
+          metrics: { fanIn: 1, fanOut: 0, churn: 0, commits: 1 },
+          authors: [],
+        },
+      ],
+      edges: [
+        {
+          id: "e:1",
+          from: "u:py:src.orders.create_order#f",
+          to: "u:py:src.orders.save#f",
+          kind: "calls",
+          confidence: 1,
+          evidence: { file: "src/orders/create_order.py", line: 5 },
+        },
+        {
+          id: "e:2",
+          from: "u:py:src.orders.create_order#f",
+          to: "u:py:src.api.middleware.rate_limiter.rate_limit#f",
+          kind: "calls",
+          confidence: 1,
+          evidence: { file: "src/api/routes.py", line: 6 },
+          via: "di",
+        },
+      ],
+      externals: [],
+      blockGraph: {},
+    };
+    const snapshot = makeSnapshot(graph);
+    const provider = fakeProvider({
+      "grouping the files": { clusters: {} },
+      "grouping a codebase's architectural layers": { groups: {} },
+      "identifying api_flow": { flows: [{ unit: "u:py:src.orders.create_order#f", name: "create_order", route: "POST /orders" }] },
+      "describing an api_flow": {
+        what: "Creates an order.",
+        how: "Rate-limited then saved.",
+        when: "On order creation.",
+        where: "src/orders.",
+        why: "Places an order.",
+        tags: ["orders"],
+        confidence: 0.8,
+      },
+    });
+    const wrapped: Provider = {
+      name: provider.name,
+      model: provider.model,
+      interpret: async (prompt: string) => {
+        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
+        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
+        if (prompt.includes("describing an api_flow")) return provider.interpret(prompt);
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      },
+    };
+
+    const result = await runInterpreter({ snapshot, graph, provider: wrapped, promptRev: "p1", readSource: () => "def create_order(): ..." });
+
+    const flow = result.units.find((u) => u.kind === "api_flow");
+    expect(flow).toBeTruthy();
+    expect(flow?.steps).toEqual(["u:py:src.api.middleware.rate_limiter.rate_limit#f", "u:py:src.orders.create_order#f", "u:py:src.orders.save#f"]);
+    expect(flow?.stepsBranching?.unit).toBe("u:py:src.api.middleware.rate_limiter.rate_limit#f");
+    expect(flow?.stepsBranching?.children).toEqual([
+      expect.objectContaining({
+        unit: "u:py:src.orders.create_order#f",
+        children: [expect.objectContaining({ unit: "u:py:src.orders.save#f" })],
+      }),
+    ]);
+  });
+
   it("keeps two distinct flows whose entry points the LLM gives the same route/name string — flow identity must not collide just because the LLM picked the same label twice", async () => {
     const graph: SymbolGraph = {
       units: [

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkAndRepairClusters, directoryClusters, modularity, traceFlow } from "../src/checker.js";
+import { checkAndRepairClusters, directoryClusters, MAX_BRANCH_DEPTH, MAX_FAN_OUT, modularity, traceFlow, traceFlowBranching } from "../src/checker.js";
 import type { CallEdge, ImportEdge } from "../src/checker.js";
 
 const files = ["src/api/routes.py", "src/api/middleware/rate_limiter.py", "src/admin_tasks.py", "scripts/backfill.py"];
@@ -120,5 +120,81 @@ describe("traceFlow", () => {
 
   it("returns null for an entry unit id not in the known set", () => {
     expect(traceFlow("ghost", known, [])).toBeNull();
+  });
+});
+
+describe("traceFlowBranching", () => {
+  const known = new Set(["a", "b", "c", "d", "e", "f"]);
+
+  it("returns a single-child chain for a linear flow, matching traceFlow's path", () => {
+    const edges: CallEdge[] = [
+      { from: "a", to: "b" },
+      { from: "b", to: "c" },
+    ];
+    expect(traceFlowBranching("a", known, edges)).toEqual({
+      unit: "a",
+      children: [{ unit: "b", children: [{ unit: "c", children: [] }] }],
+    });
+  });
+
+  it("keeps every branch at a fan-out, unlike traceFlow's longest-only walk", () => {
+    const edges: CallEdge[] = [
+      { from: "a", to: "b", label: "success" },
+      { from: "a", to: "c", label: "failure" },
+    ];
+    const result = traceFlowBranching("a", known, edges);
+    expect(result?.children).toEqual(
+      expect.arrayContaining([
+        { unit: "b", label: "success", children: [] },
+        { unit: "c", label: "failure", children: [] },
+      ]),
+    );
+    expect(result?.children).toHaveLength(2);
+  });
+
+  it(`truncates fan-out beyond MAX_FAN_OUT (${MAX_FAN_OUT}) deterministically, keeping the first-seen edges`, () => {
+    const edges: CallEdge[] = [
+      { from: "a", to: "b" },
+      { from: "a", to: "c" },
+      { from: "a", to: "d" },
+      { from: "a", to: "e" },
+    ];
+    const result = traceFlowBranching("a", known, edges);
+    expect(result?.children).toHaveLength(MAX_FAN_OUT);
+    expect(result?.children?.map((c) => c.unit)).toEqual(["b", "c", "d"]);
+  });
+
+  it(`stops recursing past MAX_BRANCH_DEPTH (${MAX_BRANCH_DEPTH}) hops from the entry`, () => {
+    const deepKnown = new Set(["a", "b", "c", "d", "e", "f", "g"]);
+    const edges: CallEdge[] = [
+      { from: "a", to: "b" },
+      { from: "b", to: "c" },
+      { from: "c", to: "d" },
+      { from: "d", to: "e" },
+      { from: "e", to: "f" },
+      { from: "f", to: "g" },
+    ];
+    let node = traceFlowBranching("a", deepKnown, edges);
+    let depth = 0;
+    while (node?.children?.length) {
+      node = node.children[0]!;
+      depth += 1;
+    }
+    expect(depth).toBeLessThanOrEqual(MAX_BRANCH_DEPTH);
+  });
+
+  it("does not infinite-loop on a cycle", () => {
+    const edges: CallEdge[] = [
+      { from: "a", to: "b" },
+      { from: "b", to: "a" },
+    ];
+    expect(traceFlowBranching("a", known, edges)).toEqual({
+      unit: "a",
+      children: [{ unit: "b", children: [] }],
+    });
+  });
+
+  it("returns null for an entry unit id not in the known set", () => {
+    expect(traceFlowBranching("ghost", known, [])).toBeNull();
   });
 });
