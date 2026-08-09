@@ -106,6 +106,14 @@ Every level is a Unit — system, layer, module, class, function, api_flow, bloc
 
 `Port` = `{ name, type, nullable, description, source }`.
 
+**`api_flow` units** additionally carry `route`, `steps` (the traced call chain, single
+longest path — back-compat), and optional `stepsBranching` (a `{ unit, label?, children }`
+tree preserving every branch instead of collapsing to one path, so e.g. a login handler's
+success/failure split renders as two labeled children instead of picking one arbitrarily).
+Framework-wired DI/middleware that runs before the handler but is never called from its body
+(e.g. FastAPI `Depends()`) is spliced in as a linear prefix ahead of the handler in both
+fields, resolved from `calls` edges tagged `via: "di"` on the underlying `SymbolGraph`.
+
 **Three hashes drive everything downstream, cheaply:**
 
 | hash | covers | a change means |

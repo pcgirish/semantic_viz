@@ -1,6 +1,6 @@
 import type Parser from "tree-sitter";
 import type { SyntaxNode } from "tree-sitter";
-import type { BlockFact, ControlFlowEdgeFact, DefFact, Fact, InheritFact, RefFact } from "./facts.js";
+import type { BlockFact, ControlFlowEdgeFact, DefFact, DiRouterFact, Fact, InheritFact, RefFact, RouteRegistrationFact } from "./facts.js";
 
 function text(node: SyntaxNode, src: string): string {
   return src.slice(node.startIndex, node.endIndex);
@@ -353,6 +353,118 @@ export function collectControlFlow(bodyNode: SyntaxNode | null, src: string, fil
   for (const e of edges) out.push(e);
 }
 
+/** Bare callee name of a call node's `function`, e.g. "Depends" or "rate_limit" for
+ *  `Depends(rate_limit("public"))`; null for anything but a plain identifier callee. */
+function calleeName(call: SyntaxNode, src: string): string | null {
+  const fn = call.childForFieldName("function");
+  return fn && fn.type === "identifier" ? text(fn, src) : null;
+}
+
+/** `<var> = APIRouter(..., dependencies=[Depends(fn), Depends(fn2(...))])` at any scope —
+ *  captures each `Depends(...)`'s own callee (unwrapping one level of call, e.g.
+ *  `rate_limit("public")` -> "rate_limit") as a dependency that runs before every route
+ *  registered on `routerVar`. */
+function collectDiRouters(node: SyntaxNode, src: string, file: string, out: Fact[]): void {
+  const stack: SyntaxNode[] = [node];
+  while (stack.length > 0) {
+    const n = stack.pop()!;
+    if (n.type === "assignment") {
+      const left = n.childForFieldName("left");
+      const right = n.childForFieldName("right");
+      if (left?.type === "identifier" && right?.type === "call") {
+        const args = right.childForFieldName("arguments");
+        const depsArg = args?.namedChildren.find(
+          (c) => c.type === "keyword_argument" && c.childForFieldName("name")?.type === "identifier" && text(c.childForFieldName("name")!, src) === "dependencies",
+        );
+        const depsList = depsArg?.childForFieldName("value");
+        if (depsList?.type === "list") {
+          const dependencies: string[] = [];
+          for (const item of depsList.namedChildren) {
+            if (item.type !== "call" || calleeName(item, src) !== "Depends") continue;
+            const dependsArgs = item.childForFieldName("arguments");
+            const inner = dependsArgs?.namedChildren[0];
+            if (!inner) continue;
+            const name = inner.type === "identifier" ? text(inner, src) : inner.type === "call" ? calleeName(inner, src) : null;
+            if (name) dependencies.push(name);
+          }
+          if (dependencies.length > 0) {
+            const fact: DiRouterFact = { kind: "di_router", file, line: n.startPosition.row + 1, routerVar: text(left, src), dependencies };
+            out.push(fact);
+          }
+        }
+      }
+    }
+    for (const c of n.namedChildren) stack.push(c);
+  }
+}
+
+/** Dotted-name text of an expression node, e.g. "orders.create_order.create_order" for a
+ *  chain of `attribute` nodes, or the bare name for a plain identifier; null otherwise. */
+function dottedName(node: SyntaxNode, src: string): string | null {
+  if (node.type === "identifier") return text(node, src);
+  if (node.type === "attribute") {
+    const obj = node.childForFieldName("object");
+    const attr = node.childForFieldName("attribute");
+    if (!obj || !attr) return null;
+    const objName = dottedName(obj, src);
+    return objName ? `${objName}.${text(attr, src)}` : null;
+  }
+  return null;
+}
+
+/** Binds handlers to the router they're registered on:
+ *  - call-form: `router.<method>(path)(handler)` as a statement.
+ *  - decorator-form: `@router.<method>(path)` immediately above a `def`. */
+function collectRouteRegistrations(node: SyntaxNode, src: string, file: string, out: Fact[]): void {
+  const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete", "options", "head"]);
+  const stack: SyntaxNode[] = [node];
+  while (stack.length > 0) {
+    const n = stack.pop()!;
+
+    const registrationCallFrom = (decoratorLike: SyntaxNode): { routerVar: string; line: number } | null => {
+      if (decoratorLike.type !== "call") return null;
+      const fn = decoratorLike.childForFieldName("function");
+      if (fn?.type !== "attribute") return null;
+      const obj = fn.childForFieldName("object");
+      const attr = fn.childForFieldName("attribute");
+      if (obj?.type !== "identifier" || !attr || !HTTP_METHODS.has(text(attr, src))) return null;
+      return { routerVar: text(obj, src), line: decoratorLike.startPosition.row + 1 };
+    };
+
+    if (n.type === "call") {
+      // call-form: outer call's function is itself the registration call, e.g.
+      // `public.post("/orders")(handler)` — outer.function === inner registration call.
+      const inner = n.childForFieldName("function");
+      const reg = inner ? registrationCallFrom(inner) : null;
+      if (reg) {
+        const args = n.childForFieldName("arguments");
+        const handlerNode = args?.namedChildren[0];
+        const handlerName = handlerNode ? dottedName(handlerNode, src) : null;
+        if (handlerName) {
+          const fact: RouteRegistrationFact = { kind: "route_registration", file, line: reg.line, routerVar: reg.routerVar, handlerName };
+          out.push(fact);
+        }
+      }
+    } else if (n.type === "decorated_definition") {
+      const def = n.childForFieldName("definition");
+      const fnName = def?.type === "function_definition" ? def.childForFieldName("name") : null;
+      if (fnName) {
+        for (const dec of n.namedChildren) {
+          if (dec.type !== "decorator") continue;
+          const expr = dec.namedChildren[0];
+          const reg = expr ? registrationCallFrom(expr) : null;
+          if (reg) {
+            const fact: RouteRegistrationFact = { kind: "route_registration", file, line: reg.line, routerVar: reg.routerVar, handlerName: text(fnName, src) };
+            out.push(fact);
+          }
+        }
+      }
+    }
+
+    for (const c of n.namedChildren) stack.push(c);
+  }
+}
+
 function collectImports(node: SyntaxNode, src: string, file: string, out: Fact[]): void {
   for (const child of node.namedChildren) {
     if (child.type === "import_statement") {
@@ -431,6 +543,8 @@ export function walkPythonFile(tree: Parser.Tree, src: string, file: string): Fa
   out.push(moduleDef);
   collectImports(tree.rootNode, src, file, out);
   collectRefs(tree.rootNode, src, file, file, out);
+  collectDiRouters(tree.rootNode, src, file, out);
+  collectRouteRegistrations(tree.rootNode, src, file, out);
   walkDefs(tree.rootNode, src, file, null, out);
   return out;
 }
