@@ -16,4 +16,18 @@ describe("bin", () => {
     expect(result.stderr).toContain("error:");
     expect(result.stderr).not.toContain("at async");
   });
+
+  it("registers a serve command", () => {
+    const result = spawnSync("npx", ["tsx", binPath, "serve", "--help"], { encoding: "utf-8" });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("serve the JSON API");
+  });
+
+  it("registers a ui command", () => {
+    const result = spawnSync("npx", ["tsx", binPath, "ui", "--help"], { encoding: "utf-8" });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("serve the built SPA");
+  });
 });

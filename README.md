@@ -35,7 +35,7 @@ absent from the queue.
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
 | `packages/interpreter` | Pass A (leaf semantics), Pass Docs (repo README/docs structural extraction), Pass B (import-cohesion clustering + doc-derived hints + target-cluster-count guidance + deterministic checker), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking | Implemented |
-| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue | Implemented |
+| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve` | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
@@ -113,14 +113,15 @@ node packages/cli/dist/bin.js analyze /path/to/repo
 # 2. (optional) diff two revs once you have two snapshots analyzed
 node packages/cli/dist/bin.js diff <from-sha> <to-sha> --scv-dir /path/to/repo/.scv
 
-# 3. serve it over HTTP (defaults: repo = cwd, port 3000; override with PORT=... )
-node packages/server/dist/bin.js /path/to/repo
+# 3. serve the JSON API (defaults: repo = cwd, port 3000)
+node packages/cli/dist/bin.js serve /path/to/repo
 
-# 4. run the UI dev server (proxies /api to the server started in step 3)
-npm run dev --workspace packages/ui
+# 4. serve the built UI, proxying /api/* to the server from step 3
+#    (defaults: port 5173, --api-port 3000)
+node packages/cli/dist/bin.js ui
 ```
 
-Open the UI dev server URL in a browser. You get a layered tile map of the
+Open `http://127.0.0.1:5173` in a browser. You get a layered tile map of the
 repo's units (modules/classes/functions), each tile labeled with its name and
 sloc/fan-in/fan-out, sized by SLOC and shaped by complexity, and colored by
 the semantic layer the Interpreter clustered it into (a legend in the
@@ -243,7 +244,7 @@ packages/
   interpreter/   # Pass A, Pass Docs, Pass B-D, Provider interface, content cache, checker, ranking
   differ/        # match, classify, blast radius, rollup
   schema/        # shared Zod/JSON schemas for the pipeline contract
-  cli/           # `scv analyze` / `scv diff`
+  cli/           # `scv analyze` / `scv diff` / `scv serve` / `scv ui`
   server/        # Fastify API serving snapshots
   layout/        # pure layered layout engine (rank/order/place/route)
   skins/
