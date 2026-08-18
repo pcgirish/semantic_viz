@@ -159,4 +159,43 @@ describe("runAnalyze", () => {
     const raw = readFileSync(`${scvDir}/config.yaml`, "utf-8");
     expect(raw).toContain("logLevel: info");
   });
+
+  it("--no-llm produces a static-only snapshot with no LLM calls", async () => {
+    const provider = fakeProvider();
+    const written = await runAnalyze({ root: orderlyRoot, scvDir, provider, noLlm: true });
+
+    expect(provider.interpret).not.toHaveBeenCalled();
+    expect(written.snapshot.units.length).toBeGreaterThan(0);
+    expect(written.snapshot.units.every((u) => u.semantics === null)).toBe(true);
+    expect(written.snapshot.units.some((u) => u.kind === "system")).toBe(false);
+  });
+
+  it("computing just 'functions' then 'layers' reuses the persisted functions artifact without recalling Pass A", async () => {
+    const provider1 = fakeProvider();
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: provider1, artifact: "functions" });
+    const passACallsAfterFunctions = (provider1.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping the files") &&
+        !String(call[0]).includes("describing why") && !String(call[0]).includes("grouping a codebase's architectural layers") &&
+        !String(call[0]).includes("identifying api_flow"),
+    ).length;
+    expect(passACallsAfterFunctions).toBeGreaterThan(0);
+
+    const provider2 = fakeProvider();
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: provider2, artifact: "layers" });
+    const passACallsOnLayersRun = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping the files") &&
+        !String(call[0]).includes("describing why") && !String(call[0]).includes("grouping a codebase's architectural layers") &&
+        !String(call[0]).includes("identifying api_flow") && !String(call[0]).includes("labeling the control-flow blocks"),
+    ).length;
+    expect(passACallsOnLayersRun).toBe(0);
+  });
+
+  it("running analyze twice with no changes performs zero LLM calls on the second run", async () => {
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider() });
+
+    const provider2 = fakeProvider();
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: provider2 });
+
+    expect(provider2.interpret).not.toHaveBeenCalled();
+  });
 });
