@@ -26,7 +26,7 @@ Rules:
 - EVERY layer listed above must appear in exactly one group. Do not skip any layer.
 - Do not invent layers that aren't listed above.
 - Target a small number of groups (3-6), not one group per layer.
-- Give each group a short, meaningful name (e.g. "api surface", "core domain", "platform"), not a layer name.
+- Naming: if a directory name or a module name from the repo context plausibly covers a group's layers, reuse that name verbatim — do not paraphrase or invent a new one. Only invent a new short name when nothing in the repo context reasonably fits. Avoid abstract architecture-speak (e.g. do not default to generic labels like "core" or "domain") — favor names that already appear in this codebase's own directories or docs.
 - Prefer grouping layers that depend heavily on each other into the same group.
 
 Respond with JSON only, matching exactly this shape:

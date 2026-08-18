@@ -31,7 +31,7 @@ Rules:
 - Do not invent files that aren't listed above.
 - Prefer cuts that minimize import edges crossing between clusters — group files that import each other, even if they live in different directories.
 - If the repo context above names a module whose files/paths match files in the list, prefer grouping them accordingly — but only when it doesn't conflict with what the import edges show.
-- Give each cluster a short, meaningful name (e.g. "ops", "api", "orders"), not a directory path.
+- Naming: if a directory name or a module name from the repo context plausibly covers a cluster's files, reuse that name verbatim — do not paraphrase or invent a new one. Only invent a new short name when nothing in the repo context or file paths reasonably fits. Avoid abstract architecture-speak (e.g. do not default to generic labels like "core" or "domain") — favor names that already appear in this codebase's own directories or docs.
 - Aim for roughly ${target} clusters (not a hard requirement — deviate if the import graph clearly calls for more or fewer), given ${files.length} files.
 - Before answering, count the files across all your clusters and confirm it equals ${files.length}.
 

@@ -19,3 +19,21 @@ describe("passCGroupsPrompt repo context", () => {
     expect(prompt).toContain("This repo exposes a public HTTP API.");
   });
 });
+
+describe("passCGroupsPrompt naming rules", () => {
+  it("instructs reusing an existing directory or doc-derived name verbatim before inventing one", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt.toLowerCase()).toContain("reuse");
+    expect(prompt.toLowerCase()).toContain("verbatim");
+    expect(prompt.toLowerCase()).toContain("only invent a new");
+  });
+
+  it("does not steer naming toward generic invented examples like core domain/api surface/platform", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt).not.toContain('"api surface"');
+    expect(prompt).not.toContain('"core domain"');
+    expect(prompt).not.toContain('"platform"');
+  });
+});

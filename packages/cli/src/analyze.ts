@@ -1,18 +1,19 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { extractRepo } from "@scv/extractor";
-import type { Snapshot } from "@scv/schema";
+import type { Snapshot, Unit } from "@scv/schema";
 import {
   CachedProvider,
   ContentCache,
   createProvider,
+  finalizeSnapshot,
   loadInterpreterConfig,
-  runInterpreter,
   writeInterpreterConfig,
   type InterpreterConfig,
   type Provider,
   type ProviderUsage,
 } from "@scv/interpreter";
+import { ensureArtifact, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { discoverDocs } from "./discover-docs.js";
 import { headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
@@ -29,6 +30,10 @@ export interface RunAnalyzeOptions {
   effort?: InterpreterConfig["effort"];
   logLevel?: InterpreterConfig["logLevel"];
   promptRev?: string;
+  /** Compute only this artifact (freshening its dependencies first) instead of the full pipeline. */
+  artifact?: ArtifactName;
+  /** Stop after extraction — no LLM passes run, snapshot contains only static units/edges. */
+  noLlm?: boolean;
 }
 
 export interface RunAnalyzeResult {
@@ -45,7 +50,13 @@ function readSource(root: string) {
   };
 }
 
-/** Extracts `root`, runs the Interpreter (Pass A/B/C) to lift semantics, clustering, and layer narration, and writes the resulting scv/1 Snapshot to `<scvDir>/snapshots/<sha>.json`. Interpreter calls are content-cached at `<scvDir>/cache.sqlite` so re-analyzing unchanged units never re-invokes the LLM and never introduces spurious semantic drift from model non-determinism. */
+/**
+ * Extracts `root` and, unless `noLlm` is set, ensures every interpreter artifact (functions,
+ * docs, layers, groups, flows) is fresh — recomputing only the artifacts whose inputs actually
+ * changed since the last run for this sha, via `ensureArtifact`. Always reassembles and writes
+ * the full merged scv/1 Snapshot to `<scvDir>/snapshots/<sha>.json`, reflecting whatever is
+ * currently persisted for every artifact.
+ */
 export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyzeResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
   mkdirSync(scvDir, { recursive: true });
@@ -60,7 +71,8 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
     });
   }
 
-  const graph = extractRepo(options.root);
+  const extractionCacheDir = path.join(scvDir, "artifacts", "extraction-files");
+  const graph = extractRepo(options.root, extractionCacheDir);
   const rev = headRev(options.root);
   const structural = toSnapshot(graph, { root: options.root, rev });
 
@@ -72,14 +84,49 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   const runStart = performance.now();
   let snapshot: Snapshot;
   try {
-    snapshot = await runInterpreter({
-      snapshot: structural,
-      graph,
-      provider,
-      promptRev,
-      readSource: readSource(options.root),
-      repoContext: { docs: discoverDocs(options.root) },
-    });
+    if (options.noLlm) {
+      snapshot = structural;
+    } else {
+      const ctx: ArtifactContext = {
+        scvDir,
+        sha: rev.sha,
+        snapshot: structural,
+        graph,
+        provider,
+        promptRev,
+        readSource: readSource(options.root),
+        docs: discoverDocs(options.root),
+        reportProgress: (phase, done, total, current) =>
+          console.error(`[INFO] progress phase=${phase} ${done}/${total} current=${current ?? ""}`),
+      };
+
+      const target = options.artifact ?? "flows";
+      await ensureArtifact(target, ctx);
+      // Always ensure groups too when running the default full pipeline — both flows and
+      // groups are leaves with nothing depending on them, so "full pipeline" means both.
+      if (!options.artifact) await ensureArtifact("groups", ctx);
+
+      const functions = await ensureArtifact("functions", ctx);
+      const layers = await ensureArtifact("layers", ctx);
+      const groups = await ensureArtifact("groups", ctx);
+      const flows = await ensureArtifact("flows", ctx);
+
+      const layerUnitsByName = new Map(groups.map((u) => [u.name, u]));
+      const groupedLayerUnits: Unit[] = layers.layerUnits.map((l) => layerUnitsByName.get(l.name) ?? l);
+
+      snapshot = finalizeSnapshot({
+        snapshot: structural,
+        provider,
+        promptRev,
+        systemName: undefined,
+        units: functions.units,
+        blockUnits: functions.blockUnits,
+        blockEdges: functions.blockEdges,
+        layerUnits: groupedLayerUnits,
+        parentOverride: new Map(layers.parentOverride),
+        flowUnits: flows,
+      });
+    }
   } finally {
     cache.close();
   }
