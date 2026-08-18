@@ -15,17 +15,21 @@ program
   .command("analyze")
   .description("extract a repo, lift semantics/clustering, and write a scv/1 snapshot to .scv/snapshots/")
   .argument("[root]", "repo root to analyze", ".")
+  .argument("[artifact]", "compute only this artifact: functions | docs | layers | groups | flows")
   .option("--provider <name>", "interpreter provider: ollama | anthropic | claude-cli; persisted to .scv/config.yaml")
   .option("--model <name>", "interpreter model; persisted to .scv/config.yaml")
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
   .option("--log-level <level>", "llm call logging: info; persisted to .scv/config.yaml")
-  .action(async (root: string, opts: { provider?: string; model?: string; effort?: string; logLevel?: string }) => {
+  .option("--no-llm", "extraction only — skip all LLM passes, write a static-only snapshot")
+  .action(async (root: string, artifact: string | undefined, opts: { provider?: string; model?: string; effort?: string; logLevel?: string; llm: boolean }) => {
     const { path: outPath, snapshot, usage, elapsedMs } = await runAnalyze({
       root,
       providerName: opts.provider as RunAnalyzeOptions["providerName"],
       model: opts.model,
       effort: opts.effort as RunAnalyzeOptions["effort"],
       logLevel: opts.logLevel as RunAnalyzeOptions["logLevel"],
+      artifact: artifact as RunAnalyzeOptions["artifact"],
+      noLlm: !opts.llm,
     });
     console.log(
       `wrote ${outPath} (${snapshot.units.length} units, ${snapshot.edges.length} edges, ${snapshot.externals.length} externals)`,
