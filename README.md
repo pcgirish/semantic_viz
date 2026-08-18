@@ -33,7 +33,7 @@ absent from the queue.
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
-| `packages/interpreter` | Pass A (leaf semantics), Pass B (import-cohesion clustering + deterministic checker), Pass C (architecture narration), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
+| `packages/interpreter` | Pass A (leaf semantics), Pass B (import-cohesion clustering + deterministic checker), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking | Implemented |
 | `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
@@ -140,8 +140,9 @@ The top bar switches between four views:
 - **Depends on** — lists third-party externals (with ecosystem, version,
   direct/transitive depth) reached from the current selection.
 - **Flows** — traces a single `api_flow` end to end (the units one request
-  actually touches, in call order), with a step dot per changed unit in
-  Delta mode.
+  actually touches, including every branch — e.g. success/failure — and any
+  framework-wired DI/middleware ahead of the handler), with a step dot per
+  changed unit in Delta mode.
 
 A Replay timeline along the bottom scrubs through revisions (rev picker or
 drag), toggles between PR- and commit-level density, and shows a per-rev
