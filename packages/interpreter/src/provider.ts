@@ -8,7 +8,7 @@ export interface ProviderContext {
   cacheKeyExtra?: string;
   /** Call-site identity for per-call logging (docs/llm-call-observability.md). Not sent to the model. */
   callMeta?: {
-    pass: "A" | "B" | "C" | "D";
+    pass: "A" | "B" | "C" | "D" | "Docs";
     unitId?: string;
     qualname?: string;
     file?: string;

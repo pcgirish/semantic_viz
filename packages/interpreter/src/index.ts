@@ -12,6 +12,8 @@ export { runPassA } from "./pass-a.js";
 export type { PassAResult, RunPassAOptions } from "./pass-a.js";
 export { runPassB } from "./pass-b.js";
 export type { PassBResult, RunPassBOptions } from "./pass-b.js";
+export { runPassDocs } from "./pass-docs.js";
+export type { DocInput, DocExtract, RunPassDocsOptions } from "./pass-docs.js";
 export { runPassC, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
 export type {
   PassCResult,

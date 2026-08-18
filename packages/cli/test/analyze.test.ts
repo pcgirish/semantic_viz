@@ -25,6 +25,9 @@ function fakeProvider(): Provider {
     name: "fake",
     model: "fake-model",
     interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+      if (prompt.includes("extracting structural signal")) {
+        return { text: JSON.stringify({ purpose: "A fixture repo.", modules: [], architecture_notes: [] }), tokens: 10 };
+      }
       if (prompt.includes("grouping the files")) {
         return { text: JSON.stringify({ clusters: { misc: [] } }), tokens: 10 };
       }

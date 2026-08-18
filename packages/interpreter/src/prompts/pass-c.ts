@@ -1,10 +1,15 @@
+function formatRepoContext(repoContext?: string): string {
+  if (!repoContext) return "";
+  return `## Repo context (docs + directory structure)\n${repoContext}\n\n`;
+}
+
 /** Pass C prompt: narrate why one cluster of files exists as a system-level layer. See analyze.md#2. */
-export function passCPrompt(name: string, files: string[], oneLiners: Record<string, string>): string {
+export function passCPrompt(name: string, files: string[], oneLiners: Record<string, string>, repoContext?: string): string {
   const fileLines = files.map((f) => `- ${f}: ${oneLiners[f] ?? "(no summary)"}`).join("\n");
 
   return `You are describing why the following cluster of files, named "${name}", exists as a layer in the system's architecture.
 
-Files in this cluster:
+${formatRepoContext(repoContext)}Files in this cluster:
 ${fileLines}
 
 Respond with JSON only, matching exactly this shape. Each field is a distinct one-sentence

@@ -13,6 +13,7 @@ import {
   type Provider,
   type ProviderUsage,
 } from "@scv/interpreter";
+import { discoverDocs } from "./discover-docs.js";
 import { headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
 
@@ -77,6 +78,7 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
       provider,
       promptRev,
       readSource: readSource(options.root),
+      repoContext: { docs: discoverDocs(options.root) },
     });
   } finally {
     cache.close();

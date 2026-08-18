@@ -21,6 +21,7 @@ diffable and durable.
 | `flowchart-block-labels-readability.md` | Semantic block labels (batched per-function LLM step), yes/no edge labels, sequential-block collapsing, flowchart header framing |
 | `test-folder-flat-module-no-analysis.md` | Flatten test-folder hierarchy to one module level, skip flowchart/block extraction and all LLM passes for test units |
 | `llm-call-timing-and-progress.md` | Per-call LLM timing, sub-phase in-flight progress logging, duration on INFO lines, end-of-run timing summary |
+| `repo-docs-and-directory-context-for-pass-b-c.md` | Feed repo docs (README/`docs/`) + directory structure into Pass B/C prompts via new Pass Docs extraction pass, plus Pass B target-cluster-count heuristic |
 
 New plans: write to `~/.claude/plans/` as usual during plan mode, then copy the approved
 file here (and commit) once implementation starts, so its history is preserved.
