@@ -168,14 +168,32 @@ function formatRepoContext(docExtracts: DocExtract[], files: string[]): string |
   return parts.join("\n\n");
 }
 
-/** Runs Pass A (leaf semantics), Pass B (clustering), and Pass C (layer + system narration) over a structural snapshot, producing a fully-lifted scv/1 snapshot. Mirrors docs/mock/tools/build.py's interpret(). */
-export async function runInterpreter(options: RunInterpreterOptions): Promise<Snapshot> {
-  const { snapshot, graph, provider, promptRev, readSource, systemName, repoContext } = options;
-  const runStart = performance.now();
-  const reportProgress: ReportProgress =
-    options.reportProgress ??
-    ((phase, done, total, current) =>
-      console.error(`[INFO] progress phase=${phase} ${done}/${total} current=${current ?? ""} elapsed=${fmtElapsed(performance.now() - runStart)}`));
+// ---------------------------------------------------------------------------------------------
+// Functions pass (Pass A leaf semantics + Pass A block labels)
+// ---------------------------------------------------------------------------------------------
+
+export interface RunFunctionsPassOptions {
+  snapshot: Snapshot;
+  graph: SymbolGraph;
+  provider: Provider;
+  promptRev: string;
+  readSource: (file: string, start: number, end: number) => string;
+  reportProgress: ReportProgress;
+}
+
+export interface RunFunctionsPassResult {
+  /** All snapshot units, in original order, with Pass A semantics/cost/tags/signature applied
+   *  to leaf (function/class) units and block-graph children appended where present. */
+  units: Unit[];
+  blockUnits: Unit[];
+  blockEdges: Edge[];
+}
+
+/** Lifts leaf (function/class) units with Pass A semantics, then labels each function's
+ *  control-flow blocks (Pass A-blocks). Bottom-up by call graph so a caller's prompt can see
+ *  its callees' already-known one-liners inline. */
+export async function runFunctionsPass(options: RunFunctionsPassOptions): Promise<RunFunctionsPassResult> {
+  const { snapshot, graph, provider, promptRev, readSource, reportProgress } = options;
   const graphById = new Map(graph.units.map((u) => [u.id, u]));
 
   // Precomputed once (O(edges)) rather than per-unit (O(edges × units)) — static caller/callee
@@ -359,8 +377,60 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     return { ...unit, children: [...unit.children, ...childIds] };
   });
 
+  return { units: unitsWithBlockChildren, blockUnits, blockEdges };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Docs pass (Pass Docs)
+// ---------------------------------------------------------------------------------------------
+
+export interface RunDocsPassOptions {
+  docs: DocInput[];
+  provider: Provider;
+  promptRev: string;
+  reportProgress: ReportProgress;
+}
+
+/** Extracts structured module/architecture info from raw repo docs (README, docs/**). */
+export async function runDocsPass(options: RunDocsPassOptions): Promise<DocExtract[]> {
+  const { docs, provider, promptRev, reportProgress } = options;
+  reportProgress("pass docs", 0, 1, "extracting doc structure");
+  const docExtracts = docs.length ? await runPassDocs({ docs, provider, promptRev }) : [];
+  reportProgress("pass docs", 1, 1, "extracting doc structure");
+  return docExtracts;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Layers pass (Pass B clustering + Pass C narration)
+// ---------------------------------------------------------------------------------------------
+
+export interface RunLayersPassOptions {
+  snapshot: Snapshot;
+  /** Functions-pass output: all units (leaf semantics + block children already applied). */
+  units: Unit[];
+  docExtracts: DocExtract[];
+  provider: Provider;
+  promptRev: string;
+  reportProgress: ReportProgress;
+}
+
+export interface RunLayersPassResult {
+  layerUnits: Unit[];
+  /** Maps a module unit's id to the layer id it was clustered into. */
+  parentOverride: Map<string, string>;
+  /** Every module unit, keyed by the file(s) it covers — reused by groups/finalize. */
+  unitsByFile: Map<string, Unit[]>;
+  /** Directory tree + doc context text passed into Pass B/C prompts, reused unchanged by groups. */
+  repoContextText: string | undefined;
+  layerIdByName: Map<string, string>;
+}
+
+/** Clusters modules into named layers (Pass B) and narrates each layer's purpose (Pass C). */
+export async function runLayersPass(options: RunLayersPassOptions): Promise<RunLayersPassResult> {
+  const { snapshot, units, docExtracts, provider, promptRev, reportProgress } = options;
+
   const unitsByFile = new Map<string, Unit[]>();
-  for (const unit of unitsWithBlockChildren) {
+  for (const unit of units) {
     if (unit.kind !== "module" || isTestUnit(unit)) continue;
     for (const file of unit.loc.files) {
       (unitsByFile.get(file) ?? unitsByFile.set(file, []).get(file)!).push(unit);
@@ -369,7 +439,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
   const files = [...unitsByFile.keys()];
 
   const leafUnitsByFile = new Map<string, Unit[]>();
-  for (const unit of unitsWithBlockChildren) {
+  for (const unit of units) {
     if (!LEAF_KINDS.has(unit.kind) || isTestUnit(unit)) continue;
     for (const file of unit.loc.files) {
       (leafUnitsByFile.get(file) ?? leafUnitsByFile.set(file, []).get(file)!).push(unit);
@@ -392,24 +462,20 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     const fromFile = fileOfUnit.get(edge.from);
     const toFile = fileOfUnit.get(edge.to);
     if (!fromFile || !toFile || fromFile === toFile) continue;
-    const key = `${fromFile} ${toFile}`;
+    const key = `${fromFile} ${toFile}`;
     edgeWeightByFilePair.set(key, (edgeWeightByFilePair.get(key) ?? 0) + edge.weight);
   }
   for (const [key, weight] of edgeWeightByFilePair) {
-    const [from, to] = key.split(" ") as [string, string];
+    const [from, to] = key.split(" ") as [string, string];
     importEdges.push({ from, to, weight });
   }
 
-  reportProgress("pass docs", 0, 1, "extracting doc structure");
-  const docExtracts = repoContext?.docs.length ? await runPassDocs({ docs: repoContext.docs, provider, promptRev }) : [];
-  reportProgress("pass docs", 1, 1, "extracting doc structure");
   const repoContextText = formatRepoContext(docExtracts, files);
 
   reportProgress("pass B", 0, 1, "clustering files");
   const passB = await runPassB({ files, oneLiners, edges: importEdges, provider, promptRev, repoContext: repoContextText });
   reportProgress("pass B", 1, 1, "clustering files");
 
-  const newUnits: Unit[] = [];
   const layerIds: string[] = [];
   const parentOverride = new Map<string, string>();
 
@@ -425,10 +491,74 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
   const passC = await runPassC({ clusters: passB.clusters, oneLiners, provider, promptRev, repoContext: repoContextText });
   reportProgress("pass C", 1, 1, "narrating layers");
 
-  // Layer-to-layer edge weights, rolled up the same way importEdges rolls up file-pair
-  // weights above — one level higher, keyed by layer id via parentOverride — so the
-  // grouping step sees which layers actually depend on each other, not just their names.
   const layerIdByName = new Map(passC.layers.map((l) => [l.name, layerIdFor(l.files)]));
+
+  const layerUnits: Unit[] = [];
+  for (const layer of passC.layers) {
+    const layerId = layerIdFor(layer.files);
+    const memberUnits = layer.files.flatMap((f) => unitsByFile.get(f) ?? []);
+    const memberIds = memberUnits.map((u) => u.id);
+    if (memberIds.length === 0) continue;
+    layerUnits.push({
+      id: layerId,
+      kind: "layer",
+      name: layer.name,
+      qualname: layer.name,
+      lang: undefined,
+      parent: null,
+      children: memberIds,
+      group: undefined,
+      loc: {
+        files: [...new Set(memberUnits.flatMap((u) => u.loc.files))],
+        start: null,
+        end: null,
+        sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0),
+      },
+      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: "llm" },
+      cost: null,
+      tags: [],
+      metrics: { sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
+      authors: undefined,
+      hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
+      provenance: { source: "llm", pass: "C" },
+    });
+  }
+
+  return { layerUnits, parentOverride, unitsByFile, repoContextText, layerIdByName };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Groups pass (Pass C groups)
+// ---------------------------------------------------------------------------------------------
+
+export interface RunGroupsPassOptions {
+  snapshot: Snapshot;
+  /** Layers-pass output. */
+  layerUnits: Unit[];
+  parentOverride: Map<string, string>;
+  unitsByFile: Map<string, Unit[]>;
+  layerIdByName: Map<string, string>;
+  repoContextText: string | undefined;
+  provider: Provider;
+  promptRev: string;
+  reportProgress: ReportProgress;
+}
+
+/** Buckets layers into a small number of named architectural groups (Pass C groups), returning
+ *  layer units with their `group` field populated. */
+export async function runGroupsPass(options: RunGroupsPassOptions): Promise<Unit[]> {
+  const { snapshot, layerUnits, parentOverride, unitsByFile, layerIdByName, repoContextText, provider, promptRev, reportProgress } = options;
+
+  const fileOfUnit = new Map<string, string>();
+  for (const units of unitsByFile.values()) {
+    for (const unit of units) {
+      if (unit.loc.files[0]) fileOfUnit.set(unit.id, unit.loc.files[0]);
+    }
+  }
+
+  // Layer-to-layer edge weights, rolled up the same way importEdges rolls up file-pair
+  // weights in the layers pass — one level higher, keyed by layer id via parentOverride — so
+  // the grouping step sees which layers actually depend on each other, not just their names.
   const layerEdgeWeightForGrouping = new Map<string, number>();
   for (const edge of snapshot.edges) {
     const fromFile = fileOfUnit.get(edge.from);
@@ -453,7 +583,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
 
   reportProgress("pass C groups", 0, 1, "grouping layers");
   const passCGroups = await runPassCGroups({
-    layers: passC.layers.map((l) => ({ name: l.name, why: l.why })),
+    layers: layerUnits.map((l) => ({ name: l.name, why: l.semantics?.why ?? "" })),
     edges: groupEdges,
     provider,
     promptRev,
@@ -465,34 +595,36 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     for (const layerName of layerNames) groupByLayerName.set(layerName, groupName);
   }
 
-  for (const layer of passC.layers) {
-    const layerId = layerIdFor(layer.files);
-    const memberUnits = layer.files.flatMap((f) => unitsByFile.get(f) ?? []);
-    const memberIds = memberUnits.map((u) => u.id);
-    if (memberIds.length === 0) continue;
-    newUnits.push({
-      id: layerId,
-      kind: "layer",
-      name: layer.name,
-      qualname: layer.name,
-      lang: undefined,
-      parent: null,
-      children: memberIds,
-      group: groupByLayerName.get(layer.name),
-      loc: {
-        files: [...new Set(memberUnits.flatMap((u) => u.loc.files))],
-        start: null,
-        end: null,
-        sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0),
-      },
-      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: "llm" },
-      cost: null,
-      tags: [],
-      metrics: { sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
-      authors: undefined,
-      hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
-      provenance: { source: "llm", pass: "C" },
-    });
+  return layerUnits.map((layer) => ({ ...layer, group: groupByLayerName.get(layer.name) }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Flows pass (Pass C flows)
+// ---------------------------------------------------------------------------------------------
+
+export interface RunFlowsPassOptions {
+  snapshot: Snapshot;
+  graph: SymbolGraph;
+  /** Functions-pass output. */
+  units: Unit[];
+  provider: Provider;
+  promptRev: string;
+  reportProgress: ReportProgress;
+}
+
+/** Traces API-entry-point call chains (Pass C flows), producing narrated `api_flow` units. */
+export async function runFlowsPass(options: RunFlowsPassOptions): Promise<Unit[]> {
+  const { snapshot, graph, units, provider, promptRev, reportProgress } = options;
+
+  const functionsWithBlocks: { unit: Unit; symbolUnit: SymbolUnit; bg: SymbolBlockGraph }[] = [];
+  const graphById = new Map(graph.units.map((u) => [u.id, u]));
+  for (const unit of units) {
+    if (unit.kind !== "function") continue;
+    const symbolUnit = graphById.get(unit.id);
+    if (!symbolUnit) continue;
+    const bg = graph.blockGraph[symbolUnit.qualname];
+    if (!bg) continue;
+    functionsWithBlocks.push({ unit, symbolUnit, bg });
   }
 
   // Attributes each `calls` edge to the control-flow branch its call site sits in, so
@@ -544,6 +676,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     .map((u) => ({ id: u.id, qualname: u.qualname, what: u.semantics?.what ?? "" }));
   const unitById = new Map(units.map((u) => [u.id, u]));
 
+  const newUnits: Unit[] = [];
   if (flowUnitSummaries.length > 0) {
     reportProgress("pass C flows: entry points", 0, 1, "proposing entry points");
     const entryPoints = await proposeFlowEntryPoints({ units: flowUnitSummaries, callEdges, provider, promptRev });
@@ -616,6 +749,37 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     }
   }
 
+  return newUnits;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Finalize: merges functions/layers/groups/flows outputs into one scv/1 Snapshot
+// ---------------------------------------------------------------------------------------------
+
+export interface FinalizeSnapshotOptions {
+  snapshot: Snapshot;
+  provider: Provider;
+  promptRev: string;
+  systemName?: string;
+  /** Functions-pass output. */
+  units: Unit[];
+  blockUnits: Unit[];
+  blockEdges: Edge[];
+  /** Layers-pass output (groups already merged in via runGroupsPass, or ungrouped if groups
+   *  weren't run). */
+  layerUnits: Unit[];
+  parentOverride: Map<string, string>;
+  /** Flows-pass output. Pass an empty array when flows weren't run. */
+  flowUnits: Unit[];
+}
+
+/** Merges the functions/layers/groups/flows pass outputs into one scv/1 Snapshot: reparents
+ *  modules under their layer, rolls up layer-to-layer edges, and adds a root system unit. */
+export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
+  const { snapshot, provider, promptRev, systemName, units, blockUnits, blockEdges, layerUnits, parentOverride, flowUnits } = options;
+
+  const newUnits: Unit[] = [...layerUnits, ...flowUnits];
+
   const sysId = `u:sys:${systemName ?? snapshot.repo.root}`;
   newUnits.push({
     id: sysId,
@@ -640,13 +804,18 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     provenance: { source: "llm", pass: "C" },
   });
 
-  const finalUnits = unitsWithBlockChildren.map((unit) => {
+  const finalUnits = units.map((unit) => {
     const newParent = parentOverride.get(unit.id);
     if (newParent && unit.kind === "module") {
       return { ...unit, parent: newParent };
     }
     return unit;
   });
+
+  const fileOfUnit = new Map<string, string>();
+  for (const unit of units) {
+    if (unit.loc.files[0]) fileOfUnit.set(unit.id, unit.loc.files[0]);
+  }
 
   const edges: Edge[] = [...snapshot.edges, ...blockEdges];
   const layerOfFile = new Map<string, string>();
@@ -662,7 +831,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     const fromLayer = fromFile ? layerOfFile.get(fromFile) : undefined;
     const toLayer = toFile ? layerOfFile.get(toFile) : undefined;
     if (!fromLayer || !toLayer || fromLayer === toLayer) continue;
-    const key = `${fromLayer} ${toLayer} ${edge.kind}`;
+    const key = `${fromLayer} ${toLayer} ${edge.kind}`;
     const existing = layerEdgeWeight.get(key);
     if (existing) existing.weight += edge.weight;
     else layerEdgeWeight.set(key, { from: fromLayer, to: toLayer, kind: edge.kind, weight: edge.weight });
@@ -690,4 +859,47 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
       interpreter: { provider: provider.name, model: provider.model, prompt_rev: promptRev },
     },
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Full pipeline
+// ---------------------------------------------------------------------------------------------
+
+/** Runs Pass A (leaf semantics), Pass B (clustering), and Pass C (layer + system narration) over a structural snapshot, producing a fully-lifted scv/1 snapshot. Mirrors docs/mock/tools/build.py's interpret(). */
+export async function runInterpreter(options: RunInterpreterOptions): Promise<Snapshot> {
+  const { snapshot, graph, provider, promptRev, readSource, systemName, repoContext } = options;
+  const runStart = performance.now();
+  const reportProgress: ReportProgress =
+    options.reportProgress ??
+    ((phase, done, total, current) =>
+      console.error(`[INFO] progress phase=${phase} ${done}/${total} current=${current ?? ""} elapsed=${fmtElapsed(performance.now() - runStart)}`));
+
+  const { units, blockUnits, blockEdges } = await runFunctionsPass({ snapshot, graph, provider, promptRev, readSource, reportProgress });
+
+  const docExtracts = await runDocsPass({ docs: repoContext?.docs ?? [], provider, promptRev, reportProgress });
+
+  const { layerUnits: ungroupedLayerUnits, parentOverride, unitsByFile, repoContextText, layerIdByName } = await runLayersPass({
+    snapshot,
+    units,
+    docExtracts,
+    provider,
+    promptRev,
+    reportProgress,
+  });
+
+  const layerUnits = await runGroupsPass({
+    snapshot,
+    layerUnits: ungroupedLayerUnits,
+    parentOverride,
+    unitsByFile,
+    layerIdByName,
+    repoContextText,
+    provider,
+    promptRev,
+    reportProgress,
+  });
+
+  const flowUnits = await runFlowsPass({ snapshot, graph, units, provider, promptRev, reportProgress });
+
+  return finalizeSnapshot({ snapshot, provider, promptRev, systemName, units, blockUnits, blockEdges, layerUnits, parentOverride, flowUnits });
 }
