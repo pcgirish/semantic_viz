@@ -32,12 +32,13 @@ export interface RunPassBOptions {
   edges: ImportEdge[];
   provider: Provider;
   promptRev: string;
+  repoContext?: string;
 }
 
 /** Pass B — clustering. The LLM proposes, the deterministic checker validates and repairs. See analyze.md#2. */
 export async function runPassB(options: RunPassBOptions): Promise<PassBResult> {
-  const { files, oneLiners, edges, provider } = options;
-  const prompt = passBPrompt(files, oneLiners, edges);
+  const { files, oneLiners, edges, provider, repoContext } = options;
+  const prompt = passBPrompt(files, oneLiners, edges, repoContext);
   const response = await interpretJsonWithRetry({
     provider,
     prompt,

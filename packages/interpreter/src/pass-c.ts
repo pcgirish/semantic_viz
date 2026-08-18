@@ -38,15 +38,16 @@ export interface RunPassCOptions {
   oneLiners: Record<string, string>;
   provider: Provider;
   promptRev: string;
+  repoContext?: string;
 }
 
 /** Pass C — architecture narration. One LLM call per Pass B cluster, producing a layer's `why`. See analyze.md#2. */
 export async function runPassC(options: RunPassCOptions): Promise<PassCResult> {
-  const { clusters, oneLiners, provider } = options;
+  const { clusters, oneLiners, provider, repoContext } = options;
   const layers: Layer[] = [];
 
   for (const [name, files] of Object.entries(clusters)) {
-    const prompt = passCPrompt(name, files, oneLiners);
+    const prompt = passCPrompt(name, files, oneLiners, repoContext);
     const response = await interpretJsonWithRetry({
       provider,
       prompt,
@@ -93,6 +94,7 @@ export interface RunPassCGroupsOptions {
   edges: ImportEdge[];
   provider: Provider;
   promptRev: string;
+  repoContext?: string;
 }
 
 /**
@@ -102,9 +104,9 @@ export interface RunPassCGroupsOptions {
  * checker guarantees every layer lands in exactly one group.
  */
 export async function runPassCGroups(options: RunPassCGroupsOptions): Promise<PassCGroupsResult> {
-  const { layers, edges, provider } = options;
+  const { layers, edges, provider, repoContext } = options;
   const layerNames = layers.map((l) => l.name);
-  const prompt = passCGroupsPrompt(layers, edges);
+  const prompt = passCGroupsPrompt(layers, edges, repoContext);
   const response = await interpretJsonWithRetry({
     provider,
     prompt,

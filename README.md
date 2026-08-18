@@ -11,7 +11,7 @@ and [`docs/implement-serve.md`](docs/implement-serve.md) for milestones.
 
 ## Status
 
-The full pipeline — Extractor → Interpreter (Pass A–D) → Differ — is
+The full pipeline — Extractor → Interpreter (Pass A, Pass Docs, Pass B–D) → Differ — is
 implemented end to end and wired into the CLI, server, and UI: `scv analyze`
 extracts a repo and lifts semantics, clustering, and layer narration in one
 pass; `scv diff` diffs two snapshots with LLM risk narration and produces a
@@ -33,7 +33,7 @@ absent from the queue.
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
-| `packages/interpreter` | Pass A (leaf semantics), Pass B (import-cohesion clustering + deterministic checker), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
+| `packages/interpreter` | Pass A (leaf semantics), Pass Docs (repo README/docs structural extraction), Pass B (import-cohesion clustering + doc-derived hints + target-cluster-count guidance + deterministic checker), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking | Implemented |
 | `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
@@ -171,7 +171,7 @@ tracked as a followup, not part of the design-system migration.
 
 ## Configuring the LLM provider
 
-`scv analyze` (Pass A/B/C) and `scv diff` (Pass D + ranking) both call an LLM
+`scv analyze` (Pass A, Pass Docs, Pass B/C) and `scv diff` (Pass D + ranking) both call an LLM
 provider, resolved from `<scvDir>/config.yaml` (default `.scv/config.yaml`).
 No file → defaults to `ollama`.
 
@@ -240,7 +240,7 @@ Notes on what it does under the hood:
 ```
 packages/
   extractor/     # tree-sitter-based static analysis -> SymbolGraph
-  interpreter/   # Pass A-D, Provider interface, content cache, checker, ranking
+  interpreter/   # Pass A, Pass Docs, Pass B-D, Provider interface, content cache, checker, ranking
   differ/        # match, classify, blast radius, rollup
   schema/        # shared Zod/JSON schemas for the pipeline contract
   cli/           # `scv analyze` / `scv diff`

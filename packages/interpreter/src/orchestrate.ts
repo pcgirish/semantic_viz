@@ -7,6 +7,8 @@ import { runPassA } from "./pass-a.js";
 import { runPassABlocks } from "./pass-a-blocks.js";
 import { runPassB } from "./pass-b.js";
 import { runPassC, runPassCGroups, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
+import { runPassDocs } from "./pass-docs.js";
+import type { DocExtract, DocInput } from "./pass-docs.js";
 import { traceFlow, traceFlowBranching } from "./checker.js";
 import type { CallEdge, ImportEdge, StepBranch } from "./checker.js";
 import type { FlowUnitSummary } from "./prompts/pass-c-flows.js";
@@ -91,6 +93,9 @@ export interface RunInterpreterOptions {
   systemName?: string;
   /** Defaults to logging `[INFO] progress phase=... done/total current=... elapsed=...` to stderr. */
   reportProgress?: ReportProgress;
+  /** Raw repo docs (README, docs/**), summarized via Pass Docs and combined with a directory
+   *  tree into a "Repo context" section passed to Pass B/C. Optional — omitted entirely when absent. */
+  repoContext?: { docs: DocInput[] };
 }
 
 /** Renders elapsed milliseconds as e.g. `1m42s` or `8s`, shared between per-line progress
@@ -126,9 +131,46 @@ function layerIdFor(files: string[]): string {
   return `u:layer:${createHash("sha1").update([...files].sort().join("\n")).digest("hex").slice(0, 12)}`;
 }
 
+/** Renders a sorted file-path listing as an indented directory tree, so Pass B/C can see the
+ *  repo's own layout without an extra disk walk (built from the same `files` list Pass B gets). */
+function buildDirectoryTree(files: string[]): string {
+  return [...files]
+    .sort()
+    .map((file) => {
+      const parts = file.split("/");
+      const depth = parts.length - 1;
+      return `${"  ".repeat(depth)}${parts[parts.length - 1]}`;
+    })
+    .join("\n");
+}
+
+/** Combines Pass Docs' structured extracts with a directory tree into the single "Repo context"
+ *  string passed to Pass B/C prompt builders. Returns undefined when there's nothing to add,
+ *  so prompt builders omit the section entirely rather than rendering an empty one. */
+function formatRepoContext(docExtracts: DocExtract[], files: string[]): string | undefined {
+  const parts: string[] = [];
+
+  for (const doc of docExtracts) {
+    const lines = [`### ${doc.path}`, doc.purpose];
+    for (const mod of doc.modules) {
+      const paths = mod.paths.length > 0 ? ` (${mod.paths.join(", ")})` : "";
+      lines.push(`- ${mod.name}${paths}: ${mod.description}`);
+    }
+    for (const note of doc.architecture_notes) lines.push(`- ${note}`);
+    parts.push(lines.join("\n"));
+  }
+
+  if (files.length > 0) {
+    parts.push(`### Directory structure\n${buildDirectoryTree(files)}`);
+  }
+
+  if (parts.length === 0) return undefined;
+  return parts.join("\n\n");
+}
+
 /** Runs Pass A (leaf semantics), Pass B (clustering), and Pass C (layer + system narration) over a structural snapshot, producing a fully-lifted scv/1 snapshot. Mirrors docs/mock/tools/build.py's interpret(). */
 export async function runInterpreter(options: RunInterpreterOptions): Promise<Snapshot> {
-  const { snapshot, graph, provider, promptRev, readSource, systemName } = options;
+  const { snapshot, graph, provider, promptRev, readSource, systemName, repoContext } = options;
   const runStart = performance.now();
   const reportProgress: ReportProgress =
     options.reportProgress ??
@@ -358,8 +400,13 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     importEdges.push({ from, to, weight });
   }
 
+  reportProgress("pass docs", 0, 1, "extracting doc structure");
+  const docExtracts = repoContext?.docs.length ? await runPassDocs({ docs: repoContext.docs, provider, promptRev }) : [];
+  reportProgress("pass docs", 1, 1, "extracting doc structure");
+  const repoContextText = formatRepoContext(docExtracts, files);
+
   reportProgress("pass B", 0, 1, "clustering files");
-  const passB = await runPassB({ files, oneLiners, edges: importEdges, provider, promptRev });
+  const passB = await runPassB({ files, oneLiners, edges: importEdges, provider, promptRev, repoContext: repoContextText });
   reportProgress("pass B", 1, 1, "clustering files");
 
   const newUnits: Unit[] = [];
@@ -375,7 +422,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
   }
 
   reportProgress("pass C", 0, 1, "narrating layers");
-  const passC = await runPassC({ clusters: passB.clusters, oneLiners, provider, promptRev });
+  const passC = await runPassC({ clusters: passB.clusters, oneLiners, provider, promptRev, repoContext: repoContextText });
   reportProgress("pass C", 1, 1, "narrating layers");
 
   // Layer-to-layer edge weights, rolled up the same way importEdges rolls up file-pair
@@ -410,6 +457,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     edges: groupEdges,
     provider,
     promptRev,
+    repoContext: repoContextText,
   });
   reportProgress("pass C groups", 1, 1, "grouping layers");
   const groupByLayerName = new Map<string, string>();

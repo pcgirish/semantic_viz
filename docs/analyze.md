@@ -29,13 +29,15 @@ Non-blank, non-comment lines. And `hash.text` is computed over *normalized* sour
 
 ## 2. Interpreter — LLM
 
-Four passes, bottom-up, so context stays bounded. Every pass is cached by `input_hash + prompt_rev`.
+Five passes, bottom-up, so context stays bounded. Every pass is cached by `input_hash + prompt_rev`.
 
 **Pass A — leaf semantics.** Per function and class: source plus resolved neighbours → `what / how / when / where / why`, port descriptions, a cost estimate, tags. One unit per call, batched.
 
 The five questions are not decoration. `what` and `how` are recoverable from the code. **`why` is the one an LLM can supply and a parser cannot**, and it is the field most likely to be wrong, which is why it carries confidence.
 
-**Pass B — clustering.** The load-bearing pass: form modules and layers that are *not* directory-shaped. Input is the directory tree, per-file one-liners from Pass A, and the import graph as an edge list. Output is a proposed hierarchy with names and rationale, constrained by:
+**Pass Docs — repo doc extraction.** Runs once per analyze, one call per discovered doc (root-level and `docs/`-level `.md`/`.rst` files). Extracts `purpose`, named `modules` (with optional paths), and `architecture_notes` from each doc — structural signal, not a raw summary, and not truncated regardless of doc length. A doc with no extractable structure (e.g. CONTRIBUTING.md) validly returns empty `modules`/`architecture_notes`. Combined with a directory tree built from the same file list Pass B sees, this forms the "Repo context" section folded into Pass B and Pass C prompts.
+
+**Pass B — clustering.** The load-bearing pass: form modules and layers that are *not* directory-shaped. Input is the directory tree, per-file one-liners from Pass A, the import graph as an edge list, and (when available) the Pass Docs repo-context section. Doc-derived module hints are a signal to weigh alongside import edges, not an override — a hint whose files don't match reality is still subject to the same `checkAndRepairClusters` enforcement as the rest of the LLM's proposal. The prompt also states a target cluster count, `clamp(round(sqrt(files.length)), 2, 12)`, as advisory guidance — not enforced by the checker — to curb both over-fine and arbitrarily-merged groupings. Output is a proposed hierarchy with names and rationale, constrained by:
 
 - it must partition every file — no orphans;
 - prefer cuts that minimize cross-cluster edge weight, and report the modularity score against the directory baseline;

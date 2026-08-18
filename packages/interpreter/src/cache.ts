@@ -9,7 +9,7 @@ export interface CacheKey {
 }
 
 export interface LlmCallRecord {
-  pass: "A" | "B" | "C" | "D";
+  pass: "A" | "B" | "C" | "D" | "Docs";
   unitId?: string;
   qualname?: string;
   file?: string;

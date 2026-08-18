@@ -1311,4 +1311,53 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
     expect(run?.semantics?.what).toBe("does a thing");
     expect(testRun?.semantics).toBeFalsy();
   });
+
+  it("runs Pass Docs over repoContext.docs and folds summaries + a directory tree into Pass B/C prompts", async () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const docExtract = {
+      purpose: "A backend that runs admin tasks.",
+      modules: [{ name: "ops", description: "operational scripts", paths: ["scripts"] }],
+      architecture_notes: ["scripts/ calls into src/ helpers"],
+    };
+    let passBPrompt = "";
+    let passCPrompt = "";
+    let passCGroupsPrompt = "";
+    const provider: Provider = {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("extracting structural signal")) return { text: JSON.stringify(docExtract), tokens: 10 };
+        if (prompt.includes("grouping the files")) {
+          passBPrompt = prompt;
+          return { text: JSON.stringify({ clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } }), tokens: 10 };
+        }
+        if (prompt.includes("describing why")) {
+          passCPrompt = prompt;
+          return { text: JSON.stringify({ what: "w", how: "h", when: "wh", where: "wr", why: "why", confidence: 0.8 }), tokens: 10 };
+        }
+        if (prompt.includes("grouping a codebase's architectural layers")) {
+          passCGroupsPrompt = prompt;
+          return { text: JSON.stringify({ groups: { platform: ["ops"] } }), tokens: 10 };
+        }
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    await runInterpreter({
+      snapshot,
+      graph,
+      provider,
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+      repoContext: { docs: [{ path: "README.md", content: "# Orderly\n\nRuns admin tasks." }] },
+    });
+
+    expect(passBPrompt).toContain("Repo context");
+    expect(passBPrompt).toContain("operational scripts");
+    expect(passBPrompt).toContain("scripts/backfill.py");
+    expect(passCPrompt).toContain("Repo context");
+    expect(passCGroupsPrompt).toContain("Repo context");
+  });
 });

@@ -24,7 +24,7 @@ The first question is the bulk of the product. The second is what makes people o
 |---|---|
 | Languages analyzed | Polyglot from day one — tree-sitter grammar per language, one uniform IR |
 | Delivery | `scv` CLI + localhost web UI (`scv serve`) |
-| Static vs. LLM | Static analysis owns symbols and edges as ground truth. The Interpreter owns meaning: purpose, cross-file and cross-directory grouping, risk narration |
+| Static vs. LLM | Static analysis owns symbols and edges as ground truth. The Interpreter owns meaning: purpose, cross-file and cross-directory grouping, risk narration. Clustering/narration also draw on the repo's own docs (README, `docs/`) and directory structure, extracted once per run and folded in as advisory context — see [`analyze.md`](analyze.md#2-interpreter--llm) |
 | LLM provider | Pluggable — Ollama (local, default) or Anthropic (cloud), same prompts and schema; see [`implement-analyze.md`](implement-analyze.md#stack) |
 | Rendering | 2D first. 3D is a *skin* over the same layout engine, never a fork |
 | Store | `.scv/` (gitignored), with a deterministic subset made checked-in-able later |
