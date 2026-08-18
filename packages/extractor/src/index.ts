@@ -4,8 +4,8 @@ import { resolveGraph } from "./resolve.js";
 import { churnByFile } from "./vcs.js";
 import type { SymbolGraph } from "./symbol-graph.js";
 
-export function extractRepo(root: string): SymbolGraph {
-  const files = parseRepoFiles(root);
+export function extractRepo(root: string, cacheDir?: string): SymbolGraph {
+  const files = parseRepoFiles(root, cacheDir);
   const knownModules = knownModulesOf(files);
   const manifests = parseManifests(root);
   const churn = churnByFile(root);

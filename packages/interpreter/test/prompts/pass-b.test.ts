@@ -30,6 +30,23 @@ describe("passBPrompt repo context", () => {
   });
 });
 
+describe("passBPrompt naming rules", () => {
+  it("instructs reusing an existing directory or doc-derived name verbatim before inventing one", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt).toContain("reuse");
+    expect(prompt).toContain("verbatim");
+    expect(prompt.toLowerCase()).toContain("only invent a new");
+  });
+
+  it("does not steer naming toward generic invented examples like ops/api/orders", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt).not.toContain('"ops"');
+    expect(prompt).not.toContain('"orders"');
+  });
+});
+
 describe("passBPrompt target cluster count", () => {
   it("suggests a target cluster count derived from file count", () => {
     const manyFiles = Array.from({ length: 16 }, (_, i) => `src/file${i}.py`);
