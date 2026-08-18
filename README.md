@@ -18,6 +18,15 @@ pass; `scv diff` diffs two snapshots with LLM risk narration and produces a
 ranked inspect queue. Point `scv` at a real repo, extract it, serve it, and
 browse it as a live tile map today.
 
+`scv analyze` is now incremental and artifact-aware: extraction is cached
+per-file by content hash, and each interpreter stage (functions/docs/layers/
+groups/flows) is persisted under `.scv/artifacts/<sha>/` and only recomputed
+when its actual upstream inputs changed. `scv analyze [artifact]` computes a
+single named artifact (freshening its dependencies first); `scv analyze --no-llm`
+stops after extraction and writes a static-only snapshot. The on-disk/wire
+`.scv/snapshots/<sha>.json` contract is unchanged — server and UI need no
+changes.
+
 **A6 validation against `fixtures/orderly`** (`docs/analyze.md`'s exit
 criterion): the inspect queue correctly surfaces all 7/7 module-level
 ground-truth entities (`fixtures/orderly/task/RL-114.deltas.json`) with a
