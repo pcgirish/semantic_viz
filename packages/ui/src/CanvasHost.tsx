@@ -98,8 +98,12 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   }, [units, edges]);
 
   const base = sceneBounds(scene);
-  if (renderSize.w === 1 && renderSize.h === 1 && (base.w !== 1 || base.h !== 1)) {
-    // First paint for this scene: seed renderSize from the fitted box at the current scale.
+  const fittedSceneRef = useRef<Scene | undefined>(undefined);
+  if (fittedSceneRef.current !== scene && (base.w !== 1 || base.h !== 1)) {
+    // First paint, or navigating to a different scene (e.g. Back/drill changes the visible
+    // unit set): (re)seed renderSize from this scene's fitted box, otherwise the container
+    // keeps the previous scene's size and the new, differently-sized scene renders clipped.
+    fittedSceneRef.current = scene;
     setRenderSize({ w: base.w * scaleRef.current, h: base.h * scaleRef.current });
   }
 

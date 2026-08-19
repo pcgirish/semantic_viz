@@ -593,6 +593,23 @@ describe("App", () => {
     });
   });
 
+  it("keeps the Layers rail visible when drilling into Flowchart mode from Current", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("legend-rail")).not.toBeNull();
+    });
+
+    useAppStore.getState().showFlowchart("u:a");
+
+    await waitFor(() => {
+      expect(screen.getByText("Call Graph")).toBeInTheDocument();
+      expect(screen.getByTestId("legend-rail")).not.toBeNull();
+    });
+  });
+
   it("shows a rev picker populated from /api/revs, newest first", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/revs") {

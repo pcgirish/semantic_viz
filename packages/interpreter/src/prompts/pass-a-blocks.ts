@@ -37,7 +37,7 @@ ${blockList}
 
 For each block, produce a short label (2-5 words) for a flowchart node:
 - "entry"/"exit" blocks: a short label naming the step (e.g. "return 400", "emit confirmation") — for exit/raise blocks, name the concrete result if inferable from the code (status code, error), not just "return".
-- "decision"/"loop" blocks: a short label naming what's being checked (e.g. "validity check", "items left"), not the raw source expression. Also give "trueLabel" and "falseLabel": short words/phrases (1-3 words) naming what each branch means (e.g. for "not payload.ok", trueLabel: "invalid", falseLabel: "valid"). These become the flowchart's branch edge labels, so they must describe the outcome, not just restate "yes"/"no" — get the polarity right relative to the block's own condition.
+- "decision"/"loop" blocks: a short label naming what's being checked (e.g. "validity check", "items left"), not the raw source expression. Also give "trueLabel" and "falseLabel": a single word each (rarely two, never more) naming what each branch means (e.g. for "not payload.ok", trueLabel: "invalid", falseLabel: "valid"). These become the flowchart's branch edge labels — as terse as "yes"/"no" would be, but semantically correct for the block's own condition, so get the polarity right rather than defaulting to generic "yes"/"no".
 - "sequential" blocks: name the action the code span performs (e.g. "validate payload", "persist order (db)"), not a restatement of the type.
 - "try"/"catch"/"merge" blocks: a short label for what the block represents (e.g. "charge payment", "rollback").
 

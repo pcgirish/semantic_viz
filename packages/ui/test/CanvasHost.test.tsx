@@ -196,6 +196,28 @@ describe("CanvasHost", () => {
     expect(scroll).toBe(screen.getByTestId("canvas-svg"));
   });
 
+  it("re-fits the container size when navigating to a scene with different bounds (e.g. Back), not just on first paint", () => {
+    const smallUnits = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const { rerender } = render(<CanvasHost units={smallUnits} edges={[]} />);
+    const scroll = screen.getByTestId("canvas-svg") as HTMLElement;
+    const smallWidth = parseFloat(scroll.style.width);
+
+    const bigUnits = [
+      makeUnit({ id: "a" }),
+      makeUnit({ id: "b" }),
+      makeUnit({ id: "c" }),
+      makeUnit({ id: "d" }),
+      makeUnit({ id: "e" }),
+      makeUnit({ id: "f" }),
+      makeUnit({ id: "g" }),
+      makeUnit({ id: "h" }),
+    ];
+    rerender(<CanvasHost units={bigUnits} edges={[]} />);
+
+    const bigWidth = parseFloat(scroll.style.width);
+    expect(bigWidth).toBeGreaterThan(smallWidth);
+  });
+
   it("wheel zooms in: the container's rendered (CSS pixel) size grows on deltaY < 0", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
     render(<CanvasHost units={units} edges={[]} />);
