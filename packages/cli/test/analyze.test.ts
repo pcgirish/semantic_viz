@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -197,5 +197,27 @@ describe("runAnalyze", () => {
     await runAnalyze({ root: orderlyRoot, scvDir, provider: provider2 });
 
     expect(provider2.interpret).not.toHaveBeenCalled();
+  });
+
+  it("--force without a target artifact rejects with a clear error", async () => {
+    await expect(runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), force: true })).rejects.toThrow(
+      /--force requires a target artifact/,
+    );
+  });
+
+  it("--force layers recomputes layers's artifact file without touching functions's, even though inputs are unchanged", async () => {
+    const first = await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "layers" });
+    const sha = first.snapshot.rev.sha;
+    const functionsFile = path.join(scvDir, "artifacts", sha, "functions.json");
+    const layersFile = path.join(scvDir, "artifacts", sha, "layers.json");
+
+    const functionsBefore = statSync(functionsFile).mtimeMs;
+    const layersBefore = statSync(layersFile).mtimeMs;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "layers", force: true });
+
+    expect(statSync(functionsFile).mtimeMs).toBe(functionsBefore);
+    expect(statSync(layersFile).mtimeMs).toBeGreaterThan(layersBefore);
   });
 });
