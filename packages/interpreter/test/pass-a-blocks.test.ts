@@ -90,6 +90,17 @@ describe("runPassABlocks", () => {
     expect(result.get("sequential:0")).toEqual({ label: "persist order" });
   });
 
+  it("strips trueLabel/falseLabel the provider mistakenly attached to a non-branching block", async () => {
+    const blocks = [makeBlock({ id: "exit:0", blockType: "exit", startLine: 3, endLine: 3 })];
+    const provider = fakeProvider({
+      labels: [{ blockId: "exit:0", label: "check token validity", trueLabel: "invalid token", falseLabel: "valid token" }],
+    });
+
+    const result = await runPassABlocks({ blocks, source, functionQualname: "src.auth.verify_token", provider, promptRev: "p1" });
+
+    expect(result.get("exit:0")).toEqual({ label: "check token validity" });
+  });
+
   it("passes each block's source span text and id to the provider", async () => {
     const blocks = [makeBlock({ id: "sequential:0", startLine: 4, endLine: 5 })];
     const provider = fakeProvider({ labels: [{ blockId: "sequential:0", label: "persist order" }] });

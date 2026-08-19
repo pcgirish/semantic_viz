@@ -216,7 +216,9 @@ class BlockBuilder {
       } else if (stmt.type === "throw_statement") {
         flushSeq();
         const id = this.mint("exit", stmt.startPosition.row + 1, stmt.endPosition.row + 1);
-        this.edge(cur, id, "exception");
+        // Preserve the branch this throw sits on (true/false/loop-back) so a flowchart can
+        // label the edge by branch outcome; only an unconditional throw is genuinely "exception".
+        this.edge(cur, id, nextEdgeType === "sequential" ? "exception" : nextEdgeType);
         cur = null;
       } else if (stmt.type === "break_statement" || stmt.type === "continue_statement") {
         flushSeq();
