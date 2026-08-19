@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Provider } from "./provider.js";
 import { passCPrompt } from "./prompts/pass-c.js";
 import { passCEntryPointsPrompt, passCFlowNarrationPrompt } from "./prompts/pass-c-flows.js";
-import type { FlowStepSummary, FlowUnitSummary } from "./prompts/pass-c-flows.js";
+import type { FlowStepSummary, FlowUnitSummary, StructuralRouteHint } from "./prompts/pass-c-flows.js";
 import { passCGroupsPrompt } from "./prompts/pass-c-groups.js";
 import { checkAndRepairClusters } from "./checker.js";
 import type { CallEdge, ClusterProposal, ImportEdge } from "./checker.js";
@@ -133,6 +133,9 @@ export interface ProposeFlowEntryPointsOptions {
   callEdges: CallEdge[];
   provider: Provider;
   promptRev: string;
+  /** Structurally-detected route handlers (from SymbolGraph.routes), hinted to the LLM to
+   *  reduce sampling variance on the route-handler subset of entry points. */
+  routeHints?: StructuralRouteHint[];
 }
 
 /**
@@ -141,8 +144,8 @@ export interface ProposeFlowEntryPointsOptions {
  * see gets dropped rather than trusted (same repair discipline as checkAndRepairClusters).
  */
 export async function proposeFlowEntryPoints(options: ProposeFlowEntryPointsOptions): Promise<FlowEntryPoint[]> {
-  const { units, callEdges, provider } = options;
-  const prompt = passCEntryPointsPrompt(units, callEdges);
+  const { units, callEdges, provider, routeHints = [] } = options;
+  const prompt = passCEntryPointsPrompt(units, callEdges, routeHints);
   const response = await interpretJsonWithRetry({
     provider,
     prompt,

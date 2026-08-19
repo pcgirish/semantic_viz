@@ -26,6 +26,20 @@ describe("proposeFlowEntryPoints", () => {
     expect(result).toEqual([{ unit: "u:routes", name: "POST /orders", route: "POST /orders" }]);
   });
 
+  it("passes structural route hints through into the prompt sent to the provider", async () => {
+    const provider = fakeProvider([{ flows: [{ unit: "u:routes", name: "POST /orders", route: "POST /orders" }] }]);
+
+    await proposeFlowEntryPoints({
+      units,
+      callEdges: [],
+      provider,
+      promptRev: "p1",
+      routeHints: [{ unit: "u:routes", method: "post", path: "/orders" }],
+    });
+
+    expect(provider.interpret).toHaveBeenCalledWith(expect.stringContaining("Confirmed route handlers"), expect.anything());
+  });
+
   it("drops proposed entry points whose unit id isn't in the real unit list", async () => {
     const provider = fakeProvider([
       {

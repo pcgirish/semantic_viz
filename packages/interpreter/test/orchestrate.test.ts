@@ -88,6 +88,7 @@ function makeGraph(): SymbolGraph {
     ],
     externals: [],
     blockGraph: {},
+    routes: [],
   };
 }
 
@@ -336,6 +337,7 @@ describe("runInterpreter", () => {
       ],
       externals: [],
       blockGraph: {},
+      routes: [],
     };
     const snapshot = makeSnapshot(graph);
     const order: string[] = [];
@@ -402,6 +404,7 @@ describe("runInterpreter", () => {
       ],
       externals: [],
       blockGraph: {},
+      routes: [],
     };
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
@@ -660,6 +663,7 @@ describe("runInterpreter", () => {
           ],
         },
       },
+      routes: [],
     };
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
@@ -781,6 +785,7 @@ describe("runInterpreter", () => {
       ],
       externals: [],
       blockGraph: {},
+      routes: [],
     };
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
@@ -901,6 +906,7 @@ describe("runInterpreter", () => {
       ],
       externals: [],
       blockGraph: {},
+      routes: [],
     };
     const snapshot = makeSnapshot(graph);
     const provider: Provider = {
@@ -1070,7 +1076,7 @@ describe("runInterpreter", () => {
       metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
       authors: [],
     }));
-    const graph: SymbolGraph = { units, edges: [], externals: [], blockGraph: {} };
+    const graph: SymbolGraph = { units, edges: [], externals: [], blockGraph: {}, routes: [] };
     const snapshot = makeSnapshot(graph);
 
     let inFlight = 0;

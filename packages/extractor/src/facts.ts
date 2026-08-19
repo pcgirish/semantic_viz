@@ -84,6 +84,10 @@ export interface RouteRegistrationFact {
   routerVar: string;
   /** dotted name of the handler as written, e.g. "orders.create_order.create_order" or "get_order" */
   handlerName: string;
+  /** HTTP method, e.g. "post", "get" — lowercase as written. */
+  method: string;
+  /** route path string as written, e.g. "/orders/{order_id}"; null if not a plain string literal. */
+  path: string | null;
 }
 
 export type Fact = DefFact | ImportFact | RefFact | InheritFact | BlockFact | ControlFlowEdgeFact | DiRouterFact | RouteRegistrationFact;

@@ -88,6 +88,18 @@ export interface SymbolBlockGraph {
   edges: SymbolControlFlowEdge[];
 }
 
+/** A structurally-detected HTTP route registration, e.g. `@router.post("/orders")` above a
+ *  handler def — derived from RouteRegistrationFact, independent of DI wiring. Used to seed
+ *  flow entry-point proposals with a deterministic signal instead of relying purely on LLM
+ *  sampling (docs backlog: flow entry-point sampling variance). */
+export interface SymbolRoute {
+  unit: string;
+  method: string;
+  /** route path as written, e.g. "/orders/{order_id}"; falls back to the handler name as
+   *  written when no plain string path literal could be extracted. */
+  path: string;
+}
+
 export interface SymbolGraph {
   units: SymbolUnit[];
   edges: SymbolEdge[];
@@ -95,4 +107,6 @@ export interface SymbolGraph {
   /** function unit qualname -> its internal control-flow blocks/edges, only present for
    *  functions with actual branching (see resolveBlockGraph in resolve.ts). */
   blockGraph: Record<string, SymbolBlockGraph>;
+  /** Structurally-detected route handlers (see SymbolRoute). */
+  routes: SymbolRoute[];
 }
