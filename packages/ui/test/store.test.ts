@@ -71,38 +71,37 @@ describe("useAppStore", () => {
     expect(useAppStore.getState().focusStack).toEqual(before.focusStack);
   });
 
-  it("showFlowchart switches to flowchart mode focused on the given function and clears selection", () => {
+  it("drill into a function unit sets focus like any other unit and clears selection", () => {
     useAppStore.getState().select("u:a");
-    useAppStore.getState().showFlowchart("u:fn:create_order");
+    useAppStore.getState().drill("u:fn:create_order");
     const s = useAppStore.getState();
-    expect(s.mode).toBe("flowchart");
-    expect(s.flowchartFunctionId).toBe("u:fn:create_order");
+    expect(s.focus).toBe("u:fn:create_order");
     expect(s.selection).toBeNull();
+    expect(s.mode).toBe("current");
   });
 
-  it("ascend from flowchart mode restores the mode that was active before entering it", () => {
-    useAppStore.getState().setMode("depends");
-    useAppStore.getState().showFlowchart("u:fn:create_order");
+  it("ascend out of a function focus leaves mode untouched", () => {
+    useAppStore.getState().setMode("delta");
+    useAppStore.getState().drill("u:fn:create_order");
     useAppStore.getState().ascend();
     const s = useAppStore.getState();
-    expect(s.mode).toBe("depends");
-    expect(s.flowchartFunctionId).toBeNull();
+    expect(s.mode).toBe("delta");
+    expect(s.focus).toBeNull();
   });
 
-  it("goTo from flowchart mode also exits back to the mode active before entering it", () => {
+  it("goTo past a function focus also leaves mode untouched", () => {
     useAppStore.getState().drill("u:layer:x");
     useAppStore.getState().drill("u:module:y");
-    useAppStore.getState().setMode("depends");
-    useAppStore.getState().showFlowchart("u:fn:create_order");
+    useAppStore.getState().setMode("delta");
+    useAppStore.getState().drill("u:fn:create_order");
     useAppStore.getState().goTo(0);
     const s = useAppStore.getState();
-    expect(s.mode).toBe("depends");
-    expect(s.flowchartFunctionId).toBeNull();
+    expect(s.mode).toBe("delta");
     expect(s.focus).toBe("u:layer:x");
     expect(s.focusStack).toEqual([]);
   });
 
-  it("ascend from a non-flowchart mode still pops the focus stack as before", () => {
+  it("ascend pops the focus stack regardless of mode", () => {
     useAppStore.getState().drill("u:layer:x");
     useAppStore.getState().drill("u:module:y");
     useAppStore.getState().ascend();

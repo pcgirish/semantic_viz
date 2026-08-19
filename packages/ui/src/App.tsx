@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot, Unit } from "@scv/schema";
-import { Button, PathBreadcrumb, SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
-import { Breadcrumb, focusPathSegments } from "./Breadcrumb.js";
+import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
+import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
 import { EntryPointsRail } from "./EntryPointsRail.js";
@@ -105,7 +105,6 @@ const MODE_LABEL: Record<string, string> = {
   current: "Current",
   delta: "Delta",
   flows: "API Flow",
-  flowchart: "Flowchart",
   depends: "Depends on",
 };
 
@@ -123,7 +122,6 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const focusStack = useAppStore((s) => s.focusStack);
   const ascend = useAppStore((s) => s.ascend);
   const goTo = useAppStore((s) => s.goTo);
-  const flowchartFunctionId = useAppStore((s) => s.flowchartFunctionId);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-skin", skin);
@@ -269,47 +267,27 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const selectedExternal = mode === "depends" ? (externals.find((x) => x.id === selection) ?? null) : null;
   const flowUnits = units.filter((u) => u.kind === "api_flow");
   const changedStepIds = delta ? new Set(delta.unit_deltas.map((d) => d.unit)) : undefined;
-  const flowchartFunction = mode === "flowchart" ? (units.find((u) => u.id === flowchartFunctionId) ?? null) : null;
-  const rootUnit = units.find((u) => u.kind === "system") ?? null;
+  // A function is a drillable zoom level like any other (store.ts) — Current/Delta render it
+  // as a Flowchart instead of a tile grid, purely based on the focused unit's kind.
+  const focusedUnit = focus ? (units.find((u) => u.id === focus) ?? null) : null;
+  const flowchartFunction = (mode === "current" || mode === "delta") && focusedUnit?.kind === "function" ? focusedUnit : null;
 
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Toolbar
         left={
-          mode === "flowchart" && flowchartFunction ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-              <Button variant="ghost" size="sm" onClick={ascend}>
-                ‹ Back
-              </Button>
-              <PathBreadcrumb
-                segments={[
-                  { label: rootUnit?.name ?? "root" },
-                  ...focusPathSegments(focus, focusStack, units),
-                  { label: flowchartFunction.name },
-                ]}
-                onPick={(i) => {
-                  // i === 0 is the root segment; the last segment is the flowchart itself
-                  // (not pickable, we're already there) — everything between is a real
-                  // focusStack/focus entry, so hand it to goTo at the matching index.
-                  if (i === 0) ascend();
-                  else if (i <= focusStack.length) goTo(i - 1);
-                }}
-              />
-            </div>
-          ) : mode === "flowchart" ? undefined : (
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-              <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>orderly</span>
-              <span style={{ color: "var(--text-dim)", font: "var(--weight-regular) var(--text-sm) var(--font-core)" }}>
-                {shortSha(sha)} · {MODE_LABEL[mode]} mode
-              </span>
-              <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />
-            </div>
-          )
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+            <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>orderly</span>
+            <span style={{ color: "var(--text-dim)", font: "var(--weight-regular) var(--text-sm) var(--font-core)" }}>
+              {shortSha(sha)} · {MODE_LABEL[mode]} mode
+            </span>
+            <Breadcrumb focus={focus} focusStack={focusStack} units={units} onGoTo={goTo} onBack={ascend} />
+          </div>
         }
         center={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-6)" }}>
             <SegmentedControl
-              value={mode === "flowchart" ? "current" : mode}
+              value={mode}
               onChange={(value) => setMode(value as "current" | "delta" | "depends" | "flows")}
               options={[
                 { value: "current", label: "Current" },
@@ -342,7 +320,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         {mode === "delta" && (
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
-        {(mode === "current" || mode === "flowchart") && (
+        {mode === "current" && (
           <div data-testid="legend-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
             <Tray title="Layers" dock="left">
               <Legend units={units} mode="current" />
@@ -360,7 +338,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           <DependsOn externals={externals} onSelect={(id) => select(id)} />
         ) : mode === "flows" ? (
           <Flows flows={flowUnits} units={units} edges={edges} onSelectStep={(id) => select(id)} changedStepIds={changedStepIds} />
-        ) : mode === "flowchart" && flowchartFunction ? (
+        ) : flowchartFunction ? (
           <Flowchart functionUnit={flowchartFunction} units={units} edges={edges} />
         ) : (
           <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />

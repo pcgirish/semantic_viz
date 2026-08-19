@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type Mode = "current" | "delta" | "depends" | "flows" | "flowchart";
+export type Mode = "current" | "delta" | "depends" | "flows";
 
 export type AppState = {
   selection: string | null;
@@ -8,31 +8,26 @@ export type AppState = {
   mode: Mode;
   rev: string | null;
   focusStack: string[];
-  /** The function unit id a flowchart drill is focused on — separate from `focus`
-   *  (which drives the structural Current/Delta tree) since flowchart is a detail view,
-   *  not a further level of that tree; ascending out of it restores the prior mode. */
-  flowchartFunctionId: string | null;
-  previousMode: Mode | null;
   select: (unitId: string | null) => void;
   drill: (unitId: string) => void;
   ascend: () => void;
   goTo: (index: number) => void;
   setMode: (mode: Mode) => void;
   setRev: (rev: string | null) => void;
-  showFlowchart: (functionUnitId: string) => void;
 };
 
 // docs/implement-serve.md stack: "Selection, focus, mode, rev are four small orthogonal
 // slices." drill/ascend keep a stack so ascending always returns to the exact parent,
 // not just "one level up" by some other rule (breadcrumb navigation, docs/serve.md#4).
+// A function unit is a drillable zoom level like any other — App.tsx renders it as a
+// Flowchart instead of a CanvasHost tile grid, but focus/focusStack/ascend/goTo all treat
+// it the same as drilling into a layer or module.
 export const useAppStore = create<AppState>((set) => ({
   selection: null,
   focus: null,
   mode: "current",
   rev: null,
   focusStack: [],
-  flowchartFunctionId: null,
-  previousMode: null,
   select: (unitId) => set({ selection: unitId }),
   drill: (unitId) =>
     set((s) => ({
@@ -42,9 +37,6 @@ export const useAppStore = create<AppState>((set) => ({
     })),
   ascend: () =>
     set((s) => {
-      if (s.mode === "flowchart") {
-        return { mode: s.previousMode ?? "current", previousMode: null, flowchartFunctionId: null };
-      }
       const stack = [...s.focusStack];
       const parent = stack.pop() ?? null;
       return { focusStack: stack, focus: parent };
@@ -52,22 +44,8 @@ export const useAppStore = create<AppState>((set) => ({
   goTo: (index) =>
     set((s) => {
       if (index >= s.focusStack.length) return {};
-      const base = { focus: s.focusStack[index]!, focusStack: s.focusStack.slice(0, index) };
-      // Picking an earlier breadcrumb segment from inside flowchart mode navigates back to
-      // the structural view at that point in the drill path, same as Back would eventually
-      // reach — not just silently updating focus while still showing the flowchart.
-      if (s.mode === "flowchart") {
-        return { ...base, mode: s.previousMode ?? "current", previousMode: null, flowchartFunctionId: null };
-      }
-      return base;
+      return { focus: s.focusStack[index]!, focusStack: s.focusStack.slice(0, index) };
     }),
   setMode: (mode) => set({ mode }),
   setRev: (rev) => set({ rev }),
-  showFlowchart: (functionUnitId) =>
-    set((s) => ({
-      mode: "flowchart",
-      previousMode: s.mode === "flowchart" ? s.previousMode : s.mode,
-      flowchartFunctionId: functionUnitId,
-      selection: null,
-    })),
 }));
