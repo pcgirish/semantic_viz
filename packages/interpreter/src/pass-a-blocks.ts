@@ -5,7 +5,14 @@ import { passABlocksPrompt } from "./prompts/pass-a-blocks.js";
 import { interpretJsonWithRetry } from "./retry.js";
 
 const PassABlocksResponseSchema = z.object({
-  labels: z.array(z.object({ blockId: z.string(), label: z.string() })),
+  labels: z.array(
+    z.object({
+      blockId: z.string(),
+      label: z.string(),
+      trueLabel: z.string().optional(),
+      falseLabel: z.string().optional(),
+    }),
+  ),
 });
 
 export interface RunPassABlocksOptions {
@@ -16,11 +23,20 @@ export interface RunPassABlocksOptions {
   promptRev: string;
 }
 
+export interface BlockLabel {
+  label: string;
+  /** decision/loop blocks only — what the "true" and "false" control_flow edges out of
+   *  this block actually mean (e.g. "invalid"/"valid"), since the raw true/false truth
+   *  value only reads as "yes"/"no" when it happens to match the label's own polarity. */
+  trueLabel?: string;
+  falseLabel?: string;
+}
+
 /** Pass A-blocks — one batched LLM call per function labeling all of its control-flow
  *  blocks for the flowchart view (docs/plans/flowchart-block-labels-readability.md). Returns
  *  blockId -> label; blocks the model omits from its response are simply absent from the
  *  map, letting the caller fall back to the block's structural type/condition. */
-export async function runPassABlocks(options: RunPassABlocksOptions): Promise<Map<string, string>> {
+export async function runPassABlocks(options: RunPassABlocksOptions): Promise<Map<string, BlockLabel>> {
   const { blocks, source, functionQualname, provider } = options;
   if (blocks.length === 0) return new Map();
 
@@ -35,9 +51,9 @@ export async function runPassABlocks(options: RunPassABlocksOptions): Promise<Ma
     },
   });
 
-  const result = new Map<string, string>();
-  for (const { blockId, label } of response.labels) {
-    result.set(blockId, label);
+  const result = new Map<string, BlockLabel>();
+  for (const { blockId, label, trueLabel, falseLabel } of response.labels) {
+    result.set(blockId, { label, trueLabel, falseLabel });
   }
   return result;
 }

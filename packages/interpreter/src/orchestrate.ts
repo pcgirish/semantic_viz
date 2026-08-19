@@ -4,7 +4,7 @@ import { isTestPath } from "@scv/extractor";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
 import type { Provider } from "./provider.js";
 import { runPassA } from "./pass-a.js";
-import { runPassABlocks } from "./pass-a-blocks.js";
+import { runPassABlocks, type BlockLabel } from "./pass-a-blocks.js";
 import { runPassB } from "./pass-b.js";
 import { runPassC, runPassCGroups, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
 import { runPassDocs } from "./pass-docs.js";
@@ -303,7 +303,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
   // docs/plans/flowchart-block-labels-readability.md) instead of the raw blockType/condition
   // fallback. Failure never blocks the run — an unlabeled function's blocks just keep the
   // structural fallback, same as Pass A's own failure handling above.
-  const blockLabelsByFunction = new Map<string, Map<string, string>>();
+  const blockLabelsByFunction = new Map<string, Map<string, BlockLabel>>();
   let passABlocksDone = 0;
   const passABlocksTotal = functionsWithBlocks.length;
   await runInDependencyOrder(
@@ -339,7 +339,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
       blockUnits.push({
         id: block.id,
         kind: "block",
-        name: labels?.get(block.id) ?? block.condition ?? block.blockType,
+        name: labels?.get(block.id)?.label ?? block.condition ?? block.blockType,
         qualname: block.id,
         lang: undefined,
         parent: unit.id,
@@ -358,6 +358,8 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
     blockChildrenByFunction.set(unit.id, childIds);
 
     for (const edge of bg.edges) {
+      const fromLabel = labels?.get(edge.from);
+      const edgeLabel = edge.edgeType === "true" ? fromLabel?.trueLabel : edge.edgeType === "false" ? fromLabel?.falseLabel : undefined;
       blockEdges.push({
         id: `e:cf:${createHash("sha1").update(`${edge.from}${edge.to}${edge.edgeType}`).digest("hex").slice(0, 10)}`,
         from: edge.from,
@@ -368,6 +370,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
         source: "static",
         confidence: 1,
         flowType: edge.edgeType,
+        edgeLabel,
       });
     }
   }

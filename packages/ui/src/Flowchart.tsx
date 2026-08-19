@@ -47,10 +47,13 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
       const from = nodeById.get(l.from);
       const to = nodeById.get(l.to);
       if (!from || !to) return null;
-      // Branch label/color from the underlying control_flow edge's flowType (docs mock's
-      // renderFlowchartMode: `label: e.label, stroke: e.label === 'no' ? red : accent`).
-      const flowType = cfEdgeByPair.get(`${l.from} ${l.to}`)?.flowType;
-      const label = flowType === "true" ? "yes" : flowType === "false" ? "no" : undefined;
+      // Branch label/color from the underlying control_flow edge. Prefer the LLM-authored
+      // edgeLabel (semantic, e.g. "invalid"/"valid") since generic "yes"/"no" only reads
+      // correctly when it happens to match the decision block's own label polarity — a
+      // negated condition like "not payload.ok" makes true->yes read backwards.
+      const cfEdge = cfEdgeByPair.get(`${l.from} ${l.to}`);
+      const flowType = cfEdge?.flowType;
+      const label = cfEdge?.edgeLabel ?? (flowType === "true" ? "yes" : flowType === "false" ? "no" : undefined);
       return {
         x1: from.x + from.w / 2 - minX,
         y1: from.y + from.h - minY,
