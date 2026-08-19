@@ -6,7 +6,7 @@ import { normalizeSource, shortHash, sloc } from "./hash.js";
 import { langForFile } from "./grammars/registry.js";
 import type { RepoManifests } from "./manifest.js";
 import type { FileChurn } from "./vcs.js";
-import type { SymbolBlockGraph, SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "./symbol-graph.js";
+import type { SymbolBlockGraph, SymbolEdge, SymbolExternal, SymbolGraph, SymbolRoute, SymbolUnit } from "./symbol-graph.js";
 
 // Python 3.12 standard library top-level module names (stdlib + de facto stdlib built-ins).
 const PYTHON_STDLIB = new Set([
@@ -164,6 +164,7 @@ export function resolveGraph(
 
   const edges: SymbolEdge[] = [];
   let edgeSeq = 0;
+  const routes: SymbolRoute[] = [];
   interface ExternalKey {
     ecosystem: "pypi" | "npm";
     name: string;
@@ -315,11 +316,17 @@ export function resolveGraph(
     for (const di of diRouterFacts) dependenciesByRouterVar.set(di.routerVar, di);
 
     for (const reg of routeRegistrationFacts) {
-      const router = dependenciesByRouterVar.get(reg.routerVar);
-      if (!router) continue;
       const handlerQualname = resolveNameInFile(reg.handlerName);
       const handlerUnit = handlerQualname ? units.find((u) => u.qualname === handlerQualname) : null;
       if (!handlerUnit) continue;
+
+      // Structural entry-point signal, independent of whether this router also has DI
+      // dependencies — proposeFlowEntryPoints hints the LLM with this instead of relying
+      // purely on it to (re)discover route handlers by sampling (docs/backlog bug 3).
+      routes.push({ unit: handlerUnit.id, method: reg.method, path: reg.path ?? reg.handlerName });
+
+      const router = dependenciesByRouterVar.get(reg.routerVar);
+      if (!router) continue;
       for (const depName of router.dependencies) {
         const depQualname = resolveNameInFile(depName);
         const depUnit = depQualname ? units.find((u) => u.qualname === depQualname) : null;
@@ -363,7 +370,7 @@ export function resolveGraph(
     })
     .sort((a, b) => a.id.localeCompare(b.id));
 
-  return { units, edges, externals, blockGraph };
+  return { units, edges, externals, blockGraph, routes };
 }
 
 /** Mints globally-stable block unit ids (u:block:<hash of qualname+blockId>) and groups

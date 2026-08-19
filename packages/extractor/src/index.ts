@@ -12,5 +12,5 @@ export function extractRepo(root: string, cacheDir?: string): SymbolGraph {
   return resolveGraph(files, knownModules, manifests, churn);
 }
 
-export type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit, SymbolBlock, SymbolBlockGraph, BlockType } from "./symbol-graph.js";
+export type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit, SymbolBlock, SymbolBlockGraph, BlockType, SymbolRoute } from "./symbol-graph.js";
 export { isTestPath } from "./qualname.js";

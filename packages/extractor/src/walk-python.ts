@@ -6,6 +6,13 @@ function text(node: SyntaxNode, src: string): string {
   return src.slice(node.startIndex, node.endIndex);
 }
 
+/** Unquoted value of a Python `string` node, e.g. `"/orders"` -> `/orders`. Only handles a
+ *  single plain string_content child (no f-strings/concatenation) — returns null otherwise. */
+function stringLiteralValue(node: SyntaxNode, src: string): string | null {
+  const content = node.namedChildren.find((c) => c.type === "string_content");
+  return content ? text(content, src) : null;
+}
+
 function paramsOf(node: SyntaxNode | null, src: string): { name: string; type: string | null }[] {
   if (!node) return [];
   const out: { name: string; type: string | null }[] = [];
@@ -421,14 +428,18 @@ function collectRouteRegistrations(node: SyntaxNode, src: string, file: string, 
   while (stack.length > 0) {
     const n = stack.pop()!;
 
-    const registrationCallFrom = (decoratorLike: SyntaxNode): { routerVar: string; line: number } | null => {
+    const registrationCallFrom = (
+      decoratorLike: SyntaxNode,
+    ): { routerVar: string; line: number; method: string; path: string | null } | null => {
       if (decoratorLike.type !== "call") return null;
       const fn = decoratorLike.childForFieldName("function");
       if (fn?.type !== "attribute") return null;
       const obj = fn.childForFieldName("object");
       const attr = fn.childForFieldName("attribute");
       if (obj?.type !== "identifier" || !attr || !HTTP_METHODS.has(text(attr, src))) return null;
-      return { routerVar: text(obj, src), line: decoratorLike.startPosition.row + 1 };
+      const pathArg = decoratorLike.childForFieldName("arguments")?.namedChildren[0];
+      const path = pathArg?.type === "string" ? stringLiteralValue(pathArg, src) : null;
+      return { routerVar: text(obj, src), line: decoratorLike.startPosition.row + 1, method: text(attr, src), path };
     };
 
     if (n.type === "call") {
@@ -441,7 +452,15 @@ function collectRouteRegistrations(node: SyntaxNode, src: string, file: string, 
         const handlerNode = args?.namedChildren[0];
         const handlerName = handlerNode ? dottedName(handlerNode, src) : null;
         if (handlerName) {
-          const fact: RouteRegistrationFact = { kind: "route_registration", file, line: reg.line, routerVar: reg.routerVar, handlerName };
+          const fact: RouteRegistrationFact = {
+            kind: "route_registration",
+            file,
+            line: reg.line,
+            routerVar: reg.routerVar,
+            handlerName,
+            method: reg.method,
+            path: reg.path,
+          };
           out.push(fact);
         }
       }
@@ -454,7 +473,15 @@ function collectRouteRegistrations(node: SyntaxNode, src: string, file: string, 
           const expr = dec.namedChildren[0];
           const reg = expr ? registrationCallFrom(expr) : null;
           if (reg) {
-            const fact: RouteRegistrationFact = { kind: "route_registration", file, line: reg.line, routerVar: reg.routerVar, handlerName: text(fnName, src) };
+            const fact: RouteRegistrationFact = {
+              kind: "route_registration",
+              file,
+              line: reg.line,
+              routerVar: reg.routerVar,
+              handlerName: text(fnName, src),
+              method: reg.method,
+              path: reg.path,
+            };
             out.push(fact);
           }
         }

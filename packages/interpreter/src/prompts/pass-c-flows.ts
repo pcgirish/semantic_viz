@@ -6,14 +6,29 @@ export interface FlowUnitSummary {
   what: string;
 }
 
+export interface StructuralRouteHint {
+  unit: string;
+  method: string;
+  path: string;
+}
+
+function formatRouteHints(hints: StructuralRouteHint[]): string {
+  if (hints.length === 0) return "";
+  const lines = hints.map((h) => `- ${h.unit}: ${h.method.toUpperCase()} ${h.path}`).join("\n");
+  return `Confirmed route handlers (detected structurally, not a guess — always include every one of these in your answer, using the method/path shown as its "name" and "route"):
+${lines}
+
+`;
+}
+
 /** Pass C prompt: propose api_flow entry points from unit one-liners and the call graph. See analyze.md#2. */
-export function passCEntryPointsPrompt(units: FlowUnitSummary[], callEdges: CallEdge[]): string {
+export function passCEntryPointsPrompt(units: FlowUnitSummary[], callEdges: CallEdge[], routeHints: StructuralRouteHint[] = []): string {
   const unitLines = units.map((u) => `- ${u.id} (${u.qualname}): ${u.what || "(no summary)"}`).join("\n");
   const edgeLines = callEdges.map((e) => `${e.from} -> ${e.to}`).join("\n");
 
   return `You are identifying api_flow entry points in a codebase — units where an external request first enters the system (an HTTP route handler, a CLI command, a queue consumer), starting a call chain worth tracing end to end.
 
-Units (${units.length} total):
+${formatRouteHints(routeHints)}Units (${units.length} total):
 ${unitLines}
 
 Call edges:
@@ -23,6 +38,7 @@ Rules:
 - Only propose units from the list above, using their exact id.
 - Only propose units that plausibly start a request — not every function is an entry point.
 - Give each a short "name" (e.g. "POST /orders") and, if you can tell from the summaries, a "route" string; if no route is discernible, reuse the name as the route.
+- Beyond the confirmed route handlers above (if any), look for additional entry points the list doesn't cover — CLI commands, queue consumers, or routes not structurally detected.
 
 Respond with JSON only, matching exactly this shape:
 {

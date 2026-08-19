@@ -676,11 +676,25 @@ export async function runFlowsPass(options: RunFlowsPassOptions): Promise<Unit[]
     .map((u) => ({ id: u.id, qualname: u.qualname, what: u.semantics?.what ?? "" }));
   const unitById = new Map(units.map((u) => [u.id, u]));
 
+  const flowUnitIds = new Set(flowUnitSummaries.map((u) => u.id));
+  const routeHints = graph.routes.filter((r) => flowUnitIds.has(r.unit));
+
   const newUnits: Unit[] = [];
   if (flowUnitSummaries.length > 0) {
     reportProgress("pass C flows: entry points", 0, 1, "proposing entry points");
-    const entryPoints = await proposeFlowEntryPoints({ units: flowUnitSummaries, callEdges, provider, promptRev });
+    const proposed = await proposeFlowEntryPoints({ units: flowUnitSummaries, callEdges, provider, promptRev, routeHints });
     reportProgress("pass C flows: entry points", 1, 1, "proposing entry points");
+
+    // Structural route hints are ground truth, not a suggestion: union in any hinted route
+    // handler the LLM's response didn't happen to echo back, so entry-point detection for the
+    // route-handler subset never depends on LLM sampling.
+    const proposedUnitIds = new Set(proposed.map((f) => f.unit));
+    const entryPoints = [
+      ...proposed,
+      ...routeHints
+        .filter((h) => !proposedUnitIds.has(h.unit))
+        .map((h) => ({ unit: h.unit, name: `${h.method.toUpperCase()} ${h.path}`, route: `${h.method.toUpperCase()} ${h.path}` })),
+    ];
     const knownUnitIds = new Set(units.map((u) => u.id));
 
     let flowNarrationDone = 0;

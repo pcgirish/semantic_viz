@@ -45,6 +45,8 @@ describe("route registration extraction — Python", () => {
     expect(regs).toHaveLength(1);
     expect(regs[0]!.routerVar).toBe("public");
     expect(regs[0]!.handlerName).toBe("orders.create_order.create_order");
+    expect(regs[0]!.method).toBe("post");
+    expect(regs[0]!.path).toBe("/orders");
   });
 
   it("captures decorator-form registration: @router.get(path) above a def", () => {
@@ -57,5 +59,7 @@ def get_order(order_id):
     expect(regs).toHaveLength(1);
     expect(regs[0]!.routerVar).toBe("public");
     expect(regs[0]!.handlerName).toBe("get_order");
+    expect(regs[0]!.method).toBe("get");
+    expect(regs[0]!.path).toBe("/orders/{order_id}");
   });
 });
