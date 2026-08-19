@@ -161,8 +161,8 @@ class BlockBuilder {
     return blockId;
   }
 
-  private edge(fromBlock: string, toBlock: string, edgeType: ControlFlowEdgeFact["edgeType"]): void {
-    this.edges.push({ kind: "cf_edge", file: this.file, functionQualname: this.functionQualname, fromBlock, toBlock, edgeType });
+  private edge(fromBlock: string, toBlock: string, edgeType: ControlFlowEdgeFact["edgeType"], raises?: boolean): void {
+    this.edges.push({ kind: "cf_edge", file: this.file, functionQualname: this.functionQualname, fromBlock, toBlock, edgeType, ...(raises ? { raises } : {}) });
   }
 
   /** Walks a statement list. `current`/`entryEdgeType` set up the first edge into this
@@ -218,7 +218,10 @@ class BlockBuilder {
         const id = this.mint("exit", stmt.startPosition.row + 1, stmt.endPosition.row + 1);
         // Preserve the branch this throw sits on (true/false/loop-back) so a flowchart can
         // label the edge by branch outcome; only an unconditional throw is genuinely "exception".
-        this.edge(cur, id, nextEdgeType === "sequential" ? "exception" : nextEdgeType);
+        // Use entryEdgeType (this statement list's own branch), not nextEdgeType — flushSeq
+        // resets nextEdgeType to "sequential" after any preceding statement in the branch,
+        // which would otherwise misclassify a throw that isn't the branch's first statement.
+        this.edge(cur, id, entryEdgeType === "sequential" ? "exception" : entryEdgeType, true);
         cur = null;
       } else if (stmt.type === "break_statement" || stmt.type === "continue_statement") {
         flushSeq();

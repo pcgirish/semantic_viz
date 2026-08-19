@@ -89,6 +89,19 @@ describe("useAppStore", () => {
     expect(s.flowchartFunctionId).toBeNull();
   });
 
+  it("goTo from flowchart mode also exits back to the mode active before entering it", () => {
+    useAppStore.getState().drill("u:layer:x");
+    useAppStore.getState().drill("u:module:y");
+    useAppStore.getState().setMode("depends");
+    useAppStore.getState().showFlowchart("u:fn:create_order");
+    useAppStore.getState().goTo(0);
+    const s = useAppStore.getState();
+    expect(s.mode).toBe("depends");
+    expect(s.flowchartFunctionId).toBeNull();
+    expect(s.focus).toBe("u:layer:x");
+    expect(s.focusStack).toEqual([]);
+  });
+
   it("ascend from a non-flowchart mode still pops the focus stack as before", () => {
     useAppStore.getState().drill("u:layer:x");
     useAppStore.getState().drill("u:module:y");

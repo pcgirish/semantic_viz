@@ -160,6 +160,10 @@ export const EdgeSchema = z.object({
   // reads as generic "yes"/"no" when it happens to match the block label's polarity, so callers
   // should prefer this over a hardcoded true->yes/false->no mapping when present.
   edgeLabel: z.string().optional(),
+  // kind:"control_flow" only — true when this edge is a raise/throw exit, even if flowType
+  // carries a branch ("true"/"false") rather than "exception" — lets a flowchart render it
+  // as a risk path (red) while still using the branch's semantic edgeLabel.
+  raises: z.boolean().optional(),
 });
 
 export const ExternalSchema = z.object({

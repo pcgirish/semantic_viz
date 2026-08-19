@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot, Unit } from "@scv/schema";
 import { Button, PathBreadcrumb, SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
-import { Breadcrumb } from "./Breadcrumb.js";
+import { Breadcrumb, focusPathSegments } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
 import { EntryPointsRail } from "./EntryPointsRail.js";
@@ -276,7 +276,27 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Toolbar
         left={
-          mode === "flowchart" ? undefined : (
+          mode === "flowchart" && flowchartFunction ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <Button variant="ghost" size="sm" onClick={ascend}>
+                ‹ Back
+              </Button>
+              <PathBreadcrumb
+                segments={[
+                  { label: rootUnit?.name ?? "root" },
+                  ...focusPathSegments(focus, focusStack, units),
+                  { label: flowchartFunction.name },
+                ]}
+                onPick={(i) => {
+                  // i === 0 is the root segment; the last segment is the flowchart itself
+                  // (not pickable, we're already there) — everything between is a real
+                  // focusStack/focus entry, so hand it to goTo at the matching index.
+                  if (i === 0) ascend();
+                  else if (i <= focusStack.length) goTo(i - 1);
+                }}
+              />
+            </div>
+          ) : mode === "flowchart" ? undefined : (
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
               <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>orderly</span>
               <span style={{ color: "var(--text-dim)", font: "var(--weight-regular) var(--text-sm) var(--font-core)" }}>
@@ -318,28 +338,6 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           />
         }
       />
-      {mode === "flowchart" && flowchartFunction && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--space-3)",
-            padding: "var(--space-3) var(--space-6)",
-            background: "var(--surface-0)",
-            borderBottom: "var(--border-w) solid var(--border-hair)",
-          }}
-        >
-          <Button variant="ghost" size="sm" onClick={ascend}>
-            ‹ Back
-          </Button>
-          <PathBreadcrumb
-            segments={[{ label: rootUnit?.name ?? "root" }, { label: "Call Graph" }, { label: flowchartFunction.name }]}
-            onPick={(i) => {
-              if (i === 0) ascend();
-            }}
-          />
-        </div>
-      )}
       <div className="body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {mode === "delta" && (
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />

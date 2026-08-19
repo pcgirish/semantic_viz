@@ -74,7 +74,12 @@ describe("ensureArtifact", () => {
     rmSync(scvDir, { recursive: true, force: true });
   });
 
-  function makeCtx(provider: Provider, docs: { path: string; content: string }[], force?: ArtifactContext["force"]): ArtifactContext {
+  function makeCtx(
+    provider: Provider,
+    docs: { path: string; content: string }[],
+    force?: ArtifactContext["force"],
+    promptRev = "p2",
+  ): ArtifactContext {
     const graph = extractRepo(orderlyRoot);
     const snapshot = toSnapshot(graph, { root: orderlyRoot, rev: { sha: "fixed-sha", kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" } });
     return {
@@ -83,7 +88,7 @@ describe("ensureArtifact", () => {
       snapshot,
       graph,
       provider,
-      promptRev: "p2",
+      promptRev,
       readSource: readSource(orderlyRoot),
       docs,
       reportProgress: () => {},
@@ -129,6 +134,26 @@ describe("ensureArtifact", () => {
     await ensureArtifact("layers", ctx2);
 
     expect(provider2.interpret).not.toHaveBeenCalled();
+  });
+
+  it("a changed promptRev invalidates functions/docs/layers/groups/flows even with unchanged inputs", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs, undefined, "p2");
+    await ensureArtifact("groups", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs, undefined, "p3");
+    await ensureArtifact("groups", ctx2);
+
+    // A prompt template edit must force every LLM-derived artifact to recompute, since
+    // inputHash previously ignored promptRev and would otherwise keep serving stale output
+    // (e.g. Pass A-blocks branch labels) after only the prompt wording changed.
+    expect(provider2.interpret).toHaveBeenCalled();
+    const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      String(call[0]).includes("labeling the control-flow blocks"),
+    ).length;
+    expect(passACalls).toBeGreaterThan(0);
   });
 
   it("--force recomputes the named artifact even with unchanged inputs, without touching upstream", async () => {

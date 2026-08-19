@@ -2,12 +2,56 @@ import { describe, expect, it } from "vitest";
 import { passBPrompt } from "../../src/prompts/pass-b.js";
 import type { ImportEdge } from "../../src/checker.js";
 
-const files = ["src/admin_tasks.py", "scripts/backfill.py"];
+const files = ["src/admin_tasks.py", "scripts/backfill.py", "src/api/routes.py", "src/api/middleware/rate_limiter.py"];
 const oneLiners: Record<string, string> = {
   "src/admin_tasks.py": "Runs admin-only maintenance jobs.",
   "scripts/backfill.py": "One-off backfill script.",
+  "src/api/routes.py": "Public API route handlers.",
+  "src/api/middleware/rate_limiter.py": "Token-bucket rate limiter middleware.",
 };
-const edges: ImportEdge[] = [{ from: "src/admin_tasks.py", to: "scripts/backfill.py", weight: 1 }];
+const edges: ImportEdge[] = [
+  { from: "src/admin_tasks.py", to: "scripts/backfill.py", weight: 1 },
+  { from: "src/api/routes.py", to: "src/api/middleware/rate_limiter.py", weight: 1 },
+];
+
+describe("passBPrompt merge-based design", () => {
+  it("includes a base partition section showing directories and their files", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt).toContain("Base directories");
+    expect(prompt).toContain("src");
+    expect(prompt).toContain("scripts");
+  });
+
+  it("asks the LLM to propose merges of base directories, not to freely partition all files", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt.toLowerCase()).toContain("merge");
+    expect(prompt.toLowerCase()).toContain("directory");
+    expect(prompt.toLowerCase()).toContain("propose");
+  });
+
+  it("shows directory dependency edges in the prompt", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt.toLowerCase()).toContain("directory");
+    expect(prompt.toLowerCase()).toContain("depend");
+  });
+
+  it("specifies that omitted directories implicitly stay as singleton clusters", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt.toLowerCase()).toContain("omit");
+    expect(prompt.toLowerCase()).toContain("singleton");
+  });
+
+  it("expects a response shape with 'merges' not 'clusters'", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt).toContain('"merges"');
+    expect(prompt).not.toContain('"clusters"');
+  });
+});
 
 describe("passBPrompt repo context", () => {
   it("omits the repo context section when none is given", () => {
@@ -22,12 +66,6 @@ describe("passBPrompt repo context", () => {
     expect(prompt).toContain("Repo context");
     expect(prompt).toContain("This repo is an order service.");
   });
-
-  it("places the repo context section before Rules", () => {
-    const prompt = passBPrompt(files, oneLiners, edges, "Some repo context.");
-
-    expect(prompt.indexOf("Repo context")).toBeLessThan(prompt.indexOf("Rules:"));
-  });
 });
 
 describe("passBPrompt naming rules", () => {
@@ -39,49 +77,18 @@ describe("passBPrompt naming rules", () => {
     expect(prompt.toLowerCase()).toContain("only invent a new");
   });
 
-  it("does not steer naming toward generic invented examples like ops/api/orders", () => {
+  it("explicitly bans generic architecture-speak words from appearing inside a group name", () => {
     const prompt = passBPrompt(files, oneLiners, edges);
 
-    expect(prompt).not.toContain('"ops"');
-    expect(prompt).not.toContain('"orders"');
-  });
-
-  it("explicitly bans generic architecture-speak words from appearing inside a cluster name, including cluster itself", () => {
-    const prompt = passBPrompt(files, oneLiners, edges);
-
-    for (const banned of ["core", "domain", "cluster", "layer"]) {
+    for (const banned of ["core", "domain", "cluster", "layer", "module", "component"]) {
       expect(prompt.toLowerCase()).toContain(banned);
     }
   });
 
-  it("does not use cluster/group-flavored words as the example key in the response schema", () => {
+  it("instructs not to name a group the same as one of its member directories", () => {
     const prompt = passBPrompt(files, oneLiners, edges);
 
-    expect(prompt).not.toContain('"cluster-name"');
-    expect(prompt).not.toContain('"group-name"');
-  });
-});
-
-describe("passBPrompt target cluster count", () => {
-  it("suggests a target cluster count derived from file count", () => {
-    const manyFiles = Array.from({ length: 16 }, (_, i) => `src/file${i}.py`);
-    const prompt = passBPrompt(manyFiles, {}, []);
-
-    // sqrt(16) = 4
-    expect(prompt).toContain("4 clusters");
-  });
-
-  it("clamps the target cluster count to a minimum of 2", () => {
-    const fewFiles = ["src/a.py", "src/b.py"];
-    const prompt = passBPrompt(fewFiles, {}, []);
-
-    expect(prompt).toContain("2 clusters");
-  });
-
-  it("clamps the target cluster count to a maximum of 12", () => {
-    const manyFiles = Array.from({ length: 400 }, (_, i) => `src/file${i}.py`);
-    const prompt = passBPrompt(manyFiles, {}, []);
-
-    expect(prompt).toContain("12 clusters");
+    expect(prompt.toLowerCase()).toContain("identical");
+    expect(prompt.toLowerCase()).toContain("member");
   });
 });

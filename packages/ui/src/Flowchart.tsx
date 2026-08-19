@@ -59,11 +59,10 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
         y1: from.y + from.h - minY,
         x2: to.x + to.w / 2 - minX,
         y2: to.y - minY,
-        // "exception" always exits the function abnormally, regardless of which branch
-        // it descends from — that's the actual risk path. "false" just means the
-        // condition was false; it's the normal continuation as often as an error path,
-        // so it gets neutral styling like "true" does.
-        kind: flowType === "exception" ? ("risk" as const) : ("call" as const),
+        // A raise/throw exit is the risk path and gets red styling, whether it's a pure
+        // "exception" edge or a branch ("true"/"false") that happens to raise — a plain
+        // "return" on that same branch type stays neutral.
+        kind: flowType === "exception" || cfEdge?.raises ? ("risk" as const) : ("call" as const),
         label,
       };
     })

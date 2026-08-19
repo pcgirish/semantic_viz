@@ -117,6 +117,27 @@ describe("collectControlFlow — TypeScript", () => {
     expect(es.some((e) => e.edgeType === "exception")).toBe(false);
   });
 
+  it("throw after a preceding statement in the same if-branch still keeps the branch's edgeType, not exception", () => {
+    const facts = tsFacts(`function f(ok) { if (!ok) { cleanup(); throw new Error("x"); } }`);
+    const es = edges(facts);
+    const exitEdges = es.filter((e) => e.toBlock === blocks(facts).find((b) => b.blockType === "exit")?.blockId);
+    expect(exitEdges.some((e) => e.edgeType === "true")).toBe(true);
+    expect(es.some((e) => e.edgeType === "exception")).toBe(false);
+  });
+
+  it("throw on a branch is marked raises:true even though edgeType is true/false, not exception", () => {
+    const facts = tsFacts(`function f(ok) { if (!ok) { throw new Error("x"); } }`);
+    const es = edges(facts);
+    const throwEdge = es.find((e) => e.edgeType === "true");
+    expect(throwEdge?.raises).toBe(true);
+  });
+
+  it("return on a branch is not marked raises", () => {
+    const facts = tsFacts(`function f(ok) { if (ok) { return 1; } return 0; }`);
+    const es = edges(facts);
+    expect(es.some((e) => e.raises)).toBe(false);
+  });
+
   it("plain sequential statements between control nodes stay one sequential block", () => {
     const facts = tsFacts(`function f() {\n  a();\n  b();\n  c();\n  if (x) { d(); }\n}`);
     const bs = blocks(facts);
@@ -199,6 +220,27 @@ describe("collectControlFlow — Python", () => {
     const es = edges(facts);
     expect(es.some((e) => e.edgeType === "true")).toBe(true);
     expect(es.some((e) => e.edgeType === "exception")).toBe(false);
+  });
+
+  it("raise after a preceding statement in the same if-branch still keeps the branch's edgeType, not exception", () => {
+    const facts = pyFacts(`def f(ok):\n    if not ok:\n        cleanup()\n        raise ValueError("x")\n`);
+    const es = edges(facts);
+    const exitEdges = es.filter((e) => e.toBlock === blocks(facts).find((b) => b.blockType === "exit")?.blockId);
+    expect(exitEdges.some((e) => e.edgeType === "true")).toBe(true);
+    expect(es.some((e) => e.edgeType === "exception")).toBe(false);
+  });
+
+  it("raise on a branch is marked raises:true even though edgeType is true/false, not exception", () => {
+    const facts = pyFacts(`def f(ok):\n    if not ok:\n        raise ValueError("x")\n`);
+    const es = edges(facts);
+    const raiseEdge = es.find((e) => e.edgeType === "true");
+    expect(raiseEdge?.raises).toBe(true);
+  });
+
+  it("return on a branch is not marked raises", () => {
+    const facts = pyFacts(`def f(ok):\n    if ok:\n        return 1\n    return 0\n`);
+    const es = edges(facts);
+    expect(es.some((e) => e.raises)).toBe(false);
   });
 
   it("re-extracting the same function twice yields identical blockIds", () => {

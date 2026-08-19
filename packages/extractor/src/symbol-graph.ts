@@ -81,6 +81,10 @@ export interface SymbolControlFlowEdge {
   from: string;
   to: string;
   edgeType: ControlFlowEdgeType;
+  /** True when this edge is a raise/throw exit, even if edgeType carries a branch
+   *  ("true"/"false") rather than "exception" — lets a flowchart render it as a risk
+   *  path (red) while still using the branch's semantic label ("invalid"/"failed"). */
+  raises?: boolean;
 }
 
 export interface SymbolBlockGraph {

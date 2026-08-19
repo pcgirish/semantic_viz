@@ -52,7 +52,14 @@ export const useAppStore = create<AppState>((set) => ({
   goTo: (index) =>
     set((s) => {
       if (index >= s.focusStack.length) return {};
-      return { focus: s.focusStack[index]!, focusStack: s.focusStack.slice(0, index) };
+      const base = { focus: s.focusStack[index]!, focusStack: s.focusStack.slice(0, index) };
+      // Picking an earlier breadcrumb segment from inside flowchart mode navigates back to
+      // the structural view at that point in the drill path, same as Back would eventually
+      // reach — not just silently updating focus while still showing the flowchart.
+      if (s.mode === "flowchart") {
+        return { ...base, mode: s.previousMode ?? "current", previousMode: null, flowchartFunctionId: null };
+      }
+      return base;
     }),
   setMode: (mode) => set({ mode }),
   setRev: (rev) => set({ rev }),

@@ -570,7 +570,7 @@ describe("App", () => {
     });
   });
 
-  it("shows a flowchart-crumb path (root › Call Graph › function) in Flowchart mode, and clicking root exits back", async () => {
+  it("shows a flowchart-crumb path (root › drilled units › function) reflecting the real drill path, and clicking root exits back", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
 
     const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
@@ -579,11 +579,16 @@ describe("App", () => {
       expect(container.querySelector('.tile[data-id="u:layer:ops"]')).not.toBeNull();
     });
 
+    // Drill into u:layer:ops first, mirroring a real navigation path, so the flowchart
+    // breadcrumb has a non-empty focusStack segment to reflect.
+    useAppStore.getState().drill("u:layer:ops");
     useAppStore.getState().showFlowchart("u:a");
 
     await waitFor(() => {
-      expect(screen.getByText("orderly")).toBeInTheDocument();
-      expect(screen.getByText("Call Graph")).toBeInTheDocument();
+      const nav = container.querySelector("nav")!;
+      expect(nav).not.toBeNull();
+      expect(nav.textContent).toContain("orderly");
+      expect(nav.textContent).toContain("ops");
     });
 
     fireEvent.click(screen.getByText("orderly"));
@@ -605,7 +610,8 @@ describe("App", () => {
     useAppStore.getState().showFlowchart("u:a");
 
     await waitFor(() => {
-      expect(screen.getByText("Call Graph")).toBeInTheDocument();
+      expect(screen.getByText("orderly")).toBeInTheDocument();
+      expect(screen.getByText("‹ Back")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText("‹ Back"));
@@ -627,7 +633,7 @@ describe("App", () => {
     useAppStore.getState().showFlowchart("u:a");
 
     await waitFor(() => {
-      expect(screen.getByText("Call Graph")).toBeInTheDocument();
+      expect(screen.getByText("orderly")).toBeInTheDocument();
       expect(screen.getByTestId("legend-rail")).not.toBeNull();
     });
   });

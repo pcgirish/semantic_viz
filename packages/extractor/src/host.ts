@@ -34,7 +34,7 @@ function listFiles(root: string): string[] {
  * unchanged source content — otherwise the per-file cache below would keep serving stale
  * facts across an `scv` upgrade even though nothing in the repo being analyzed changed.
  */
-export const FACTS_CACHE_VERSION = "3";
+export const FACTS_CACHE_VERSION = "5";
 
 interface FileFactsCacheEntry {
   version: string;
