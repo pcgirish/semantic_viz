@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { runPassABlocks } from "../src/pass-a-blocks.js";
 import type { Provider, ProviderResult } from "../src/provider.js";
-import type { SymbolBlock } from "@scv/extractor";
+import type { SymbolBlock, SymbolControlFlowEdge } from "@scv/extractor";
 
 function makeBlock(overrides: Partial<SymbolBlock> & { id: string }): SymbolBlock {
   return {
@@ -171,6 +171,75 @@ describe("runPassABlocks", () => {
     });
 
     await runPassABlocks({ blocks, source, functionQualname: "src.orders.create_order.create_order", provider, promptRev: "p1" });
+
+    expect(provider.interpret).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries once, scoped to only exit blocks whose reported outcome disagrees with the block graph's raises edges", async () => {
+    const blocks = [
+      makeBlock({ id: "exit:0", blockType: "exit", startLine: 3, endLine: 3 }),
+      makeBlock({ id: "exit:1", blockType: "exit", startLine: 6, endLine: 6 }),
+    ];
+    const edges: SymbolControlFlowEdge[] = [
+      { from: "decision:0", to: "exit:0", edgeType: "true", raises: true },
+      { from: "decision:0", to: "exit:1", edgeType: "false" },
+    ];
+    const firstResponse = {
+      labels: [
+        { blockId: "exit:0", label: "return 200", outcome: "success" },
+        { blockId: "exit:1", label: "return 201", outcome: "success" },
+      ],
+    };
+    const retryResponse = {
+      labels: [{ blockId: "exit:0", label: "return 404", outcome: "error" }],
+    };
+    const interpret = vi
+      .fn<Provider["interpret"]>()
+      .mockResolvedValueOnce({ text: JSON.stringify(firstResponse), tokens: 10 })
+      .mockResolvedValueOnce({ text: JSON.stringify(retryResponse), tokens: 10 });
+    const provider: Provider = { name: "fake", model: "fake-model", interpret };
+
+    const result = await runPassABlocks({
+      blocks,
+      edges,
+      source,
+      functionQualname: "src.orders.get_order.get_order",
+      provider,
+      promptRev: "p1",
+    });
+
+    expect(interpret).toHaveBeenCalledTimes(2);
+    const retryCall = interpret.mock.calls[1];
+    expect(retryCall[0]).toContain("exit:0");
+    expect(retryCall[0]).not.toContain("exit:1");
+    expect(result.get("exit:0")?.label).toBe("return 404");
+    expect(result.get("exit:1")?.label).toBe("return 201");
+  });
+
+  it("does not retry when every exit block's reported outcome already agrees with raises edges", async () => {
+    const blocks = [
+      makeBlock({ id: "exit:0", blockType: "exit", startLine: 3, endLine: 3 }),
+      makeBlock({ id: "exit:1", blockType: "exit", startLine: 6, endLine: 6 }),
+    ];
+    const edges: SymbolControlFlowEdge[] = [
+      { from: "decision:0", to: "exit:0", edgeType: "true", raises: true },
+      { from: "decision:0", to: "exit:1", edgeType: "false" },
+    ];
+    const provider = fakeProvider({
+      labels: [
+        { blockId: "exit:0", label: "return 404", outcome: "error" },
+        { blockId: "exit:1", label: "return 201", outcome: "success" },
+      ],
+    });
+
+    await runPassABlocks({
+      blocks,
+      edges,
+      source,
+      functionQualname: "src.orders.get_order.get_order",
+      provider,
+      promptRev: "p1",
+    });
 
     expect(provider.interpret).toHaveBeenCalledTimes(1);
   });
