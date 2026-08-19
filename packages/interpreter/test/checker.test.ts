@@ -55,6 +55,17 @@ describe("checkAndRepairClusters", () => {
     expect(result.clusters.ops).toBeUndefined();
     expect(result.clusters.other).toEqual(["src/admin_tasks.py"]);
   });
+
+  it("renames a cluster whose name collides with one of its own members, to avoid a self-nesting tile", () => {
+    // Pass C groups layers (not files) into groups; a group literally named "orders" that
+    // contains a member also named "orders" renders as "orders" nested inside "orders".
+    const proposal = { orders: ["orders", "payments", "utils"], platform: ["api", "migrations"] };
+    const result = checkAndRepairClusters(proposal, ["orders", "payments", "utils", "api", "migrations"]);
+    expect(result.repaired).toBe(true);
+    expect(result.clusters.orders).toBeUndefined();
+    expect(result.clusters.orders_group).toEqual(["orders", "payments", "utils"]);
+    expect(result.clusters.platform).toEqual(["api", "migrations"]);
+  });
 });
 
 describe("modularity", () => {
