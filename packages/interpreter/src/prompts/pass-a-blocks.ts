@@ -36,15 +36,15 @@ Blocks:
 ${blockList}
 
 For each block, produce a short label (2-5 words) for a flowchart node:
-- "entry"/"exit" blocks: a short label naming the step (e.g. "return 400", "emit confirmation") — for exit/raise blocks, name the concrete result if inferable from the code (status code, error), not just "return".
+- "entry"/"exit" blocks: a short label naming the step (e.g. "return 400", "emit confirmation") — for exit/raise blocks, name the concrete result if inferable from the code (status code, error), not just "return". For "exit" blocks, also give "outcome": "success" if this exit represents the function completing normally, or "error" if it represents a raise/throw/error return — base this strictly on the block's own code span, not on the label text.
 - "decision"/"loop" blocks: a short label naming what's being checked (e.g. "validity check", "items left"), not the raw source expression. Do not invert or negate the raw condition's sense in this label (e.g. for "order is None", label it "order missing?" or "order found?" consistently with the condition — not "order exists?", which flips true/false and will make trueLabel/falseLabel read backwards). Also give "trueLabel" and "falseLabel": a single word each (rarely two, never more) naming what each branch means when the *raw source condition* evaluates true/false (e.g. for "not payload.ok", trueLabel: "invalid", falseLabel: "valid"; for "order is None", trueLabel: "missing", falseLabel: "found"). These become the flowchart's branch edge labels — as terse as "yes"/"no" would be, but semantically correct for the block's own condition, so get the polarity right rather than defaulting to generic "yes"/"no".
 - "sequential" blocks: name the action the code span performs (e.g. "validate payload", "persist order (db)"), not a restatement of the type.
 - "try"/"catch"/"merge" blocks: a short label for what the block represents (e.g. "charge payment", "rollback").
 
 Respond with JSON only, matching exactly this shape:
 {
-  "labels": [{ "blockId": "...", "label": "...", "trueLabel": "...", "falseLabel": "..." }]
+  "labels": [{ "blockId": "...", "label": "...", "trueLabel": "...", "falseLabel": "...", "outcome": "success" }]
 }
 
-Omit "trueLabel"/"falseLabel" for non-"decision"/"loop" blocks. One entry per block listed above, same blockId values. No prose outside the JSON object.`;
+Omit "trueLabel"/"falseLabel" for non-"decision"/"loop" blocks. Omit "outcome" for non-"exit" blocks. One entry per block listed above, same blockId values. No prose outside the JSON object.`;
 }

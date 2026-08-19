@@ -325,6 +325,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
       try {
         const labels = await runPassABlocks({
           blocks: bg.blocks,
+          edges: bg.edges,
           source: functionSource,
           functionQualname: symbolUnit.qualname,
           provider,
