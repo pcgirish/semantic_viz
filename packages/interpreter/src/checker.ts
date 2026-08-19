@@ -70,6 +70,18 @@ export function checkAndRepairClusters(proposal: ClusterProposal, files: string[
     repairedClusters[UNCLUSTERED] = [...(repairedClusters[UNCLUSTERED] ?? []), ...orphans];
   }
 
+  // A cluster name identical to one of its own members reads as that member nesting inside
+  // itself once rendered as a parent/child tile (e.g. group "orders" containing layer
+  // "orders" alongside unrelated layers) — rename to break the collision deterministically.
+  for (const [name, clusterFiles] of Object.entries(repairedClusters)) {
+    if (clusterFiles.includes(name)) {
+      repaired = true;
+      const renamed = `${name}_group`;
+      repairedClusters[renamed] = clusterFiles;
+      delete repairedClusters[name];
+    }
+  }
+
   return { clusters: repairedClusters, repaired };
 }
 
