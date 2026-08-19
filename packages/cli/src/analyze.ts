@@ -32,6 +32,8 @@ export interface RunAnalyzeOptions {
   promptRev?: string;
   /** Compute only this artifact (freshening its dependencies first) instead of the full pipeline. */
   artifact?: ArtifactName;
+  /** Recompute `artifact` even if its cached inputs are unchanged; requires `artifact` to be set. */
+  force?: boolean;
   /** Stop after extraction — no LLM passes run, snapshot contains only static units/edges. */
   noLlm?: boolean;
 }
@@ -60,6 +62,10 @@ function readSource(root: string) {
 export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyzeResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
   mkdirSync(scvDir, { recursive: true });
+
+  if (options.force && !options.artifact) {
+    throw new Error("--force requires a target artifact (e.g. `scv analyze --force layers`)");
+  }
 
   if (options.providerName || options.model || options.effort || options.logLevel) {
     const current = loadInterpreterConfig(scvDir);
@@ -98,6 +104,7 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
         docs: discoverDocs(options.root),
         reportProgress: (phase, done, total, current) =>
           console.error(`[INFO] progress phase=${phase} ${done}/${total} current=${current ?? ""}`),
+        force: options.force && options.artifact ? new Set([options.artifact]) : new Set(),
       };
 
       const target = options.artifact ?? "flows";

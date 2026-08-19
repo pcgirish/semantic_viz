@@ -21,7 +21,11 @@ program
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
   .option("--log-level <level>", "llm call logging: info; persisted to .scv/config.yaml")
   .option("--no-llm", "extraction only — skip all LLM passes, write a static-only snapshot")
-  .action(async (root: string, artifact: string | undefined, opts: { provider?: string; model?: string; effort?: string; logLevel?: string; llm: boolean }) => {
+  .option(
+    "--force",
+    "recompute the target artifact even if its cached inputs are unchanged; downstream artifacts recompute only if the forced output actually differs; requires [artifact]",
+  )
+  .action(async (root: string, artifact: string | undefined, opts: { provider?: string; model?: string; effort?: string; logLevel?: string; llm: boolean; force?: boolean }) => {
     const { path: outPath, snapshot, usage, elapsedMs } = await runAnalyze({
       root,
       providerName: opts.provider as RunAnalyzeOptions["providerName"],
@@ -29,6 +33,7 @@ program
       effort: opts.effort as RunAnalyzeOptions["effort"],
       logLevel: opts.logLevel as RunAnalyzeOptions["logLevel"],
       artifact: artifact as RunAnalyzeOptions["artifact"],
+      force: opts.force,
       noLlm: !opts.llm,
     });
     console.log(

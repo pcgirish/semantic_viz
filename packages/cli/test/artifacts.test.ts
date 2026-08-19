@@ -74,7 +74,7 @@ describe("ensureArtifact", () => {
     rmSync(scvDir, { recursive: true, force: true });
   });
 
-  function makeCtx(provider: Provider, docs: { path: string; content: string }[]): ArtifactContext {
+  function makeCtx(provider: Provider, docs: { path: string; content: string }[], force?: ArtifactContext["force"]): ArtifactContext {
     const graph = extractRepo(orderlyRoot);
     const snapshot = toSnapshot(graph, { root: orderlyRoot, rev: { sha: "fixed-sha", kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" } });
     return {
@@ -87,6 +87,7 @@ describe("ensureArtifact", () => {
       readSource: readSource(orderlyRoot),
       docs,
       reportProgress: () => {},
+      force: force ?? new Set(),
     };
   }
 
@@ -128,5 +129,43 @@ describe("ensureArtifact", () => {
     await ensureArtifact("layers", ctx2);
 
     expect(provider2.interpret).not.toHaveBeenCalled();
+  });
+
+  it("--force recomputes the named artifact even with unchanged inputs, without touching upstream", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("functions", ctx1);
+    await ensureArtifact("layers", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs, new Set(["layers"]));
+    await ensureArtifact("layers", ctx2);
+
+    const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (call) => !String(call[0]).includes("grouping the files") && !String(call[0]).includes("describing why"),
+    ).length;
+    expect(passACalls).toBe(0);
+
+    const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (call) => String(call[0]).includes("grouping the files") || String(call[0]).includes("describing why"),
+    ).length;
+    expect(layersCalls).toBeGreaterThan(0);
+  });
+
+  it("--force on layers cascades to groups only if the forced output actually differs", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("groups", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs, new Set(["layers"]));
+    await ensureArtifact("groups", ctx2);
+
+    const groupsCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      String(call[0]).includes("grouping a codebase's architectural layers"),
+    ).length;
+    expect(groupsCalls).toBe(0);
   });
 });
