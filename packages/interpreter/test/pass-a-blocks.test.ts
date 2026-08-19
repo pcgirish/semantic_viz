@@ -51,9 +51,43 @@ describe("runPassABlocks", () => {
 
     const result = await runPassABlocks({ blocks, source, functionQualname: "src.orders.create_order.create_order", provider, promptRev: "p1" });
 
-    expect(result.get("decision:0")).toBe("valid?");
-    expect(result.get("exit:0")).toBe("return 400");
-    expect(result.get("sequential:0")).toBe("price + persist order");
+    expect(result.get("decision:0")?.label).toBe("valid?");
+    expect(result.get("exit:0")?.label).toBe("return 400");
+    expect(result.get("sequential:0")?.label).toBe("price + persist order");
+  });
+
+  it("returns per-branch labels for decision/loop blocks, tied to branch semantics not raw true/false", async () => {
+    const blocks = [
+      makeBlock({ id: "decision:0", blockType: "decision", condition: "not payload.ok", startLine: 2, endLine: 2 }),
+    ];
+    const response = {
+      labels: [
+        {
+          blockId: "decision:0",
+          label: "payload invalid?",
+          trueLabel: "invalid",
+          falseLabel: "valid",
+        },
+      ],
+    };
+    const provider = fakeProvider(response);
+
+    const result = await runPassABlocks({ blocks, source, functionQualname: "src.orders.create_order.create_order", provider, promptRev: "p1" });
+
+    expect(result.get("decision:0")).toEqual({
+      label: "payload invalid?",
+      trueLabel: "invalid",
+      falseLabel: "valid",
+    });
+  });
+
+  it("omits branch labels for non-branching block types", async () => {
+    const blocks = [makeBlock({ id: "sequential:0", startLine: 4, endLine: 5 })];
+    const provider = fakeProvider({ labels: [{ blockId: "sequential:0", label: "persist order" }] });
+
+    const result = await runPassABlocks({ blocks, source, functionQualname: "src.orders.create_order.create_order", provider, promptRev: "p1" });
+
+    expect(result.get("sequential:0")).toEqual({ label: "persist order" });
   });
 
   it("passes each block's source span text and id to the provider", async () => {

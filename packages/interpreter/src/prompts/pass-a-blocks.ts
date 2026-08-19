@@ -37,14 +37,14 @@ ${blockList}
 
 For each block, produce a short label (2-5 words) for a flowchart node:
 - "entry"/"exit" blocks: a short label naming the step (e.g. "return 400", "emit confirmation") — for exit/raise blocks, name the concrete result if inferable from the code (status code, error), not just "return".
-- "decision"/"loop" blocks: rephrase the condition as a short yes/no question (e.g. "valid?", "items left?"), not the raw source expression.
+- "decision"/"loop" blocks: a short label naming what's being checked (e.g. "validity check", "items left"), not the raw source expression. Also give "trueLabel" and "falseLabel": short words/phrases (1-3 words) naming what each branch means (e.g. for "not payload.ok", trueLabel: "invalid", falseLabel: "valid"). These become the flowchart's branch edge labels, so they must describe the outcome, not just restate "yes"/"no" — get the polarity right relative to the block's own condition.
 - "sequential" blocks: name the action the code span performs (e.g. "validate payload", "persist order (db)"), not a restatement of the type.
 - "try"/"catch"/"merge" blocks: a short label for what the block represents (e.g. "charge payment", "rollback").
 
 Respond with JSON only, matching exactly this shape:
 {
-  "labels": [{ "blockId": "...", "label": "..." }]
+  "labels": [{ "blockId": "...", "label": "...", "trueLabel": "...", "falseLabel": "..." }]
 }
 
-One entry per block listed above, same blockId values. No prose outside the JSON object.`;
+Omit "trueLabel"/"falseLabel" for non-"decision"/"loop" blocks. One entry per block listed above, same blockId values. No prose outside the JSON object.`;
 }

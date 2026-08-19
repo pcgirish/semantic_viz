@@ -155,6 +155,11 @@ export const EdgeSchema = z.object({
   rollup: z.boolean().optional(),
   // kind:"control_flow" only — which branch this edge represents.
   flowType: z.enum(["sequential", "true", "false", "loop-back", "exception"]).optional(),
+  // kind:"control_flow", flowType:"true"|"false" only — semantic branch label (e.g. "invalid"/
+  // "valid") from the decision block's own labeling pass. The raw true/false truth value only
+  // reads as generic "yes"/"no" when it happens to match the block label's polarity, so callers
+  // should prefer this over a hardcoded true->yes/false->no mapping when present.
+  edgeLabel: z.string().optional(),
 });
 
 export const ExternalSchema = z.object({
