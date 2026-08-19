@@ -341,7 +341,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         {mode === "delta" && (
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
-        {mode === "current" && (
+        {(mode === "current" || mode === "flowchart") && (
           <div data-testid="legend-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
             <Tray title="Layers" dock="left">
               <Legend units={units} mode="current" />
