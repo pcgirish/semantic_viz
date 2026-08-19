@@ -20,34 +20,60 @@ const passAResponse = {
   tags: [],
 };
 
+/**
+ * Distinctive opening substring of every prompt the pipeline can issue, mapped to a
+ * canned response matching that pass's schema. Keyed on prompt text rather than call
+ * order because passes interleave. Unmatched prompts throw (see `fakeProvider`) so a
+ * prompt reword fails loudly here instead of as a schema error three passes downstream.
+ */
+const PROMPT_RESPONSES: [match: string, response: (prompt: string) => unknown][] = [
+  ["extracting structural signal", () => ({ purpose: "A fixture repo.", modules: [], architecture_notes: [] })],
+  ["grouping a codebase's directories", () => ({ merges: {} })],
+  ["proposing merges of a codebase's architectural layers", () => ({ merges: {} })],
+  ["describing why the following cluster of files", () => ({
+    what: "misc what", how: "misc how", when: "misc when", where: "misc where", why: "misc layer", confidence: 0.5,
+  })],
+  ["identifying api_flow", () => ({ flows: [] })],
+  ["describing an api_flow named", () => ({
+    what: "flow what", how: "flow how", when: "flow when", where: "flow where", why: "flow why",
+    tags: [], confidence: 0.5,
+  })],
+  ["labeling the control-flow blocks", (prompt) => ({
+    labels: [...prompt.matchAll(/- id: (\S+)/g)].map((m) => ({ blockId: m[1], label: "step" })),
+  })],
+  ["assessing the risk", () => ({
+    axes: { functionality: 0.1, availability: 0.1, scalability: 0.1, performance: 0.1, security: 0.1 },
+    why: "low risk", confidence: 0.5,
+  })],
+  ["ranking a list of changed code units", (prompt) => {
+    const count = [...prompt.matchAll(/^\s*\d+\.\s/gm)].length;
+    return { ranked: Array.from({ length: count }, (_, i) => i + 1) };
+  }],
+  ["analyzing a single", () => passAResponse],
+];
+
+/** Prompt-opening substrings for every pass except Pass A, for filtering mock call lists. */
+const NON_PASS_A_PROMPTS = PROMPT_RESPONSES.map(([match]) => match).filter(
+  (match) => match !== "analyzing a single",
+);
+
+/** Counts Pass A (per-unit semantics) calls only, excluding every other pass's prompt. */
+function countPassACalls(provider: Provider): number {
+  return (provider.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
+    (call) => !NON_PASS_A_PROMPTS.some((match) => String(call[0]).includes(match)),
+  ).length;
+}
+
 function fakeProvider(): Provider {
   return {
     name: "fake",
     model: "fake-model",
     interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-      if (prompt.includes("extracting structural signal")) {
-        return { text: JSON.stringify({ purpose: "A fixture repo.", modules: [], architecture_notes: [] }), tokens: 10 };
+      const entry = PROMPT_RESPONSES.find(([match]) => prompt.includes(match));
+      if (!entry) {
+        throw new Error(`fakeProvider: unrecognized prompt, mock is stale. First 200 chars:\n${prompt.slice(0, 200)}`);
       }
-      if (prompt.includes("grouping the files")) {
-        return { text: JSON.stringify({ clusters: { misc: [] } }), tokens: 10 };
-      }
-      if (prompt.includes("describing why")) {
-        return {
-          text: JSON.stringify({ what: "misc what", how: "misc how", when: "misc when", where: "misc where", why: "misc layer", confidence: 0.5 }),
-          tokens: 10,
-        };
-      }
-      if (prompt.includes("grouping a codebase's architectural layers")) {
-        return { text: JSON.stringify({ groups: { platform: ["misc", "unclustered"] } }), tokens: 10 };
-      }
-      if (prompt.includes("identifying api_flow")) {
-        return { text: JSON.stringify({ flows: [] }), tokens: 10 };
-      }
-      if (prompt.includes("labeling the control-flow blocks")) {
-        const ids = [...prompt.matchAll(/- id: (\S+)/g)].map((m) => m[1]);
-        return { text: JSON.stringify({ labels: ids.map((blockId) => ({ blockId, label: "step" })) }), tokens: 10 };
-      }
-      return { text: JSON.stringify(passAResponse), tokens: 10 };
+      return { text: JSON.stringify(entry[1](prompt)), tokens: 10 };
     }),
   };
 }
@@ -173,20 +199,12 @@ describe("runAnalyze", () => {
   it("computing just 'functions' then 'layers' reuses the persisted functions artifact without recalling Pass A", async () => {
     const provider1 = fakeProvider();
     await runAnalyze({ root: orderlyRoot, scvDir, provider: provider1, artifact: "functions" });
-    const passACallsAfterFunctions = (provider1.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping the files") &&
-        !String(call[0]).includes("describing why") && !String(call[0]).includes("grouping a codebase's architectural layers") &&
-        !String(call[0]).includes("identifying api_flow"),
-    ).length;
+    const passACallsAfterFunctions = countPassACalls(provider1);
     expect(passACallsAfterFunctions).toBeGreaterThan(0);
 
     const provider2 = fakeProvider();
     await runAnalyze({ root: orderlyRoot, scvDir, provider: provider2, artifact: "layers" });
-    const passACallsOnLayersRun = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping the files") &&
-        !String(call[0]).includes("describing why") && !String(call[0]).includes("grouping a codebase's architectural layers") &&
-        !String(call[0]).includes("identifying api_flow") && !String(call[0]).includes("labeling the control-flow blocks"),
-    ).length;
+    const passACallsOnLayersRun = countPassACalls(provider2);
     expect(passACallsOnLayersRun).toBe(0);
   });
 
