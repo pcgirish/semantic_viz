@@ -51,9 +51,18 @@ export async function runPassABlocks(options: RunPassABlocksOptions): Promise<Ma
     },
   });
 
+  const branchingBlockIds = new Set(blocks.filter((b) => b.blockType === "decision" || b.blockType === "loop").map((b) => b.id));
+
   const result = new Map<string, BlockLabel>();
   for (const { blockId, label, trueLabel, falseLabel } of response.labels) {
-    result.set(blockId, { label, trueLabel, falseLabel });
+    // The model sometimes attaches trueLabel/falseLabel to the wrong block (e.g. the exit
+    // block a decision raises into) instead of the decision/loop block itself — drop them
+    // there so a stray label can never surface as an edgeLabel on the wrong edge.
+    if (branchingBlockIds.has(blockId)) {
+      result.set(blockId, { label, trueLabel, falseLabel });
+    } else {
+      result.set(blockId, { label });
+    }
   }
   return result;
 }

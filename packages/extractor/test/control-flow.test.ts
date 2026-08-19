@@ -110,6 +110,13 @@ describe("collectControlFlow — TypeScript", () => {
     expect(es.some((e) => e.edgeType === "exception")).toBe(true);
   });
 
+  it("throw inside an if-branch keeps the branch's true/false edgeType, not exception", () => {
+    const facts = tsFacts(`function f(ok) { if (!ok) { throw new Error("x"); } }`);
+    const es = edges(facts);
+    expect(es.some((e) => e.edgeType === "true")).toBe(true);
+    expect(es.some((e) => e.edgeType === "exception")).toBe(false);
+  });
+
   it("plain sequential statements between control nodes stay one sequential block", () => {
     const facts = tsFacts(`function f() {\n  a();\n  b();\n  c();\n  if (x) { d(); }\n}`);
     const bs = blocks(facts);
@@ -185,6 +192,13 @@ describe("collectControlFlow — Python", () => {
     const es = edges(facts);
     expect(bs.some((b) => b.blockType === "exit")).toBe(true);
     expect(es.some((e) => e.edgeType === "exception")).toBe(true);
+  });
+
+  it("raise inside an if-branch keeps the branch's true/false edgeType, not exception", () => {
+    const facts = pyFacts(`def f(ok):\n    if not ok:\n        raise ValueError("x")\n`);
+    const es = edges(facts);
+    expect(es.some((e) => e.edgeType === "true")).toBe(true);
+    expect(es.some((e) => e.edgeType === "exception")).toBe(false);
   });
 
   it("re-extracting the same function twice yields identical blockIds", () => {
