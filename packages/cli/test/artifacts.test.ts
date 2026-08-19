@@ -32,8 +32,8 @@ function fakeProvider(): Provider {
         const match = /Content:\n```\n([\s\S]*?)\n```/.exec(prompt);
         return { text: JSON.stringify({ purpose: match?.[1] ?? "", modules: [], architecture_notes: [] }), tokens: 10 };
       }
-      if (prompt.includes("grouping the files")) {
-        return { text: JSON.stringify({ clusters: { misc: [] } }), tokens: 10 };
+      if (prompt.includes("grouping a codebase's directories")) {
+        return { text: JSON.stringify({ merges: {} }), tokens: 10 };
       }
       if (prompt.includes("describing why")) {
         return {
@@ -41,8 +41,8 @@ function fakeProvider(): Provider {
           tokens: 10,
         };
       }
-      if (prompt.includes("grouping a codebase's architectural layers")) {
-        return { text: JSON.stringify({ groups: { platform: ["misc", "unclustered"] } }), tokens: 10 };
+      if (prompt.includes("proposing merges of a codebase's architectural layers")) {
+        return { text: JSON.stringify({ merges: {} }), tokens: 10 };
       }
       if (prompt.includes("identifying api_flow")) {
         return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -107,7 +107,7 @@ describe("ensureArtifact", () => {
     await ensureArtifact("layers", ctx2);
 
     const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping the files") &&
+      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping a codebase's directories") &&
         !String(call[0]).includes("describing why"),
     ).length;
     expect(passACalls).toBe(0);
@@ -118,7 +118,7 @@ describe("ensureArtifact", () => {
     expect(docsCalls).toBeGreaterThan(0);
 
     const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
-      String(call[0]).includes("grouping the files") || String(call[0]).includes("describing why"),
+      String(call[0]).includes("grouping a codebase's directories") || String(call[0]).includes("describing why"),
     ).length;
     expect(layersCalls).toBeGreaterThan(0);
   });
@@ -168,12 +168,12 @@ describe("ensureArtifact", () => {
     await ensureArtifact("layers", ctx2);
 
     const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => !String(call[0]).includes("grouping the files") && !String(call[0]).includes("describing why"),
+      (call) => !String(call[0]).includes("grouping a codebase's directories") && !String(call[0]).includes("describing why"),
     ).length;
     expect(passACalls).toBe(0);
 
     const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => String(call[0]).includes("grouping the files") || String(call[0]).includes("describing why"),
+      (call) => String(call[0]).includes("grouping a codebase's directories") || String(call[0]).includes("describing why"),
     ).length;
     expect(layersCalls).toBeGreaterThan(0);
   });
@@ -189,7 +189,7 @@ describe("ensureArtifact", () => {
     await ensureArtifact("groups", ctx2);
 
     const groupsCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
-      String(call[0]).includes("grouping a codebase's architectural layers"),
+      String(call[0]).includes("proposing merges of a codebase's architectural layers"),
     ).length;
     expect(groupsCalls).toBe(0);
   });
