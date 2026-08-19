@@ -28,7 +28,16 @@ function listFiles(root: string): string[] {
   return out.sort();
 }
 
+/**
+ * Bump whenever a change to the extractor/resolver (fact shapes, `walk-python.ts`,
+ * `walk-typescript.ts`, `resolve.ts` logic) could change the `FileFacts` produced for
+ * unchanged source content — otherwise the per-file cache below would keep serving stale
+ * facts across an `scv` upgrade even though nothing in the repo being analyzed changed.
+ */
+export const FACTS_CACHE_VERSION = "2";
+
 interface FileFactsCacheEntry {
+  version: string;
   contentHash: string;
   facts: FileFacts;
 }
@@ -42,7 +51,7 @@ function readCachedFacts(cacheDir: string, rel: string, contentHash: string): Fi
   if (!existsSync(cacheFile)) return undefined;
   try {
     const entry = JSON.parse(readFileSync(cacheFile, "utf-8")) as FileFactsCacheEntry;
-    return entry.contentHash === contentHash ? entry.facts : undefined;
+    return entry.version === FACTS_CACHE_VERSION && entry.contentHash === contentHash ? entry.facts : undefined;
   } catch {
     return undefined;
   }
@@ -50,7 +59,7 @@ function readCachedFacts(cacheDir: string, rel: string, contentHash: string): Fi
 
 function writeCachedFacts(cacheDir: string, rel: string, contentHash: string, facts: FileFacts): void {
   mkdirSync(cacheDir, { recursive: true });
-  const entry: FileFactsCacheEntry = { contentHash, facts };
+  const entry: FileFactsCacheEntry = { version: FACTS_CACHE_VERSION, contentHash, facts };
   writeFileSync(cacheFileFor(cacheDir, rel), JSON.stringify(entry));
 }
 
