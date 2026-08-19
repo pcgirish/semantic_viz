@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot, Unit } from "@scv/schema";
-import { PathBreadcrumb, SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
+import { Button, PathBreadcrumb, SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { DependsOn } from "./DependsOn.js";
@@ -329,6 +329,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
             borderBottom: "var(--border-w) solid var(--border-hair)",
           }}
         >
+          <Button variant="ghost" size="sm" onClick={ascend}>
+            ‹ Back
+          </Button>
           <PathBreadcrumb
             segments={[{ label: rootUnit?.name ?? "root" }, { label: "Call Graph" }, { label: flowchartFunction.name }]}
             onPick={(i) => {
