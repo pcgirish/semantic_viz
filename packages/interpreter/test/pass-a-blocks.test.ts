@@ -134,6 +134,47 @@ describe("runPassABlocks", () => {
     expect(provider.interpret).not.toHaveBeenCalled();
   });
 
+  it("retries once, scoped to only the blocks still missing trueLabel/falseLabel", async () => {
+    const blocks = [
+      makeBlock({ id: "decision:0", blockType: "decision", condition: "not payload.ok", startLine: 2, endLine: 2 }),
+      makeBlock({ id: "decision:1", blockType: "decision", condition: "charge.failed", startLine: 3, endLine: 3 }),
+    ];
+    const firstResponse = {
+      labels: [
+        { blockId: "decision:0", label: "payload invalid?", trueLabel: "invalid", falseLabel: "valid" },
+        { blockId: "decision:1", label: "charge failed?" },
+      ],
+    };
+    const retryResponse = {
+      labels: [{ blockId: "decision:1", label: "charge failed?", trueLabel: "failed", falseLabel: "success" }],
+    };
+    const interpret = vi
+      .fn<Provider["interpret"]>()
+      .mockResolvedValueOnce({ text: JSON.stringify(firstResponse), tokens: 10 })
+      .mockResolvedValueOnce({ text: JSON.stringify(retryResponse), tokens: 10 });
+    const provider: Provider = { name: "fake", model: "fake-model", interpret };
+
+    const result = await runPassABlocks({ blocks, source, functionQualname: "src.orders.create_order.create_order", provider, promptRev: "p1" });
+
+    expect(interpret).toHaveBeenCalledTimes(2);
+    const retryCall = interpret.mock.calls[1];
+    expect(retryCall[0]).toContain("decision:1");
+    expect(retryCall[0]).not.toContain("decision:0");
+    expect(result.get("decision:0")).toEqual({ label: "payload invalid?", trueLabel: "invalid", falseLabel: "valid" });
+    expect(result.get("decision:1")).toEqual({ label: "charge failed?", trueLabel: "failed", falseLabel: "success" });
+  });
+
+  it("does not retry when all branching blocks already have trueLabel/falseLabel", async () => {
+    const blocks = [makeBlock({ id: "decision:0", blockType: "decision", condition: "not payload.ok", startLine: 2, endLine: 2 })];
+    const provider = fakeProvider({
+      labels: [{ blockId: "decision:0", label: "payload invalid?", trueLabel: "invalid", falseLabel: "valid" }],
+    });
+
+    await runPassABlocks({ blocks, source, functionQualname: "src.orders.create_order.create_order", provider, promptRev: "p1" });
+
+    expect(provider.interpret).toHaveBeenCalledTimes(1);
+  });
+
   it("passes callMeta identifying this as a Pass A call for the function", async () => {
     const blocks = [makeBlock({ id: "entry:0" })];
     const provider = fakeProvider({ labels: [{ blockId: "entry:0", label: "entry" }] });

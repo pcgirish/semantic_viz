@@ -114,4 +114,31 @@ describe("Flowchart", () => {
     expect(excPath.getAttribute("stroke")).toBe("var(--temp-6)");
     expect(contPath.getAttribute("stroke")).not.toBe("var(--temp-6)");
   });
+
+  it("renders a branch-conditional raise (true/false edgeType, raises:true) in risk styling, unlike a plain branch return", () => {
+    // Mirrors `if not payload.ok: raise ...` reached via an explicit branch (edgeType
+    // "true", not "exception") — still an error-exit path and must render red. The
+    // sibling "false" branch is a plain return and must stay neutral.
+    const fn = makeUnit({ id: "fn1", kind: "function", children: ["b:entry", "b:dec", "b:err", "b:ok"] });
+    const units = [
+      fn,
+      makeBlock({ id: "b:entry" }),
+      makeBlock({ id: "b:dec", name: "not payload.ok" }),
+      makeBlock({ id: "b:err", name: "raise" }),
+      makeBlock({ id: "b:ok" }),
+    ];
+    const edges: Edge[] = [
+      makeCfEdge({ id: "e1", from: "b:entry", to: "b:dec", flowType: "sequential" }),
+      { ...makeCfEdge({ id: "e2", from: "b:dec", to: "b:err", flowType: "true" }), raises: true },
+      makeCfEdge({ id: "e3", from: "b:dec", to: "b:ok", flowType: "false" }),
+    ];
+
+    const { container } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
+
+    const paths = container.querySelectorAll("[data-testid='flowchart-svg'] path[id^='cd-']");
+    const [, errPath, okPath] = Array.from(paths);
+
+    expect(errPath.getAttribute("stroke")).toBe("var(--temp-6)");
+    expect(okPath.getAttribute("stroke")).not.toBe("var(--temp-6)");
+  });
 });

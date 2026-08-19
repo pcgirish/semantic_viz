@@ -61,6 +61,10 @@ export interface ControlFlowEdgeFact {
   fromBlock: string;
   toBlock: string;
   edgeType: "sequential" | "true" | "false" | "loop-back" | "exception";
+  /** True when this edge is a raise/throw exit, even if edgeType carries a branch
+   *  ("true"/"false") rather than "exception" — lets a flowchart render it as a risk
+   *  path (red) while still using the branch's semantic label ("invalid"/"failed"). */
+  raises?: boolean;
 }
 
 /** `<var> = APIRouter(..., dependencies=[Depends(fn), Depends(fn2(...))])` — captures the

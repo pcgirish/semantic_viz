@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, waitFor, fireEvent, within } from "@testing-library/react";
 import type { Snapshot } from "@scv/schema";
 import { App, buildUnitToDomain } from "../src/App.js";
 import { useAppStore } from "../src/store.js";
@@ -66,7 +66,7 @@ function makeNestedSnapshot(): Snapshot {
         provenance: { source: "llm" },
       },
       {
-        kind: "module",
+        kind: "function",
         id: "u:a",
         name: "a",
         qualname: "a",
@@ -570,7 +570,7 @@ describe("App", () => {
     });
   });
 
-  it("shows a flowchart-crumb path (root › Call Graph › function) in Flowchart mode, and clicking root exits back", async () => {
+  it("shows a flowchart-crumb path (drilled units › function) reflecting the real drill path, and clicking an earlier segment exits back", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
 
     const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
@@ -579,21 +579,53 @@ describe("App", () => {
       expect(container.querySelector('.tile[data-id="u:layer:ops"]')).not.toBeNull();
     });
 
-    useAppStore.getState().showFlowchart("u:a");
+    // Drill into u:layer:ops first, then into the function u:a, mirroring a real navigation
+    // path, so the breadcrumb has a real earlier focusStack segment to click back to.
+    useAppStore.getState().drill("u:layer:ops");
+    useAppStore.getState().drill("u:a");
 
+    let nav!: HTMLElement;
     await waitFor(() => {
-      expect(screen.getByText("orderly")).toBeInTheDocument();
-      expect(screen.getByText("Call Graph")).toBeInTheDocument();
+      nav = container.querySelector("nav")!;
+      expect(nav).not.toBeNull();
+      expect(nav.textContent).toContain("ops");
+      expect(nav.textContent).toContain("a");
     });
 
-    fireEvent.click(screen.getByText("orderly"));
+    fireEvent.click(within(nav).getByText("ops"));
 
     await waitFor(() => {
-      expect(useAppStore.getState().mode).toBe("current");
+      expect(useAppStore.getState().focus).toBe("u:layer:ops");
+      expect(useAppStore.getState().focusStack).toEqual([]);
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
     });
   });
 
-  it("keeps the Layers rail visible when drilling into Flowchart mode from Current", async () => {
+  it("shows a Back button when focused on a function that exits back to the previous focus", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("legend-rail")).not.toBeNull();
+    });
+
+    useAppStore.getState().drill("u:a");
+
+    await waitFor(() => {
+      expect(screen.getByText("orderly")).toBeInTheDocument();
+      expect(screen.getByText("‹ Back")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("‹ Back"));
+
+    await waitFor(() => {
+      expect(useAppStore.getState().focus).toBeNull();
+      expect(container.querySelector('.tile[data-id="u:layer:ops"]')).not.toBeNull();
+    });
+  });
+
+  it("keeps the Layers rail visible when drilling into a function from Current", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
 
     render(<App snapshotUrl="/api/snapshot/latest" />);
@@ -602,10 +634,10 @@ describe("App", () => {
       expect(screen.getByTestId("legend-rail")).not.toBeNull();
     });
 
-    useAppStore.getState().showFlowchart("u:a");
+    useAppStore.getState().drill("u:a");
 
     await waitFor(() => {
-      expect(screen.getByText("Call Graph")).toBeInTheDocument();
+      expect(screen.getByText("orderly")).toBeInTheDocument();
       expect(screen.getByTestId("legend-rail")).not.toBeNull();
     });
   });

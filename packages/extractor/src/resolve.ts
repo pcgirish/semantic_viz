@@ -423,6 +423,7 @@ function resolveBlockGraph(files: FileFacts[], byFileAndName: Map<string, string
           from: globalId(e.fromBlock),
           to: globalId(e.toBlock),
           edgeType: e.edgeType,
+          ...(e.raises ? { raises: true } : {}),
         })),
       };
     }

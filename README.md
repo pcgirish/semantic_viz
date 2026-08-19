@@ -9,53 +9,6 @@ See [`docs/design.md`](docs/design.md) for the full architecture, schema
 contract, and pipeline. See [`docs/implement-analyze.md`](docs/implement-analyze.md)
 and [`docs/implement-serve.md`](docs/implement-serve.md) for milestones.
 
-## Status
-
-The full pipeline — Extractor → Interpreter (Pass A, Pass Docs, Pass B–D) → Differ — is
-implemented end to end and wired into the CLI, server, and UI: `scv analyze`
-extracts a repo and lifts semantics, clustering, and layer narration in one
-pass; `scv diff` diffs two snapshots with LLM risk narration and produces a
-ranked inspect queue. Point `scv` at a real repo, extract it, serve it, and
-browse it as a live tile map today.
-
-`scv analyze` is now incremental and artifact-aware: extraction is cached
-per-file by content hash, and each interpreter stage (functions/docs/layers/
-groups/flows) is persisted under `.scv/artifacts/<sha>/` and only recomputed
-when its actual upstream inputs changed. `scv analyze [artifact]` computes a
-single named artifact (freshening its dependencies first); `scv analyze --no-llm`
-stops after extraction and writes a static-only snapshot. The on-disk/wire
-`.scv/snapshots/<sha>.json` contract is unchanged — server and UI need no
-changes.
-
-**A6 validation against `fixtures/orderly`** (`docs/analyze.md`'s exit
-criterion): the inspect queue correctly surfaces all 7/7 module-level
-ground-truth entities (`fixtures/orderly/task/RL-114.deltas.json`) with a
-local LLM in the loop — coverage is exact. Rank *order* does not yet match
-the ground truth's order; ranking is the Interpreter's judgment call and its
-quality depends on the underlying model, which a stronger model should
-improve without any code change. `risk_changed` (flagging a unit whose own
-diff is empty but whose dependency changed) is not yet implemented — the one
-ground-truth entry that requires it (`tests.integration.test_orders`) is
-absent from the queue.
-
-| Package | What it does | Status |
-|---|---|---|
-| `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
-| `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
-| `packages/interpreter` | Pass A (leaf semantics), Pass Docs (repo README/docs structural extraction), Pass B (import-cohesion clustering + doc-derived hints + target-cluster-count guidance + deterministic checker), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
-| `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking | Implemented |
-| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve` | Implemented |
-| `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
-| `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
-| `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
-| `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Not yet wired into `packages/ui` (`tilesSkin` is still hardcoded there) | Implemented |
-| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction) + Depends-on view + Flows view + Flowchart view, fully migrated onto `packages/design-system` (the CodeDream design system) — no bespoke `app.css` remains | Implemented |
-| `packages/design-system` | CodeDream design tokens (color, type, spacing, radius) + shared components (`Toolbar`, `SegmentedControl`, `Select`, `Tray`, `Card`, `Badge`, `BubbleChart`, ...) consumed by `packages/ui` | Implemented |
-
-A disposable Python prototype of the *full* pipeline (extract → interpret →
-diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
-seeing the end-to-end shape of the product before the LLM stages catch up.
-
 ## Requirements
 
 - Node.js ≥ 24
@@ -268,3 +221,62 @@ fixtures/        # sample repos used by tests (gitignored except small TS fixtur
 
 See [`CLAUDE.md`](CLAUDE.md) for coding rules, TDD workflow, and the git
 branch → PR → merge flow used in this repo.
+
+## Status
+
+The full pipeline — Extractor → Interpreter (Pass A, Pass Docs, Pass B–D) → Differ — is
+implemented end to end and wired into the CLI, server, and UI: `scv analyze`
+extracts a repo and lifts semantics, clustering, and layer narration in one
+pass; `scv diff` diffs two snapshots with LLM risk narration and produces a
+ranked inspect queue. Point `scv` at a real repo, extract it, serve it, and
+browse it as a live tile map today.
+
+`scv analyze` is now incremental and artifact-aware: extraction is cached
+per-file by content hash, and each interpreter stage (functions/docs/layers/
+groups/flows) is persisted under `.scv/artifacts/<sha>/` and only recomputed
+when its actual upstream inputs changed. `scv analyze [artifact]` computes a
+single named artifact (freshening its dependencies first); `scv analyze --no-llm`
+stops after extraction and writes a static-only snapshot. The on-disk/wire
+`.scv/snapshots/<sha>.json` contract is unchanged — server and UI need no
+changes.
+
+Pass A's block-level labels (used by Flowchart mode) now retry once, scoped
+to just the decision/loop blocks the LLM left without a `trueLabel`/
+`falseLabel` on the first call, instead of showing a generic branch label.
+Pass B (file clustering) and Pass C-groups (layer grouping) no longer ask the
+LLM to freely re-partition the repo from scratch each run — a design that
+produced unstable cluster/group names and membership across reruns on
+unchanged source. Both now compute a deterministic baseline (directories for
+Pass B, layers for Pass C-groups) and ask the LLM only to propose merges of
+that baseline into semantically-named groups; anything the LLM omits stays a
+singleton under its own name rather than falling into an "unclustered"
+bucket.
+
+**A6 validation against `fixtures/orderly`** (`docs/analyze.md`'s exit
+criterion): the inspect queue correctly surfaces all 7/7 module-level
+ground-truth entities (`fixtures/orderly/task/RL-114.deltas.json`) with a
+local LLM in the loop — coverage is exact. Rank *order* does not yet match
+the ground truth's order; ranking is the Interpreter's judgment call and its
+quality depends on the underlying model, which a stronger model should
+improve without any code change. `risk_changed` (flagging a unit whose own
+diff is empty but whose dependency changed) is not yet implemented — the one
+ground-truth entry that requires it (`tests.integration.test_orders`) is
+absent from the queue.
+
+| Package | What it does | Status |
+|---|---|---|
+| `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
+| `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
+| `packages/interpreter` | Pass A (leaf semantics + branch labels, with scoped retry on incomplete blocks), Pass Docs (repo README/docs structural extraction), Pass B (directory-baseline clustering + LLM-proposed merges + deterministic checker), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps; Pass C-groups uses the same baseline + LLM-merge design as Pass B), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
+| `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking | Implemented |
+| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve` | Implemented |
+| `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
+| `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
+| `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
+| `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Not yet wired into `packages/ui` (`tilesSkin` is still hardcoded there) | Implemented |
+| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction) + Depends-on view + Flows view + Flowchart view (with a `‹ Back` button), fully migrated onto `packages/design-system` (the CodeDream design system) — no bespoke `app.css` remains | Implemented |
+| `packages/design-system` | CodeDream design tokens (color, type, spacing, radius) + shared components (`Toolbar`, `SegmentedControl`, `Select`, `Tray`, `Card`, `Badge`, `BubbleChart`, ...) consumed by `packages/ui` | Implemented |
+
+A disposable Python prototype of the *full* pipeline (extract → interpret →
+diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
+seeing the end-to-end shape of the product before the LLM stages catch up.

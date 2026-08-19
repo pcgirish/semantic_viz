@@ -2,8 +2,44 @@ import { describe, expect, it } from "vitest";
 import { passCGroupsPrompt } from "../../src/prompts/pass-c-groups.js";
 import type { ImportEdge } from "../../src/checker.js";
 
-const layers = [{ name: "api", why: "Handles inbound HTTP requests." }];
+const layers = [
+  { name: "ops", why: "Groups operational scripts that run outside the request path." },
+  { name: "api", why: "Handles all public-facing HTTP traffic." },
+  { name: "db", why: "Database schema and migrations." },
+];
 const edges: ImportEdge[] = [];
+
+describe("passCGroupsPrompt merge-based design", () => {
+  it("includes a base partition section showing layer names", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt).toContain("Base layers");
+    expect(prompt).toContain("ops");
+    expect(prompt).toContain("api");
+    expect(prompt).toContain("db");
+  });
+
+  it("asks the LLM to propose merges of base layers, not to freely partition all layers", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt.toLowerCase()).toContain("merge");
+    expect(prompt.toLowerCase()).toContain("layer");
+  });
+
+  it("specifies that omitted layers implicitly stay as singleton groups", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt.toLowerCase()).toContain("omit");
+    expect(prompt.toLowerCase()).toContain("singleton");
+  });
+
+  it("expects a response shape with 'merges' not 'groups'", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt).toContain('"merges"');
+    expect(prompt).not.toContain('"groups"');
+  });
+});
 
 describe("passCGroupsPrompt repo context", () => {
   it("omits the repo context section when none is given", () => {
@@ -29,26 +65,18 @@ describe("passCGroupsPrompt naming rules", () => {
     expect(prompt.toLowerCase()).toContain("only invent a new");
   });
 
-  it("does not steer naming toward generic invented examples like core domain/api surface/platform", () => {
+  it("explicitly bans generic architecture-speak words from appearing inside a group name", () => {
     const prompt = passCGroupsPrompt(layers, edges);
 
-    expect(prompt).not.toContain('"api surface"');
-    expect(prompt).not.toContain('"core domain"');
-    expect(prompt).not.toContain('"platform"');
-  });
-
-  it("explicitly bans generic architecture-speak words from appearing inside a group name, including cluster", () => {
-    const prompt = passCGroupsPrompt(layers, edges);
-
-    for (const banned of ["core", "domain", "cluster", "layer"]) {
+    for (const banned of ["core", "domain", "cluster", "layer", "module", "component"]) {
       expect(prompt.toLowerCase()).toContain(banned);
     }
   });
 
-  it("does not use cluster/group-flavored words as the example key in the response schema", () => {
+  it("instructs not to name a group the same as one of its member layers", () => {
     const prompt = passCGroupsPrompt(layers, edges);
 
-    expect(prompt).not.toContain('"group-name"');
-    expect(prompt).not.toContain('"cluster-name"');
+    expect(prompt.toLowerCase()).toContain("identical");
+    expect(prompt.toLowerCase()).toContain("member");
   });
 });

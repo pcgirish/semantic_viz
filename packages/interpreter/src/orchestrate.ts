@@ -109,6 +109,14 @@ export function fmtElapsed(ms: number): string {
 
 const LEAF_KINDS = new Set(["function", "class"]);
 
+/** Presentable fallback block names, keyed by BlockType, for when Pass A-blocks omits a
+ *  label — raw blockType strings like "merge" read as internal debug output on a flowchart. */
+const BLOCK_TYPE_FALLBACK_NAME: Record<string, string> = {
+  merge: "continue",
+  entry: "start",
+  exit: "end",
+};
+
 /** Test code gets no LLM-generated summary/grouping/flow narration — only its structural
  *  fields (name, loc, hash) are kept in the snapshot (docs/plans/test-folder-flat-module-no-analysis.md). */
 function isTestUnit(unit: Unit): boolean {
@@ -339,7 +347,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
       blockUnits.push({
         id: block.id,
         kind: "block",
-        name: labels?.get(block.id)?.label ?? block.condition ?? block.blockType,
+        name: labels?.get(block.id)?.label ?? block.condition ?? BLOCK_TYPE_FALLBACK_NAME[block.blockType] ?? block.blockType,
         qualname: block.id,
         lang: undefined,
         parent: unit.id,
@@ -371,6 +379,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
         confidence: 1,
         flowType: edge.edgeType,
         edgeLabel,
+        ...(edge.raises ? { raises: true } : {}),
       });
     }
   }

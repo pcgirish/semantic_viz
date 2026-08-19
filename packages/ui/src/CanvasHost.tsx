@@ -77,7 +77,6 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
-  const showFlowchart = useAppStore((s) => s.showFlowchart);
   const [hover, setHover] = useState<string | null>(null);
 
   const scaleRef = useRef(1);
@@ -88,8 +87,6 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   // units/edges) seeds from it — docs/serve.md#3, "positions are seeded from the previous
   // snapshot ... this is a hard requirement, replay is unreadable if nodes teleport."
   const priorSceneRef = useRef<Scene | undefined>(undefined);
-
-  const unitKindById = useMemo(() => new Map(units.map((u) => [u.id, u.kind])), [units]);
 
   const scene = useMemo(() => {
     const s = buildScene(units, edges, { priorScene: priorSceneRef.current });
@@ -336,11 +333,9 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
               }}
               onDoubleClick={(e: React.MouseEvent) => {
                 e.stopPropagation();
-                // Double-clicking a function tile opens its flowchart detail view instead of
-                // drilling further down the structural tree — a function has no children to
-                // drill into in Current/Delta, so this replaces what would otherwise be a no-op.
-                if (unitKindById.get(n.id) === "function") showFlowchart(n.id);
-                else drill(n.id);
+                // Drilling into a function has no structural children in Current/Delta —
+                // App.tsx renders that zoom level as a Flowchart instead of a tile grid.
+                drill(n.id);
               }}
             />
           );

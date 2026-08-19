@@ -32,8 +32,8 @@ function fakeProvider(): Provider {
         const match = /Content:\n```\n([\s\S]*?)\n```/.exec(prompt);
         return { text: JSON.stringify({ purpose: match?.[1] ?? "", modules: [], architecture_notes: [] }), tokens: 10 };
       }
-      if (prompt.includes("grouping the files")) {
-        return { text: JSON.stringify({ clusters: { misc: [] } }), tokens: 10 };
+      if (prompt.includes("grouping a codebase's directories")) {
+        return { text: JSON.stringify({ merges: {} }), tokens: 10 };
       }
       if (prompt.includes("describing why")) {
         return {
@@ -41,8 +41,8 @@ function fakeProvider(): Provider {
           tokens: 10,
         };
       }
-      if (prompt.includes("grouping a codebase's architectural layers")) {
-        return { text: JSON.stringify({ groups: { platform: ["misc", "unclustered"] } }), tokens: 10 };
+      if (prompt.includes("proposing merges of a codebase's architectural layers")) {
+        return { text: JSON.stringify({ merges: {} }), tokens: 10 };
       }
       if (prompt.includes("identifying api_flow")) {
         return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -74,7 +74,12 @@ describe("ensureArtifact", () => {
     rmSync(scvDir, { recursive: true, force: true });
   });
 
-  function makeCtx(provider: Provider, docs: { path: string; content: string }[], force?: ArtifactContext["force"]): ArtifactContext {
+  function makeCtx(
+    provider: Provider,
+    docs: { path: string; content: string }[],
+    force?: ArtifactContext["force"],
+    promptRev = "p2",
+  ): ArtifactContext {
     const graph = extractRepo(orderlyRoot);
     const snapshot = toSnapshot(graph, { root: orderlyRoot, rev: { sha: "fixed-sha", kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" } });
     return {
@@ -83,7 +88,7 @@ describe("ensureArtifact", () => {
       snapshot,
       graph,
       provider,
-      promptRev: "p2",
+      promptRev,
       readSource: readSource(orderlyRoot),
       docs,
       reportProgress: () => {},
@@ -102,7 +107,7 @@ describe("ensureArtifact", () => {
     await ensureArtifact("layers", ctx2);
 
     const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping the files") &&
+      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping a codebase's directories") &&
         !String(call[0]).includes("describing why"),
     ).length;
     expect(passACalls).toBe(0);
@@ -113,7 +118,7 @@ describe("ensureArtifact", () => {
     expect(docsCalls).toBeGreaterThan(0);
 
     const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
-      String(call[0]).includes("grouping the files") || String(call[0]).includes("describing why"),
+      String(call[0]).includes("grouping a codebase's directories") || String(call[0]).includes("describing why"),
     ).length;
     expect(layersCalls).toBeGreaterThan(0);
   });
@@ -131,6 +136,26 @@ describe("ensureArtifact", () => {
     expect(provider2.interpret).not.toHaveBeenCalled();
   });
 
+  it("a changed promptRev invalidates functions/docs/layers/groups/flows even with unchanged inputs", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs, undefined, "p2");
+    await ensureArtifact("groups", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs, undefined, "p3");
+    await ensureArtifact("groups", ctx2);
+
+    // A prompt template edit must force every LLM-derived artifact to recompute, since
+    // inputHash previously ignored promptRev and would otherwise keep serving stale output
+    // (e.g. Pass A-blocks branch labels) after only the prompt wording changed.
+    expect(provider2.interpret).toHaveBeenCalled();
+    const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      String(call[0]).includes("labeling the control-flow blocks"),
+    ).length;
+    expect(passACalls).toBeGreaterThan(0);
+  });
+
   it("--force recomputes the named artifact even with unchanged inputs, without touching upstream", async () => {
     const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
     const provider1 = fakeProvider();
@@ -143,12 +168,12 @@ describe("ensureArtifact", () => {
     await ensureArtifact("layers", ctx2);
 
     const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => !String(call[0]).includes("grouping the files") && !String(call[0]).includes("describing why"),
+      (call) => !String(call[0]).includes("grouping a codebase's directories") && !String(call[0]).includes("describing why"),
     ).length;
     expect(passACalls).toBe(0);
 
     const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => String(call[0]).includes("grouping the files") || String(call[0]).includes("describing why"),
+      (call) => String(call[0]).includes("grouping a codebase's directories") || String(call[0]).includes("describing why"),
     ).length;
     expect(layersCalls).toBeGreaterThan(0);
   });
@@ -164,7 +189,7 @@ describe("ensureArtifact", () => {
     await ensureArtifact("groups", ctx2);
 
     const groupsCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
-      String(call[0]).includes("grouping a codebase's architectural layers"),
+      String(call[0]).includes("proposing merges of a codebase's architectural layers"),
     ).length;
     expect(groupsCalls).toBe(0);
   });

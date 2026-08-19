@@ -165,17 +165,17 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) {
+        if (prompt.includes("Base directories")) {
           return {
-            text: JSON.stringify({ clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } }),
+            text: JSON.stringify({ merges: { ops: ["src", "scripts"] } }),
             tokens: 10,
           };
         }
         if (prompt.includes("describing why")) {
           return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: { platform: ["ops"] } }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: { platform: ["ops"] } }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -204,8 +204,8 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
-        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       }),
@@ -225,12 +225,12 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) {
+        if (prompt.includes("Base directories")) {
           passBPrompt = prompt;
-          return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -253,8 +253,8 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
-        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         prompts.push(prompt);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
@@ -345,8 +345,8 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
-        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         if (prompt.includes("Unit: mod.a")) order.push("a");
         if (prompt.includes("Unit: mod.b")) order.push("b");
@@ -408,16 +408,16 @@ describe("runInterpreter", () => {
     };
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
-      "grouping the files": { clusters: {} },
-      "grouping a codebase's architectural layers": { groups: {} },
+      "grouping the files": { merges: {} },
+      "grouping a codebase's architectural layers": { merges: {} },
       "identifying api_flow": { flows: [] },
     });
     const wrapped: Provider = {
       name: provider.name,
       model: provider.model,
       interpret: async (prompt: string) => {
-        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
-        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("Base directories")) return provider.interpret(prompt);
+        if (prompt.includes("Base layers")) return provider.interpret(prompt);
         if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       },
@@ -436,8 +436,8 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string, context?: ProviderContext): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
-        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         if (prompt.includes("Unit: src.admin_tasks.run")) contexts.push(context);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
@@ -455,7 +455,7 @@ describe("runInterpreter", () => {
     const graph = makeGraph();
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
-      "grouping the files": { clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } },
+      "Base directories": { merges: { ops: ["src", "scripts"] } },
       "describing why": { what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "operational scripts", confidence: 0.8 },
     });
     // module units get Pass A too; fall through to passAResponse for anything else
@@ -463,10 +463,10 @@ describe("runInterpreter", () => {
       name: provider.name,
       model: provider.model,
       interpret: async (prompt: string) => {
-        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
+        if (prompt.includes("Base directories")) return provider.interpret(prompt);
         if (prompt.includes("describing why")) return provider.interpret(prompt);
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: { platform: ["ops"] } }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: { platform: ["ops"] } }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         return { text: JSON.stringify(passAResponse), tokens: 10 };
@@ -490,21 +490,21 @@ describe("runInterpreter", () => {
     expect(opsFiles.sort()).toEqual(["scripts.backfill", "src.admin_tasks"]);
   });
 
-  it("falls back a layer the LLM's group proposal omits into the checker's fallback group", async () => {
+  it("makes a layer into its own singleton group when Pass C groups omits it from merges", async () => {
     const graph = makeGraph();
     const snapshot = makeSnapshot(graph);
     const provider: Provider = {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) {
-          return { text: JSON.stringify({ clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } }), tokens: 10 };
+        if (prompt.includes("Base directories")) {
+          return { text: JSON.stringify({ merges: { ops: ["src", "scripts"] } }), tokens: 10 };
         }
         if (prompt.includes("describing why")) {
           return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -516,7 +516,7 @@ describe("runInterpreter", () => {
     const result = await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
 
     const layer = result.units.find((u) => u.kind === "layer" && u.qualname === "ops");
-    expect(layer?.group).toBe("unclustered");
+    expect(layer?.group).toBe("ops");
   });
 
   it("adds an api_flow unit traced from the proposed entry point through real calls edges", async () => {
@@ -526,11 +526,11 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) {
-          return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) {
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return {
@@ -667,8 +667,8 @@ describe("runInterpreter", () => {
     };
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
-      "grouping the files": { clusters: {} },
-      "grouping a codebase's architectural layers": { groups: {} },
+      "grouping the files": { merges: {} },
+      "grouping a codebase's architectural layers": { merges: {} },
       "identifying api_flow": { flows: [{ unit: "u:py:src.auth.login#f", name: "login", route: "POST /auth/login" }] },
       "describing an api_flow": {
         what: "Authenticates a user.",
@@ -684,8 +684,8 @@ describe("runInterpreter", () => {
       name: provider.name,
       model: provider.model,
       interpret: async (prompt: string) => {
-        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
-        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("Base directories")) return provider.interpret(prompt);
+        if (prompt.includes("Base layers")) return provider.interpret(prompt);
         if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
         if (prompt.includes("describing an api_flow")) return provider.interpret(prompt);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
@@ -789,8 +789,8 @@ describe("runInterpreter", () => {
     };
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
-      "grouping the files": { clusters: {} },
-      "grouping a codebase's architectural layers": { groups: {} },
+      "grouping the files": { merges: {} },
+      "grouping a codebase's architectural layers": { merges: {} },
       "identifying api_flow": { flows: [{ unit: "u:py:src.orders.create_order#f", name: "create_order", route: "POST /orders" }] },
       "describing an api_flow": {
         what: "Creates an order.",
@@ -806,8 +806,8 @@ describe("runInterpreter", () => {
       name: provider.name,
       model: provider.model,
       interpret: async (prompt: string) => {
-        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
-        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("Base directories")) return provider.interpret(prompt);
+        if (prompt.includes("Base layers")) return provider.interpret(prompt);
         if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
         if (prompt.includes("describing an api_flow")) return provider.interpret(prompt);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
@@ -913,11 +913,11 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) {
-          return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) {
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return {
@@ -974,17 +974,17 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: async (prompt: string) => {
-        if (prompt.includes("grouping the files")) {
+        if (prompt.includes("Base directories")) {
           return {
-            text: JSON.stringify({ clusters: { [clusterName]: ["src/admin_tasks.py", "scripts/backfill.py"] } }),
+            text: JSON.stringify({ merges: { [clusterName]: ["src/admin_tasks.py", "scripts/backfill.py"] } }),
             tokens: 10,
           };
         }
         if (prompt.includes("describing why")) {
           return { text: JSON.stringify({ what: `${layerName} what`, how: `${layerName} how`, when: `${layerName} when`, where: `${layerName} where`, why: `${layerName} layer`, confidence: 0.8 }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: { platform: [clusterName] } }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: { platform: [clusterName] } }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -1020,17 +1020,17 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) {
+        if (prompt.includes("Base directories")) {
           return {
-            text: JSON.stringify({ clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } }),
+            text: JSON.stringify({ merges: { ops: ["src", "scripts"] } }),
             tokens: 10,
           };
         }
         if (prompt.includes("describing why")) {
           return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: { platform: ["ops"] } }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: { platform: ["ops"] } }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -1086,11 +1086,11 @@ describe("runInterpreter", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) {
-          return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) {
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
-          return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) {
+          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
@@ -1128,16 +1128,16 @@ describe("runInterpreter", () => {
     };
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
-      "grouping the files": { clusters: {} },
-      "grouping a codebase's architectural layers": { groups: {} },
+      "grouping the files": { merges: {} },
+      "grouping a codebase's architectural layers": { merges: {} },
       "identifying api_flow": { flows: [] },
     });
     const wrapped: Provider = {
       name: provider.name,
       model: provider.model,
       interpret: async (prompt: string) => {
-        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
-        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("Base directories")) return provider.interpret(prompt);
+        if (prompt.includes("Base layers")) return provider.interpret(prompt);
         if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       },
@@ -1159,22 +1159,27 @@ describe("runInterpreter", () => {
     const cfEdges = result.edges.filter((e) => e.kind === "control_flow");
     expect(cfEdges).toHaveLength(3);
     expect(cfEdges.map((e) => e.flowType).sort()).toEqual(["false", "sequential", "true"]);
+
+    // Pass A didn't label the merge block (passAResponse has no entry for "u:block:merge1"),
+    // so it falls back — the raw blockType "merge" would read as internal debug output.
+    const mergeUnit = blockUnits.find((u) => u.id === "u:block:merge1");
+    expect(mergeUnit?.name).not.toBe("merge");
   });
 
   it("produces zero block units for a function with no blockGraph entry", async () => {
     const graph = makeGraph();
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
-      "grouping the files": { clusters: {} },
-      "grouping a codebase's architectural layers": { groups: {} },
+      "grouping the files": { merges: {} },
+      "grouping a codebase's architectural layers": { merges: {} },
       "identifying api_flow": { flows: [] },
     });
     const wrapped: Provider = {
       name: provider.name,
       model: provider.model,
       interpret: async (prompt: string) => {
-        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
-        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("Base directories")) return provider.interpret(prompt);
+        if (prompt.includes("Base layers")) return provider.interpret(prompt);
         if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       },
@@ -1189,16 +1194,16 @@ describe("runInterpreter", () => {
     const graph = makeGraph();
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
-      "grouping the files": { clusters: {} },
-      "grouping a codebase's architectural layers": { groups: {} },
+      "grouping the files": { merges: {} },
+      "grouping a codebase's architectural layers": { merges: {} },
       "identifying api_flow": { flows: [] },
     });
     const wrapped: Provider = {
       name: provider.name,
       model: provider.model,
       interpret: async (prompt: string) => {
-        if (prompt.includes("grouping the files")) return provider.interpret(prompt);
-        if (prompt.includes("grouping a codebase's architectural layers")) return provider.interpret(prompt);
+        if (prompt.includes("Base directories")) return provider.interpret(prompt);
+        if (prompt.includes("Base layers")) return provider.interpret(prompt);
         if (prompt.includes("identifying api_flow")) return provider.interpret(prompt);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       },
@@ -1277,8 +1282,8 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
-        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         calledFor.push(prompt);
         return { text: JSON.stringify(passAResponse), tokens: 10 };
@@ -1303,8 +1308,8 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("grouping the files")) return { text: JSON.stringify({ clusters: {} }), tokens: 10 };
-        if (prompt.includes("grouping a codebase's architectural layers")) return { text: JSON.stringify({ groups: {} }), tokens: 10 };
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         return { text: JSON.stringify(passAResponse), tokens: 10 };
       }),
@@ -1334,17 +1339,17 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
         if (prompt.includes("extracting structural signal")) return { text: JSON.stringify(docExtract), tokens: 10 };
-        if (prompt.includes("grouping the files")) {
+        if (prompt.includes("Base directories")) {
           passBPrompt = prompt;
-          return { text: JSON.stringify({ clusters: { ops: ["src/admin_tasks.py", "scripts/backfill.py"] } }), tokens: 10 };
+          return { text: JSON.stringify({ merges: { ops: ["src", "scripts"] } }), tokens: 10 };
         }
         if (prompt.includes("describing why")) {
           passCPrompt = prompt;
           return { text: JSON.stringify({ what: "w", how: "h", when: "wh", where: "wr", why: "why", confidence: 0.8 }), tokens: 10 };
         }
-        if (prompt.includes("grouping a codebase's architectural layers")) {
+        if (prompt.includes("Base layers")) {
           passCGroupsPrompt = prompt;
-          return { text: JSON.stringify({ groups: { platform: ["ops"] } }), tokens: 10 };
+          return { text: JSON.stringify({ merges: { platform: ["ops"] } }), tokens: 10 };
         }
         if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         return { text: JSON.stringify(passAResponse), tokens: 10 };
@@ -1361,8 +1366,8 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
     });
 
     expect(passBPrompt).toContain("Repo context");
-    expect(passBPrompt).toContain("operational scripts");
-    expect(passBPrompt).toContain("scripts/backfill.py");
+    expect(passBPrompt).toContain("Base directories");
+    expect(passBPrompt).toContain("scripts");
     expect(passCPrompt).toContain("Repo context");
     expect(passCGroupsPrompt).toContain("Repo context");
   });

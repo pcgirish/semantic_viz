@@ -98,10 +98,11 @@ describe("runPassC", () => {
   });
 });
 
-describe("runPassCGroups", () => {
+describe("runPassCGroups with merge-based design", () => {
   const layers = [
     { name: "ops", why: "Groups operational scripts that run outside the request path." },
     { name: "api", why: "Handles all public-facing HTTP traffic." },
+    { name: "db", why: "Database schema and migrations." },
   ];
 
   function fakeProvider(response: object): Provider {
@@ -112,48 +113,119 @@ describe("runPassCGroups", () => {
     };
   }
 
-  it("returns the LLM's proposed groups when they already partition every layer", async () => {
-    const proposal = { platform: ["ops"], "api surface": ["api"] };
-    const provider = fakeProvider({ groups: proposal });
+  it("creates singleton groups for layers not mentioned in any merge", async () => {
+    const proposal = {
+      merges: {
+        platform: ["ops", "db"],
+      },
+    };
+    const provider = fakeProvider(proposal);
 
     const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
 
-    expect(result.groups).toEqual(proposal);
+    expect(result.groups.platform).toContain("ops");
+    expect(result.groups.platform).toContain("db");
+    expect(result.groups.api).toContain("api");
     expect(result.repaired).toBe(false);
   });
 
-  it("repairs a proposal that omits a layer into a fallback group, and reports repaired: true", async () => {
-    const provider = fakeProvider({ groups: { platform: ["ops"] } });
+  it("partitions every layer exactly once, even when the LLM proposes no merges", async () => {
+    const provider = fakeProvider({ merges: {} });
+
+    const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
+
+    const allLayers = Object.values(result.groups).flat().sort();
+    expect(allLayers).toEqual(["api", "db", "ops"]);
+    // Each layer should be its own singleton
+    expect(result.groups.ops).toEqual(["ops"]);
+    expect(result.groups.api).toEqual(["api"]);
+    expect(result.groups.db).toEqual(["db"]);
+  });
+
+  it("reports repaired: false when all merges reference valid layers and no layers are missed", async () => {
+    const proposal = {
+      merges: {
+        platform: ["ops", "db"],
+      },
+    };
+    const provider = fakeProvider(proposal);
+
+    const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
+
+    expect(result.repaired).toBe(false);
+  });
+
+  it("drops layers from a merge that don't actually exist, and reports repaired: true", async () => {
+    const proposal = {
+      merges: {
+        platform: ["ops", "db", "fake-layer"],
+      },
+    };
+    const provider = fakeProvider(proposal);
 
     const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
 
     expect(result.repaired).toBe(true);
-    const allLayers = Object.values(result.groups).flat();
-    expect(allLayers.sort()).toEqual(["api", "ops"]);
+    expect(result.groups.platform).toContain("ops");
+    expect(result.groups.platform).toContain("db");
+    expect(result.groups.platform).not.toContain("fake-layer");
   });
 
-  it("drops a layer name the LLM invented that isn't a real layer", async () => {
-    const provider = fakeProvider({ groups: { platform: ["ops"], "api surface": ["api", "ghost-layer"] } });
+  it("resolves conflicts when a layer appears in multiple merges, favoring the first merge", async () => {
+    const proposal = {
+      merges: {
+        platform: ["ops", "db"],
+        api_group: ["db"], // db appears twice — should be dropped from this merge
+      },
+    };
+    const provider = fakeProvider(proposal);
 
     const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
 
     expect(result.repaired).toBe(true);
-    expect(result.groups["api surface"]).toEqual(["api"]);
+    // db should be in platform, not in api_group
+    expect(result.groups.platform).toContain("db");
+    expect(result.groups.api_group).toBeUndefined();
   });
 
-  it("includes layer why-narration and edges in the prompt sent to the provider", async () => {
-    const provider = fakeProvider({ groups: { platform: ["ops"], "api surface": ["api"] } });
+  it("renames a merge whose name collides with a layer left unmerged, instead of dropping that layer's own group", async () => {
+    const proposal = { merges: { db: ["ops", "api"] } };
+    const provider = fakeProvider(proposal);
+
+    const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
+
+    expect(result.repaired).toBe(true);
+    expect(result.groups.db).toEqual(["db"]);
+    expect(result.groups.db_group).toEqual(expect.arrayContaining(["ops", "api"]));
+    const allLayers = Object.values(result.groups).flat().sort();
+    expect(allLayers).toEqual(["api", "db", "ops"]);
+  });
+
+  it("renames a merge whose name collides with one of its own merged layer names", async () => {
+    const proposal = { merges: { ops: ["ops", "db"] } };
+    const provider = fakeProvider(proposal);
+
+    const result = await runPassCGroups({ layers, edges: [], provider, promptRev: "p1" });
+
+    expect(result.repaired).toBe(true);
+    expect(result.groups.ops_group).toEqual(expect.arrayContaining(["ops", "db"]));
+    const allLayers = Object.values(result.groups).flat().sort();
+    expect(allLayers).toEqual(["api", "db", "ops"]);
+  });
+
+  it("includes layer why-narration in the prompt sent to the provider", async () => {
+    const provider = fakeProvider({ merges: {} });
 
     await runPassCGroups({
       layers,
-      edges: [{ from: "ops", to: "api", weight: 3 }],
+      edges: [],
       provider,
       promptRev: "p1",
     });
 
     const call = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(call[0]).toContain("Groups operational scripts that run outside the request path.");
-    expect(call[0]).toContain("ops -> api (weight 3)");
+    expect(call[0]).toContain("ops");
   });
 
   it("throws a clear error when the provider returns invalid JSON", async () => {
@@ -165,4 +237,5 @@ describe("runPassCGroups", () => {
 
     await expect(runPassCGroups({ layers, edges: [], provider, promptRev: "p1" })).rejects.toThrow(/pass c/i);
   });
+
 });

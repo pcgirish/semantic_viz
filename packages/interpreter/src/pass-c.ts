@@ -4,7 +4,6 @@ import { passCPrompt } from "./prompts/pass-c.js";
 import { passCEntryPointsPrompt, passCFlowNarrationPrompt } from "./prompts/pass-c-flows.js";
 import type { FlowStepSummary, FlowUnitSummary, StructuralRouteHint } from "./prompts/pass-c-flows.js";
 import { passCGroupsPrompt } from "./prompts/pass-c-groups.js";
-import { checkAndRepairClusters } from "./checker.js";
 import type { CallEdge, ClusterProposal, ImportEdge } from "./checker.js";
 import { interpretJsonWithRetry } from "./retry.js";
 
@@ -71,18 +70,18 @@ export async function runPassC(options: RunPassCOptions): Promise<PassCResult> {
   return { layers };
 }
 
-const GroupMapSchema = z.record(z.string(), z.array(z.string()));
+const MergesMapSchema = z.record(z.string(), z.array(z.string()));
 
-function isGroupsWrapped(value: Record<string, string[]> | { groups: Record<string, string[]> }): value is {
-  groups: Record<string, string[]>;
+function isMergesWrapped(value: Record<string, string[]> | { merges: Record<string, string[]> }): value is {
+  merges: Record<string, string[]>;
 } {
-  return "groups" in value && !Array.isArray(value.groups) && typeof value.groups === "object";
+  return "merges" in value && !Array.isArray(value.merges) && typeof value.merges === "object";
 }
 
-// Mirrors Pass B's response-shape tolerance: some local models drop the "groups" wrapper.
+// Mirrors Pass B's response-shape tolerance: some local models drop the "merges" wrapper.
 const PassCGroupsResponseSchema = z
-  .union([z.object({ groups: GroupMapSchema }), GroupMapSchema])
-  .transform((value) => (isGroupsWrapped(value) ? value : { groups: value }));
+  .union([z.object({ merges: MergesMapSchema }), MergesMapSchema])
+  .transform((value) => (isMergesWrapped(value) ? value : { merges: value }));
 
 export interface PassCGroupsResult {
   groups: ClusterProposal;
@@ -98,10 +97,60 @@ export interface RunPassCGroupsOptions {
 }
 
 /**
- * Pass C — groups. Super-groups Pass C's layers into a small number of named
- * architectural groups (e.g. "api surface", "platform"), one level above `layer`. Same
- * propose-then-repair discipline as Pass B: the LLM proposes freely, the deterministic
- * checker guarantees every layer lands in exactly one group.
+ * Applies layer merges to the base singleton partition: layers listed in merges
+ * are combined with the merge's name; unlisted layers stay as singletons under their own name.
+ * Parallel to checkAndRepairClusters but for layer names instead of files.
+ */
+function applyLayerMerges(layerNames: string[], merges: Record<string, string[]>): { proposal: ClusterProposal; repaired: boolean } {
+  const allLayers = new Set(layerNames);
+  const proposal: ClusterProposal = {};
+  let repaired = false;
+
+  const seenLayers = new Set<string>();
+
+  for (const [mergeName, layers] of Object.entries(merges)) {
+    const mergedLayers: string[] = [];
+    for (const layer of layers) {
+      if (!allLayers.has(layer)) {
+        repaired = true;
+        continue;
+      }
+      if (seenLayers.has(layer)) {
+        repaired = true;
+        continue;
+      }
+      seenLayers.add(layer);
+      mergedLayers.push(layer);
+    }
+    if (mergedLayers.length === 0) {
+      if (layers.length > 0) repaired = true;
+      continue;
+    }
+    // A merge name identical to a layer left unmerged would silently clobber that layer's
+    // own singleton entry below (both use the same proposal key); identical to one of its
+    // own merged members reads as that layer nesting inside itself once rendered — rename
+    // the merge in either case rather than losing data or rendering a self-nested group.
+    let name = mergeName;
+    if ((allLayers.has(name) && !seenLayers.has(name)) || mergedLayers.includes(name)) {
+      repaired = true;
+      name = `${mergeName}_group`;
+    }
+    proposal[name] = mergedLayers;
+  }
+
+  // Singleton groups for layers not mentioned in any merge
+  for (const layer of allLayers) {
+    if (!seenLayers.has(layer)) {
+      proposal[layer] = [layer];
+    }
+  }
+
+  return { proposal, repaired };
+}
+
+/**
+ * Pass C — groups. Merges Pass C's layers into named architectural groups via LLM-proposed
+ * merges of the base layer partition. Unlisted layers stay as singleton groups.
  */
 export async function runPassCGroups(options: RunPassCGroupsOptions): Promise<PassCGroupsResult> {
   const { layers, edges, provider, repoContext } = options;
@@ -114,9 +163,10 @@ export async function runPassCGroups(options: RunPassCGroupsOptions): Promise<Pa
     schema: PassCGroupsResponseSchema,
     context: { callMeta: { pass: "C" } },
   });
-  const { clusters, repaired } = checkAndRepairClusters(response.groups, layerNames);
 
-  return { groups: clusters, repaired };
+  const { proposal, repaired } = applyLayerMerges(layerNames, response.merges);
+
+  return { groups: proposal, repaired };
 }
 
 const EntryPointSchema = z.object({ unit: z.string(), name: z.string(), route: z.string() });
