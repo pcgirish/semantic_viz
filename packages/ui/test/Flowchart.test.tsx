@@ -81,4 +81,37 @@ describe("Flowchart", () => {
 
     expect(container.querySelectorAll("[data-testid='flowchart-svg'] .tile").length).toBe(2);
   });
+
+  it("renders an exception exit edge in risk styling, distinct from the false/no continuation edge", () => {
+    // Mirrors `if not payload.ok: raise ...` with no else: the decision's only two
+    // outgoing edges are "exception" (to the raise) and "false" (the implicit
+    // no-else continuation) — there is no "true" edge at all.
+    const fn = makeUnit({ id: "fn1", kind: "function", children: ["b:entry", "b:dec", "b:exc", "b:cont"] });
+    const units = [
+      fn,
+      makeBlock({ id: "b:entry" }),
+      makeBlock({ id: "b:dec", name: "not payload.ok" }),
+      makeBlock({ id: "b:exc", name: "raise" }),
+      makeBlock({ id: "b:cont" }),
+    ];
+    const edges = [
+      makeCfEdge({ id: "e1", from: "b:entry", to: "b:dec", flowType: "sequential" }),
+      makeCfEdge({ id: "e2", from: "b:dec", to: "b:exc", flowType: "exception" }),
+      makeCfEdge({ id: "e3", from: "b:dec", to: "b:cont", flowType: "false" }),
+    ];
+
+    const { container } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
+
+    // ConnectorLayer renders one arrowhead <marker><path> per distinct stroke color inside
+    // <defs> before the actual edge <path>s (each with an id="cd-..." set directly on the
+    // edge path, unlike marker paths), so filter to those. Edge paths then follow
+    // scene.links order, which mirrors cfEdges order: [entry->dec, dec->exc, dec->cont].
+    const paths = container.querySelectorAll("[data-testid='flowchart-svg'] path[id^='cd-']");
+    const [, excPath, contPath] = Array.from(paths);
+
+    // The exception edge (leads to the raise/exit) must be styled as risk (red);
+    // the false edge (leads to the normal continuation) must NOT be risk-colored.
+    expect(excPath.getAttribute("stroke")).toBe("var(--temp-6)");
+    expect(contPath.getAttribute("stroke")).not.toBe("var(--temp-6)");
+  });
 });
