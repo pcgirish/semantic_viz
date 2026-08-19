@@ -80,3 +80,17 @@ describe("passCGroupsPrompt naming rules", () => {
     expect(prompt.toLowerCase()).toContain("member");
   });
 });
+
+describe("passCGroupsPrompt degenerate-output guardrails", () => {
+  it("discourages merging every layer into a single group", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt.toLowerCase()).toContain("do not merge every layer into a single group");
+  });
+
+  it("discourages leaving every layer unmerged when a plausible merge exists", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt.toLowerCase()).toContain("an empty merges map is only correct if no two layers are meaningfully related");
+  });
+});
