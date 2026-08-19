@@ -31,6 +31,8 @@ Rules:
 - Layers you don't mention in a merge implicitly stay as singleton groups under their own layer name — they are not omitted, simply left unmerged. This ensures every layer lands in exactly one group.
 - Do not invent layers. Only reference layers listed above.
 - Prefer merges that align with the dependency edges — group layers that depend on each other into the same group.
+- Do NOT merge every layer into a single group. A group spanning nearly all layers destroys the distinction between them and is as useless as no grouping at all — propose several smaller, cohesive groups instead, each sharing a clear purpose or tight dependency relationship. Most groups should have 2-4 member layers.
+- An empty merges map is only correct if no two layers are meaningfully related — with ${layers.length} layers and the dependency edges above, look for at least one real merge opportunity before concluding none exist.
 - Naming: if a directory name or a module name from the repo context plausibly describes a merged group's purpose, reuse that name verbatim — do not paraphrase or invent a new one. Only invent a new short name when nothing in the repo context reasonably fits. Never include generic architecture-speak words in the name itself — "core", "domain", "cluster", "layer", "module", "component" — even as a suffix (e.g. "billing_cluster" is WRONG; use "billing"). Favor names that already appear in this codebase's own directories or docs. A group's name must NEVER be identical to any of the base layer names being merged into it — that would create a collision where the group and its member have the same name.
 
 Respond with JSON only, matching exactly this shape:
