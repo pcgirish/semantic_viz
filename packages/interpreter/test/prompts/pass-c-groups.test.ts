@@ -36,4 +36,19 @@ describe("passCGroupsPrompt naming rules", () => {
     expect(prompt).not.toContain('"core domain"');
     expect(prompt).not.toContain('"platform"');
   });
+
+  it("explicitly bans generic architecture-speak words from appearing inside a group name, including cluster", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    for (const banned of ["core", "domain", "cluster", "layer"]) {
+      expect(prompt.toLowerCase()).toContain(banned);
+    }
+  });
+
+  it("does not use cluster/group-flavored words as the example key in the response schema", () => {
+    const prompt = passCGroupsPrompt(layers, edges);
+
+    expect(prompt).not.toContain('"group-name"');
+    expect(prompt).not.toContain('"cluster-name"');
+  });
 });
