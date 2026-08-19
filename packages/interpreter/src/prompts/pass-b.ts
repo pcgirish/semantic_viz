@@ -45,7 +45,9 @@ export function passBPrompt(files: string[], oneLiners: Record<string, string>, 
   const dirLines = Object.entries(baseClusters)
     .map(([dir, dirFiles]) => {
       const dirSummary = dirFiles.map((f) => oneLiners[f] ?? "(no summary)").join("; ");
-      return `- ${dir}: ${dirSummary}`;
+      const parent = dir.includes("/") ? dir.slice(0, dir.lastIndexOf("/")) : null;
+      const nestedNote = parent && baseClusters[parent] ? ` (nested under: ${parent})` : "";
+      return `- ${dir}${nestedNote}: ${dirSummary}`;
     })
     .join("\n");
 

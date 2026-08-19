@@ -53,6 +53,27 @@ describe("passBPrompt merge-based design", () => {
   });
 });
 
+describe("passBPrompt directory nesting", () => {
+  it("annotates a directory line with its parent when nested under another base directory", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt).toContain("- src/api/middleware (nested under: src/api):");
+  });
+
+  it("does not annotate a top-level directory with no parent", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt).toContain("- src:");
+    expect(prompt).not.toContain("- src (nested under:");
+  });
+
+  it("annotates a directory with its immediate parent even when a grandparent is also a base directory", () => {
+    const prompt = passBPrompt(files, oneLiners, edges);
+
+    expect(prompt).toContain("- src/api (nested under: src):");
+  });
+});
+
 describe("passBPrompt repo context", () => {
   it("omits the repo context section when none is given", () => {
     const prompt = passBPrompt(files, oneLiners, edges);
