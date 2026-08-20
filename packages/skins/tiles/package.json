@@ -10,7 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/layout": "*"
+    "@scv/layout": "*",
+    "@scv/skin-contract": "*"
   },
   "devDependencies": {
     "jsdom": "^25.0.0"

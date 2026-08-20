@@ -1,12 +1,4 @@
-export type Theme = {
-  ink: string;
-  slate: string;
-  hair: string;
-  added: string;
-  removed: string;
-  modified: string;
-  hi: string;
-};
+import type { Theme } from "@scv/skin-contract";
 
 /** Default tiles theme. A skin may reinterpret the theme freely, never the encoding (docs/serve.md#6). */
 export const defaultTheme: Theme = {

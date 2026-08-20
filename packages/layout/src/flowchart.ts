@@ -157,7 +157,7 @@ export function buildFlowchartScene(rawBlocks: Unit[], edges: Edge[]): Scene {
         y: r * (NODE_H + RANK_GAP),
         w: NODE_W,
         h: NODE_H,
-        depth: 0,
+        depth: 0, // blocks have no sloc; the flowchart is a 2D view and never extrudes
         sides: 4,
         heat: 0,
         ring: false,

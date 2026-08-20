@@ -212,3 +212,25 @@ describe("buildScene", () => {
     });
   });
 });
+
+describe("extrusion depth", () => {
+  it("tracks sloc, monotonically and positively", () => {
+    const units = [
+      makeUnit({ id: "small", loc: { files: [], sloc: 5 } }),
+      makeUnit({ id: "big", loc: { files: [], sloc: 500 } }),
+    ];
+
+    const scene = buildScene(units, []);
+    const small = scene.nodes.find((n) => n.id === "small")!;
+    const big = scene.nodes.find((n) => n.id === "big")!;
+
+    expect(small.depth).toBeGreaterThan(0);
+    expect(big.depth).toBeGreaterThan(small.depth);
+  });
+
+  it("gives equal-sloc units equal depth", () => {
+    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+    const scene = buildScene(units, []);
+    expect(scene.nodes[0]!.depth).toBe(scene.nodes[1]!.depth);
+  });
+});

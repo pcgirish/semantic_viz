@@ -23,6 +23,18 @@ function displayName(u: Unit): string {
 }
 
 /** Cyclomatic complexity -> side count, per docs/serve.md#2 ("sides = complexity, with a correction"). */
+
+/**
+ * Extrusion depth reuses the sloc channel deliberately — the same quantity the 2D tile shows
+ * as area, a 3D skin shows as height (docs/serve.md#2, "Extrusion depth"). Kept here so the
+ * encoding stays in the layout engine and no skin recomputes it (docs/serve.md#1).
+ */
+const MIN_DEPTH = 4;
+const DEPTH_PER_SLOC = 0.6;
+function depthFor(sloc: number): number {
+  return MIN_DEPTH + sloc * DEPTH_PER_SLOC;
+}
+
 function sidesFor(complexity: number | undefined): SceneNode["sides"] {
   const c = complexity ?? 1;
   if (c <= 2) return 3;
@@ -139,7 +151,7 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
         y: box.y,
         w: box.w,
         h: box.h,
-        depth: 0,
+        depth: depthFor(u.loc.sloc),
         sides: sidesFor(u.cost?.complexity),
         heat: 0,
         ring: false,
