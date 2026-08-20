@@ -188,7 +188,10 @@ describe("CachedProvider", () => {
 
     await provider.interpret("some prompt");
 
-    expect(provider.usage.totalDurationMs).toBeGreaterThanOrEqual(10);
+    // Asserted as "nonzero", not against the 10ms sleep: `setTimeout` has no guaranteed lower
+    // bound, so under parallel suite load the callback fires at ~9.5ms and the rounded duration
+    // lands at 9. The claim under test is that a real call is timed at all.
+    expect(provider.usage.totalDurationMs).toBeGreaterThanOrEqual(1);
   });
 
   it("logs durationMs on the per-call row for both a real call and a cache hit", async () => {
@@ -205,7 +208,9 @@ describe("CachedProvider", () => {
     await provider.interpret("some prompt", { callMeta: { pass: "A" } });
 
     const calls = cache.listCalls();
-    expect(calls[0]!.durationMs).toBeGreaterThanOrEqual(10);
-    expect(calls[1]!.durationMs).toBeGreaterThanOrEqual(0);
+    expect(calls[0]!.durationMs).toBeGreaterThanOrEqual(1);
+    // A cache hit skips the provider entirely and logs a hardcoded 0, so this is an equality
+    // check — `>= 0` would also pass for a real timed call and prove nothing.
+    expect(calls[1]!.durationMs).toBe(0);
   });
 });
