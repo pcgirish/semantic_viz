@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import type { Scene } from "@scv/layout";
-import { applyFocus, buildSceneGraph, disposeGraph, frameScene, unitAt } from "../src/scene3d.js";
+import { applyFocus, buildSceneGraph, disposeGraph, disposeRenderer, frameScene, unitAt } from "../src/scene3d.js";
 
 function makeScene(): Scene {
   const node = (id: string, x: number, layer: string) => ({
@@ -106,6 +106,35 @@ describe("disposeGraph", () => {
     const root = buildSceneGraph(makeScene(), {});
     disposeGraph(root);
     expect(root.children).toHaveLength(0);
+  });
+});
+
+describe("disposeRenderer", () => {
+  // `renderer.dispose()` frees the GPU resources the renderer allocated, but it does not
+  // release the WebGL context itself — that only happens via WEBGL_lose_context. Measured in
+  // a real browser, 30 skin toggles created 30 contexts and the browser evicted 14 of them
+  // with "Too many active WebGL contexts", one per toggle past the cap. Losing the context
+  // deliberately on unmount is what keeps a long session off that cliff.
+  function fakeRenderer() {
+    return {
+      dispose: vi.fn(),
+      forceContextLoss: vi.fn(),
+      domElement: document.createElement("canvas"),
+    } as unknown as THREE.WebGLRenderer;
+  }
+
+  it("releases the WebGL context, not just the renderer's own resources", () => {
+    const renderer = fakeRenderer();
+    disposeRenderer(renderer);
+    expect(renderer.dispose).toHaveBeenCalled();
+    expect(renderer.forceContextLoss).toHaveBeenCalled();
+  });
+
+  it("detaches the canvas so a remount does not stack dead ones", () => {
+    const renderer = fakeRenderer();
+    document.body.appendChild(renderer.domElement);
+    disposeRenderer(renderer);
+    expect(renderer.domElement.isConnected).toBe(false);
   });
 });
 

@@ -5,7 +5,7 @@ import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Edge, Unit } from "@scv/schema";
 import { buildScene, type Scene } from "@scv/layout";
 import { useAppStore } from "./store.js";
-import { applyFocus, buildSceneGraph, disposeGraph, frameScene, FOV_DEG, unitAt, type ViewMode } from "./scene3d.js";
+import { applyFocus, buildSceneGraph, disposeGraph, disposeRenderer, frameScene, FOV_DEG, unitAt, type ViewMode } from "./scene3d.js";
 import type { TileDeltaInfo } from "./CanvasHost.js";
 
 export type Canvas3dHostProps = {
@@ -134,8 +134,7 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
       // this one; disposing it again here would double-free.
       // Frees the GL context itself. Without it, toggling skins repeatedly walks into the
       // browser's ~16 live-context cap and the oldest canvases start blanking out.
-      renderer.dispose();
-      renderer.domElement.remove();
+      disposeRenderer(renderer);
       labelRenderer.domElement.remove();
     };
   }, []);

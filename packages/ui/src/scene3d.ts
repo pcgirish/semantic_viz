@@ -108,6 +108,21 @@ export function disposeGraph(root: THREE.Group): void {
 }
 
 /**
+ * Tears down a renderer for good, on unmount or a skin switch.
+ *
+ * `dispose()` alone is not enough: it frees the objects the renderer allocated but leaves the
+ * WebGL context itself alive, and browsers cap how many may exist at once (~16). Measured
+ * against `fixtures/orderly`, 30 toggles of the 2D/3D switch created 30 contexts and the
+ * browser started evicting them — "Too many active WebGL contexts" — from the 17th on.
+ * `forceContextLoss()` hands the context back explicitly so eviction never has to.
+ */
+export function disposeRenderer(renderer: THREE.WebGLRenderer): void {
+  renderer.dispose();
+  renderer.forceContextLoss();
+  renderer.domElement.remove();
+}
+
+/**
  * Walks up from a raycast hit to the building that owns it. `sceneNodeId` is tagged on the
  * group rather than each mesh, so clicking a roof, a wall, or a risk beacon all resolve to
  * the same unit.

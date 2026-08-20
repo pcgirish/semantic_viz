@@ -108,5 +108,22 @@ Proceed to 5.4. Carry four things into it:
   `migrations_group`, and `src_db` collide into unreadable overlapping text. This is the
   plan's "label legibility at distance" risk, now confirmed rather than hypothetical. It
   needs distance-based culling or collision-aware placement in 5.4, not a framing tweak.
-- **WebGL context leaks under repeated skin toggling** are still only unit-tested. The
-  plan's manual check — toggle 20× and watch for context warnings — has not been run.
+*(The WebGL leak check that used to sit here has since been run; see below.)*
+
+## The WebGL context leak was real
+
+The plan's manual check — toggle skins and watch for context warnings — was run against
+`fixtures/orderly` in a real browser, and it failed. 30 toggles of the 2D/3D switch created
+30 contexts and produced 14 "Too many active WebGL contexts. Oldest context will be lost."
+warnings, one per toggle past the browser's cap.
+
+Cause: `renderer.dispose()` releases the resources a renderer allocated but not the WebGL
+context itself. Only `forceContextLoss()` does that. Teardown now goes through
+`disposeRenderer()`, which disposes, forces the loss, and detaches the canvas.
+
+Re-measured after the fix: **30 toggles, 0 warnings, 0 errors, 0 canvases left in the DOM,
+heap flat at ~26MB.**
+
+One methodology note worth carrying: `cli ui` serves the *built* bundle, not Vite dev, so
+browser verification requires `npm run build --workspace @scv/ui` first. An unrebuilt check
+silently measures the old code — which is what happened on the first attempt at this fix.
