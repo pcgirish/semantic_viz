@@ -717,7 +717,25 @@ implemented" and that the ground-truth entry requiring it was absent from the qu
 
 ---
 
-## Wave 5 — make the skin contract real (PR J)
+## Wave 5 — make the skin contract real (PR J) — **RESOLVED (2026-08-20)**
+
+> **Superseded and delivered.** This scoping was written from the Wave 4 log without
+> re-reading the renderers, and three of its claims did not survive that reading: there was no
+> single 2D renderer to refactor pixel-identically, `three` was already hoisted so
+> `packages/ui` gaining it was one line, and there were no persisted UI prefs to match. The
+> plan that replaced it — `docs/plans/wave-5-skin-contract.md` — records those
+> corrections and is what shipped.
+>
+> **What shipped:** `packages/skin-contract` (the contract, generic in its drawable type);
+> `CanvasHost` routed through `Skin<ReactElement>`; a new `Canvas3dHost` executing
+> `Skin<Object3D>`; `tiles3d` wired and given layer hue, labels, delta and `SceneNode.depth`;
+> a new `packages/skins/cityscape` with walk/fly controls, a ground plane and a minimap; and a
+> three-way toolbar switch that preserves selection and focus. `docs/plans/wave-5-checkpoint-2-wayfinding.md`
+> records what the street-level look found — including that the minimap is load-bearing rather
+> than decorative, and four defects no unit test was asking about.
+>
+> The closing recommendation below — that archiving `tiles3d` stays the cheaper answer — is
+> dead: the 3D view was wanted, and it is built.
 
 **Why this is a wave and not item 4.4.** See the Wave 4 log above: the app renders with
 design-system components and never calls `Skin`. Two independent `Skin` types exist with

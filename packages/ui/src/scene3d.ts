@@ -2,7 +2,27 @@ import * as THREE from "three";
 import type { Scene } from "@scv/layout";
 import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
 import { tiles3dSkin } from "@scv/skin-tiles3d";
-import type { DeltaInfo } from "@scv/skin-contract";
+import { cityscapeSkin, ground } from "@scv/skin-cityscape";
+import type { DeltaInfo, Skin } from "@scv/skin-contract";
+
+/** Which 3D skin the host is drawing. Both draw into the same scene graph (docs/serve.md#6). */
+export type Skin3dName = "tiles3d" | "cityscape";
+
+type Skin3d = Skin<THREE.Object3D, THREE.Object3D, THREE.Object3D>;
+
+/**
+ * The host resolves a skin by name rather than importing one. That indirection is the whole
+ * point of the contract: the host knows it is handed something that can draw a node and
+ * declares a camera model, and nothing else about it (docs/serve.md#6).
+ */
+const SKINS: Record<Skin3dName, Skin3d> = {
+  tiles3d: tiles3dSkin,
+  cityscape: cityscapeSkin,
+};
+
+export function skin3d(name: Skin3dName): Skin3d {
+  return SKINS[name];
+}
 
 /** Above this ratio the scene is dense enough that background edges fade (docs/serve.md#3). */
 const GATE_RATIO = 1.6;
@@ -10,6 +30,8 @@ const GATE_RATIO = 1.6;
 export type SceneGraphOptions = {
   /** Present only in delta mode — the same map CanvasHost takes (docs/serve.md#2). */
   deltaByUnit?: Map<string, DeltaInfo>;
+  /** Which skin draws the buildings. Defaults to the orbit skin. */
+  skin?: Skin3dName;
 };
 
 /**
@@ -22,10 +44,17 @@ export function buildSceneGraph(scene: Scene, options: SceneGraphOptions): THREE
   const root = new THREE.Group();
   root.name = "scene";
 
+  const name = options.skin ?? "tiles3d";
+  const skin = skin3d(name);
   const gated = scene.links.length > scene.nodes.length * GATE_RATIO;
 
+  // A walkable skin needs something underfoot; an orbiting one is looking down at rooftops
+  // and never sees whether there is a floor. Asking the skin for it rather than drawing one
+  // here keeps the host free of geometry.
+  if (name === "cityscape") root.add(ground(scene));
+
   for (const l of scene.links) {
-    const line = tiles3dSkin.link(l, { gated }) as THREE.Object3D;
+    const line = skin.link(l, { gated }) as THREE.Object3D;
     line.userData.linkEnds = [l.from, l.to];
     root.add(line);
   }
@@ -35,7 +64,7 @@ export function buildSceneGraph(scene: Scene, options: SceneGraphOptions): THREE
     // same hashLayerToColor over the same palette, so a unit keeps its colour across skins.
     const layerColor = n.layer ? hashLayerToColor(n.layer, codedreamLayerPalette) : undefined;
     root.add(
-      tiles3dSkin.node(n, {
+      skin.node(n, {
         layerColor,
         delta: options.deltaByUnit?.get(n.id),
         gated,
@@ -215,4 +244,32 @@ function footprint(scene: Scene): { cx: number; cz: number; width: number; depth
   const minZ = Math.min(...scene.nodes.map((n) => n.y));
   const maxZ = Math.max(...scene.nodes.map((n) => n.y + n.h));
   return { cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, width: maxX - minX, depth: maxZ - minZ };
+}
+
+/**
+ * How far a label stays readable, in scene units. Buildings are ~96 wide, so this is roughly
+ * a dozen of them — far enough that the block you are walking toward is named before you
+ * reach it, near enough that the back of the city stops writing over the front of it.
+ */
+export const LABEL_MAX_DISTANCE = 1200;
+
+/**
+ * Hides the labels of buildings too far away to read.
+ *
+ * Checkpoint 2 confirmed the plan's "label legibility at distance" risk: CSS2D labels are DOM
+ * and hold their size no matter how far away their building is, so a distant row collapses
+ * into overlapping text while the geometry behind it is still perfectly legible. Culling by
+ * distance is the treatment that keeps the labels that remain worth reading.
+ *
+ * Called from the render loop, so it does no allocation: `visible` is a flag the CSS2D
+ * renderer already checks, and setting it is cheaper than measuring text.
+ */
+export function cullLabels(root: THREE.Group, camera: THREE.Camera): void {
+  const eye = camera.position;
+  for (const child of root.children) {
+    if (typeof child.userData.sceneNodeId !== "string") continue;
+    const label = child.getObjectByName("label");
+    if (!label) continue;
+    label.visible = eye.distanceTo(child.position) <= LABEL_MAX_DISTANCE;
+  }
 }

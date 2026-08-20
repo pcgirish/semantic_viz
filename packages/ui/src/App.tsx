@@ -318,6 +318,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
               options={[
                 { value: "tiles", label: "2D" },
                 { value: "tiles3d", label: "3D" },
+                { value: "cityscape", label: "City" },
               ]}
             />
           </div>
@@ -377,9 +378,16 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
             Nothing changed in this revision — no delta to inspect.
           </div>
         ) : (
-          renderSkin === "tiles3d" ? (
+          renderSkin !== "tiles" ? (
+            // Both 3D skins share one host: the contract makes which buildings get drawn and
+            // how the camera moves the skin's business, so the host does not fork.
             <Suspense fallback={<div style={{ flex: 1, minWidth: 0 }} />}>
-              <Canvas3dHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+              <Canvas3dHost
+                units={visibleUnits}
+                edges={visibleEdges}
+                deltaByUnit={mode === "delta" ? deltaByUnit : undefined}
+                skin={renderSkin}
+              />
             </Suspense>
           ) : (
             <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />

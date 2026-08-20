@@ -211,7 +211,8 @@ packages/
   layout/        # pure layered layout engine (rank/order/place/route)
   skins/
     tiles/       # SVG rendering skin (wired into packages/ui)
-    tiles3d/     # three.js rendering skin (built, not wired into packages/ui)
+    tiles3d/     # three.js rendering skin, orbit camera (wired into packages/ui)
+    cityscape/   # three.js rendering skin, walk/fly camera + minimap (wired into packages/ui)
   ui/            # React app: canvas + inspector tray + Delta/Replay/Depends-on/API Flow views
 docs/            # design docs, milestone plans, and the disposable Python mock
 fixtures/        # sample repos used by tests (gitignored except small TS fixtures)
@@ -285,7 +286,9 @@ a "no delta" notice.
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
-| `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Not reachable from `packages/ui`, which renders tiles with `packages/design-system` components and consumes only the *palette* from `@scv/skin-tiles` — the `Skin` contract itself is unused by the app, so there is no seam to switch on yet (see Wave 5 in `docs/plans/remediation-security-clustering-canvas-docs.md`) | Built, unwired |
+| `packages/skin-contract` | The `Skin` contract itself: `node`/`link`/`region`/`theme`, the declared `camera` model, and `navigate(intent) -> CameraMove`. Generic in its drawable type (`Skin<TNode, TLink, TRegion>`), so a 2D host cannot be handed a `THREE.Group`. Depends on `packages/layout` and nothing else — no renderer, no `three` | Implemented |
+| `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc via `SceneNode.depth`), orbit camera, CSS2D labels, layer hue on the facades, delta as emissive glow, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Selectable as **3D** in the toolbar | Implemented |
+| `packages/skins/cityscape` | The walkable skin: the same buildings as `tiles3d` (imported, not reimplemented — one encoding, one place), plus a ground plane on the 2D canvas's grid and a top-down minimap projection. Declares `camera: "walk"`, so the host attaches pointer-lock walk and fly controls instead of orbit, and shows the minimap — at eye level that minimap is the only instrument that answers "which way is up the dependency graph?" (`docs/serve.md#6`). Selectable as **City** in the toolbar | Implemented |
 | `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction) + Depends-on view + API Flow view + Flowchart view (with a `‹ Back` button), fully migrated onto `packages/design-system` (the CodeDream design system) — no bespoke `app.css` remains | Implemented |
 | `packages/design-system` | CodeDream design tokens (color, type, spacing, radius) + shared components (`Toolbar`, `SegmentedControl`, `Select`, `Tray`, `Card`, `Badge`, `BubbleChart`, ...) consumed by `packages/ui` | Implemented |
 

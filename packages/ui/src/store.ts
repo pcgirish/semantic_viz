@@ -3,7 +3,7 @@ import { create } from "zustand";
 export type Mode = "current" | "delta" | "depends" | "flows";
 
 /** Which skin draws the canvas (docs/serve.md#6). In-memory only — there are no persisted UI prefs. */
-export type RenderSkin = "tiles" | "tiles3d";
+export type RenderSkin = "tiles" | "tiles3d" | "cityscape";
 
 export type AppState = {
   selection: string | null;

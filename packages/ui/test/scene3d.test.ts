@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import type { Scene } from "@scv/layout";
-import { applyFocus, buildSceneGraph, disposeGraph, disposeRenderer, frameScene, unitAt } from "../src/scene3d.js";
+import { applyFocus, buildSceneGraph, cullLabels, disposeGraph, disposeRenderer, frameScene, LABEL_MAX_DISTANCE, skin3d, unitAt } from "../src/scene3d.js";
 
 function makeScene(): Scene {
   const node = (id: string, x: number, layer: string) => ({
@@ -57,6 +57,45 @@ describe("buildSceneGraph", () => {
       ((root.getObjectByName(id)!.getObjectByName("body") as THREE.Mesh).material as THREE.MeshStandardMaterial).emissive.getHexString();
     expect(emissive("a")).not.toBe("000000");
     expect(emissive("b")).toBe("000000");
+  });
+});
+
+describe("skin selection", () => {
+  it("draws through whichever skin was named, not a hardcoded one", () => {
+    // The host must not import a skin directly — it knows only that it holds something that
+    // can draw a node and declares a camera model (docs/serve.md#6). If this collapses back
+    // to a hardcoded tiles3d, the contract stops being exercised and becomes decoration.
+    expect(skin3d("tiles3d").camera).toBe("orbit");
+    expect(skin3d("cityscape").camera).toBe("walk");
+  });
+
+  it("gives the walkable skin a ground plane and the orbit skin none", () => {
+    const walk = buildSceneGraph(makeScene(), { skin: "cityscape" });
+    const orbit = buildSceneGraph(makeScene(), { skin: "tiles3d" });
+    expect(walk.getObjectByName("ground")).toBeTruthy();
+    expect(orbit.getObjectByName("ground")).toBeUndefined();
+  });
+
+  it("keeps the ground out of focus dimming and out of hit-testing", () => {
+    // The floor is scenery, not a unit. Left untagged it would otherwise fade with the
+    // buildings on every focus change, and a click on empty pavement would have to resolve
+    // to something — when what it must do is ascend (docs/serve.md#4).
+    const root = buildSceneGraph(makeScene(), { skin: "cityscape" });
+    const groundGroup = root.getObjectByName("ground-group")!;
+    expect(groundGroup.userData.sceneNodeId).toBeUndefined();
+    expect(unitAt(root.getObjectByName("ground")!)).toBeNull();
+
+    applyFocus(root, "a");
+    const floor = root.getObjectByName("ground") as THREE.Mesh;
+    expect((floor.material as THREE.MeshStandardMaterial).opacity).toBe(1);
+  });
+
+  it("frees the ground plane too, so the walkable skin does not leak a floor per rebuild", () => {
+    const root = buildSceneGraph(makeScene(), { skin: "cityscape" });
+    const floor = root.getObjectByName("ground") as THREE.Mesh;
+    const spy = vi.spyOn(floor.geometry, "dispose");
+    disposeGraph(root);
+    expect(spy).toHaveBeenCalled();
   });
 });
 
@@ -279,5 +318,53 @@ describe("applyFocus", () => {
         .material as THREE.MeshStandardMaterial;
       expect(material.opacity).toBe(1);
     }
+  });
+});
+
+describe("cullLabels", () => {
+  // Checkpoint 2 found `scripts`, `migrations_group`, and `src_db` colliding into unreadable
+  // overlapping text in the middle of the frame. Distance is what causes it: far buildings
+  // occupy a few pixels each while their labels stay full size, so the text crowds long
+  // before the geometry does. Hiding the distant ones is the fix that keeps every label the
+  // host does show legible.
+  const labelOf = (root: THREE.Group, id: string) => root.getObjectByName(id)!.getObjectByName("label")!;
+
+  const cameraAt = (z: number) => {
+    const c = new THREE.PerspectiveCamera(60, 1, 1, 8000);
+    c.position.set(0, 20, z);
+    c.updateMatrixWorld();
+    return c;
+  };
+
+  it("keeps the labels of nearby buildings visible", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    cullLabels(root, cameraAt(30));
+    expect(labelOf(root, "a").visible).toBe(true);
+  });
+
+  it("hides labels past the legibility distance", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    cullLabels(root, cameraAt(LABEL_MAX_DISTANCE + 500));
+    expect(labelOf(root, "a").visible).toBe(false);
+    expect(labelOf(root, "b").visible).toBe(false);
+  });
+
+  it("culls per building, not per scene — walking toward one reveals its name", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    // Standing beside `a`, with `b` 400 units further down the row: near enough to read the
+    // building in front of you, too far to read the one at the end of the street.
+    const camera = new THREE.PerspectiveCamera(60, 1, 1, 8000);
+    camera.position.set(50 - (LABEL_MAX_DISTANCE - 200), 20, 30);
+    camera.updateMatrixWorld();
+    cullLabels(root, camera);
+    expect(labelOf(root, "a").visible).toBe(true);
+    expect(labelOf(root, "b").visible).toBe(false);
+  });
+
+  it("restores a label when the camera comes back within range", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    cullLabels(root, cameraAt(LABEL_MAX_DISTANCE + 500));
+    cullLabels(root, cameraAt(30));
+    expect(labelOf(root, "a").visible).toBe(true);
   });
 });

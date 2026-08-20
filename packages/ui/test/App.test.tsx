@@ -441,6 +441,39 @@ describe("App", () => {
     expect(useAppStore.getState().selection).toBe("u:a");
   });
 
+  it("offers all three skins and walks into the city, keeping selection across both switches", async () => {
+    // The whole point of Wave 5: one Scene, three representations, and the same place in the
+    // codebase throughout. Cityscape is a second 3D skin rather than a mode of the first, so
+    // it must be reachable from the toolbar in its own right.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshot()) }),
+    );
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+    await waitFor(() => {
+      expect(screen.getByTestId("canvas-svg")).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByTestId("canvas-svg").querySelector('.tile[data-id="u:a"]')!);
+    fireEvent.click(screen.getByRole("button", { name: "City" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("canvas-3d")).not.toBeNull();
+    });
+    // The minimap is what distinguishes the walkable skin: at eye level it is the only
+    // instrument that can answer "which way is up the dependency graph?".
+    expect(screen.getByTestId("minimap")).not.toBeNull();
+    expect(useAppStore.getState().selection).toBe("u:a");
+
+    fireEvent.click(screen.getByRole("button", { name: "3D" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("minimap")).toBeNull();
+    });
+    expect(screen.getByTestId("canvas-3d")).not.toBeNull();
+    expect(useAppStore.getState().selection).toBe("u:a");
+  });
+
   it("shows an error state when the fetch fails, not a silent blank canvas", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
 
