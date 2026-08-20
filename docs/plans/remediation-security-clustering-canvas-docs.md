@@ -1,5 +1,17 @@
 # Remediation plan: security, clustering stability, canvas usability, doc truth
 
+> **Status as of 2026-08-20 — Waves 0-2 complete, Waves 3-4 outstanding.**
+> Suite is **743/743** on `main` @ `a5b7969`. See "Execution log" at the end for what each
+> wave actually landed, including three items whose diagnosis in this plan proved wrong.
+>
+> | Wave | PRs | State |
+> |---|---|---|
+> | 0 | A (#105) | merged |
+> | 1 | D (#106), C (#107), B (#108), E (#109), plus deflake (#110) | merged |
+> | 2 | F (#111), G (#112) | merged |
+> | 3 | H | not started |
+> | 4 | I | not started |
+
 ## Context
 
 `docs/review/comprehensive-review-2026-08-19.md` reviewed `main` @ `326b442` across design,
@@ -50,6 +62,9 @@ bounds the real risk, and it should not gate the UX and correctness work.
 ## Track 1 — Security (own PRs, land before UX work)
 
 ### 1.1 Server path traversal + unvalidated PUT body
+
+**Landed in PR #108 (Wave 1, B).**
+
 **Files:** `packages/server/src/store.ts`, `packages/server/src/app.ts`, `packages/schema/src/index.ts`
 
 Confirmed exploitable over real HTTP during review: `GET /api/layout/..%2F..%2Foutside%2Fleak/plain`
@@ -76,6 +91,9 @@ traversal → 400; literal `../` → 400; absolute path → 400; malformed PUT b
 round-trip still passes.
 
 ### 1.2 Extractor symlink containment
+
+**Landed in PR #107 (Wave 1, C).**
+
 **Files:** `packages/extractor/src/host.ts:20`, `packages/extractor/src/manifest.ts:25`
 
 Both walkers use `statSync`, which follows symlinks, so a symlinked directory inside an analyzed
@@ -94,6 +112,9 @@ symlinked directory; assert both are absent from the unit set. `packages/extract
 has 9 suites to match style.
 
 ### 1.3 Runtime validation at deserialization boundaries
+
+**Landed in PR #108 (Wave 1, B).**
+
 **Files:** `packages/server/src/store.ts:46,101,111`, `packages/cli/src/diff.ts:25`,
 `packages/interpreter/src/config.ts:21`, `packages/cli/src/artifacts.ts:81`
 
@@ -111,6 +132,9 @@ the read.
 Adding `.parse()` there multiplies that cost. Do **1.4 first**, or fold them into one PR.
 
 ### 1.4 Memoize `Store.readAll()`
+
+**Landed in PR #108 (Wave 1, B).**
+
 **File:** `packages/server/src/store.ts:37`
 
 The class doc-comment claims it "serves them in memory"; it does not — it re-reads and re-parses
@@ -119,6 +143,8 @@ linear in history). Memoize keyed on directory mtime + entry count, or correct t
 is a prerequisite for 1.3 being cheap.
 
 ### 1.5 Dependency CVEs — Fastify 5 (own PR, **non-blocking**)
+
+**Landed in PR #109 (Wave 1, E).**
 `npm audit --omit=dev`: **6 vulnerabilities (4 high, 2 critical)** across `fastify@4.29.1`
 (`fast-uri`, `find-my-way`) and `undici` — the undici set has grown since the superseded plan was
 written. Only fix is Fastify 4→5, breaking, and also requires `@fastify/http-proxy` 11.
@@ -131,6 +157,9 @@ Isolate as its own PR: upgrade, run full build + test, fix breakage, re-run audi
 ## Track 2 — Correctness
 
 ### 2.1 Deterministic group-name normalizer
+
+**Landed in PR #111 (Wave 2, F).**
+
 **Files:** `packages/interpreter/src/checker.ts`, `pass-b.ts`, `pass-c.ts`
 
 The naming constraint is **prompt-only** (`pass-c-groups.ts:36`, `pass-b.ts:69` — both ban "core",
@@ -156,6 +185,9 @@ mixed-case input canonicalized; `.` renamed; normalization-induced collision res
 set. Use the existing `fakeProvider(response)` pattern from `pass-b.test.ts:20-26`.
 
 ### 2.2 Surface the modularity score
+
+**Landed in PR #111 (Wave 2, F).**
+
 **Files:** `packages/interpreter/src/pass-b.ts:111-112`, `orchestrate.ts:489`, `cli`
 
 `runPassB` already computes and returns `modularity` and `directoryModularity` in `PassBResult`
@@ -169,6 +201,9 @@ regression in clustering quality is visible rather than silent. Snapshot persist
 the CLI line delivers the mitigation.
 
 ### 2.3 Risk-floor bypass
+
+**Landed in PR #106 (Wave 1, D).**
+
 **File:** `packages/differ/src/diff-with-risk.ts:51`
 
 `score: passD.score` lets Pass D *lower* the deterministic floor; `docs/design.md:175-181` says it
@@ -176,6 +211,9 @@ may only raise it. Fix to `Math.max(passD.score, delta.risk.formula_floor)`. Exi
 `diff-with-risk.test.ts:56-75` asserts override but not floor preservation — extend it.
 
 ### 2.4 Stale test mock — the 13 failures
+
+**Landed in PR #105 (Wave 0, A).**
+
 **File:** `packages/cli/test/analyze.test.ts`
 
 Commit `bd8e074` rewrote the Pass B and Pass C-groups prompts and response schemas; the mock's
@@ -200,6 +238,13 @@ the two matchers and their response shapes to `{merges:{}}` made all 15 tests pa
   future prompt edits fail loudly at one place.
 
 ### 2.5 Differ's unemitted delta kinds
+
+**Landed in PR #112 (Wave 2, G) — but the diagnosis below is wrong.** `risk_changed` was
+not a dead *UI* branch. The differ never emitted the status at all, so deleting or fixing
+the UI branch would have changed nothing. `classify()` sees only two units, while exposure
+is a property of the surrounding graph, and the delta loop dropped unchanged units before
+blast radius was computed. Fixed in the differ, not the UI. See "Execution log".
+
 **Files:** `packages/differ/src/diff.ts`, `packages/schema/src/index.ts:258-266`, `packages/ui/src/CanvasHost.tsx:59`
 
 Schema allows `added`/`removed`/`moved`/`renamed`/`modified`/`risk_changed`/`unchanged`; the
@@ -218,6 +263,14 @@ all three as-is — schema and UI currently promise capability that does not exi
 ## Track 3 — Usability
 
 ### 3.1 Fit-to-content on canvas load
+
+**Landed in PR #112 (Wave 2, G) — but the root cause below is wrong.** The missing
+`scaleRef.current` assignment is real but not sufficient: there was **no transform layer in
+the render tree at all**, so scale only ever resized the container while its contents stayed
+fixed. The prescription is also wrong twice over — the fit cannot run during render (the
+scroll container is unmeasurable on first paint), and `fittedSceneRef`'s identity check does
+*not* preserve user zoom. See "Execution log".
+
 **File:** `packages/ui/src/CanvasHost.tsx:97-105`
 
 The single worst product defect: ~97% empty canvas on the fixture repo. Root cause is precise —
@@ -316,7 +369,7 @@ parallelism safe, and both are improvements on their own:
   separately means one rebases onto the other. 2.3 (risk floor, `diff-with-risk.ts` only) stays
   independent and ships in Wave 1.
 
-### Wave 0 — unblock the suite (alone)
+### Wave 0 — unblock the suite (alone) — **merged**
 
 | PR | Contents | Files |
 |---|---|---|
@@ -327,7 +380,7 @@ waves needs a green baseline to verify against, or four concurrent branches each
 distinguish their own regressions from the pre-existing 13. This PR is test-file-only, so it is
 fast to review and carries no product risk. After it lands the baseline is **686/686**.
 
-### Wave 1 — four concurrent branches (disjoint files)
+### Wave 1 — four concurrent branches (disjoint files) — **merged**
 
 | PR | Contents | Primary files |
 |---|---|---|
@@ -347,7 +400,7 @@ B also carries `schema/src/index.ts` (adding `LayoutSchema`). Wave 2's PR G touc
 if 2.5 drops `moved`/`renamed` from the delta-kind enum — different region, small conflict risk,
 resolved by landing B first (it is in the earlier wave regardless).
 
-### Wave 2 — two concurrent branches
+### Wave 2 — two concurrent branches — **merged**
 
 | PR | Contents | Primary files |
 |---|---|---|
@@ -357,7 +410,7 @@ resolved by landing B first (it is in the earlier wave regardless).
 Interpreter vs. UI+differ — no shared files. G is the biggest UX win in the plan and the one worth
 screenshotting before and after.
 
-### Wave 3 — depends on G
+### Wave 3 — depends on G — **not started**
 
 | PR | Contents |
 |---|---|
@@ -367,7 +420,7 @@ Sequenced after G rather than beside it: 3.1 raises the effective canvas scale, 
 much 3.2's `CHAR_WIDTH_RATIO` actually over-truncates. Calibrating the ratio against the
 pre-fit scale would mean re-tuning it immediately afterward.
 
-### Wave 4 — depends on all of the above
+### Wave 4 — depends on all of the above — **not started**
 
 | PR | Contents |
 |---|---|
@@ -445,3 +498,96 @@ coupled bound to `toBeGreaterThanOrEqual(1)`, keeping `calls[1]` (the cache hit)
 via the existing `cacheHit: true` path, which logs `durationMs: 0` unconditionally
 (`cached-provider.ts:45`). That keeps both halves of the claim under test without depending on
 timer precision.
+
+
+---
+
+## Execution log — Waves 0-2
+
+Recorded after the fact, because three items in this plan were diagnosed incorrectly during
+planning and the corrected diagnosis is the useful part of the record. The plan's own Context
+section already corrected two review findings; these are the ones the *plan* got wrong.
+
+### Where this plan was wrong
+
+**1. Item 3.1 — the canvas defect was a missing layer, not a missing assignment.**
+
+The plan states the root cause "is precise": line 104 sizes the container but "never updates
+`scaleRef.current`, which stays at its initial `1`". That is a real bug, and it is not the
+whole one. There was **no transform layer in the render tree at all**. `scaleRef` fed the
+container's width and height and nothing else, so both the wheel zoom and the missing fit were
+resizing the outer box while its contents stayed at fixed size. Assigning `scaleRef.current` as
+the plan describes would have made the box the right size and left the graph unscaled inside it.
+
+The fix therefore restructures the render into two layers rather than adding one assignment,
+because scrolling and scaling need *different* sizes: `.canvas-extent` carries the scrolled
+extent (scene x scale, which is what produces real scrollbars) and `.canvas-scale` stays at raw
+scene dimensions and is `transform: scale()`d, so nodes keep their scene coordinates.
+
+Two further corrections to that item's prescription:
+
+- It says to compute the fit "in that same block" — i.e. during render. That cannot work:
+  during the first render `scrollRef.current` is still `null`, so every measured dimension reads
+  0 and the fit silently returns 1. The fit has to run in a `useLayoutEffect`, after the DOM
+  exists and before paint.
+- It says "the existing `fittedSceneRef` identity check already gives this" for preserving user
+  zoom across re-renders. It does not. `buildScene` returns a fresh object whenever the parent
+  passes a new `edges` array literal, which is every render — so an identity check re-fits
+  constantly and discards the user's zoom. The effect keys on scene *bounds* instead. One of the
+  new tests caught this; it is not a theoretical concern.
+
+**2. Item 2.5 — `risk_changed` was unemittable, not merely unrendered.**
+
+The plan calls it a "**dead UI branch** at `CanvasHost.tsx:59` that can never be reached" and
+scopes the UI half of the work to deleting that branch. The branch is not separately dead — it
+is folded into a combined condition with `modified`/`rollup`, and it was unreachable for a
+reason upstream of the UI: **the differ never emitted the status**, so no amount of UI work
+would have changed anything.
+
+The reason it could not be emitted is structural. `classify()` sees only two units, but exposure
+is a property of the *surrounding graph*, and the delta loop discarded unchanged units before
+blast radius was ever computed. The fix adds `exposureChanged()` and moves the blast-radius
+computation above the unchanged-skip. `amount` stays 0 for the new status, so the risk floor
+does too — a unit becoming more exposed is not evidence that its own code became likelier to
+break.
+
+**3. Item 2.5's file list points at the wrong `schema/src/index.ts` line range.**
+
+Cited as `packages/schema/src/index.ts:258-266`. By the time Wave 2 ran, PR #108 had added
+`LayoutSchema` to that file and shifted the enum. The plan's Wave 1 note anticipated the
+conflict risk and was right to; only the line numbers went stale.
+
+### What landed
+
+| Wave | PR | Items | Notes |
+|---|---|---|---|
+| 0 | #105 | 2.4 | Restored the 13 failing tests; baseline 686/686 as predicted. |
+| 1 | #106 | 2.3 | Risk floor. |
+| 1 | #107 | 1.2 | Symlink containment; the exploit was reproduced with a fixture first, as the item required. |
+| 1 | #108 | 1.1 + 1.3 + 1.4 | Server hardening, folded per the plan. |
+| 1 | #109 | 1.5 | Fastify 5; `npm audit --omit=dev` clean. |
+| 1 | #110 | — | Not in the plan: deflaked `cached-provider` duration assertions, per the addendum above. |
+| 2 | #111 | 2.1 + 2.2 | Cluster-name normalizer and modularity surfacing. |
+| 2 | #112 | 3.1 + 2.5 | Canvas fit-to-content, `risk_changed`, `moved`/`renamed` dropped from the enum. |
+
+Suite grew 673 -> **743** across the seven PRs; `main` @ `a5b7969`, lint and build clean. Every
+PR was reviewed via the `project-review` skill in a fresh subagent with the verdict posted to
+the PR itself before merge.
+
+### Verification notes worth keeping
+
+- **The 1440x900 before/after screenshots for 3.1 look nearly identical, and that is correct.**
+  The plan's verification step expects "the fixture scene should fill the viewport instead of
+  occupying a corner". It does not, because the fit is capped at 1 by design — a six-node
+  fixture graph is not blown up to fill a large screen. Scale-*down* was verified separately at
+  700x500, where the full graph becomes visible instead of clipped. Anyone re-running this check
+  at a large viewport should not read the unchanged screenshot as a failure.
+- Three guards in the fit logic were sabotage-tested (fit always returns 1; no 1:1 cap; no
+  zero-viewport guard). Each failed exactly one test, so none are decorative.
+- Playwright across all four views: zero console errors, zero warnings.
+
+### Still open for Wave 3
+
+Two defects observed during PR G's verification are **already covered** by Wave 3 and were left
+alone deliberately: API Flow right-edge clipping (item 3.3) and side panels squeezing the canvas
+at narrow widths — the same flex issue, and the same fix.
