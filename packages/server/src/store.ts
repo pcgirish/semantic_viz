@@ -1,10 +1,8 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { Delta, Snapshot, Unit } from "@scv/schema";
+import { DeltaSchema, LayoutSchema, SnapshotSchema, type Delta, type Layout, type Snapshot, type Unit } from "@scv/schema";
 
-export interface Layout {
-  nodeX: Record<string, number>;
-}
+export type { Layout };
 
 export interface RevSummary {
   sha: string;
@@ -22,11 +20,27 @@ export interface UnitWithNeighbours {
   neighbours: Unit[];
 }
 
-/** Reads scv/1 snapshots from `<scvDir>/snapshots/*.json` and serves them in memory. */
+/**
+ * Rejects any identifier that could steer a path join outside its intended directory. Route
+ * params reach here already percent-decoded, so `..%2F` arrives as `../` — an allowlist is the
+ * only reliable check, since a denylist has to anticipate every encoding.
+ */
+export function isSafePathSegment(segment: string): boolean {
+  return /^[A-Za-z0-9_.-]+$/.test(segment) && segment !== "." && segment !== "..";
+}
+
+/** Parsed contents of one snapshot file, plus the mtime it was parsed at. */
+interface CacheEntry {
+  files: Map<string, number>;
+  snapshots: Snapshot[];
+}
+
+/** Reads and validates scv/1 snapshots from `<scvDir>/snapshots/*.json`, caching parsed results. */
 export class SnapshotStore {
   private readonly snapshotsDir: string;
   private readonly deltasDir: string;
   private readonly layoutsDir: string;
+  private cache: CacheEntry | undefined;
 
   constructor(scvDir: string) {
     this.snapshotsDir = path.join(scvDir, "snapshots");
@@ -34,20 +48,60 @@ export class SnapshotStore {
     this.layoutsDir = path.join(scvDir, "layouts");
   }
 
+  /**
+   * Resolves `<dir>/<name>` and returns it only if it stays inside `dir`. Defence in depth
+   * behind `isSafePathSegment`: the callers already reject unsafe params, and this makes a
+   * future caller that forgets to fail closed rather than serving an arbitrary file.
+   */
+  private containedPath(dir: string, name: string): string | undefined {
+    const full = path.resolve(dir, name);
+    return full === dir || full.startsWith(dir + path.sep) ? full : undefined;
+  }
+
+  /**
+   * Every snapshot file, parsed. Re-reads a file only when its mtime or size changed, so
+   * repeated `listRevs`/`getSnapshot` calls do not re-parse the whole directory (~4.6MB and
+   * linear in history) on each request. Schema validation makes that cost worth paying once.
+   */
   private readAll(): Snapshot[] {
-    let files: string[];
+    let entries: string[];
     try {
-      files = readdirSync(this.snapshotsDir);
+      entries = readdirSync(this.snapshotsDir).filter((f) => f.endsWith(".json"));
     } catch {
+      this.cache = undefined;
       return [];
     }
-    return files
-      .filter((f) => f.endsWith(".json"))
-      .map((f) => JSON.parse(readFileSync(path.join(this.snapshotsDir, f), "utf-8")) as Snapshot);
+
+    const files = new Map<string, number>();
+    for (const file of entries) {
+      const full = this.containedPath(this.snapshotsDir, file);
+      if (!full) continue;
+      try {
+        const stat = statSync(full);
+        files.set(file, stat.mtimeMs + stat.size);
+      } catch {
+        // Removed between readdir and stat — treat as absent.
+      }
+    }
+
+    const cached = this.cache;
+    if (cached && cached.files.size === files.size && [...files].every(([f, v]) => cached.files.get(f) === v)) {
+      return cached.snapshots;
+    }
+
+    const snapshots: Snapshot[] = [];
+    for (const file of files.keys()) {
+      const full = this.containedPath(this.snapshotsDir, file);
+      if (!full) continue;
+      snapshots.push(parseOrThrow(SnapshotSchema, readFileSync(full, "utf-8"), full));
+    }
+
+    this.cache = { files, snapshots };
+    return snapshots;
   }
 
   listRevs(): RevSummary[] {
-    const snapshots = this.readAll().sort((a, b) => b.rev.ts.localeCompare(a.rev.ts));
+    const snapshots = [...this.readAll()].sort((a, b) => b.rev.ts.localeCompare(a.rev.ts));
     return snapshots.map((s, i) => {
       const previous = snapshots[i + 1];
       const delta = previous ? this.getDelta(previous.rev.sha, s.rev.sha) : undefined;
@@ -96,26 +150,55 @@ export class SnapshotStore {
   }
 
   getDelta(from: string, to: string): Delta | undefined {
+    const file = this.containedPath(this.deltasDir, `${from}__${to}.json`);
+    if (!file) return undefined;
+    let raw: string;
     try {
-      const raw = readFileSync(path.join(this.deltasDir, `${from}__${to}.json`), "utf-8");
-      return JSON.parse(raw) as Delta;
+      raw = readFileSync(file, "utf-8");
     } catch {
       return undefined;
     }
+    return parseOrThrow(DeltaSchema, raw, file);
   }
 
   /** Seeded positions for replay stability (docs/serve.md#3 — "hard requirement, not polish"). */
   getLayout(sha: string, skin: string): Layout | undefined {
+    const file = this.containedPath(this.layoutsDir, `${sha}.${skin}.json`);
+    if (!file) return undefined;
+    let raw: string;
     try {
-      const raw = readFileSync(path.join(this.layoutsDir, `${sha}.${skin}.json`), "utf-8");
-      return JSON.parse(raw) as Layout;
+      raw = readFileSync(file, "utf-8");
     } catch {
       return undefined;
     }
+    return parseOrThrow(LayoutSchema, raw, file);
   }
 
   saveLayout(sha: string, skin: string, layout: Layout): void {
+    const file = this.containedPath(this.layoutsDir, `${sha}.${skin}.json`);
+    if (!file) throw new Error(`refusing to write layout outside ${this.layoutsDir}`);
     if (!existsSync(this.layoutsDir)) mkdirSync(this.layoutsDir, { recursive: true });
-    writeFileSync(path.join(this.layoutsDir, `${sha}.${skin}.json`), JSON.stringify(layout));
+    writeFileSync(file, JSON.stringify(LayoutSchema.parse(layout)));
   }
+}
+
+/**
+ * Parses `raw` against `schema`, naming the offending file and the Zod issue path on failure.
+ * Reading is the trust boundary: a truncated or hand-edited artifact should fail here, not
+ * several layers deeper in the UI where the message no longer points at the cause.
+ */
+function parseOrThrow<T>(schema: { safeParse: (v: unknown) => { success: true; data: T } | { success: false; error: { issues: { path: PropertyKey[]; message: string }[] } } }, raw: string, file: string): T {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch (cause) {
+    throw new Error(`${file}: not valid JSON`, { cause });
+  }
+  const result = schema.safeParse(json);
+  if (!result.success) {
+    const [issue] = result.error.issues;
+    const at = issue && issue.path.length > 0 ? ` at ${issue.path.join(".")}` : "";
+    throw new Error(`${file}: does not match its schema${at}${issue ? `: ${issue.message}` : ""}`);
+  }
+  return result.data;
 }
