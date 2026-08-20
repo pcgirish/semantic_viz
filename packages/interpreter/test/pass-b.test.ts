@@ -40,10 +40,12 @@ describe("runPassB with merge-based design", () => {
     // ops should contain src and scripts files
     expect(result.clusters.ops).toContain("src/admin_tasks.py");
     expect(result.clusters.ops).toContain("scripts/backfill.py");
-    // src/api and src/api/middleware are their own singletons
-    expect(result.clusters["src/api"]).toContain("src/api/routes.py");
-    expect(result.clusters["src/api/middleware"]).toContain("src/api/middleware/rate_limiter.py");
-    expect(result.repaired).toBe(false);
+    // src/api and src/api/middleware are their own singletons, under normalized names — the
+    // merge lookup still matches the LLM's raw directory paths, only the output name changes.
+    expect(result.clusters.src_api).toContain("src/api/routes.py");
+    expect(result.clusters.src_api_middleware).toContain("src/api/middleware/rate_limiter.py");
+    // Normalizing a path-shaped singleton name counts as a repair.
+    expect(result.repaired).toBe(true);
   });
 
   it("partitions every file exactly once, even when the LLM proposes no merges", async () => {
@@ -56,8 +58,10 @@ describe("runPassB with merge-based design", () => {
     // Each directory should be its own singleton
     expect(Object.keys(result.clusters)).toContain("src");
     expect(Object.keys(result.clusters)).toContain("scripts");
-    expect(Object.keys(result.clusters)).toContain("src/api");
-    expect(Object.keys(result.clusters)).toContain("src/api/middleware");
+    // Path separators are flattened by normalization: a group labelled "src/api" renders as a
+    // path rather than a name, which is what the one-convention rule exists to prevent.
+    expect(Object.keys(result.clusters)).toContain("src_api");
+    expect(Object.keys(result.clusters)).toContain("src_api_middleware");
   });
 
   it("drops directories from a merge that don't actually exist, and reports repaired: true", async () => {
@@ -170,5 +174,21 @@ describe("runPassB with merge-based design", () => {
 
     const allFiles = Object.values(result.clusters).flat().sort();
     expect(allFiles).toEqual([...files].sort());
+  });
+});
+
+describe("modularity reporting", () => {
+  it("reports the LLM clustering's modularity alongside the directory baseline", async () => {
+    // docs/design.md promises "a modularity score against the directory baseline" as the
+    // mitigation for clustering instability. Both numbers have to reach the caller for the
+    // comparison to be possible at all — returning only one makes the score unreadable.
+    const provider = fakeProvider({ merges: { ops: ["src", "scripts"] } });
+
+    const result = await runPassB({ files, oneLiners, edges, provider, promptRev: "p1" });
+
+    expect(result.modularity).toBeGreaterThanOrEqual(0);
+    expect(result.modularity).toBeLessThanOrEqual(1);
+    expect(result.directoryModularity).toBeGreaterThanOrEqual(0);
+    expect(result.directoryModularity).toBeLessThanOrEqual(1);
   });
 });

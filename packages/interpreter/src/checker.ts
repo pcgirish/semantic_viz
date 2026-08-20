@@ -21,15 +21,45 @@ export interface CheckedClusters {
 
 const UNCLUSTERED = "unclustered";
 
+/** Cluster name for files sitting at the repo root — "." would render as a tile labelled ".". */
+const ROOT = "root";
+
+/**
+ * Generic architecture-speak the Pass B/C prompts ban from cluster names (pass-b.ts:69). The
+ * prompt is a request, not a guarantee: fixture output has shipped `api_layer`, `app_layer`,
+ * and `src_layer`, so the same list is enforced here deterministically.
+ */
+const BANNED_NAME_TOKENS = new Set(["core", "domain", "cluster", "layer", "module", "component"]);
+
 /** Directory-shaped baseline: each file's parent directory is its cluster. */
 export function directoryClusters(files: string[]): ClusterProposal {
   const clusters: ClusterProposal = {};
   for (const file of files) {
     const slash = file.lastIndexOf("/");
-    const dir = slash === -1 ? "." : file.slice(0, slash);
+    const dir = slash === -1 ? ROOT : file.slice(0, slash);
     (clusters[dir] ??= []).push(file);
   }
   return clusters;
+}
+
+/**
+ * Canonicalizes one cluster name: snake_case throughout, with a trailing banned token dropped.
+ * Run-to-run the same repo has produced kebab-case, snake_case, and banned suffixes for the
+ * same concept, which makes group names useless as a stable identity across snapshots.
+ *
+ * Only a *trailing* banned token is stripped — "core_banking" is a real domain word and keeps
+ * its prefix — and never the only token, since "layer" alone has nothing to fall back to.
+ */
+export function normalizeClusterName(name: string): string {
+  const tokens = name
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .split(/[^A-Za-z0-9]+/)
+    .filter((t) => t.length > 0)
+    .map((t) => t.toLowerCase());
+
+  if (tokens.length === 0) return name;
+  if (tokens.length > 1 && BANNED_NAME_TOKENS.has(tokens[tokens.length - 1]!)) tokens.pop();
+  return tokens.join("_");
 }
 
 /**
@@ -69,6 +99,23 @@ export function checkAndRepairClusters(proposal: ClusterProposal, files: string[
     repaired = true;
     repairedClusters[UNCLUSTERED] = [...(repairedClusters[UNCLUSTERED] ?? []), ...orphans];
   }
+
+  // Canonicalize names before the collision check below, since normalization can *create* a
+  // collision ("orders_layer" -> "orders" alongside a member named "orders"). Two names that
+  // normalize alike merge rather than clobber — dropping one would silently lose its files.
+  const normalized: ClusterProposal = {};
+  for (const [name, clusterFiles] of Object.entries(repairedClusters)) {
+    const canonical = normalizeClusterName(name);
+    if (canonical !== name) repaired = true;
+    if (normalized[canonical]) {
+      repaired = true;
+      normalized[canonical] = [...normalized[canonical], ...clusterFiles];
+    } else {
+      normalized[canonical] = clusterFiles;
+    }
+  }
+  for (const key of Object.keys(repairedClusters)) delete repairedClusters[key];
+  Object.assign(repairedClusters, normalized);
 
   // A cluster name identical to one of its own members reads as that member nesting inside
   // itself once rendered as a parent/child tile (e.g. group "orders" containing layer
