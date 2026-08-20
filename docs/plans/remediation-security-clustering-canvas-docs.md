@@ -417,3 +417,31 @@ Assert **zero console errors** (the current baseline is zero; do not regress it)
 labeled `.`, legend fully visible, API Flow not clipped at the right edge.
 
 **Constraint:** use `ollama` or fixtures for any analyze run — **not `claude-cli`**.
+
+---
+
+## Addendum — intermittent `cached-provider` test failure (found during Wave 1)
+
+While re-verifying PR E (Fastify 5) against the merged PR B, the full suite failed once with:
+
+```
+FAIL |@scv/interpreter| test/cached-provider.test.ts > CachedProvider
+  > logs durationMs on the per-call row for both a real call and a cache hit
+```
+
+**Not a Fastify regression.** The file has no HTTP dependency, and the same test passes 14/14 in
+isolation. Across three consecutive full-suite runs on the rebased branch it failed once and
+passed twice — intermittent, and reproducible on `main` for the same reason.
+
+**Cause.** The test sleeps `setTimeout(resolve, 10)` and asserts
+`expect(calls[0]!.durationMs).toBeGreaterThanOrEqual(10)`. `cached-provider.ts:52` computes
+`durationMs = Math.round(performance.now() - startedAt)`. Node's timer delay is not a guaranteed
+lower bound, so under full-suite parallel load the callback can fire at ~9.5ms; `Math.round` then
+yields `9` and the assertion trips. The threshold is measuring the scheduler, not the code.
+
+**Fix (own PR, not folded into E).** The assertion's actual intent is "a real call records a
+nonzero duration, a cache hit records zero" — the 10ms figure is incidental. Drop the sleep-
+coupled bound to `toBeGreaterThanOrEqual(1)`, keeping `calls[1]` (the cache hit) asserted at `0`
+via the existing `cacheHit: true` path, which logs `durationMs: 0` unconditionally
+(`cached-provider.ts:45`). That keeps both halves of the claim under test without depending on
+timer precision.
