@@ -258,11 +258,12 @@ const BlastRadiusSchema = z.object({
   public_api: z.boolean(),
 });
 
+// `moved` and `renamed` are deliberately absent: they need rename-detection heuristics no
+// differ here implements, and a schema that permits a status nothing can emit reads as a
+// capability the tool does not have. Add them back alongside the differ that produces them.
 const UnitDeltaStatusSchema = z.enum([
   "added",
   "removed",
-  "moved",
-  "renamed",
   "modified",
   "risk_changed",
   "unchanged",

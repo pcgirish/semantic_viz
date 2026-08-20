@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, PolyNode, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type Scene } from "@scv/layout";
@@ -72,6 +72,20 @@ function sceneBounds(scene: { nodes: Array<{ x: number; y: number; w: number; h:
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
+/**
+ * Scale that makes `base` fit inside the scroll viewport. Capped at 1 so a two-tile scene is
+ * not blown up to fill a large screen, and clamped to the same bounds the wheel zoom uses.
+ * Returns 1 when the viewport has no size yet — on first paint the element is not laid out,
+ * and dividing by zero there would yield Infinity and a container of NaN width.
+ */
+function fitScale(scroll: HTMLDivElement | null, base: ViewBox): number {
+  const vw = scroll?.clientWidth ?? 0;
+  const vh = scroll?.clientHeight ?? 0;
+  if (vw <= 0 || vh <= 0 || base.w <= 0 || base.h <= 0) return 1;
+  const fit = Math.min(vw / base.w, vh / base.h, 1);
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, fit));
+}
+
 export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null);
   const select = useAppStore((s) => s.select);
@@ -80,6 +94,9 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   const [hover, setHover] = useState<string | null>(null);
 
   const scaleRef = useRef(1);
+  // Mirrors scaleRef into render output. The ref stays the source of truth for the wheel
+  // handler (which reads it outside React's render cycle); this only drives the transform.
+  const [scale, setScale] = useState(1);
   const [renderSize, setRenderSize] = useState({ w: 1, h: 1 });
   const dragRef = useRef<{ startX: number; startY: number; scrollLeft: number; scrollTop: number; moved: boolean } | null>(null);
 
@@ -95,14 +112,26 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   }, [units, edges]);
 
   const base = sceneBounds(scene);
-  const fittedSceneRef = useRef<Scene | undefined>(undefined);
-  if (fittedSceneRef.current !== scene && (base.w !== 1 || base.h !== 1)) {
-    // First paint, or navigating to a different scene (e.g. Back/drill changes the visible
-    // unit set): (re)seed renderSize from this scene's fitted box, otherwise the container
-    // keeps the previous scene's size and the new, differently-sized scene renders clipped.
-    fittedSceneRef.current = scene;
-    setRenderSize({ w: base.w * scaleRef.current, h: base.h * scaleRef.current });
-  }
+
+  // First paint, or navigating to a different scene (e.g. Back/drill changes the visible unit
+  // set): fit the scene to the viewport, otherwise the container keeps the previous scene's
+  // size and the new, differently-sized scene renders clipped.
+  //
+  // A layout effect rather than a render-time assignment, because the fit has to measure the
+  // scroll container — during the first render `scrollRef.current` is still null and every
+  // dimension would read 0. Effects run after the DOM exists, before the browser paints, so
+  // the fitted scale is the first thing the user sees.
+  //
+  // Keyed on the scene's *bounds*, not its object identity: `buildScene` returns a fresh
+  // object whenever `edges` is a new array literal, which is every render from a parent that
+  // builds it inline — keying on identity would re-fit constantly and discard the user's zoom.
+  useLayoutEffect(() => {
+    if (base.w === 1 && base.h === 1) return;
+    const fit = fitScale(scrollRef.current, base);
+    scaleRef.current = fit;
+    setScale(fit);
+    setRenderSize({ w: base.w * fit, h: base.h * fit });
+  }, [base.x, base.y, base.w, base.h]);
 
   const focus: FocusState = useMemo(() => {
     if (!hover) return { id: null, near: [], far: [] };
@@ -184,6 +213,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scaleRef.current * factor));
       const ratio = nextScale / scaleRef.current;
       scaleRef.current = nextScale;
+      setScale(nextScale);
 
       setRenderSize({ w: base.w * nextScale, h: base.h * nextScale });
 
@@ -249,18 +279,43 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       }}
       onDoubleClick={handleDoubleClick}
       style={{
-        width: renderSize.w,
-        height: renderSize.h,
         flex: 1,
         minWidth: 0,
-        overflow: "hidden",
+        overflow: "auto",
         background:
           "linear-gradient(var(--border-hair) 1px, transparent 1px) 0 0 / 100% 28px," +
           "linear-gradient(90deg, var(--border-hair) 1px, transparent 1px) 0 0 / 28px 100%," +
           "var(--surface-0)",
       }}
     >
-      <GraphCanvas grid={false} style={{ width: "100%", height: "100%" }}>
+      {/*
+        The scroll container is the viewport; this is the content. Nodes are positioned at raw
+        scene coordinates, so zoom has to be a transform on their common ancestor — sizing the
+        viewport alone (as this did) resized the box without ever scaling what was inside it.
+        `renderSize` gives the scrolled extent at the current scale; `transformOrigin` pins the
+        scale to the top-left so scene coordinates and scroll offsets stay in the same space.
+      */}
+      {/*
+        Two layers, because scrolling and scaling need different sizes. The outer one is the
+        scrolled extent — the scene at the current scale, which is what gives the container
+        real scrollbars. The inner one stays at raw scene dimensions (nodes are positioned in
+        scene coordinates) and is scaled into place, pinned to the top-left so scene
+        coordinates and scroll offsets remain in the same space.
+      */}
+      <div className="canvas-extent" style={{ width: renderSize.w, height: renderSize.h, position: "relative" }}>
+      <div
+        className="canvas-scale"
+        style={{
+          width: base.w,
+          height: base.h,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: "0 0",
+        }}
+      >
+      <GraphCanvas grid={false} style={{ position: "absolute", inset: 0 }}>
         {scene.regions.map((r) => (
           <div
             key={r.id}
@@ -341,6 +396,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
           );
         })}
       </GraphCanvas>
+      </div>
+      </div>
     </div>
   );
 }

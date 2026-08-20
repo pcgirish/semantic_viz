@@ -171,4 +171,66 @@ describe("runDiffer", () => {
     expect(delta.to.sha).toBe("bbb2222");
     expect(delta.provenance.formulas).toBeTruthy();
   });
+
+  describe("risk_changed", () => {
+    // A unit whose own bytes are untouched can still become riskier: more code now reaches it,
+    // or it crossed into the public API. Both are visible only by comparing the two snapshots'
+    // graphs, which is why `classify` — which sees just the two units — cannot decide this.
+    it("emits risk_changed for an untouched unit whose blast radius grew", () => {
+      const target = makeUnit({ id: "u:t", qualname: "src.t" });
+      const caller = (n: string) => makeUnit({ id: `u:c${n}`, qualname: `src.c${n}` });
+      const edge = (n: string): Edge => ({
+        id: `e${n}`, from: `u:c${n}`, to: "u:t", kind: "calls", weight: 1, source: "static", confidence: 1,
+      });
+
+      const a = makeSnapshot([target, caller("1")], [edge("1")]);
+      const b = makeSnapshot([target, caller("1"), caller("2")], [edge("1"), edge("2")]);
+
+      const delta = runDiffer(a, b);
+      const t = delta.unit_deltas.find((d) => d.unit === "u:t");
+
+      expect(t).toMatchObject({ status: "risk_changed", fields: ["blast_radius"] });
+      expect(t!.blast_radius.direct).toBe(2);
+    });
+
+    it("emits risk_changed when an untouched unit becomes public API", () => {
+      const a = makeSnapshot([makeUnit({ id: "u:t", tags: [] })]);
+      const b = makeSnapshot([makeUnit({ id: "u:t", tags: ["public-api"] })]);
+
+      const delta = runDiffer(a, b);
+
+      expect(delta.unit_deltas[0]).toMatchObject({
+        unit: "u:t",
+        status: "risk_changed",
+        fields: ["blast_radius"],
+      });
+    });
+
+    it("still omits a unit whose hashes and exposure are both unchanged", () => {
+      const a = makeSnapshot([makeUnit({ id: "u:t" })]);
+      const b = makeSnapshot([makeUnit({ id: "u:t" })]);
+
+      expect(runDiffer(a, b).unit_deltas).toHaveLength(0);
+    });
+
+    it("does not downgrade a modified unit to risk_changed when its exposure also moved", () => {
+      const a = makeSnapshot([makeUnit({ id: "u:t", tags: [], hash: { struct: "s1", text: "t1", semantic: null } })]);
+      const b = makeSnapshot([makeUnit({ id: "u:t", tags: ["public-api"], hash: { struct: "s2", text: "t2", semantic: null } })]);
+
+      expect(runDiffer(a, b).unit_deltas[0]).toMatchObject({ status: "modified" });
+    });
+
+    // A shrinking blast radius is still a change in exposure worth surfacing, but it must not
+    // manufacture risk: the formula floor is driven by `amount`, which stays 0 here.
+    it("reports zero amount and a zero risk floor for a risk_changed unit", () => {
+      const a = makeSnapshot([makeUnit({ id: "u:t", tags: ["public-api"] })]);
+      const b = makeSnapshot([makeUnit({ id: "u:t", tags: [] })]);
+
+      const t = runDiffer(a, b).unit_deltas[0]!;
+
+      expect(t.status).toBe("risk_changed");
+      expect(t.amount).toBe(0);
+      expect(t.risk.formula_floor).toBe(0);
+    });
+  });
 });

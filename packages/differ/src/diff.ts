@@ -32,6 +32,24 @@ function isPublicApi(unit: Unit): boolean {
   return (unit.tags ?? []).some((t) => t === "public-api" || t === "auth-boundary");
 }
 
+/**
+ * True when a unit's exposure differs between the two snapshots — either the number of callers
+ * reaching it changed, or it crossed the public-API boundary. Both raise or lower how much a
+ * future change to this unit would cost, without the unit itself having been touched.
+ */
+function exposureChanged(
+  unitsA: Map<string, Unit>,
+  edgesA: Edge[],
+  unitsB: Map<string, Unit>,
+  edgesB: Edge[],
+  unitId: string,
+): boolean {
+  const before = blastRadius(unitsA, edgesA, unitId);
+  const after = blastRadius(unitsB, edgesB, unitId);
+  if (before.direct !== after.direct || before.transitive !== after.transitive) return true;
+  return isPublicApi(unitsA.get(unitId)!) !== isPublicApi(unitsB.get(unitId)!);
+}
+
 function classify(ua: Unit | undefined, ub: Unit | undefined): { status: UnitDelta["status"]; amount: number; fields: string[] } {
   if (ua && !ub) return { status: "removed", amount: 1, fields: ["removed"] };
   if (ub && !ua) return { status: "added", amount: 1, fields: ["added"] };
@@ -134,14 +152,27 @@ export function runDiffer(a: Snapshot, b: Snapshot): Delta {
   for (const id of [...allIds].sort()) {
     const ua = unitsA.get(id);
     const ub = unitsB.get(id);
-    const { status, amount, fields } = classify(ua, ub);
-    if (status === "unchanged") continue;
+    const classified = classify(ua, ub);
+    const { amount } = classified;
+    let { status, fields } = classified;
 
     const unit = ub ?? ua!;
     const referenceSnapshot = ub ? b : a;
     const referenceUnits = ub ? unitsB : unitsA;
     const { direct, transitive } = blastRadius(referenceUnits, referenceSnapshot.edges, id);
     const publicApi = isPublicApi(unit);
+
+    // A unit whose own bytes are identical can still have become riskier: more code now reaches
+    // it, or it crossed into the public API. That is invisible to `classify`, which sees only the
+    // two units — exposure is a property of the surrounding graph, so it is compared here.
+    if (status === "unchanged" && ua && ub && exposureChanged(unitsA, a.edges, unitsB, b.edges, id)) {
+      status = "risk_changed";
+      fields = ["blast_radius"];
+    }
+    if (status === "unchanged") continue;
+
+    // `amount` stays 0 for risk_changed, so the floor does too: a change in exposure is worth
+    // surfacing, but it is not evidence that this unit's own code became more likely to break.
     const floor = formulaFloor(amount, transitive, publicApi);
 
     unitDeltas.push({

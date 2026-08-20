@@ -21,6 +21,11 @@ function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
   };
 }
 
+/** The scrolled extent — the scene at the current scale. `.canvas-svg` is the fixed viewport. */
+function extent(container: HTMLElement): HTMLElement {
+  return container.querySelector(".canvas-extent") as HTMLElement;
+}
+
 function stubRect(el: Element, width: number, height: number) {
   el.getBoundingClientRect = () =>
     ({ x: 0, y: 0, left: 0, top: 0, width, height, right: width, bottom: height, toJSON() {} }) as DOMRect;
@@ -195,9 +200,8 @@ describe("CanvasHost", () => {
 
   it("re-fits the container size when navigating to a scene with different bounds (e.g. Back), not just on first paint", () => {
     const smallUnits = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    const { rerender } = render(<CanvasHost units={smallUnits} edges={[]} />);
-    const scroll = screen.getByTestId("canvas-svg") as HTMLElement;
-    const smallWidth = parseFloat(scroll.style.width);
+    const { container, rerender } = render(<CanvasHost units={smallUnits} edges={[]} />);
+    const smallWidth = parseFloat(extent(container).style.width);
 
     const bigUnits = [
       makeUnit({ id: "a" }),
@@ -211,35 +215,35 @@ describe("CanvasHost", () => {
     ];
     rerender(<CanvasHost units={bigUnits} edges={[]} />);
 
-    const bigWidth = parseFloat(scroll.style.width);
+    const bigWidth = parseFloat(extent(container).style.width);
     expect(bigWidth).toBeGreaterThan(smallWidth);
   });
 
   it("wheel zooms in: the container's rendered (CSS pixel) size grows on deltaY < 0", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    render(<CanvasHost units={units} edges={[]} />);
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
     const scroll = screen.getByTestId("canvas-svg") as HTMLElement;
     stubRect(scroll, 400, 300);
-    const before = scroll.style.width;
+    const before = extent(container).style.width;
 
     fireEvent.wheel(scroll, { deltaY: -100, clientX: 100, clientY: 100 });
 
-    const after = scroll.style.width;
+    const after = extent(container).style.width;
     expect(parseFloat(after)).toBeGreaterThan(parseFloat(before) || 0);
   });
 
   it("wheel zoom-out shrinks the container's rendered size, clamped to a min scale", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    render(<CanvasHost units={units} edges={[]} />);
+    const { container } = render(<CanvasHost units={units} edges={[]} />);
     const scroll = screen.getByTestId("canvas-svg") as HTMLElement;
     stubRect(scroll, 400, 300);
     fireEvent.wheel(scroll, { deltaY: -100, clientX: 100, clientY: 100 });
-    const before = parseFloat(scroll.style.width);
+    const before = parseFloat(extent(container).style.width);
 
     for (let i = 0; i < 100; i++) {
       fireEvent.wheel(scroll, { deltaY: 100, clientX: 100, clientY: 100 });
     }
-    const after = parseFloat(scroll.style.width);
+    const after = parseFloat(extent(container).style.width);
     expect(after).toBeLessThan(before);
     expect(after).toBeGreaterThan(0);
   });
@@ -335,5 +339,111 @@ describe("CanvasHost", () => {
     const xAfter = leftEdge("x", container);
     const yAfter = leftEdge("y", container);
     expect(xAfter).toBeLessThan(yAfter);
+  });
+
+  describe("fit to content", () => {
+    /**
+     * jsdom reports 0 for every layout dimension, so the viewport has to be stubbed before the
+     * fit runs. `clientWidth`/`clientHeight` are getters on the prototype, which is what the fit
+     * reads — `getBoundingClientRect` alone is not enough.
+     */
+    function withViewport(w: number, h: number): () => void {
+      const proto = window.HTMLElement.prototype;
+      const width = Object.getOwnPropertyDescriptor(proto, "clientWidth");
+      const height = Object.getOwnPropertyDescriptor(proto, "clientHeight");
+      Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => w });
+      Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => h });
+      return () => {
+        if (width) Object.defineProperty(proto, "clientWidth", width);
+        if (height) Object.defineProperty(proto, "clientHeight", height);
+      };
+    }
+
+    function manyUnits(n: number): Unit[] {
+      return Array.from({ length: n }, (_, i) => makeUnit({ id: `u${i}` }));
+    }
+
+    it("scales a large scene down so it fits the viewport instead of overflowing it", () => {
+      const restore = withViewport(400, 300);
+      try {
+        const { container } = render(<CanvasHost units={manyUnits(24)} edges={[]} />);
+
+        // The whole point of the fit: the scaled scene is no larger than the viewport, so it is
+        // visible at a glance rather than requiring a scroll hunt to find it.
+        expect(parseFloat(extent(container).style.width)).toBeLessThanOrEqual(400);
+        expect(parseFloat(extent(container).style.height)).toBeLessThanOrEqual(300);
+      } finally {
+        restore();
+      }
+    });
+
+    it("never scales a small scene above 1:1, so a two-tile graph is not blown up to fill the screen", () => {
+      const restore = withViewport(4000, 3000);
+      try {
+        const { container } = render(<CanvasHost units={[makeUnit({ id: "a" }), makeUnit({ id: "b" })]} edges={[]} />);
+        const scaled = container.querySelector(".canvas-scale") as HTMLElement;
+
+        expect(scaled.style.transform).toBe("scale(1)");
+        expect(parseFloat(extent(container).style.width)).toBeLessThan(4000);
+      } finally {
+        restore();
+      }
+    });
+
+    it("clamps the fit scale at MIN_SCALE rather than shrinking a huge scene to nothing", () => {
+      const restore = withViewport(20, 20);
+      try {
+        const { container } = render(<CanvasHost units={manyUnits(60)} edges={[]} />);
+        const scaled = container.querySelector(".canvas-scale") as HTMLElement;
+        const scale = parseFloat(/scale\(([\d.]+)\)/.exec(scaled.style.transform)![1]!);
+
+        expect(scale).toBeGreaterThanOrEqual(0.1);
+      } finally {
+        restore();
+      }
+    });
+
+    it("leaves a user's zoom alone across a re-render of the same scene", () => {
+      const restore = withViewport(400, 300);
+      try {
+        const units = manyUnits(12);
+        const { container, rerender } = render(<CanvasHost units={units} edges={[]} />);
+        const scroll = screen.getByTestId("canvas-svg") as HTMLElement;
+        const scaled = container.querySelector(".canvas-scale") as HTMLElement;
+
+        fireEvent.wheel(scroll, { deltaY: -100, ctrlKey: true });
+        const afterZoom = scaled.style.transform;
+
+        rerender(<CanvasHost units={units} edges={[]} />);
+
+        expect(scaled.style.transform).toBe(afterZoom);
+      } finally {
+        restore();
+      }
+    });
+
+    it("does not divide by zero when the viewport has not been laid out yet", () => {
+      const restore = withViewport(0, 0);
+      try {
+        const { container } = render(<CanvasHost units={manyUnits(6)} edges={[]} />);
+        const scaled = container.querySelector(".canvas-scale") as HTMLElement;
+        const scale = parseFloat(/scale\(([\d.]+)\)/.exec(scaled.style.transform)![1]!);
+
+        expect(Number.isFinite(scale)).toBe(true);
+        expect(scale).toBe(1);
+      } finally {
+        restore();
+      }
+    });
+
+    it("does not divide by zero on an empty scene", () => {
+      const restore = withViewport(400, 300);
+      try {
+        const { container } = render(<CanvasHost units={[]} edges={[]} />);
+        expect(Number.isFinite(parseFloat(extent(container).style.width))).toBe(true);
+      } finally {
+        restore();
+      }
+    });
   });
 });

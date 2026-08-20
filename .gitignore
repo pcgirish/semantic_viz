@@ -31,3 +31,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+
+# Playwright MCP scratch output (snapshots/screenshots from local UI verification)
+.playwright-mcp/
