@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent } from "@testing-library/react";
 import type { Edge, Unit } from "@scv/schema";
 import { Flowchart } from "../src/Flowchart.js";
 
@@ -140,5 +140,105 @@ describe("Flowchart", () => {
 
     expect(errPath.getAttribute("stroke")).toBe("var(--temp-6)");
     expect(okPath.getAttribute("stroke")).not.toBe("var(--temp-6)");
+  });
+
+  describe("pan/zoom", () => {
+    /** A branching function big enough that its scene overflows a small viewport. */
+    function branchingFn() {
+      const fn = makeUnit({ id: "fn1", kind: "function", children: ["b:entry", "b:dec", "b:t", "b:f", "b:merge"] });
+      const units = [
+        fn,
+        makeBlock({ id: "b:entry" }),
+        makeBlock({ id: "b:dec", name: "x > 0" }),
+        makeBlock({ id: "b:t" }),
+        makeBlock({ id: "b:f" }),
+        makeBlock({ id: "b:merge" }),
+      ];
+      const edges = [
+        makeCfEdge({ id: "e1", from: "b:entry", to: "b:dec", flowType: "sequential" }),
+        makeCfEdge({ id: "e2", from: "b:dec", to: "b:t", flowType: "true" }),
+        makeCfEdge({ id: "e3", from: "b:dec", to: "b:f", flowType: "false" }),
+        makeCfEdge({ id: "e4", from: "b:t", to: "b:merge", flowType: "sequential" }),
+        makeCfEdge({ id: "e5", from: "b:f", to: "b:merge", flowType: "sequential" }),
+      ];
+      return { fn, units, edges };
+    }
+
+    function extent(container: HTMLElement): HTMLElement {
+      return container.querySelector(".canvas-extent") as HTMLElement;
+    }
+
+    function stubRect(el: Element, width: number, height: number) {
+      el.getBoundingClientRect = () =>
+        ({ x: 0, y: 0, left: 0, top: 0, width, height, right: width, bottom: height, toJSON() {} }) as DOMRect;
+    }
+
+    it("wheel zooms in: the rendered extent grows on deltaY < 0", () => {
+      const { fn, units, edges } = branchingFn();
+      const { container } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
+      const scroll = container.querySelector("[data-testid='flowchart-svg']") as HTMLElement;
+      stubRect(scroll, 400, 300);
+      const before = extent(container).style.width;
+
+      fireEvent.wheel(scroll, { deltaY: -100, clientX: 100, clientY: 100 });
+
+      expect(parseFloat(extent(container).style.width)).toBeGreaterThan(parseFloat(before) || 0);
+    });
+
+    it("wheel zoom-out shrinks the rendered extent, clamped above zero", () => {
+      const { fn, units, edges } = branchingFn();
+      const { container } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
+      const scroll = container.querySelector("[data-testid='flowchart-svg']") as HTMLElement;
+      stubRect(scroll, 400, 300);
+      fireEvent.wheel(scroll, { deltaY: -100, clientX: 100, clientY: 100 });
+      const before = parseFloat(extent(container).style.width);
+
+      for (let i = 0; i < 100; i++) {
+        fireEvent.wheel(scroll, { deltaY: 100, clientX: 100, clientY: 100 });
+      }
+      const after = parseFloat(extent(container).style.width);
+      expect(after).toBeLessThan(before);
+      expect(after).toBeGreaterThan(0);
+    });
+
+    it("dragging pans via native scroll", () => {
+      const { fn, units, edges } = branchingFn();
+      const { container } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
+      const scroll = container.querySelector("[data-testid='flowchart-svg']") as HTMLDivElement;
+      stubRect(scroll, 400, 300);
+      scroll.scrollLeft = 50;
+      scroll.scrollTop = 50;
+
+      fireEvent.mouseDown(scroll, { clientX: 200, clientY: 200 });
+      fireEvent.mouseMove(scroll, { clientX: 150, clientY: 180 });
+      fireEvent.mouseUp(scroll, { clientX: 150, clientY: 180 });
+
+      expect(scroll.scrollLeft).not.toBe(50);
+      expect(scroll.scrollTop).not.toBe(50);
+    });
+
+    it("only shows the scrollbar (via a 'panning' class) while a drag-pan is in progress", () => {
+      const { fn, units, edges } = branchingFn();
+      const { container } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
+      const scroll = container.querySelector("[data-testid='flowchart-svg']") as HTMLDivElement;
+      stubRect(scroll, 400, 300);
+
+      expect(scroll.classList.contains("panning")).toBe(false);
+
+      fireEvent.mouseDown(scroll, { clientX: 200, clientY: 200 });
+      fireEvent.mouseMove(scroll, { clientX: 150, clientY: 180 });
+      expect(scroll.classList.contains("panning")).toBe(true);
+
+      fireEvent.mouseUp(scroll, { clientX: 150, clientY: 180 });
+      expect(scroll.classList.contains("panning")).toBe(false);
+    });
+
+    it("fits an oversized scene into the viewport on first paint", () => {
+      const { fn, units, edges } = branchingFn();
+      const { container } = render(<Flowchart functionUnit={fn} units={units} edges={edges} />);
+      const scaled = container.querySelector(".canvas-scale") as HTMLElement;
+      expect(scaled).not.toBeNull();
+      expect(scaled.style.transform).toMatch(/^scale\(/);
+    });
   });
 });

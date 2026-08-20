@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, PolyNode, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type Scene } from "@scv/layout";
 import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
+import { sceneBounds, usePanZoom } from "./usePanZoom.js";
 
 const HIGH_RISK = 0.5;
 
@@ -29,13 +30,6 @@ export type CanvasHostProps = {
  * so a delta tile's pulse animation (applied via a class set once, independent of hover
  * props) does not replay on hover.
  */
-type ViewBox = { x: number; y: number; w: number; h: number };
-
-const MIN_SCALE = 0.1;
-const MAX_SCALE = 8;
-const ZOOM_FACTOR = 1.1;
-const DRAG_THRESHOLD = 3;
-
 const SHAPES: Array<"square" | "chamfer" | "hex" | "hex-tall"> = ["square", "chamfer", "hex", "hex-tall"];
 
 function shapeFor(n: { sides: 3 | 4 | 6 | 0; blockType?: string }): "diamond" | "square" | "chamfer" | "hex" | "hex-tall" {
@@ -62,43 +56,11 @@ function deltaTileStyle(d: TileDeltaInfo | undefined): React.CSSProperties {
   return {};
 }
 
-function sceneBounds(scene: { nodes: Array<{ x: number; y: number; w: number; h: number }> }): ViewBox {
-  if (scene.nodes.length === 0) return { x: 0, y: 0, w: 1, h: 1 };
-  const pad = 24;
-  const minX = Math.min(...scene.nodes.map((n) => n.x)) - pad;
-  const minY = Math.min(...scene.nodes.map((n) => n.y)) - pad;
-  const maxX = Math.max(...scene.nodes.map((n) => n.x + n.w)) + pad;
-  const maxY = Math.max(...scene.nodes.map((n) => n.y + n.h)) + pad;
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-}
-
-/**
- * Scale that makes `base` fit inside the scroll viewport. Capped at 1 so a two-tile scene is
- * not blown up to fill a large screen, and clamped to the same bounds the wheel zoom uses.
- * Returns 1 when the viewport has no size yet — on first paint the element is not laid out,
- * and dividing by zero there would yield Infinity and a container of NaN width.
- */
-function fitScale(scroll: HTMLDivElement | null, base: ViewBox): number {
-  const vw = scroll?.clientWidth ?? 0;
-  const vh = scroll?.clientHeight ?? 0;
-  if (vw <= 0 || vh <= 0 || base.w <= 0 || base.h <= 0) return 1;
-  const fit = Math.min(vw / base.w, vh / base.h, 1);
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, fit));
-}
-
 export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.Element {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
   const [hover, setHover] = useState<string | null>(null);
-
-  const scaleRef = useRef(1);
-  // Mirrors scaleRef into render output. The ref stays the source of truth for the wheel
-  // handler (which reads it outside React's render cycle); this only drives the transform.
-  const [scale, setScale] = useState(1);
-  const [renderSize, setRenderSize] = useState({ w: 1, h: 1 });
-  const dragRef = useRef<{ startX: number; startY: number; scrollLeft: number; scrollTop: number; moved: boolean } | null>(null);
 
   // Last build's Scene, so the next build (e.g. a replay scrub landing on a new rev's
   // units/edges) seeds from it — docs/serve.md#3, "positions are seeded from the previous
@@ -113,25 +75,7 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
 
   const base = sceneBounds(scene);
 
-  // First paint, or navigating to a different scene (e.g. Back/drill changes the visible unit
-  // set): fit the scene to the viewport, otherwise the container keeps the previous scene's
-  // size and the new, differently-sized scene renders clipped.
-  //
-  // A layout effect rather than a render-time assignment, because the fit has to measure the
-  // scroll container — during the first render `scrollRef.current` is still null and every
-  // dimension would read 0. Effects run after the DOM exists, before the browser paints, so
-  // the fitted scale is the first thing the user sees.
-  //
-  // Keyed on the scene's *bounds*, not its object identity: `buildScene` returns a fresh
-  // object whenever `edges` is a new array literal, which is every render from a parent that
-  // builds it inline — keying on identity would re-fit constantly and discard the user's zoom.
-  useLayoutEffect(() => {
-    if (base.w === 1 && base.h === 1) return;
-    const fit = fitScale(scrollRef.current, base);
-    scaleRef.current = fit;
-    setScale(fit);
-    setRenderSize({ w: base.w * fit, h: base.h * fit });
-  }, [base.x, base.y, base.w, base.h]);
+  const { scrollRef, scale, renderSize, didPan, handlers } = usePanZoom(base);
 
   const focus: FocusState = useMemo(() => {
     if (!hover) return { id: null, near: [], far: [] };
@@ -193,74 +137,8 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
     return segments;
   });
 
-  useEffect(() => {
-    const scroll = scrollRef.current;
-    if (!scroll) return;
-
-    // React 17+ attaches wheel listeners as passive, so preventDefault() from a
-    // synthetic onWheel handler is silently ignored. Firefox then lets the wheel
-    // gesture fall through to native scroll/zoom instead of just running our zoom
-    // logic, unlike Safari/Chrome which are more lenient. A native, non-passive
-    // listener is required to actually suppress that.
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-
-      const rect = scroll.getBoundingClientRect();
-      const px = e.clientX - rect.left + scroll.scrollLeft;
-      const py = e.clientY - rect.top + scroll.scrollTop;
-
-      const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
-      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scaleRef.current * factor));
-      const ratio = nextScale / scaleRef.current;
-      scaleRef.current = nextScale;
-      setScale(nextScale);
-
-      setRenderSize({ w: base.w * nextScale, h: base.h * nextScale });
-
-      // Keep the point under the cursor stationary: it scales by `ratio` in content
-      // space, so the scroll offset must grow by the same amount around that point.
-      scroll.scrollLeft = px * ratio - (e.clientX - rect.left);
-      scroll.scrollTop = py * ratio - (e.clientY - rect.top);
-    };
-
-    scroll.addEventListener("wheel", onWheel, { passive: false });
-    return () => scroll.removeEventListener("wheel", onWheel);
-  }, [base.w, base.h]);
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Tile clicks call stopPropagation, so this only fires for empty-canvas mousedowns.
-    if (e.target !== scrollRef.current && (e.target as HTMLElement).dataset?.id) return;
-    const scroll = scrollRef.current;
-    if (!scroll) return;
-    dragRef.current = { startX: e.clientX, startY: e.clientY, scrollLeft: scroll.scrollLeft, scrollTop: scroll.scrollTop, moved: false };
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    const scroll = scrollRef.current;
-    if (!drag || !scroll) return;
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-      drag.moved = true;
-      scroll.classList.add("panning");
-      scroll.style.overflow = "auto";
-    }
-    if (!drag.moved) return;
-
-    scroll.scrollLeft = drag.scrollLeft - dx;
-    scroll.scrollTop = drag.scrollTop - dy;
-  };
-
-  const handleMouseUp = () => {
-    dragRef.current = null;
-    const scroll = scrollRef.current;
-    scroll?.classList.remove("panning");
-    if (scroll) scroll.style.overflow = "hidden";
-  };
-
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (dragRef.current?.moved) return;
+    if (didPan()) return;
     if ((e.target as HTMLElement).dataset?.id) return;
     ascend();
   };
@@ -270,11 +148,11 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       ref={scrollRef}
       className="canvas-scroll"
       data-testid="canvas-svg"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      onMouseDown={handlers.onMouseDown}
+      onMouseMove={handlers.onMouseMove}
+      onMouseUp={handlers.onMouseUp}
       onMouseLeave={() => {
-        handleMouseUp();
+        handlers.onMouseUp();
         setHover(null);
       }}
       onDoubleClick={handleDoubleClick}

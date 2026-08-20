@@ -1,6 +1,7 @@
 import { ConnectorLayer, GraphCanvas, PolyNode } from "@scv/design-system";
 import type { Edge, Unit } from "@scv/schema";
 import { buildFlowchartScene } from "@scv/layout";
+import { sceneBounds, usePanZoom } from "./usePanZoom.js";
 
 export type FlowchartProps = {
   /** The function unit being drilled into (docs/serve.md#4-style drill, entered by
@@ -16,28 +17,23 @@ export type FlowchartProps = {
  * functionUnit's block children/control_flow edges, lays them out via
  * buildFlowchartScene, and draws them as PolyNodes (diamond for decision/loop blocks)
  * connected by a ConnectorLayer — inert boxes, no click/drill (blocks are a detail view,
- * not a further navigation level).
+ * not a further navigation level). Pan/zoom/fit comes from the shared usePanZoom hook, the
+ * same one CanvasHost uses: a deep control-flow graph overflows the viewport just as a large
+ * module graph does, and scrollbars alone give no way to zoom out to see the whole shape.
  */
 export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.Element {
   const blockIds = new Set(functionUnit.children);
   const blocks = units.filter((u) => u.kind === "block" && blockIds.has(u.id));
   const cfEdges = edges.filter((e) => e.kind === "control_flow" && blockIds.has(e.from) && blockIds.has(e.to));
 
-  if (blocks.length === 0) {
-    return (
-      <div
-        className="flowchart-empty"
-        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)" }}
-      >
-        {functionUnit.name} has no branching to show.
-      </div>
-    );
-  }
-
+  // Built before the empty-state guard: usePanZoom below is a hook and cannot sit after a
+  // conditional return. buildFlowchartScene on an empty block list yields an empty scene,
+  // which sceneBounds already handles (1x1 sentinel box, no fit).
   const scene = buildFlowchartScene(blocks, cfEdges);
-  const pad = 24;
-  const minX = Math.min(...scene.nodes.map((n) => n.x)) - pad;
-  const minY = Math.min(...scene.nodes.map((n) => n.y)) - pad;
+  const base = sceneBounds(scene);
+  const { scrollRef, scale, renderSize, handlers } = usePanZoom(base);
+  const minX = base.x;
+  const minY = base.y;
   const nodeById = new Map(scene.nodes.map((n) => [n.id, n]));
 
   const cfEdgeByPair = new Map(cfEdges.map((e) => [`${e.from} ${e.to}`, e]));
@@ -68,9 +64,26 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
 
+  if (blocks.length === 0) {
+    return (
+      <div
+        className="flowchart-empty"
+        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)" }}
+      >
+        {functionUnit.name} has no branching to show.
+      </div>
+    );
+  }
+
   return (
     <div
-      className="flowchart"
+      ref={scrollRef}
+      className="flowchart canvas-scroll"
+      data-testid="flowchart-svg"
+      onMouseDown={handlers.onMouseDown}
+      onMouseMove={handlers.onMouseMove}
+      onMouseUp={handlers.onMouseUp}
+      onMouseLeave={handlers.onMouseUp}
       style={{
         flex: 1,
         minWidth: 0,
@@ -81,8 +94,24 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
           "var(--surface-0)",
       }}
     >
-      <div data-testid="flowchart-svg" className="flowchart-svg" style={{ width: "100%", height: "100%", display: "block" }}>
-        <GraphCanvas grid={false} style={{ width: "100%", height: "100%" }}>
+      {/* Two layers, matching CanvasHost: the outer one is the scrolled extent at the current
+          scale (what gives the container real scrollbars); the inner one stays at raw scene
+          dimensions and is scaled into place, pinned top-left so scene coordinates and scroll
+          offsets remain in the same space. */}
+      <div className="canvas-extent" style={{ width: renderSize.w, height: renderSize.h, position: "relative" }}>
+      <div
+        className="canvas-scale"
+        style={{
+          width: base.w,
+          height: base.h,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: "0 0",
+        }}
+      >
+        <GraphCanvas grid={false} style={{ position: "absolute", inset: 0 }}>
           <ConnectorLayer edges={connectorEdges} route="ortho-v" />
           {scene.nodes.map((n) => {
             const isDiamond = n.blockType === "decision" || n.blockType === "loop";
@@ -102,6 +131,7 @@ export function Flowchart({ functionUnit, units, edges }: FlowchartProps): JSX.E
             );
           })}
         </GraphCanvas>
+      </div>
       </div>
     </div>
   );
