@@ -1,5 +1,6 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { listFilesContained } from "./walk-dir.js";
 
 export interface ManifestInfo {
   ecosystem: "pypi" | "npm" | null;
@@ -11,26 +12,9 @@ export interface RepoManifests {
   npm: ManifestInfo | null;
 }
 
-const SKIP_DIRS = new Set(["__pycache__", ".git", ".scv", "node_modules", "dist"]);
-
-/** Finds every file matching `name` under root, skipping the same dirs the extractor's file walker skips. */
+/** Finds every file named `name` under root, using the extractor's shared contained walker. */
 function findManifestFiles(root: string, name: string): string[] {
-  const out: string[] = [];
-  const stack: string[] = [root];
-  while (stack.length > 0) {
-    const dir = stack.pop()!;
-    for (const entry of readdirSync(dir)) {
-      if (SKIP_DIRS.has(entry) || entry.startsWith(".")) continue;
-      const full = path.join(dir, entry);
-      const st = statSync(full);
-      if (st.isDirectory()) {
-        stack.push(full);
-      } else if (entry === name) {
-        out.push(full);
-      }
-    }
-  }
-  return out.sort();
+  return listFilesContained(root).filter((file) => path.basename(file) === name);
 }
 
 function parseRequirementsTxt(text: string): Map<string, string | null> {
