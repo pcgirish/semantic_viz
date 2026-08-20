@@ -52,6 +52,17 @@ describe("Canvas3dHost", () => {
     // tiles3d switches between looking at the city and standing in it. cityscape is always
     // inside it, and switches how you travel: on foot or airborne.
     const { getByRole } = render(<Canvas3dHost units={units} edges={edges} skin="cityscape" />);
-    expect(getByRole("button", { name: /fly/i })).toBeTruthy();
+    expect(getByRole("button", { name: /walk/i })).toBeTruthy();
+  });
+
+  it("starts the walkable skin airborne, not on the pavement", () => {
+    // Fly is the arrival mode: it keeps the whole city — and therefore the rank axis — in
+    // view, which is exactly what Checkpoint 2 found street level destroys. Landing the user
+    // between two buildings with no overview reproduces the failure the minimap exists to
+    // mitigate, before they have been given any reason to walk. Travel first, arrive second
+    // (docs/serve.md#6). The toggle offering "Walk" is the observable form of that default.
+    const { getByRole, queryByRole } = render(<Canvas3dHost units={units} edges={edges} skin="cityscape" />);
+    expect(getByRole("button", { name: /walk/i })).toBeTruthy();
+    expect(queryByRole("button", { name: /^fly$/i })).toBeNull();
   });
 });

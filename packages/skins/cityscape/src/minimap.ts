@@ -48,16 +48,28 @@ export type MinimapProjection = {
  * should not also have to reconcile two different mental models.
  */
 export function minimapProjection(scene: Scene, size: MinimapSize, viewer: Viewer): MinimapProjection {
-  const b = bounds(scene);
-  const span = Math.max(b.width, b.depth, 1);
+  const city = bounds(scene);
+
+  // The map covers the city *and* the walker, never the city alone. The street camera stands
+  // outside the near edge by a standoff derived from the city's own width, so an extent taken
+  // from the buildings alone puts the marker outside its own box — clipped, and gone at
+  // exactly the moment the walk begins. A map that can lose its "you are here" is not a map.
+  const minX = Math.min(city.minX, viewer.x);
+  const maxX = Math.max(city.minX + city.width, viewer.x);
+  const minZ = Math.min(city.minZ, viewer.z);
+  const maxZ = Math.max(city.minZ + city.depth, viewer.z);
+  const width = maxX - minX;
+  const depth = maxZ - minZ;
+
+  const span = Math.max(width, depth, 1);
   // One scale for both axes, so the map stays a faithful reduction instead of stretching the
   // city into a shape the street view will not match.
   const scale = Math.min(size.width, size.height) / span;
 
-  // Centre the city in the map, so the same margin appears on the short axis. Offsets are
-  // taken from the scene's own origin, which need not be zero.
-  const offsetX = (size.width - b.width * scale) / 2 - b.minX * scale;
-  const offsetY = (size.height - b.depth * scale) / 2 - b.minZ * scale;
+  // Centre the covered extent in the map, so the same margin appears on the short axis.
+  // Offsets are taken from the extent's own origin, which need not be zero.
+  const offsetX = (size.width - width * scale) / 2 - minX * scale;
+  const offsetY = (size.height - depth * scale) / 2 - minZ * scale;
 
   const toMap = (wx: number, wz: number) => ({
     x: offsetX + wx * scale,

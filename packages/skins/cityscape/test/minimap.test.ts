@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Scene } from "@scv/layout";
 import { minimapProjection, type Viewer } from "../src/minimap.js";
+import { bounds } from "../src/bounds.js";
 
 function scene(): Scene {
   return {
@@ -99,5 +100,52 @@ describe("minimapProjection", () => {
     const p = minimapProjection(empty, { width: 200, height: 200 }, viewer());
     expect(Number.isFinite(p.viewer.x)).toBe(true);
     expect(Number.isFinite(p.viewer.y)).toBe(true);
+  });
+});
+
+describe("minimapProjection — the viewer is always on the map", () => {
+  // Found in the browser, not in a test: the street camera stands *outside* the city by a
+  // standoff computed from the city's own width, so a map scaled to the city's bounds alone
+  // puts the marker hundreds of pixels below its own box, clipped and invisible. The map lost
+  // the walker at exactly the moment the walk began.
+  //
+  // A map that can drop its "you are here" marker is not a map. So the extent it scales to is
+  // the city *and* the viewer, always.
+  const size = { width: 168, height: 168 };
+
+  const inside = (p: { x: number; y: number }) =>
+    p.x >= 0 && p.x <= size.width && p.y >= 0 && p.y <= size.height;
+
+  it("keeps the marker in the box when the walker stands well outside the city", () => {
+    const city = scene();
+    const p = minimapProjection(city, size, { x: 150, z: 4000, heading: 0 });
+    expect(inside(p.viewer)).toBe(true);
+  });
+
+  it("keeps the marker in the box from any direction, including behind the origin", () => {
+    const city = scene();
+    for (const viewer of [
+      { x: -3000, z: 0, heading: 0 },
+      { x: 0, z: -3000, heading: 0 },
+      { x: 5000, z: 5000, heading: 0 },
+    ]) {
+      expect(inside(minimapProjection(city, size, viewer).viewer)).toBe(true);
+    }
+  });
+
+  it("keeps every building on the map too, rather than pushing the city off to fit the walker", () => {
+    const city = scene();
+    const p = minimapProjection(city, size, { x: 150, z: 4000, heading: 0 });
+    for (const n of p.nodes) expect(inside(n)).toBe(true);
+  });
+
+  it("still fills the box with the city when the walker is standing in it", () => {
+    // The zoom-out must be paid for only when it is needed: a walker inside the city gets the
+    // same close-in map they had before, not one shrunk to make room for nothing.
+    const city = scene();
+    const b = bounds(city);
+    const close = minimapProjection(city, size, { x: b.cx, z: b.cz, heading: 0 });
+    const far = minimapProjection(city, size, { x: b.cx, z: 4000, heading: 0 });
+    expect(close.scale).toBeGreaterThan(far.scale);
   });
 });

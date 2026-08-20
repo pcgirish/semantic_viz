@@ -368,3 +368,72 @@ describe("cullLabels", () => {
     expect(labelOf(root, "a").visible).toBe(true);
   });
 });
+
+describe("cullLabels — screen-space collisions", () => {
+  // Distance culling alone did not fix what Checkpoint 2 actually saw. `scripts`,
+  // `migrations_group`, and `src_db` collided while all three were *near* the camera: they sit
+  // side by side in one rank row, so from the street their labels project into overlapping
+  // pixels no matter how close you stand. Distance is the wrong instrument for that; the
+  // failure is in screen space, so the test has to be too.
+  //
+  // The rule: when two labels would overlap, the nearer building keeps its name. That is the
+  // one you are walking toward, and dropping the far one costs the least.
+  const cameraLookingAtOrigin = () => {
+    const c = new THREE.PerspectiveCamera(60, 1, 1, 8000);
+    c.position.set(250, 20, 900);
+    c.lookAt(250, 20, 0);
+    c.updateMatrixWorld();
+    return c;
+  };
+
+  function crowded(): Scene {
+    // Three buildings almost on top of each other in screen space: same rank row, and close
+    // enough together that their labels cannot all be drawn.
+    const node = (id: string, x: number) => ({
+      id, x, y: 0, w: 100, h: 60, depth: 30, sides: 3, heat: 0, ring: false,
+      name: `a-rather-long-unit-name-${id}`, sloc: 10, fanIn: 0, fanOut: 0,
+      layer: "edge", group: "", complexity: 0,
+    });
+    return { nodes: [node("a", 200), node("b", 210), node("c", 220)], links: [], regions: [] } as unknown as Scene;
+  }
+
+  const shown = (root: THREE.Group) =>
+    root.children
+      .filter((c) => typeof c.userData.sceneNodeId === "string")
+      .filter((c) => c.getObjectByName("label")?.visible)
+      .map((c) => c.userData.sceneNodeId as string);
+
+  it("drops labels that would overlap rather than drawing them on top of each other", () => {
+    const root = buildSceneGraph(crowded(), {});
+    cullLabels(root, cameraLookingAtOrigin());
+    expect(shown(root).length).toBeLessThan(3);
+    expect(shown(root).length).toBeGreaterThan(0);
+  });
+
+  it("keeps the nearest of a colliding pair, because that is the one you are walking toward", () => {
+    const scene = crowded();
+    const camera = new THREE.PerspectiveCamera(60, 1, 1, 8000);
+    // Standing beside `a`, with `b` and `c` receding behind it along z.
+    scene.nodes[1]!.y = 600;
+    scene.nodes[2]!.y = 1200;
+    scene.nodes[1]!.x = 200;
+    scene.nodes[2]!.x = 200;
+    camera.position.set(250, 20, -200);
+    camera.lookAt(250, 20, 1200);
+    camera.updateMatrixWorld();
+
+    const root = buildSceneGraph(scene, {});
+    cullLabels(root, camera);
+    expect(shown(root)).toContain("a");
+  });
+
+  it("shows every label when nothing collides", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    const camera = new THREE.PerspectiveCamera(60, 1, 1, 8000);
+    camera.position.set(250, 200, 600);
+    camera.lookAt(250, 0, 30);
+    camera.updateMatrixWorld();
+    cullLabels(root, camera);
+    expect(shown(root).sort()).toEqual(["a", "b"]);
+  });
+});

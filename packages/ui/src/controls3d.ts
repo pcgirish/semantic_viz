@@ -63,12 +63,14 @@ export function walkControls(camera: THREE.Camera, dom: HTMLElement): Controls3d
   const c = new PointerLockControls(camera, dom);
   const held = new Set<string>();
 
+  // Keyed on `code`, not `key`: WASD is a *position* on the keyboard, not four letters. On a
+  // French or Dvorak layout `key` reports different characters for the same physical keys, and
+  // the user would find their movement keys scattered.
+  const MOVE_KEYS = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
   const onKey = (down: boolean) => (e: KeyboardEvent) => {
-    const k = e.key.toLowerCase();
-    if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) {
-      if (down) held.add(k);
-      else held.delete(k);
-    }
+    if (!MOVE_KEYS.includes(e.code)) return;
+    if (down) held.add(e.code);
+    else held.delete(e.code);
   };
   const onDown = onKey(true);
   const onUp = onKey(false);
@@ -78,8 +80,8 @@ export function walkControls(camera: THREE.Camera, dom: HTMLElement): Controls3d
   document.addEventListener("keyup", onUp);
   dom.addEventListener("click", onClick);
 
-  const forward = () => Number(held.has("w") || held.has("arrowup")) - Number(held.has("s") || held.has("arrowdown"));
-  const strafe = () => Number(held.has("d") || held.has("arrowright")) - Number(held.has("a") || held.has("arrowleft"));
+  const forward = () => Number(held.has("KeyW") || held.has("ArrowUp")) - Number(held.has("KeyS") || held.has("ArrowDown"));
+  const strafe = () => Number(held.has("KeyD") || held.has("ArrowRight")) - Number(held.has("KeyA") || held.has("ArrowLeft"));
 
   return {
     update: (dt) => {
@@ -87,12 +89,15 @@ export function walkControls(camera: THREE.Camera, dom: HTMLElement): Controls3d
       const s = strafe();
       if (f === 0 && s === 0) return;
       const step = WALK_SPEED * dt;
-      const y = camera.position.y;
+      // moveForward/moveRight read `camera.matrix`, which the render loop refreshes *after*
+      // controls run. Updating it here makes a step use the heading the user is looking along
+      // now rather than the one from the previous frame, and keeps the controller correct
+      // independently of where the host chooses to call it.
+      camera.updateMatrixWorld();
+      // Both moves are already parallel to the xz-plane, so looking up cannot lift the walker
+      // off the ground and no eye-height correction is needed.
       if (f !== 0) c.moveForward(f * step);
       if (s !== 0) c.moveRight(s * step);
-      // Looking up must not lift you off the ground: moveForward follows the camera's
-      // direction, including its pitch.
-      camera.position.y = y;
     },
     dispose: () => {
       document.removeEventListener("keydown", onDown);

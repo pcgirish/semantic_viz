@@ -254,22 +254,64 @@ function footprint(scene: Scene): { cx: number; cz: number; width: number; depth
 export const LABEL_MAX_DISTANCE = 1200;
 
 /**
- * Hides the labels of buildings too far away to read.
+ * Half-size of the screen-space box a label is assumed to occupy, in normalised device units.
+ * CSS2D labels are DOM whose real width depends on the text, but measuring every one per frame
+ * would cost a layout pass per building; a fixed box is the cheap approximation, and erring
+ * generous is the safe direction — a label wrongly dropped is recoverable by walking closer,
+ * a label wrongly kept is the overlap this exists to prevent.
+ */
+const LABEL_HALF_NDC = { x: 0.11, y: 0.035 };
+
+/**
+ * Hides labels that cannot be read: too far away, or overlapping a nearer one.
  *
- * Checkpoint 2 confirmed the plan's "label legibility at distance" risk: CSS2D labels are DOM
- * and hold their size no matter how far away their building is, so a distant row collapses
- * into overlapping text while the geometry behind it is still perfectly legible. Culling by
- * distance is the treatment that keeps the labels that remain worth reading.
+ * Checkpoint 2 confirmed the plan's "label legibility at distance" risk, and then the browser
+ * showed that distance was only half of it. `scripts`, `migrations_group` and `src_db` collided
+ * while all three were *near* the camera — they sit side by side in one rank row, so from the
+ * street their names project into the same pixels however close you stand. Distance culling
+ * cannot fix a failure that happens in screen space, so this does both: drop what is too far to
+ * read, then drop what would be drawn on top of something nearer.
  *
- * Called from the render loop, so it does no allocation: `visible` is a flag the CSS2D
- * renderer already checks, and setting it is cheaper than measuring text.
+ * Nearest wins, because that is the building you are walking toward and the one whose name you
+ * are most likely to want.
+ *
+ * Called every frame from the render loop, so it stays cheap: projection into NDC and a box
+ * test against the labels already kept. At 105 units the pairwise scan is nothing; if a repo
+ * ever makes it matter, this is the place to put a grid.
  */
 export function cullLabels(root: THREE.Group, camera: THREE.Camera): void {
   const eye = camera.position;
+
+  const candidates: { label: THREE.Object3D; ndc: THREE.Vector3; distance: number }[] = [];
   for (const child of root.children) {
     if (typeof child.userData.sceneNodeId !== "string") continue;
     const label = child.getObjectByName("label");
     if (!label) continue;
-    label.visible = eye.distanceTo(child.position) <= LABEL_MAX_DISTANCE;
+
+    const distance = eye.distanceTo(child.position);
+    if (distance > LABEL_MAX_DISTANCE) {
+      label.visible = false;
+      continue;
+    }
+
+    const ndc = label.getWorldPosition(new THREE.Vector3()).project(camera);
+    // Behind the camera: `project` mirrors those to the front of the frustum, so without this
+    // a building at your back can suppress the label of one ahead of you.
+    if (ndc.z > 1) {
+      label.visible = false;
+      continue;
+    }
+    candidates.push({ label, ndc, distance });
+  }
+
+  candidates.sort((a, b) => a.distance - b.distance);
+
+  const kept: THREE.Vector3[] = [];
+  for (const c of candidates) {
+    const collides = kept.some(
+      (k) => Math.abs(k.x - c.ndc.x) < LABEL_HALF_NDC.x * 2 && Math.abs(k.y - c.ndc.y) < LABEL_HALF_NDC.y * 2,
+    );
+    c.label.visible = !collides;
+    if (!collides) kept.push(c.ndc);
   }
 }

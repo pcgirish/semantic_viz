@@ -46,7 +46,10 @@ export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Ca
   // cityscape is always inside the city; what switches is how you travel through it. So the
   // walkable skin starts at street level, where the orbit skin starts above.
   const walkable = skin3d(skin).camera !== "orbit";
-  const [view, setView] = useState<ViewMode>(walkable ? "street" : "orbit");
+  // Both skins start in "orbit". For tiles3d that is the literal orbit camera; for cityscape
+  // it is the fly camera framed on the whole city. Either way the user arrives able to see the
+  // rank axis, and walks only once they have chosen somewhere to walk to.
+  const [view, setView] = useState<ViewMode>("orbit");
 
   // Mirrors the camera into React state for the minimap. Kept out of the rAF loop's own
   // cadence deliberately — see MINIMAP_EVERY.
@@ -119,10 +122,11 @@ export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Ca
 
     let frame = 0;
     let ticks = 0;
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     const tick = () => {
       frame = requestAnimationFrame(tick);
-      const dt = clock.getDelta();
+      timer.update();
+      const dt = timer.getDelta();
       controlsRef.current?.update(dt);
       // Before rendering, not after: the CSS2D pass reads `visible` on the same frame.
       if (graphRef.current) cullLabels(graphRef.current, camera);

@@ -37,17 +37,10 @@ export function Minimap({ scene, viewer, selection }: MinimapProps): JSX.Element
   return (
     <svg
       data-testid="minimap"
+      className="scene3d-minimap"
       width={SIZE}
       height={SIZE}
-      style={{
-        position: "absolute",
-        bottom: 12,
-        left: 12,
-        zIndex: 1,
-        background: "rgba(6,9,13,.72)",
-        border: "1px solid rgba(152,174,191,.13)",
-        borderRadius: 4,
-      }}
+      style={{ position: "absolute", bottom: 12, left: 12, zIndex: 1 }}
       aria-label="Minimap"
     >
       {p.nodes.map((n) => (
