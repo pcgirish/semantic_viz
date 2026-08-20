@@ -436,6 +436,10 @@ export interface RunLayersPassResult {
   /** Directory tree + doc context text passed into Pass B/C prompts, reused unchanged by groups. */
   repoContextText: string | undefined;
   layerIdByName: Map<string, string>;
+  /** Cohesion of the LLM's clustering, and of the directory baseline it is measured against.
+   *  docs/design.md names this comparison the mitigation for clustering instability. */
+  modularity: number;
+  directoryModularity: number;
 }
 
 /** Clusters modules into named layers (Pass B) and narrates each layer's purpose (Pass C). */
@@ -537,7 +541,7 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
     });
   }
 
-  return { layerUnits, parentOverride, unitsByFile, repoContextText, layerIdByName };
+  return { layerUnits, parentOverride, unitsByFile, repoContextText, layerIdByName, modularity: passB.modularity, directoryModularity: passB.directoryModularity };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -905,7 +909,15 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
 
   const docExtracts = await runDocsPass({ docs: repoContext?.docs ?? [], provider, promptRev, reportProgress });
 
-  const { layerUnits: ungroupedLayerUnits, parentOverride, unitsByFile, repoContextText, layerIdByName } = await runLayersPass({
+  const {
+    layerUnits: ungroupedLayerUnits,
+    parentOverride,
+    unitsByFile,
+    repoContextText,
+    layerIdByName,
+    modularity: layerModularity,
+    directoryModularity,
+  } = await runLayersPass({
     snapshot,
     units,
     docExtracts,
@@ -913,6 +925,15 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     promptRev,
     reportProgress,
   });
+
+  // Surfaced so a drop in clustering quality is visible at analyze time rather than silent.
+  // Below the directory baseline means the LLM's grouping is less cohesive than plain folders.
+  reportProgress(
+    "pass B",
+    1,
+    1,
+    `modularity=${layerModularity.toFixed(3)} directory_baseline=${directoryModularity.toFixed(3)}`,
+  );
 
   const layerUnits = await runGroupsPass({
     snapshot,

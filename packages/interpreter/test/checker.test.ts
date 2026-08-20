@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkAndRepairClusters, directoryClusters, MAX_BRANCH_DEPTH, MAX_FAN_OUT, modularity, traceFlow, traceFlowBranching } from "../src/checker.js";
+import { checkAndRepairClusters, directoryClusters, MAX_BRANCH_DEPTH, MAX_FAN_OUT, modularity, normalizeClusterName, traceFlow, traceFlowBranching } from "../src/checker.js";
 import type { CallEdge, ImportEdge } from "../src/checker.js";
 
 const files = ["src/api/routes.py", "src/api/middleware/rate_limiter.py", "src/admin_tasks.py", "scripts/backfill.py"];
@@ -13,6 +13,54 @@ describe("directoryClusters", () => {
       src: ["src/admin_tasks.py"],
       scripts: ["scripts/backfill.py"],
     });
+  });
+
+  it("names the root cluster 'root' rather than '.', which renders as a tile literally labelled '.'", () => {
+    // A root-level file has no slash, so the parent directory is the repo root. Naming it "."
+    // is what puts a tile labelled "." on the canvas (observed in fixtures/orderly groups.json).
+    const clusters = directoryClusters(["setup.py", "src/app.py"]);
+    expect(clusters["."]).toBeUndefined();
+    expect(clusters.root).toEqual(["setup.py"]);
+  });
+});
+
+describe("normalizeClusterName", () => {
+  it.each([
+    ["billing_cluster", "billing"],
+    ["api_layer", "api"],
+    ["orders_module", "orders"],
+    ["auth_component", "auth"],
+    ["payments_core", "payments"],
+    ["shipping_domain", "shipping"],
+  ])("strips the banned architecture-speak suffix in %s", (input, expected) => {
+    expect(normalizeClusterName(input)).toBe(expected);
+  });
+
+  it.each([
+    ["kebab-case", "OrderProcessing", "order_processing"],
+    ["kebab input", "order-processing", "order_processing"],
+    ["spaces", "Order Processing", "order_processing"],
+    ["screaming", "ORDERS", "orders"],
+  ])("canonicalizes %s to snake_case", (_label, input, expected) => {
+    expect(normalizeClusterName(input)).toBe(expected);
+  });
+
+  it("strips a banned suffix that is separated by a dash or space, not only an underscore", () => {
+    expect(normalizeClusterName("api-layer")).toBe("api");
+    expect(normalizeClusterName("api layer")).toBe("api");
+  });
+
+  it("keeps a name whose banned word is not a suffix but the whole name, since stripping leaves nothing", () => {
+    // "layer" alone has no other token to fall back on — dropping it would produce "".
+    expect(normalizeClusterName("layer")).toBe("layer");
+  });
+
+  it("strips only the trailing banned token, not a banned word embedded mid-name", () => {
+    expect(normalizeClusterName("core_banking")).toBe("core_banking");
+  });
+
+  it("leaves an already-clean name untouched", () => {
+    expect(normalizeClusterName("billing")).toBe("billing");
   });
 });
 
@@ -65,6 +113,43 @@ describe("checkAndRepairClusters", () => {
     expect(result.clusters.orders).toBeUndefined();
     expect(result.clusters.orders_group).toEqual(["orders", "payments", "utils"]);
     expect(result.clusters.platform).toEqual(["api", "migrations"]);
+  });
+});
+
+describe("checkAndRepairClusters name normalization", () => {
+  it("strips banned suffixes from cluster names and flags the proposal as repaired", () => {
+    const proposal = { api_layer: ["a.py"], billing_cluster: ["b.py"] };
+    const result = checkAndRepairClusters(proposal, ["a.py", "b.py"]);
+    expect(result.repaired).toBe(true);
+    expect(Object.keys(result.clusters).sort()).toEqual(["api", "billing"]);
+  });
+
+  it("canonicalizes mixed case conventions to one convention across the proposal", () => {
+    const proposal = { "order-processing": ["a.py"], BillingEngine: ["b.py"] };
+    const result = checkAndRepairClusters(proposal, ["a.py", "b.py"]);
+    expect(Object.keys(result.clusters).sort()).toEqual(["billing_engine", "order_processing"]);
+  });
+
+  it("merges two clusters that normalize to the same name rather than dropping one", () => {
+    // "api_layer" and "api" both normalize to "api"; the files from both must survive.
+    const proposal = { api_layer: ["a.py"], api: ["b.py"] };
+    const result = checkAndRepairClusters(proposal, ["a.py", "b.py"]);
+    expect(result.repaired).toBe(true);
+    expect(result.clusters.api?.sort()).toEqual(["a.py", "b.py"]);
+  });
+
+  it("still breaks a name-equals-member collision created by normalization itself", () => {
+    // "orders_layer" normalizes to "orders", which then collides with its own member "orders".
+    const proposal = { orders_layer: ["orders", "payments"] };
+    const result = checkAndRepairClusters(proposal, ["orders", "payments"]);
+    expect(result.clusters.orders).toBeUndefined();
+    expect(result.clusters.orders_group).toEqual(["orders", "payments"]);
+  });
+
+  it("does not set repaired when every name is already normal", () => {
+    const proposal = { api: ["a.py"], billing: ["b.py"] };
+    const result = checkAndRepairClusters(proposal, ["a.py", "b.py"]);
+    expect(result.repaired).toBe(false);
   });
 });
 
