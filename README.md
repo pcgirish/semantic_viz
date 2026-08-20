@@ -263,6 +263,16 @@ diff is empty but whose dependency changed) is not yet implemented — the one
 ground-truth entry that requires it (`tests.integration.test_orders`) is
 absent from the queue.
 
+Canvas rendering has had a polish pass. Tile labels are measured per glyph class
+rather than by a flat per-character average — which over-truncated names built
+from narrow glyphs — and the complexity glyph's corner track is now reserved, so
+long names stop short of it instead of running underneath. Legend group frames
+reserve room for their floated label, which the tray's clipped overflow was
+cutting off. The Depends-on rail is titled "Dependencies" (the "entry points"
+label belongs to the Flows view), and Delta mode on a revision with nothing to
+compare now says so on the canvas rather than rendering an ordinary graph beside
+a "no delta" notice.
+
 | Package | What it does | Status |
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
