@@ -32,6 +32,22 @@ function makeFlow(overrides: Partial<Unit> & { id: string; route: string; steps:
 }
 
 describe("Flows", () => {
+  it("does not clip the flow canvas at the viewport width when a flow runs wider than the pane", () => {
+    const steps = Array.from({ length: 8 }, (_, i) => `u:s${i}`);
+    const flows = [makeFlow({ id: "u:f", route: "GET /wide", steps })];
+    const units = steps.map((id) => makeUnit({ id }));
+
+    const { container } = render(<Flows flows={flows} units={units} edges={[]} onSelectStep={() => {}} />);
+
+    const canvas = container.querySelector(".flows-path")!.firstElementChild as HTMLElement;
+    // The scroll parent (.flows-path) owns the scrolling, so the canvas must size to its
+    // content rather than being pinned to the pane width, or the right-hand steps end up
+    // under the Inspector with no way to scroll to them.
+    expect(canvas.style.minWidth).not.toBe("100%");
+    expect(canvas.style.flexGrow).toBe("0"); // not GraphCanvas's default flex: 1
+    expect(parseFloat(canvas.style.width)).toBeGreaterThan(2000);
+  });
+
   it("lists entry points on the left, grouped by kind", () => {
     const flows = [
       makeFlow({ id: "u:flow:1", route: "GET /orders/{id}", steps: ["u:a"] }),

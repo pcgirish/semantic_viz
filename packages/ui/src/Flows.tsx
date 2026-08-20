@@ -156,7 +156,12 @@ export function Flows({ flows, units, edges, onSelectStep, changedStepIds }: Flo
       </Tray>
 
       <div className="flows-path" style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
-        <GraphCanvas style={{ width: canvasW, height: canvasH, minWidth: "100%", minHeight: "100%" }}>
+        {/* .flows-path is the scroll parent. The canvas must size to its content, not to
+            the pane: GraphCanvas defaults to `flex: 1` + `min-width: 100%`, which pins it
+            to the pane width and cuts the right-hand steps off under the Inspector. It
+            keeps its own `overflow: hidden` so scrolled-out nodes clip at the pane edge
+            rather than bleeding under the trays. */}
+        <GraphCanvas style={{ width: canvasW, height: canvasH, minWidth: undefined, minHeight: "100%", flex: "none" }}>
           <ConnectorLayer edges={connectorEdges} route="ortho" arrows />
           <div
             className="flow-node flow-node-contract"

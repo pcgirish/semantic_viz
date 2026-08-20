@@ -4,13 +4,45 @@ import { el, ngon, ptstr } from "./svg.js";
 const CORNER = 6; // chamfer radius, so tiles read as tiles rather than plain rectangles
 const GLYPH_R = 7.5;
 const LABEL_PAD = 12; // matches the label's x offset from the tile's left edge
-const CHAR_WIDTH_RATIO = 0.55; // rough average glyph width, in ems, for the sans/mono labels here
+
+/** Horizontal track the complexity glyph reserves in a tile's top-right corner: its
+ *  diameter plus the 6px inset used when placing it, so labels stop short of it. */
+export const GLYPH_TRACK = GLYPH_R * 2 + 6;
+
+/** Advance widths in ems for Space Grotesk (--font-core), bucketed by glyph class. A flat
+ *  per-character average over-truncates names made of narrow glyphs — the common case for
+ *  identifiers and version strings — so measure the classes separately instead. */
+const EM_WIDE = 0.78; // W M m — and uppercase generally runs wider than lowercase
+const EM_NARROW = 0.3; // i l j t f r I . : · space
+const EM_DEFAULT = 0.53;
+const NARROW_CHARS = new Set("iljtfrI.,:;·'`|!()[]{} ".split(""));
+const WIDE_CHARS = new Set("WMmw@%&".split(""));
+
+/** Width of `text` in px at `fontSize`, estimated per glyph class rather than by a flat average. */
+export function measureLabel(text: string, fontSize: number): number {
+  let ems = 0;
+  for (const ch of text) {
+    if (NARROW_CHARS.has(ch)) ems += EM_NARROW;
+    else if (WIDE_CHARS.has(ch)) ems += EM_WIDE;
+    else if (ch >= "A" && ch <= "Z") ems += 0.66;
+    else ems += EM_DEFAULT;
+  }
+  return ems * fontSize;
+}
 
 /** Truncates `name` with an ellipsis so it fits in `availWidth` px at `fontSize`, if needed. */
 function fitLabel(name: string, availWidth: number, fontSize: number): string {
-  const maxChars = Math.max(1, Math.floor(availWidth / (fontSize * CHAR_WIDTH_RATIO)));
-  if (name.length <= maxChars) return name;
-  return `${name.slice(0, Math.max(1, maxChars - 1))}…`;
+  if (measureLabel(name, fontSize) <= availWidth) return name;
+  const budget = availWidth - measureLabel("…", fontSize);
+  let width = 0;
+  let cut = 0;
+  for (const ch of name) {
+    const next = width + measureLabel(ch, fontSize);
+    if (next > budget) break;
+    width = next;
+    cut += ch.length;
+  }
+  return `${name.slice(0, Math.max(1, cut))}…`;
 }
 
 /**
@@ -44,7 +76,11 @@ export function node(n: SceneNode): SVGGElement {
   g.appendChild(el("polygon", { points: ptstr(pts), class: isDiamond ? "block-diamond tile-body" : "tile-body" }));
 
   const nameSize = Math.min(14, Math.max(10.5, n.w / 10));
-  const fittedName = fitLabel(n.name, n.w - LABEL_PAD * 2, nameSize);
+  const hasGlyph = !isDiamond && !n.blockType;
+  // Left pad, then either the glyph's track (which already includes its right inset) or a
+  // matching right pad — not both, or the label loses ~12px it could legitimately use.
+  const labelTrack = n.w - LABEL_PAD - (hasGlyph ? GLYPH_TRACK : LABEL_PAD);
+  const fittedName = fitLabel(n.name, labelTrack, nameSize);
   const label = isDiamond
     ? el("text", { x: n.x + n.w / 2, y: n.y + n.h / 2, "text-anchor": "middle", "dominant-baseline": "middle", class: "nm", "font-size": nameSize })
     : el("text", { x: n.x + LABEL_PAD, y: n.y + 22, class: "nm", "font-size": nameSize });

@@ -1,6 +1,6 @@
 # Remediation plan: security, clustering stability, canvas usability, doc truth
 
-> **Status as of 2026-08-20 — Waves 0-2 complete, Waves 3-4 outstanding.**
+> **Status as of 2026-08-20 — Waves 0-3 complete, Wave 4 outstanding.**
 > Suite is **743/743** on `main` @ `a5b7969`. See "Execution log" at the end for what each
 > wave actually landed, including three items whose diagnosis in this plan proved wrong.
 >
@@ -588,6 +588,64 @@ the PR itself before merge.
 
 ### Still open for Wave 3
 
-Two defects observed during PR G's verification are **already covered** by Wave 3 and were left
-alone deliberately: API Flow right-edge clipping (item 3.3) and side panels squeezing the canvas
-at narrow widths — the same flex issue, and the same fix.
+Two defects observed during PR G's verification were deferred to Wave 3: API Flow right-edge
+clipping (item 3.3) and side panels squeezing the canvas at narrow widths.
+
+**Superseded by the Wave 3 execution log below.** Item 3.3's premise did not survive
+measurement — the flow pane scrolls and no content is unreachable. The narrow-width squeeze is
+a separate, still-unverified report and is *not* fixed by Wave 3; it needs its own measurement
+pass before anyone writes a fix for it.
+
+---
+
+## Execution log — Wave 3 (PR H)
+
+Items 3.2–3.5. Baseline 743 passing → 751 passing, lint and build clean, zero console
+errors or warnings across all four views at 1440×900 and 1024×768.
+
+### Where this plan was wrong
+
+**3.3 "API Flow right-edge clipping" — the defect does not reproduce.** The plan blamed a
+missing `minWidth: 0` on `GraphCanvas`. `GraphCanvas` already sets `min-width: 0` in its base
+style, so that diagnosis was wrong on its face. More importantly, the view was never actually
+clipped: `.flows-path` is a `overflow: auto` scroll parent, and measurement on the 5-hop
+`PATCH /{name}` flow gives `clientWidth` 800 / `scrollWidth` 1600 — the last column
+(`EvalCriterion`) is fully reachable by scrolling. Screenshots of the pre-change build,
+scrolled right, are **pixel-identical** to the post-change build. What the review recorded as
+"clipped at the right edge" (U4) was the un-scrolled first impression, not unreachable content.
+
+Kept a smaller, real fix in that area anyway: the call site passed `minWidth: "100%"` in the
+style object, which is spread *after* the base `min-width: 0` and so overrode it, contradicting
+the explicit `width: canvasW` on the same element. `GraphCanvas`'s default `flex: 1` had the
+same effect. Both are now neutralised so the canvas sizes to its content. This is a
+correctness cleanup with no observable symptom at the widths tested — it is not a fix for U4,
+and U4 should be re-examined as a discoverability problem (no scroll affordance) rather than a
+layout bug.
+
+**3.2 "calibrate `CHAR_WIDTH_RATIO`" — the ratio was only half the story.** The flat 0.55 em
+estimate over-truncates, but the compounding cause was that the complexity glyph occupies the
+tile's top-right corner while `fitLabel` was handed the *full* inner width, so labels were
+allowed to run underneath it. Replaced the flat ratio with a per-glyph-class estimate
+(`measureLabel`) and budgeted the glyph's track explicitly. Rebalanced the padding at the same
+time — reserving both a right pad and the glyph track double-counted ~12px and regressed
+`computeTotal` on a default-width tile.
+
+**3.5 "Delta empty state" — the plan's placement call was right.** Fixed on the canvas, not by
+an early return in `InspectQueue`; the tray message stays where it is.
+
+### What landed
+
+| Item | Change | Files |
+|---|---|---|
+| 3.2 | Per-glyph-class label measurement; glyph track budgeted; padding rebalanced | `skins/tiles/src/node.ts` |
+| 3.2 | Legend group frames reserve room for GroupFrame's floated label, which the Tray's `overflow: hidden` was clipping | `ui/src/Legend.tsx` |
+| 3.3 | Flow canvas sizes to content instead of being pinned to the pane (see caveat above) | `ui/src/Flows.tsx` |
+| 3.4 | Depends-on rail retitled "Dependencies"; dropped the duplicate inner heading | `ui/src/App.tsx`, `ui/src/EntryPointsRail.tsx` |
+| 3.5 | Explicit empty state on the Delta canvas | `ui/src/App.tsx` |
+
+### Verification notes worth keeping
+
+- The three new label guards were sabotage-tested (ignore the glyph track; flat 0.55 ratio;
+  drop the Legend frame's reserved margin). Each failed exactly the expected test.
+- `EntryPointsRail` renders only in the depends case, so removing its inner "Entry Points"
+  heading loses nothing — the enclosing Tray already carries the title.

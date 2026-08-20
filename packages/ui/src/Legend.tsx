@@ -39,7 +39,9 @@ export function Legend({ units, mode = "current" }: LegendProps): JSX.Element | 
   return (
     <>
       {[...layersByGroup.entries()].map(([group, groupLayers]) => (
-        <GroupFrame label={group} key={group}>
+        // GroupFrame floats its label at top:-9px, which the enclosing Tray (overflow:
+        // hidden) would clip; reserve that much room above each frame instead.
+        <GroupFrame label={group} key={group} style={{ marginTop: 12, minWidth: 0 }}>
           {groupLayers.map((layer) => (
             <div key={layer.id} style={{ display: "flex", alignItems: "center", gap: "var(--gap-sm)" }}>
               <span
