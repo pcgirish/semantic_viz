@@ -28,9 +28,15 @@ function displayName(u: Unit): string {
  * Extrusion depth reuses the sloc channel deliberately — the same quantity the 2D tile shows
  * as area, a 3D skin shows as height (docs/serve.md#2, "Extrusion depth"). Kept here so the
  * encoding stays in the layout engine and no skin recomputes it (docs/serve.md#1).
+ *
+ * The scale is set against the footprint, not chosen in the abstract: depth is world height
+ * in the same units a tile is wide, so a unit of ordinary size has to come out taller than
+ * its footprint or the scene reads as a plain of slabs rather than a skyline. The earlier
+ * tuning put a 40-sloc unit at 28 against a 96-wide tile, which is why the first street-level
+ * look had nothing to walk between (docs/plans/wave-5-checkpoint-2-wayfinding.md).
  */
-const MIN_DEPTH = 4;
-const DEPTH_PER_SLOC = 0.6;
+const MIN_DEPTH = 40;
+const DEPTH_PER_SLOC = 3;
 function depthFor(sloc: number): number {
   return MIN_DEPTH + sloc * DEPTH_PER_SLOC;
 }

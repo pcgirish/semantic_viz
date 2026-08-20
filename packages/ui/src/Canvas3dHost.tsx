@@ -5,7 +5,7 @@ import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Edge, Unit } from "@scv/schema";
 import { buildScene, type Scene } from "@scv/layout";
 import { useAppStore } from "./store.js";
-import { applyFocus, buildSceneGraph, disposeGraph, frameScene, unitAt, type ViewMode } from "./scene3d.js";
+import { applyFocus, buildSceneGraph, disposeGraph, frameScene, FOV_DEG, unitAt, type ViewMode } from "./scene3d.js";
 import type { TileDeltaInfo } from "./CanvasHost.js";
 
 export type Canvas3dHostProps = {
@@ -99,7 +99,7 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
     threeScene.add(key);
     threeScene.add(new THREE.AmbientLight(0xffffff, 0.55));
 
-    const camera = new THREE.PerspectiveCamera(60, mount.clientWidth / mount.clientHeight, 1, 8000);
+    const camera = new THREE.PerspectiveCamera(FOV_DEG, mount.clientWidth / mount.clientHeight, 1, 8000);
     cameraRef.current = camera;
 
     const controls = new OrbitControls(camera, renderer.domElement);

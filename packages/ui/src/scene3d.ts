@@ -126,12 +126,26 @@ export function unitAt(hit: THREE.Object3D): string | null {
 const EYE_HEIGHT = 18;
 
 /**
- * How far outside the city the street camera stands, as a fraction of the footprint's depth.
+ * How far outside the city the street camera stands, as a fraction of the footprint's depth,
+ * when ground extent along the rank axis is the binding constraint.
  * The near edge is where the outermost building is, so framing exactly on it puts the camera
  * inside a facade and the first frame is a wall of flat colour. Backing off by a margin means
  * you always start on the approach, looking down the rank axis at the city ahead of you.
  */
 const STREET_STANDOFF = 0.15;
+
+/**
+ * Vertical field of view for the 3D camera, in degrees. Exported because the street framing
+ * is computed from it, so the host must construct its camera with this same value or the
+ * "fits the frame" guarantee below is quietly false.
+ */
+export const FOV_DEG = 60;
+
+/**
+ * Slack between the city and the frame edge, so the widest or tallest thing in view has air
+ * around it instead of running off the sides.
+ */
+const FRAME_MARGIN = 1.25;
 
 export type CameraFraming = { position: THREE.Vector3; target: THREE.Vector3 };
 
@@ -149,8 +163,23 @@ export function frameScene(scene: Scene, mode: ViewMode): CameraFraming {
   const target = new THREE.Vector3(box.cx, 0, box.cz);
 
   if (mode === "street") {
-    // Stand at the near edge on the scene's long axis, eye-height, facing the centre.
-    const standoff = box.depth * (0.5 + STREET_STANDOFF);
+    // Stand at the near edge on the scene's long axis, eye-height, facing the centre, far
+    // enough back that the city fits the frame. All three dimensions can be the binding one
+    // and each fails differently, so the standoff is the largest of the three:
+    //
+    //   - ground depth: too close and you spawn inside the near row of facades;
+    //   - height: too close and two towers become an alley with no city behind them;
+    //   - width: too close and a single wide facade overflows the viewport as flat colour.
+    //
+    // Width is the one every *drilled* level needs, because those are a single rank row —
+    // wide, shallow, and often wider than they are tall, so depth and height both under-read.
+    const tallest = Math.max(...scene.nodes.map((n) => n.depth), 0);
+    const halfFov = Math.tan((FOV_DEG * Math.PI) / 360);
+    const standoff = Math.max(
+      box.depth * (0.5 + STREET_STANDOFF),
+      (tallest * FRAME_MARGIN) / halfFov,
+      (box.width * FRAME_MARGIN) / halfFov,
+    );
     return {
       position: new THREE.Vector3(box.cx, EYE_HEIGHT, box.cz + standoff),
       target: new THREE.Vector3(box.cx, EYE_HEIGHT, box.cz),

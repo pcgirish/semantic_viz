@@ -165,6 +165,43 @@ describe("frameScene", () => {
     expect(clearance).toBeGreaterThan(scene.nodes[0]!.h);
   });
 
+  it("stands far enough back that tall buildings still fit the view", () => {
+    // Clearance from the footprint is not enough on its own: once buildings are taller than
+    // they are wide, a standoff measured only against ground extent puts you in an alley
+    // between two towers. The approach has to scale with how tall the city is, the way you
+    // naturally back up to take in a skyline.
+    // Shaped like the real fixture: a compact footprint carrying buildings far taller than
+    // the ground extent, which is the case a width-derived standoff gets wrong.
+    const scene = makeScene();
+    for (const n of scene.nodes) n.depth = 900;
+    const tallest = Math.max(...scene.nodes.map((n) => n.depth));
+    const { position, target } = frameScene(scene, "street");
+    expect(position.distanceTo(target)).toBeGreaterThan(tallest);
+  });
+
+  it("stands back far enough that the city's width fits the frame, not just its height", () => {
+    // The drilled levels are all a single rank row: one shallow strip of buildings, wider
+    // than it is deep and often wider than it is tall. A standoff derived only from ground
+    // *depth* and building *height* therefore ignores the one dimension that is actually
+    // binding there, and parks the camera close enough that a single facade overflows the
+    // viewport — the whole frame is one flat colour, which is precisely the failure this
+    // whole framing exists to prevent.
+    const scene = makeScene();
+    scene.nodes.length = 1;
+    const n = scene.nodes[0]!;
+    n.x = 0;
+    n.y = 0;
+    n.w = 96;
+    n.h = 96;
+    n.depth = 40;
+    const { position, target } = frameScene(scene, "street");
+    // Half the frame's width at this distance, for the host's 60-degree vertical FOV at a
+    // roughly square viewport. The facade has to fit inside it with room to spare.
+    const distance = position.distanceTo(target);
+    const visibleHalfWidth = distance * Math.tan((30 * Math.PI) / 180);
+    expect(visibleHalfWidth).toBeGreaterThan(n.w);
+  });
+
   it("frames an empty scene without producing NaN", () => {
     const empty = { nodes: [], links: [], regions: [], width: 0, height: 0 } as unknown as Scene;
     const { position, target } = frameScene(empty, "orbit");
