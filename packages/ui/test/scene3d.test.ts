@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import type { Scene } from "@scv/layout";
-import { buildSceneGraph, disposeGraph, frameScene, unitAt } from "../src/scene3d.js";
+import { applyFocus, buildSceneGraph, disposeGraph, frameScene, unitAt } from "../src/scene3d.js";
 
 function makeScene(): Scene {
   const node = (id: string, x: number, layer: string) => ({
@@ -122,6 +122,48 @@ describe("frameScene", () => {
     const { position, target } = frameScene(empty, "orbit");
     for (const v of [position.x, position.y, position.z, target.x, target.y, target.z]) {
       expect(Number.isFinite(v)).toBe(true);
+    }
+  });
+});
+
+describe("applyFocus", () => {
+  it("fades the other buildings and keeps the focused one solid, without rebuilding", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    const bodies = root.children
+      .filter((c) => c.userData.sceneNodeId)
+      .map((c) => c.getObjectByName("body") as THREE.Mesh);
+    const before = bodies.map((m) => m.material);
+
+    applyFocus(root, "a");
+
+    const opacity = (id: string) =>
+      ((root.getObjectByName(id)!.getObjectByName("body") as THREE.Mesh).material as THREE.MeshStandardMaterial).opacity;
+    expect(opacity("a")).toBe(1);
+    expect(opacity("b")).toBeLessThan(1);
+    // Same material objects: focus is a property change, not a reallocation, so clicking a
+    // building must not churn the GPU by disposing and rebuilding the whole city.
+    expect(bodies.map((m) => m.material)).toEqual(before);
+  });
+
+  it("brightens the edges touching the focused unit and fades the rest", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    applyFocus(root, "a");
+    const line = root.children.find((c) => c instanceof THREE.Line) as THREE.Line;
+    // a->b touches the focused unit, so it must stay at full strength.
+    expect((line.material as THREE.LineBasicMaterial).opacity).toBe(1);
+
+    applyFocus(root, "unrelated");
+    expect((line.material as THREE.LineBasicMaterial).opacity).toBeLessThan(1);
+  });
+
+  it("restores every building to solid when focus is cleared", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    applyFocus(root, "a");
+    applyFocus(root, null);
+    for (const id of ["a", "b"]) {
+      const material = (root.getObjectByName(id)!.getObjectByName("body") as THREE.Mesh)
+        .material as THREE.MeshStandardMaterial;
+      expect(material.opacity).toBe(1);
     }
   });
 });

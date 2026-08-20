@@ -10,8 +10,6 @@ const GATE_RATIO = 1.6;
 export type SceneGraphOptions = {
   /** Present only in delta mode — the same map CanvasHost takes (docs/serve.md#2). */
   deltaByUnit?: Map<string, DeltaInfo>;
-  /** Selected/hovered unit: its building stays solid and its edges stay at full strength. */
-  focusId?: string;
 };
 
 /**
@@ -27,7 +25,9 @@ export function buildSceneGraph(scene: Scene, options: SceneGraphOptions): THREE
   const gated = scene.links.length > scene.nodes.length * GATE_RATIO;
 
   for (const l of scene.links) {
-    root.add(tiles3dSkin.link(l, { gated, focusId: options.focusId }) as THREE.Object3D);
+    const line = tiles3dSkin.link(l, { gated }) as THREE.Object3D;
+    line.userData.linkEnds = [l.from, l.to];
+    root.add(line);
   }
 
   for (const n of scene.nodes) {
@@ -38,13 +38,49 @@ export function buildSceneGraph(scene: Scene, options: SceneGraphOptions): THREE
       tiles3dSkin.node(n, {
         layerColor,
         delta: options.deltaByUnit?.get(n.id),
-        focusId: options.focusId,
         gated,
       }) as THREE.Object3D,
     );
   }
 
   return root;
+}
+
+/** Opacity for a building that is not the focused one while something is focused. */
+const UNFOCUSED_OPACITY = 0.35;
+
+/** Opacity for an edge that does not touch the focused unit. */
+const UNFOCUSED_EDGE_OPACITY = 0.08;
+
+/**
+ * Dims everything except the focused building and the edges touching it, in place.
+ *
+ * Focus changes on every click, so doing this by rebuilding the graph would dispose and
+ * reallocate every geometry and material in the city on the most common interaction there
+ * is; mutating the existing materials keeps a click to a property write.
+ */
+export function applyFocus(root: THREE.Group, focusId: string | null): void {
+  for (const child of root.children) {
+    const id = child.userData.sceneNodeId;
+    if (typeof id !== "string") continue;
+    const body = child.getObjectByName("body") as THREE.Mesh | undefined;
+    const material = body?.material as THREE.MeshStandardMaterial | undefined;
+    if (!material) continue;
+    const faded = focusId !== null && id !== focusId;
+    material.transparent = faded;
+    material.opacity = faded ? UNFOCUSED_OPACITY : 1;
+  }
+
+  // Edges touching the focused unit stay at full strength — that trace is the reason to
+  // dim anything at all (docs/serve.md#5).
+  for (const child of root.children) {
+    const ends = child.userData.linkEnds as [string, string] | undefined;
+    const material = (child as THREE.Line).material as THREE.LineBasicMaterial | undefined;
+    if (!ends || !material) continue;
+    const faded = focusId !== null && !ends.includes(focusId);
+    material.transparent = true;
+    material.opacity = faded ? UNFOCUSED_EDGE_OPACITY : 1;
+  }
 }
 
 /**

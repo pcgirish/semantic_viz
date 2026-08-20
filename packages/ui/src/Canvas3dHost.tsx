@@ -5,7 +5,7 @@ import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Edge, Unit } from "@scv/schema";
 import { buildScene, type Scene } from "@scv/layout";
 import { useAppStore } from "./store.js";
-import { buildSceneGraph, disposeGraph, frameScene, unitAt, type ViewMode } from "./scene3d.js";
+import { applyFocus, buildSceneGraph, disposeGraph, frameScene, unitAt, type ViewMode } from "./scene3d.js";
 import type { TileDeltaInfo } from "./CanvasHost.js";
 
 export type Canvas3dHostProps = {
@@ -129,7 +129,8 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
       cancelAnimationFrame(frame);
       resize.disconnect();
       controls.dispose();
-      if (graphRef.current) disposeGraph(graphRef.current);
+      // The graph is disposed by the rebuild effect's own cleanup, which React runs before
+      // this one; disposing it again here would double-free.
       // Frees the GL context itself. Without it, toggling skins repeatedly walks into the
       // browser's ~16 live-context cap and the oldest canvases start blanking out.
       renderer.dispose();
@@ -138,19 +139,27 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
     };
   }, []);
 
-  // Rebuild the graph whenever the scene or its context changes, disposing the previous one
+  // Rebuild the graph when the scene or delta data changes, disposing the previous one
   // first — a rebuild that only detaches would leak every geometry and material it dropped.
+  // Deliberately not keyed on `selection`: focus is applied in place below, because
+  // rebuilding the whole city on every click would churn the GPU for a change of opacity.
   useEffect(() => {
     const threeScene = threeSceneRef.current;
     if (!threeScene) return;
-    if (graphRef.current) {
-      threeScene.remove(graphRef.current);
-      disposeGraph(graphRef.current);
-    }
-    const graph = buildSceneGraph(scene, { deltaByUnit, focusId: selection ?? undefined });
+    const graph = buildSceneGraph(scene, { deltaByUnit });
     threeScene.add(graph);
     graphRef.current = graph;
-  }, [scene, deltaByUnit, selection]);
+    return () => {
+      threeScene.remove(graph);
+      disposeGraph(graph);
+      graphRef.current = undefined;
+    };
+  }, [scene, deltaByUnit]);
+
+  // Focus is a property write on the existing materials, not a rebuild.
+  useEffect(() => {
+    if (graphRef.current) applyFocus(graphRef.current, selection);
+  }, [selection, scene, deltaByUnit]);
 
   // Reframe on an explicit view change only. Re-framing on every scene rebuild would yank
   // the camera back to the overview mid-navigation.
