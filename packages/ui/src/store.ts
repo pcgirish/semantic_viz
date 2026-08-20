@@ -2,18 +2,23 @@ import { create } from "zustand";
 
 export type Mode = "current" | "delta" | "depends" | "flows";
 
+/** Which skin draws the canvas (docs/serve.md#6). In-memory only — there are no persisted UI prefs. */
+export type RenderSkin = "tiles" | "tiles3d";
+
 export type AppState = {
   selection: string | null;
   focus: string | null;
   mode: Mode;
   rev: string | null;
   focusStack: string[];
+  renderSkin: RenderSkin;
   select: (unitId: string | null) => void;
   drill: (unitId: string) => void;
   ascend: () => void;
   goTo: (index: number) => void;
   setMode: (mode: Mode) => void;
   setRev: (rev: string | null) => void;
+  setRenderSkin: (skin: RenderSkin) => void;
 };
 
 // docs/implement-serve.md stack: "Selection, focus, mode, rev are four small orthogonal
@@ -28,7 +33,11 @@ export const useAppStore = create<AppState>((set) => ({
   mode: "current",
   rev: null,
   focusStack: [],
+  renderSkin: "tiles",
   select: (unitId) => set({ selection: unitId }),
+  // Its own orthogonal slice: switching skins must not disturb selection or focus, so you
+  // land in the 3D view looking at the same unit you were looking at in 2D.
+  setRenderSkin: (skin) => set({ renderSkin: skin }),
   drill: (unitId) =>
     set((s) => ({
       focusStack: s.focus === null ? s.focusStack : [...s.focusStack, s.focus],

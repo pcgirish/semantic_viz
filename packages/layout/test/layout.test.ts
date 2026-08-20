@@ -228,6 +228,17 @@ describe("extrusion depth", () => {
     expect(big.depth).toBeGreaterThan(small.depth);
   });
 
+  it("makes a modest unit stand taller than its footprint is wide", () => {
+    // The 3D skins read `depth` as world height against a footprint measured in the same
+    // units, so the ratio between them is what decides whether a scene reads as a skyline or
+    // as a plain of slabs. On fixtures/orderly the layer nodes are 96 wide with depths of
+    // 4-26 — four times wider than tall — and at eye level there is nothing to walk between.
+    // A unit of unremarkable size should read as a building.
+    const scene = buildScene([makeUnit({ id: "a", loc: { files: [], sloc: 40 } })], []);
+    const n = scene.nodes[0]!;
+    expect(n.depth).toBeGreaterThan(Math.max(n.w, n.h));
+  });
+
   it("gives equal-sloc units equal depth", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
     const scene = buildScene(units, []);

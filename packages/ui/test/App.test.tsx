@@ -416,6 +416,31 @@ describe("App", () => {
     });
   });
 
+  it("swaps the 2D canvas for the 3D host when the skin toggle is switched, keeping selection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshot()) }),
+    );
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+    await waitFor(() => {
+      expect(screen.getByTestId("canvas-svg")).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByTestId("canvas-svg").querySelector('.tile[data-id="u:a"]')!);
+    expect(useAppStore.getState().selection).toBe("u:a");
+
+    fireEvent.click(screen.getByRole("button", { name: "3D" }));
+
+    // The contract is what makes this a host swap rather than a fork of the whole view.
+    // Awaited because the 3D host is lazy — three.js is fetched only on the first switch.
+    await waitFor(() => {
+      expect(screen.getByTestId("canvas-3d")).not.toBeNull();
+    });
+    expect(screen.queryByTestId("canvas-svg")).toBeNull();
+    expect(useAppStore.getState().selection).toBe("u:a");
+  });
+
   it("shows an error state when the fetch fails, not a silent blank canvas", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
 
