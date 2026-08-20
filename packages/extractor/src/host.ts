@@ -1,32 +1,12 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { listFilesContained } from "./walk-dir.js";
 import { langForFile, parserFor } from "./grammars/registry.js";
 import { walkPythonFile } from "./walk-python.js";
 import { walkTypeScriptFile } from "./walk-typescript.js";
 import type { FileFacts } from "./facts.js";
 import { moduleQualname } from "./qualname.js";
 import { shortHash } from "./hash.js";
-
-const SKIP_DIRS = new Set(["__pycache__", ".git", ".scv", "node_modules", "dist"]);
-
-function listFiles(root: string): string[] {
-  const out: string[] = [];
-  const stack: string[] = [root];
-  while (stack.length > 0) {
-    const dir = stack.pop()!;
-    for (const entry of readdirSync(dir)) {
-      if (SKIP_DIRS.has(entry) || entry.startsWith(".")) continue;
-      const full = path.join(dir, entry);
-      const st = statSync(full);
-      if (st.isDirectory()) {
-        stack.push(full);
-      } else {
-        out.push(full);
-      }
-    }
-  }
-  return out.sort();
-}
 
 /**
  * Bump whenever a change to the extractor/resolver (fact shapes, `walk-python.ts`,
@@ -70,7 +50,7 @@ function writeCachedFacts(cacheDir: string, rel: string, contentHash: string, fa
  * standalone/test use with no filesystem side effects.
  */
 export function parseRepoFiles(root: string, cacheDir?: string): FileFacts[] {
-  const files = listFiles(root);
+  const files = listFilesContained(root);
   const results: FileFacts[] = [];
   for (const abs of files) {
     const rel = path.relative(root, abs);
