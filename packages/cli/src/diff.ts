@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { runDifferWithRisk } from "@scv/differ";
 import { createProvider, loadInterpreterConfig, type Provider } from "@scv/interpreter";
-import type { Delta, Snapshot } from "@scv/schema";
+import { SnapshotSchema, type Delta, type Snapshot } from "@scv/schema";
 
 export interface RunDiffOptions {
   scvDir: string;
@@ -22,7 +22,21 @@ function readSnapshot(scvDir: string, sha: string): Snapshot {
   if (!existsSync(snapshotPath)) {
     throw new Error(`no snapshot found for rev "${sha}" at ${snapshotPath} — run scv analyze at that rev first`);
   }
-  return JSON.parse(readFileSync(snapshotPath, "utf-8")) as Snapshot;
+  // Reading is the trust boundary: a truncated or hand-edited snapshot should fail here,
+  // naming the file, rather than as an opaque error somewhere inside the differ.
+  let json: unknown;
+  try {
+    json = JSON.parse(readFileSync(snapshotPath, "utf-8"));
+  } catch (cause) {
+    throw new Error(`${snapshotPath}: not valid JSON`, { cause });
+  }
+  const parsed = SnapshotSchema.safeParse(json);
+  if (!parsed.success) {
+    const [issue] = parsed.error.issues;
+    const at = issue && issue.path.length > 0 ? ` at ${issue.path.join(".")}` : "";
+    throw new Error(`${snapshotPath}: does not match its schema${at}${issue ? `: ${issue.message}` : ""}`);
+  }
+  return parsed.data;
 }
 
 /** Reads two previously written snapshots by sha and writes their Differ output (with Pass D risk narration and ranking) to `<scvDir>/deltas/<from>__<to>.json`. */

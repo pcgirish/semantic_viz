@@ -201,6 +201,9 @@ const SnapshotProvenanceSchema = z.object({
   interpreter: InterpreterProvenanceSchema,
 });
 
+/** Upper bound on persisted layout entries — a repo far larger than any this tool targets. */
+const MAX_LAYOUT_NODES = 100_000;
+
 export const SnapshotSchema = z.object({
   schema: z.literal("scv/1"),
   snapshot_id: z.string(),
@@ -316,3 +319,18 @@ export const DeltaSchema = z.object({
 export type Delta = z.infer<typeof DeltaSchema>;
 export type UnitDelta = z.infer<typeof UnitDeltaSchema>;
 export type EdgeDelta = z.infer<typeof EdgeDeltaSchema>;
+
+/**
+ * Seeded node positions for replay stability (docs/serve.md#3). Persisted per snapshot+skin
+ * and written straight from an HTTP body, so the bounds here are the only thing standing
+ * between an untrusted request and the layouts directory.
+ */
+export const LayoutSchema = z.object({
+  // Non-finite coordinates round-trip through JSON as `null` and corrupt the stored layout.
+  nodeX: z.record(z.string(), z.number().finite()).refine(
+    (nodeX) => Object.keys(nodeX).length <= MAX_LAYOUT_NODES,
+    { message: `layout exceeds ${MAX_LAYOUT_NODES} nodes` },
+  ),
+});
+
+export type Layout = z.infer<typeof LayoutSchema>;
