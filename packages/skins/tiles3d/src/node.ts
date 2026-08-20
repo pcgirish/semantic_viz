@@ -23,8 +23,18 @@ const DELTA_GLOW: Record<string, string> = {
   rollup: "#f2a93b",
 };
 
-/** Footprint polygon for an n-gon centred at the origin, matching the 2D skin's `ngon` reading (sides = complexity). */
-function ngonShape(r: number, sides: number): THREE.Shape {
+/**
+ * Footprint polygon for an n-gon centred at the origin, matching the 2D skin's `ngon`
+ * reading (sides = complexity).
+ *
+ * `r` is the tile's half-width, and a polygon drawn on that as its *circumradius* only
+ * covers the tile at high side counts — a triangle covers a quarter of it, so a
+ * low-complexity unit reads as a spike rather than a building. Scaling by the ratio of
+ * circumradius to inradius makes every polygon span the tile regardless of side count, so
+ * footprint area keeps meaning sloc the way `serve.md#2` says it does.
+ */
+function ngonShape(halfWidth: number, sides: number): THREE.Shape {
+  const r = halfWidth / Math.cos(Math.PI / sides);
   const shape = new THREE.Shape();
   const rot = -Math.PI / 2;
   for (let i = 0; i <= sides; i++) {

@@ -80,6 +80,28 @@ describe("disposeGraph", () => {
     for (const s of matSpies) expect(s).toHaveBeenCalled();
   });
 
+  it("removes CSS2D label elements from the DOM, so drilling does not leave the previous level's labels on screen", () => {
+    // Labels are real DOM owned by the host's CSS2DRenderer, not GPU resources. Freeing
+    // geometry does nothing for them: the element is only detached when its CSS2DObject
+    // receives a "removed" event, and clearing the root never fires that for the nested
+    // children it does not walk. Missing this leaves every scene you navigate away from
+    // still labelled on top of the one you navigated to.
+    const root = buildSceneGraph(makeScene(), {});
+    const labels: HTMLElement[] = [];
+    root.traverse((o) => {
+      const el = (o as unknown as { element?: HTMLElement }).element;
+      if (el) {
+        document.body.appendChild(el);
+        labels.push(el);
+      }
+    });
+    expect(labels.length).toBeGreaterThan(0);
+
+    disposeGraph(root);
+
+    for (const el of labels) expect(el.isConnected).toBe(false);
+  });
+
   it("empties the root, so a rebuild does not stack a second copy of the city", () => {
     const root = buildSceneGraph(makeScene(), {});
     disposeGraph(root);
@@ -115,6 +137,32 @@ describe("frameScene", () => {
     const orbit = frameScene(scene, "street");
     expect(orbit.position.y).toBeGreaterThan(0);
     expect(orbit.position.y).toBeLessThan(30); // below the 30-unit rooflines
+  });
+
+  it("stands the street camera clear of the buildings rather than inside one", () => {
+    // Eye height alone does not put you on a street. The footprint's near edge is where the
+    // outermost building *is*, so framing there spawns the camera inside a facade and the
+    // whole view is one flat colour. Standing off the near edge is what makes the first
+    // frame legible.
+    // A building at the far edge of the footprint, which is exactly where the street camera
+    // stands. With every node at y=0 the camera lands in open ground by accident and the
+    // bug hides.
+    const scene = makeScene();
+    // Centred on the footprint's x, because that is the column the street camera stands in.
+    scene.nodes.push({ ...scene.nodes[0]!, id: "c", x: 200, y: 400 } as (typeof scene.nodes)[number]);
+    const { position } = frameScene(scene, "street");
+    // Distance to the nearest building's footprint edge, not its centre: a camera one pixel
+    // outside a facade is still standing in the wall as far as the view is concerned.
+    const clearance = Math.min(
+      ...scene.nodes.map((n) => {
+        const dx = Math.max(n.x - position.x, 0, position.x - (n.x + n.w));
+        const dz = Math.max(n.y - position.z, 0, position.z - (n.y + n.h));
+        return Math.hypot(dx, dz);
+      }),
+    );
+    // A margin, not merely a non-overlap: standing flush against a facade fills the frame
+    // with one colour just as thoroughly as standing inside it.
+    expect(clearance).toBeGreaterThan(scene.nodes[0]!.h);
   });
 
   it("frames an empty scene without producing NaN", () => {

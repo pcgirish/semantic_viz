@@ -137,3 +137,41 @@ describe("node encoding channels", () => {
     expect((label as THREE.Object3D & { element: HTMLElement }).element.textContent).toBe("resolveConfig");
   });
 });
+
+describe("buildings stand on the ground plane", () => {
+  // Extruding a Shape runs along +z, so the rotation that lays the footprint flat decides
+  // whether the building rises out of the ground or hangs beneath it. Getting this backwards
+  // is invisible in an overview (you see a roof either way) and obvious the moment the
+  // camera drops to street level, which is the whole point of the 3D view.
+  function span(g: THREE.Group): { min: number; max: number } {
+    const body = g.getObjectByName("body") as THREE.Mesh;
+    body.geometry.computeBoundingBox();
+    const box = body.geometry.boundingBox!;
+    return { min: box.min.y, max: box.max.y };
+  }
+
+  it("extrudes a prism upward from y=0, not downward", () => {
+    const { min, max } = span(node(makeNode({ id: "a", depth: 120, sides: 4 })));
+    expect(min).toBeCloseTo(0);
+    expect(max).toBeCloseTo(120);
+  });
+
+  it("extrudes a cylinder (the 13+ complexity bucket) upward from y=0 too", () => {
+    const { min, max } = span(node(makeNode({ id: "a", depth: 120, sides: 0 })));
+    expect(min).toBeCloseTo(0);
+    expect(max).toBeCloseTo(120);
+  });
+
+  it("gives a prism a footprint that fills the tile rather than shrinking to its inradius", () => {
+    // A 3-gon on the circumradius covers well under half the tile it replaces, so a
+    // low-complexity unit reads as a spike instead of a building. The footprint should span
+    // the tile's short side.
+    const body = node(makeNode({ id: "a", w: 100, h: 60, depth: 40, sides: 3 })).getObjectByName(
+      "body",
+    ) as THREE.Mesh;
+    body.geometry.computeBoundingBox();
+    const box = body.geometry.boundingBox!;
+    expect(box.max.x - box.min.x).toBeGreaterThan(50);
+    expect(box.max.z - box.min.z).toBeGreaterThan(50);
+  });
+});

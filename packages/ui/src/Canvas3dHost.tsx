@@ -34,6 +34,7 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
   const selection = useAppStore((s) => s.selection);
+  const focus = useAppStore((s) => s.focus);
   const [view, setView] = useState<ViewMode>("orbit");
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -161,8 +162,12 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
     if (graphRef.current) applyFocus(graphRef.current, selection);
   }, [selection, scene, deltaByUnit]);
 
-  // Reframe on an explicit view change only. Re-framing on every scene rebuild would yank
-  // the camera back to the overview mid-navigation.
+  // Reframe on a view switch or a change of navigation level, and on nothing else. The
+  // distinction is scene identity versus level: a replay scrub rebuilds the scene at the
+  // same level and must leave the camera where the user put it, but drilling enters a new
+  // city entirely — keeping the old framing there leaves you inside a building at the wrong
+  // scale, which is what `scene`-keyed reframing and `view`-only reframing each get wrong in
+  // opposite directions.
   useEffect(() => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
@@ -171,9 +176,9 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
     camera.position.copy(position);
     controls.target.copy(target);
     controls.update();
-    // `scene` is deliberately not a dependency: it is read for its bounds, but a scene
-    // rebuild must not re-frame. Only a view switch may move the camera.
-  }, [view]);
+    // `scene` is deliberately not a dependency: it is read for its bounds, but a rebuild at
+    // the same level must not re-frame.
+  }, [view, focus]);
 
   // Pointer verbs. Bound to the mount rather than the canvas so they survive a renderer
   // swap, and gated on drag distance so releasing an orbit gesture never selects a unit.

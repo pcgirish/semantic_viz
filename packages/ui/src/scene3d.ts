@@ -96,6 +96,13 @@ export function disposeGraph(root: THREE.Group): void {
     const material = m.material;
     if (Array.isArray(material)) for (const one of material) one.dispose();
     else material?.dispose();
+
+    // Labels are DOM, not GPU state, and nothing above frees them. CSS2DRenderer only
+    // detaches an element when its object is removed from a scene it is rendering, which
+    // never happens for these nested children — so without this, every level you drill
+    // through leaves its labels floating over the level you drilled into.
+    const el = (o as unknown as { element?: HTMLElement }).element;
+    el?.remove();
   });
   root.clear();
 }
@@ -118,6 +125,14 @@ export function unitAt(hit: THREE.Object3D): string | null {
 /** Eye height for the street camera, in scene units — below the rooflines, so buildings tower. */
 const EYE_HEIGHT = 18;
 
+/**
+ * How far outside the city the street camera stands, as a fraction of the footprint's depth.
+ * The near edge is where the outermost building is, so framing exactly on it puts the camera
+ * inside a facade and the first frame is a wall of flat colour. Backing off by a margin means
+ * you always start on the approach, looking down the rank axis at the city ahead of you.
+ */
+const STREET_STANDOFF = 0.15;
+
 export type CameraFraming = { position: THREE.Vector3; target: THREE.Vector3 };
 
 /** Which way the camera looks at the city: down at it, or from inside it (docs/serve.md#6). */
@@ -135,8 +150,9 @@ export function frameScene(scene: Scene, mode: ViewMode): CameraFraming {
 
   if (mode === "street") {
     // Stand at the near edge on the scene's long axis, eye-height, facing the centre.
+    const standoff = box.depth * (0.5 + STREET_STANDOFF);
     return {
-      position: new THREE.Vector3(box.cx, EYE_HEIGHT, box.cz + box.depth / 2),
+      position: new THREE.Vector3(box.cx, EYE_HEIGHT, box.cz + standoff),
       target: new THREE.Vector3(box.cx, EYE_HEIGHT, box.cz),
     };
   }
