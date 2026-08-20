@@ -158,6 +158,13 @@ Hovering any unit highlights `depends_on` and `users` in **different colours wit
 - **`tiles3d`** — same scene, extruded prisms, orbit camera.
 - **`atlas` / `cityscape` / `landscape` / `seafloor`** — later.
 
+> **Implementation status (2026-08-20):** both `tiles` and `tiles3d` implement this
+> contract, but `packages/ui` does not yet *consume* it — `CanvasHost` renders tiles
+> with `packages/design-system` components and imports only the layer palette from
+> `@scv/skin-tiles`. Making the skin selectable therefore requires routing rendering
+> through the contract first; scoped as Wave 5 in
+> `docs/plans/remediation-security-clustering-canvas-docs.md`.
+
 A skin may reinterpret the *theme* freely. A skin may not reinterpret the *encoding*: rank is still vertical, area is still sloc, sides are still complexity. Otherwise two people looking at the same repo in two skins are not looking at the same thing.
 
 ### Navigation belongs in the skin contract

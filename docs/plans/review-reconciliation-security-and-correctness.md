@@ -1,5 +1,12 @@
 # Review reconciliation: security + correctness + delivery gaps
 
+> **SUPERSEDED (2026-08-20)** by
+> [`remediation-security-clustering-canvas-docs.md`](remediation-security-clustering-canvas-docs.md),
+> which re-derived these findings against a later `main`, corrected several of the
+> diagnoses below, and sequenced the work into waves. Every security and correctness item
+> here has since landed (PRs #105-#114). Kept for the reasoning and the review trail;
+> do not plan new work from this file.
+
 ## Context
 
 `docs/review/codex-review.md` (security, BLOCKED) and `docs/review/project-review.md`

@@ -1,16 +1,22 @@
 # Remediation plan: security, clustering stability, canvas usability, doc truth
 
-> **Status as of 2026-08-20 — Waves 0-3 complete, Wave 4 outstanding.**
-> Suite is **743/743** on `main` @ `a5b7969`. See "Execution log" at the end for what each
-> wave actually landed, including three items whose diagnosis in this plan proved wrong.
+> **Status as of 2026-08-20 — Waves 0-4 complete; Wave 5 newly scoped.**
+> Suite is **751/751** on `docs/wave-4-documentation-truth`. See "Execution log" at the end
+> for what each wave actually landed, including five items whose diagnosis in this plan
+> proved wrong.
 >
 > | Wave | PRs | State |
 > |---|---|---|
 > | 0 | A (#105) | merged |
 > | 1 | D (#106), C (#107), B (#108), E (#109), plus deflake (#110) | merged |
 > | 2 | F (#111), G (#112) | merged |
-> | 3 | H | not started |
-> | 4 | I | not started |
+> | 3 | H (#114), plan correction (#113) | merged |
+> | 4 | I | this branch |
+> | 5 | J | scoped, not started |
+>
+> Wave 5 exists because item 4.4's premise was wrong: `tiles3d` cannot be "wired behind a
+> skin switch" as a small change, because `packages/ui` never consumed the `Skin` contract
+> in the first place. See "Wave 5" below.
 
 ## Context
 
@@ -410,7 +416,7 @@ resolved by landing B first (it is in the earlier wave regardless).
 Interpreter vs. UI+differ — no shared files. G is the biggest UX win in the plan and the one worth
 screenshotting before and after.
 
-### Wave 3 — depends on G — **not started**
+### Wave 3 — depends on G — **merged (#114)**
 
 | PR | Contents |
 |---|---|
@@ -420,7 +426,7 @@ Sequenced after G rather than beside it: 3.1 raises the effective canvas scale, 
 much 3.2's `CHAR_WIDTH_RATIO` actually over-truncates. Calibrating the ratio against the
 pre-fit scale would mean re-tuning it immediately afterward.
 
-### Wave 4 — depends on all of the above — **not started**
+### Wave 4 — depends on all of the above — **this branch**
 
 | PR | Contents |
 |---|---|
@@ -437,6 +443,9 @@ any wave if you want the highest value-per-character fix in early.
 Wave 0 → Wave 1 → Wave 2 → Wave 3 → Wave 4 = **five sequential steps**, with a maximum of four
 branches open at once. If only one branch can be in flight at a time, the same nine PRs run in the
 order A, B, C, D, E, F, G, H, I.
+
+Wave 5 (PR J) was added after Wave 4 and extends this to six steps; it depends on nothing in
+Waves 0-4 except the corrected understanding of the skin contract they produced.
 
 Per `CLAUDE.md`: branch → implement → verify → review → push → PR → merge; never commit to main.
 TDD RED-GREEN-Refactor — failing test before implementation on every code item above. With
@@ -649,3 +658,104 @@ an early return in `InspectQueue`; the tray message stays where it is.
   drop the Legend frame's reserved margin). Each failed exactly the expected test.
 - `EntryPointsRail` renders only in the depends case, so removing its inner "Entry Points"
   heading loses nothing — the enclosing Tray already carries the title.
+
+---
+
+## Execution log — Wave 4 (PR I)
+
+Docs-only wave: no `packages/` source changed, suite unchanged at **751/751**.
+
+### Where this plan was wrong
+
+**Item 4.4 — "`tilesSkin` is still hardcoded there".** This claim, repeated from the README
+into the plan, is false, and it is the reason 4.4 looked like a small decision. `packages/ui`
+does not import `tilesSkin` at all. Its only import from `@scv/skin-tiles` is the *palette*
+(`codedreamLayerPalette`, `hashLayerToColor`, in `CanvasHost.tsx:5` and `Legend.tsx:4`).
+Tiles are drawn by `packages/design-system` React components — `GraphCanvas`, `PolyNode`,
+`ConnectorLayer` — not by `Skin.node`/`Skin.link`.
+
+So the app does not render through the skin contract, which means there is no seam a switch
+could select against. Worse, the two `Skin` types are not one contract: `tiles.node` returns
+`SVGGElement` and `tiles3d.node` returns a three.js `Object3D`, declared as two independent
+`Skin` types in two files. "Add a skin switch" is therefore a rendering-architecture change,
+not a config toggle — scoped as Wave 5 below.
+
+**Item 4.1 — "two files … `AGENTS.md` is a regular file, not a symlink".** Inverted. `CLAUDE.md`
+is the symlink (`120000` in the index) and `AGENTS.md` is the regular file, so the structure line
+needed exactly one edit, not two. Worth recording because editing through the symlink with a tool
+that rewrites in place replaces it with a regular file and silently un-links the two.
+
+**Item 4.3 — the A6 `risk_changed` paragraph.** The README stated `risk_changed` "is not yet
+implemented" and that the ground-truth entry requiring it was absent from the queue. PR #112
+(Wave 2, G) implemented it; the README was never updated. Corrected here.
+
+### What landed
+
+| Item | Change | Files |
+|---|---|---|
+| 4.1 | Structure line now describes the actual `/packages/*` workspace monorepo | `AGENTS.md` (`CLAUDE.md` is a symlink to it) |
+| 4.2 | Backlog item closed for pan/zoom/fit; rewritten to record how each shipped, and to isolate the still-open left-to-right layout-axis change | `docs/backlog/canvas-pan-zoom.md` |
+| 4.3 | A6 paragraph corrected: `risk_changed` ships, and why it carries `amount: 0` | `README.md` |
+| 4.3 | `differ` row records which delta kinds it emits and why `moved`/`renamed` are deliberately absent | `README.md` |
+| 4.3 | `tiles3d` row: status `Implemented` → `Built, unwired`, with the corrected reason | `README.md` |
+| 4.3 | "Flows" → "API Flow" in user-facing prose, matching the shipped `App.tsx:298` label | `README.md` |
+| 4.4 | Decision recorded: wire it, deferred to Wave 5 with the refactor it actually needs | this file, `docs/serve.md` |
+| 4.5 | Superseded header pointing here | `docs/plans/review-reconciliation-security-and-correctness.md` |
+
+### Verification notes worth keeping
+
+- Every claim rewritten here was checked against source before editing, not taken from the
+  review: pan/zoom/fit against `CanvasHost.tsx` (wheel handler ~200-227, drag-pan ~246-258,
+  `fitScale` 76-86), `risk_changed` against `differ/src/diff.ts:169` and the schema enum at
+  `schema/src/index.ts:264-270`, the dropped kinds against the comment at `index.ts:261`,
+  and `tiles3d`'s reachability by grepping `@scv/skin` across `packages/ui/src`.
+- `tiles3d` is **185 LOC** of `src` (413 including tests) — confirms the plan's erratum note
+  against the review's "1217".
+- The layout-axis item was re-checked rather than assumed still-open: `place.ts` places one
+  row per rank and stacks rows downward. The "left-to-right" comments in `place.ts`,
+  `route.ts`, and `flowchart.ts` describe ordering *within* a rank, not the rank axis.
+
+---
+
+## Wave 5 — make the skin contract real (PR J)
+
+**Why this is a wave and not item 4.4.** See the Wave 4 log above: the app renders with
+design-system components and never calls `Skin`. Two independent `Skin` types exist with
+incompatible return types. Delivering a user-visible skin switch means building the seam
+first.
+
+### 5.1 Unify the `Skin` contract
+Today `packages/skins/tiles/src/skin.ts` and `packages/skins/tiles3d/src/skin.ts` each
+declare their own `Skin`, `Intent`, and `CameraMove`. `Intent` is already identical in both;
+`CameraMove` and the `node`/`link` return types are not. Extract the shared contract to one
+place (`packages/layout` already holds the scene types both depend on, so it is the natural
+home, or a small `packages/skin-contract`) and make the render output generic over the host —
+`Skin<TNode>` with `tiles: Skin<SVGGElement>` and `tiles3d: Skin<Object3D>`. `CameraMove`
+becomes a union covering both, which `camera: "fixed" | "orbit" | "walk" | "fly"` already
+anticipates.
+
+### 5.2 Route `CanvasHost` through the contract
+The precondition for any switch. `CanvasHost` currently maps `scene.nodes` directly onto
+`PolyNode`. It should instead ask the active skin for each node's rendering. The 2D path must
+come out pixel-identical — this is a refactor, not a redesign, and the existing 29
+`CanvasHost` tests plus the tile-label guards from Wave 3 are the regression net. Note that
+`tiles.node` returns a raw `SVGGElement` while the current path returns React elements;
+reconciling those two is the substance of this step and should be settled before coding
+(either the skin returns React, or the host mounts imperative DOM into a ref).
+
+### 5.3 A three.js host for `tiles3d`
+`packages/ui` does not depend on `three` today; `tiles3d` does. Adding a 3D host means the
+dependency, a canvas/renderer lifecycle, and orbit camera controls wired to
+`navigate()`'s `orbit-to`/`fly-path` moves. `tiles3d` has no React host at all at present.
+
+### 5.4 The switch itself
+Only once 5.2 and 5.3 land. A `SegmentedControl` in the toolbar (the design system already
+ships one, used for view modes in `App.tsx:298`), skin persisted like other UI prefs.
+
+### Sequencing and honest cost
+5.1 → 5.2 → 5.3 → 5.4, strictly sequential; 5.2 is the risky step and the one worth a
+before/after screenshot pass. This is the largest single wave in the plan — comparable to all
+of Waves 0-4 together — and unlike them it is a capability change rather than a defect fix.
+**The 2D experience is not currently broken.** If `tiles3d` is not wanted in the product soon,
+archiving it stays the cheaper answer; this scoping exists so that choice is made with the
+real cost visible rather than the assumed one.
