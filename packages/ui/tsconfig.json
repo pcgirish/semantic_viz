@@ -12,6 +12,8 @@
   "references": [
     { "path": "../layout" },
     { "path": "../schema" },
-    { "path": "../skins/tiles" }
+    { "path": "../skin-contract" },
+    { "path": "../skins/tiles" },
+    { "path": "../skins/tiles3d" }
   ]
 }

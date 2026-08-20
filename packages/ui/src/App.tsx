@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { Delta, Snapshot, Unit } from "@scv/schema";
 import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
+// Lazy: three.js is ~570kB of the bundle and only the 3D skins need it, so a user who
+// never leaves the 2D view never downloads it.
+const Canvas3dHost = lazy(async () => ({ default: (await import("./Canvas3dHost.js")).Canvas3dHost }));
 import { DependsOn } from "./DependsOn.js";
 import { EntryPointsRail } from "./EntryPointsRail.js";
 import { Flowchart } from "./Flowchart.js";
@@ -11,7 +14,7 @@ import { Inspector } from "./Inspector.js";
 import { InspectQueue } from "./InspectQueue.js";
 import { Legend } from "./Legend.js";
 import { Replay, shortSha } from "./Replay.js";
-import { useAppStore } from "./store.js";
+import { useAppStore, type RenderSkin } from "./store.js";
 
 export type AppProps = {
   /** Full snapshot URL, e.g. /api/snapshot/:sha (implement-serve.md's API table). */
@@ -113,7 +116,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [revs, setRevs] = useState<RevSummary[]>([]);
   const [delta, setDelta] = useState<Delta | null>(null);
   const [sha, setSha] = useState(() => shaFromSnapshotUrl(snapshotUrl));
-  const [skin, setSkin] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const renderSkin = useAppStore((s) => s.renderSkin);
+  const setRenderSkin = useAppStore((s) => s.setRenderSkin);
   const selection = useAppStore((s) => s.selection);
   const focus = useAppStore((s) => s.focus);
   const mode = useAppStore((s) => s.mode);
@@ -124,8 +129,8 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const goTo = useAppStore((s) => s.goTo);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-skin", skin);
-  }, [skin]);
+    document.documentElement.setAttribute("data-skin", theme);
+  }, [theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -300,11 +305,19 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
               ]}
             />
             <SegmentedControl
-              value={skin}
-              onChange={(value) => setSkin(value as "dark" | "light")}
+              value={theme}
+              onChange={(value) => setTheme(value as "dark" | "light")}
               options={[
                 { value: "dark", label: "Dark" },
                 { value: "light", label: "Light" },
+              ]}
+            />
+            <SegmentedControl
+              value={renderSkin}
+              onChange={(value) => setRenderSkin(value as RenderSkin)}
+              options={[
+                { value: "tiles", label: "2D" },
+                { value: "tiles3d", label: "3D" },
               ]}
             />
           </div>
@@ -364,7 +377,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
             Nothing changed in this revision — no delta to inspect.
           </div>
         ) : (
-          <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+          renderSkin === "tiles3d" ? (
+            <Suspense fallback={<div style={{ flex: 1, minWidth: 0 }} />}>
+              <Canvas3dHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+            </Suspense>
+          ) : (
+            <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+          )
         )}
         <Inspector
           unit={selectedUnit}

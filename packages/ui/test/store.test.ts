@@ -109,3 +109,24 @@ describe("useAppStore", () => {
     expect(useAppStore.getState().mode).toBe("current");
   });
 });
+
+describe("renderSkin", () => {
+  it("defaults to the 2D tiles skin", () => {
+    expect(useAppStore.getState().renderSkin).toBe("tiles");
+  });
+
+  it("switches skin without disturbing selection, focus, or the focus stack", () => {
+    useAppStore.getState().drill("mod-a");
+    useAppStore.getState().select("mod-a");
+    const before = useAppStore.getState();
+    const { focus, focusStack, selection } = before;
+
+    useAppStore.getState().setRenderSkin("tiles3d");
+
+    const after = useAppStore.getState();
+    expect(after.renderSkin).toBe("tiles3d");
+    expect(after.focus).toBe(focus);
+    expect(after.focusStack).toEqual(focusStack);
+    expect(after.selection).toBe(selection);
+  });
+});

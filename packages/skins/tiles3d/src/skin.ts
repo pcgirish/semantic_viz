@@ -19,7 +19,7 @@ export type Tiles3dSkin = Skin<Object3D, Object3D, Object3D>;
  * this skin makes zero changes under `layout/`.
  */
 export const tiles3dSkin: Tiles3dSkin = {
-  node: (n: SceneNode) => node(n),
+  node: (n: SceneNode, ctx?: RenderContext) => node(n, ctx),
   link: (l: SceneLink, options?: unknown) => link(l, options as LinkOptions | undefined),
   theme: defaultTheme,
   camera: "orbit",
