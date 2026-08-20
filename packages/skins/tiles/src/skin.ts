@@ -1,35 +1,31 @@
+import type { ReactElement } from "react";
 import type { SceneLink, SceneNode, SceneRegion } from "@scv/layout";
+import type { CameraMove, Intent, RenderContext, Skin, Theme } from "@scv/skin-contract";
 import { node } from "./node.js";
 import { link, type LinkOptions } from "./link.js";
 import { region } from "./region.js";
-import { defaultTheme, type Theme } from "./theme.js";
+import { defaultTheme } from "./theme.js";
 
-// docs/serve.md#6 "Navigation belongs in the skin contract".
-export type Intent =
-  | { kind: "focus"; unit: string }
-  | { kind: "drill"; unit: string }
-  | { kind: "ascend" }
-  | { kind: "trace"; path: string[] };
+// The contract now lives in @scv/skin-contract so every skin and host shares one shape
+// (docs/serve.md#6 "Navigation belongs in the skin contract"). Re-exported here so existing
+// importers of @scv/skin-tiles keep working.
+export type { CameraMove, Intent, RenderContext, Theme };
 
-export type CameraMove = { kind: "pan-zoom"; target?: string; path?: string[] };
-
-export type Skin = {
-  node: (n: SceneNode) => SVGGElement;
-  link: (l: SceneLink, options?: LinkOptions) => SVGGElement;
-  region?: (r: SceneRegion) => SVGGElement;
-  theme: Theme;
-  camera: "fixed" | "orbit" | "walk" | "fly";
-  navigate: (intent: Intent) => CameraMove;
-};
+/**
+ * tiles draws React elements built from design-system components; the paired host is
+ * CanvasHost, which places them and never restyles them. Links stay SVG — they are drawn
+ * by the host's ConnectorLayer into one shared <svg>, not per link.
+ */
+export type TilesSkin = Skin<ReactElement, SVGGElement, ReactElement>;
 
 /**
  * `tiles` — flat polygons, maximum legibility, the reference implementation (docs/serve.md#6).
  * Fixed 2D camera: navigation is always a pan/zoom, never a 3D camera move (that's tiles3d).
  */
-export const tilesSkin: Skin = {
-  node,
-  link,
-  region,
+export const tilesSkin: TilesSkin = {
+  node: (n: SceneNode, ctx?: RenderContext) => node(n, ctx),
+  link: (l: SceneLink, options?: unknown) => link(l, options as LinkOptions | undefined),
+  region: (r: SceneRegion) => region(r),
   theme: defaultTheme,
   camera: "fixed",
   navigate(intent: Intent): CameraMove {

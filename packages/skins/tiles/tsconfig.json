@@ -1,10 +1,25 @@
 {
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM"],
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "module": "ESNext"
   },
-  "include": ["src"],
-  "references": [{ "path": "../../layout" }]
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../../layout"
+    },
+    {
+      "path": "../../skin-contract"
+    }
+  ]
 }

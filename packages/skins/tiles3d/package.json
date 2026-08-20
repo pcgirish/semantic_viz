@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@scv/layout": "*",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "@scv/skin-contract": "*"
   },
   "devDependencies": {
     "@types/three": "^0.185.3",

@@ -6,5 +6,5 @@
     "rootDir": "./src"
   },
   "include": ["src"],
-  "references": [{ "path": "../../layout" }]
+  "references": [{ "path": "../../layout" }, { "path": "../../skin-contract" }]
 }
