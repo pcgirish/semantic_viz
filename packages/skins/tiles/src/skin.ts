@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { SceneLink, SceneNode, SceneRegion } from "@scv/layout";
 import type { CameraMove, Intent, RenderContext, Skin, Theme } from "@scv/skin-contract";
 import { node } from "./node.js";
@@ -10,15 +11,19 @@ import { defaultTheme } from "./theme.js";
 // importers of @scv/skin-tiles keep working.
 export type { CameraMove, Intent, RenderContext, Theme };
 
-/** tiles draws into SVG; the paired host is the React/DOM CanvasHost. */
-export type TilesSkin = Skin<SVGGElement, SVGGElement, SVGGElement>;
+/**
+ * tiles draws React elements built from design-system components; the paired host is
+ * CanvasHost, which places them and never restyles them. Links stay SVG — they are drawn
+ * by the host's ConnectorLayer into one shared <svg>, not per link.
+ */
+export type TilesSkin = Skin<ReactElement, SVGGElement, ReactElement>;
 
 /**
  * `tiles` — flat polygons, maximum legibility, the reference implementation (docs/serve.md#6).
  * Fixed 2D camera: navigation is always a pan/zoom, never a 3D camera move (that's tiles3d).
  */
 export const tilesSkin: TilesSkin = {
-  node: (n: SceneNode) => node(n),
+  node: (n: SceneNode, ctx?: RenderContext) => node(n, ctx),
   link: (l: SceneLink, options?: unknown) => link(l, options as LinkOptions | undefined),
   region: (r: SceneRegion) => region(r),
   theme: defaultTheme,

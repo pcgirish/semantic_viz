@@ -1,12 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
-import { ConnectorLayer, GraphCanvas, PolyNode, neighbours, type FocusState } from "@scv/design-system";
+import { ConnectorLayer, GraphCanvas, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type Scene } from "@scv/layout";
-import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
+import { codedreamLayerPalette, hashLayerToColor, node as tile, region as regionBox } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
 import { sceneBounds, usePanZoom } from "./usePanZoom.js";
-
-const HIGH_RISK = 0.5;
 
 export type TileDeltaInfo = { status: string; amount: number; risk: number | null };
 
@@ -30,32 +28,6 @@ export type CanvasHostProps = {
  * so a delta tile's pulse animation (applied via a class set once, independent of hover
  * props) does not replay on hover.
  */
-const SHAPES: Array<"square" | "chamfer" | "hex" | "hex-tall"> = ["square", "chamfer", "hex", "hex-tall"];
-
-function shapeFor(n: { sides: 3 | 4 | 6 | 0; blockType?: string }): "diamond" | "square" | "chamfer" | "hex" | "hex-tall" {
-  if (n.blockType === "decision" || n.blockType === "loop") return "diamond";
-  if (n.sides === 0) return "hex-tall";
-  if (n.sides === 3) return "square";
-  if (n.sides === 6) return "hex";
-  return SHAPES[1]!;
-}
-
-// --temp-4 (#F2A93B, "changed") as an RGB triple — color-mix() can't be computed inline
-// from a JS number, so the delta amount->alpha mix below is done as literal rgba math.
-const CHANGED_RGB = "242, 169, 59";
-
-/** Delta-mode tile styling (docs/serve.md#2): fill saturation encodes amount, ring encodes
- * risk>=0.5, added/removed get dedicated outlines rather than colour alone. */
-function deltaTileStyle(d: TileDeltaInfo | undefined): React.CSSProperties {
-  if (!d) return {};
-  if (d.status === "added") return { outline: "2px solid var(--temp-2)", borderRadius: 6 };
-  if (d.status === "removed") return { outline: "1.6px dashed var(--temp-6)", borderRadius: 6 };
-  if (d.status === "modified" || d.status === "risk_changed" || d.status === "rollup") {
-    return { background: `rgba(${CHANGED_RGB}, ${(d.amount ?? 0) * 0.7})`, borderRadius: 6 };
-  }
-  return {};
-}
-
 export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.Element {
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
@@ -195,82 +167,38 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
       >
       <GraphCanvas grid={false} style={{ position: "absolute", inset: 0 }}>
         {scene.regions.map((r) => (
-          <div
-            key={r.id}
-            className="region"
-            data-id={r.id}
-            style={{
-              position: "absolute",
-              left: r.x - base.x,
-              top: r.y - base.y,
-              width: r.w,
-              height: r.h,
-              pointerEvents: "none",
-              border: "var(--border-w) dashed var(--border-1)",
-              borderRadius: "var(--radius-md)",
-              background: "rgba(152,174,191,0.035)",
-            }}
-          >
-            <span
-              className="region-label"
-              style={{
-                position: "absolute",
-                top: -9,
-                left: 12,
-                padding: "1px 8px 1px 6px",
-                background: "var(--surface-3)",
-                color: "var(--text-faint)",
-                font: "600 10px var(--font-mono)",
-                textTransform: "uppercase",
-                letterSpacing: "0.09em",
-                clipPath: "var(--clip-chamfer-sm)",
-                border: "var(--border-w) solid var(--border-1)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {r.name.toUpperCase()}
-            </span>
-          </div>
+          <Fragment key={r.id}>{regionBox(r, { origin: base })}</Fragment>
         ))}
         <ConnectorLayer edges={connectorEdges} focus={focus} />
         {scene.nodes.map((n) => {
           const d = deltaByUnit?.get(n.id);
-          const highRisk = d?.risk !== null && d?.risk !== undefined && d.risk >= HIGH_RISK;
           // serve.md#2: hue encodes layer (categorical), not `heat` — heat is always 0
           // from layout.ts today, so falling back to it would render every tile dormant-gray.
           const layerColor = n.layer ? hashLayerToColor(n.layer, codedreamLayerPalette) : undefined;
-          const deltaStyle = deltaTileStyle(d);
+          // The skin owns how a tile looks; the host supplies only what the Scene cannot
+          // say (delta, hue) and what only a DOM host knows (origin, handlers). The stable
+          // `key` is load-bearing: it preserves each tile's DOM node identity across a
+          // hover-only prop change, so a delta tile's pulse animation does not replay.
           return (
-            <PolyNode
-              key={n.id}
-              id={n.id}
-              data-id={n.id}
-              className="tile"
-              label={n.name}
-              shape={shapeFor(n)}
-              size={n.w}
-              color={layerColor}
-              focus={focus}
-              onFocusNode={(id: string) => setHover(id)}
-              style={{
-                position: "absolute",
-                left: n.x - base.x,
-                top: n.y - base.y,
-                height: n.h,
-                ...deltaStyle,
-                ...(highRisk ? { filter: "drop-shadow(0 0 0 1px var(--temp-6))" } : {}),
-              } as React.CSSProperties}
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation();
-                select(n.id);
-              }}
-              onDoubleClick={(e: React.MouseEvent) => {
-                e.stopPropagation();
-                // Drilling into a function has no structural children in Current/Delta —
-                // App.tsx renders that zoom level as a Flowchart instead of a tile grid.
-                drill(n.id);
-              }}
-            />
+            <Fragment key={n.id}>
+              {tile(n, {
+                delta: d,
+                layerColor,
+                origin: base,
+                focus,
+                onFocusNode: (id: string) => setHover(id),
+                onClick: (e) => {
+                  e.stopPropagation();
+                  select(n.id);
+                },
+                onDoubleClick: (e) => {
+                  e.stopPropagation();
+                  // Drilling into a function has no structural children in Current/Delta —
+                  // App.tsx renders that zoom level as a Flowchart instead of a tile grid.
+                  drill(n.id);
+                },
+              })}
+            </Fragment>
           );
         })}
       </GraphCanvas>
