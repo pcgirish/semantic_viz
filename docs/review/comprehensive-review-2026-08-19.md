@@ -36,7 +36,6 @@
 > Five further items had their **diagnosis** corrected during execution while the finding
 > itself stood; the plan's execution logs record each one.
 
-
 **Date:** 2026-08-19
 **Reviewed at:** `main` @ `326b442`
 **Scope:** design · code quality · security · maintainability · digressions from original intent · quality & usability of the end product
