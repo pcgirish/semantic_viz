@@ -75,6 +75,19 @@ describe("Legend", () => {
     expect(getByText("queue")).not.toBeNull();
   });
 
+  it("keeps the group label inside the frame, so a tray that clips overflow cannot hide it", () => {
+    const units = [makeUnit({ id: "u:layer:a", kind: "layer", name: "orders", group: "api surface" })];
+    const { container } = render(<Legend units={units} />);
+
+    // The design-system GroupFrame floats its label at top:-9px; inside a Tray with
+    // overflow:hidden that label is clipped away. The Legend must reserve room for it.
+    const frame = [...container.querySelectorAll<HTMLElement>("div")].find((d) =>
+      d.style.border.includes("dashed"),
+    );
+    expect(frame).toBeDefined();
+    expect(parseFloat(frame!.style.marginTop)).toBeGreaterThanOrEqual(9);
+  });
+
   it("falls a layer with no group under an 'other' header", () => {
     const units = [makeUnit({ id: "u:layer:a", kind: "layer", name: "orders" })];
     const { getByText } = render(<Legend units={units} />);

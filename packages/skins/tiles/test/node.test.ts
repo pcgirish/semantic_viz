@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { node } from "../src/node.js";
 import type { SceneNode } from "@scv/layout";
+import { GLYPH_TRACK, measureLabel } from "../src/node.js";
 
 function makeNode(overrides: Partial<SceneNode> & { id: string }): SceneNode {
   return {
@@ -104,6 +105,32 @@ describe("node", () => {
   it("puts the full name in a <title> so a truncated label is still readable on hover", () => {
     const el = node(makeNode({ id: "a", name: "GET /public/orders/checkout", w: 96 }));
     expect(el.querySelector("title")?.textContent).toBe("GET /public/orders/checkout");
+  });
+
+  it("keeps a name that fits the real rendered width, rather than over-truncating on a pessimistic estimate", () => {
+    // "fastapi 0.115" at nameSize 14 on a 220px tile measures ~85px in Space Grotesk; the
+    // tile has ~175px of label track once padding and the glyph are budgeted, so nothing
+    // should be dropped. The old 0.55 em/char estimate cut it to "fastapi 0…".
+    const el = node(makeNode({ id: "a", name: "fastapi 0.115", w: 220 }));
+    expect(el.querySelector(".nm")!.textContent).toBe("fastapi 0.115");
+  });
+
+  it("reserves the complexity glyph's track so a long name cannot run underneath it", () => {
+    const name = "averyLongUnitNameThatKeepsGoing";
+    const wide = node(makeNode({ id: "a", name, w: 260 }));
+    const fitted = wide.querySelector(".nm")!.textContent!;
+    // The glyph occupies the tile's top-right corner; the label must stop before it.
+    const nameSize = Math.min(14, Math.max(10.5, 260 / 10));
+    expect(measureLabel(fitted, nameSize)).toBeLessThanOrEqual(260 - 12 - GLYPH_TRACK);
+  });
+
+  it("gives a diamond block its full inner width, since it carries no complexity glyph", () => {
+    const name = "requestIsFullyAuthenticatedAndAuthorized";
+    const diamond = node(makeNode({ id: "d", blockType: "decision", name, w: 140 }));
+    const tile = node(makeNode({ id: "a", name, w: 140 }));
+    const diamondLen = diamond.querySelector(".nm")!.textContent!.length;
+    const tileLen = tile.querySelector(".nm")!.textContent!.length;
+    expect(diamondLen).toBeGreaterThan(tileLen);
   });
 
   it("truncates the metadata line too, so 'sloc · in · out' doesn't overflow a narrow tile", () => {

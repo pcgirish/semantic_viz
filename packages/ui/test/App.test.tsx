@@ -985,6 +985,24 @@ describe("App", () => {
     expect(screen.queryByTestId("legend-rail")).toBeNull();
   });
 
+  it("titles the Depends-on rail for external dependencies, not API entry points", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }),
+    );
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:layer:ops"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /depends on/i }));
+
+    const rail = await screen.findByTestId("entry-points-rail");
+    expect(rail.textContent).toMatch(/dependencies/i);
+    expect(rail.textContent).not.toMatch(/entry points/i);
+  });
+
   it("shows the inspect queue rail in Delta mode even when no delta exists yet (e.g. earliest rev)", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/revs") {
@@ -1009,6 +1027,43 @@ describe("App", () => {
       expect(screen.getByTestId("inspect-queue")).toBeInTheDocument();
       expect(screen.getByTestId("inspect-queue")).toHaveTextContent(/no delta available/i);
     });
+  });
+
+  it("marks the canvas itself as having no delta, instead of rendering an ordinary graph beside a 'no delta' notice", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/revs") {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([{ sha: "aaa", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a" }]),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makeSnapshot()) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/aaa" />);
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /delta/i }));
+
+    const empty = await screen.findByTestId("delta-empty-canvas");
+    expect(empty.textContent).toMatch(/nothing changed|no delta/i);
+  });
+
+  it("keeps the ordinary delta canvas when the revision does have changes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshot()) }),
+    );
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:a"]')).not.toBeNull();
+    });
+
+    expect(screen.queryByTestId("delta-empty-canvas")).toBeNull();
   });
 
   it("switching VIEW to Depends on shows externals instead of the canvas", async () => {

@@ -271,6 +271,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   // as a Flowchart instead of a tile grid, purely based on the focused unit's kind.
   const focusedUnit = focus ? (units.find((u) => u.id === focus) ?? null) : null;
   const flowchartFunction = (mode === "current" || mode === "delta") && focusedUnit?.kind === "function" ? focusedUnit : null;
+  // Delta mode with an empty inspect queue means this revision has nothing to compare
+  // against (e.g. the earliest rev) or nothing changed — either way there is no delta.
+  const deltaIsEmpty = mode === "delta" && (delta?.inspect_queue ?? []).length === 0;
 
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -329,7 +332,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         )}
         {mode === "depends" && (
           <div data-testid="entry-points-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
-            <Tray title="Entry Points" dock="left">
+            {/* Depends-on lists external dependencies, not API entry routes — Flows.tsx
+                uses the "entry points" label for the routes case. */}
+            <Tray title="Dependencies" dock="left">
               <EntryPointsRail externals={externals} onSelect={(id) => select(id)} />
             </Tray>
           </div>
@@ -340,6 +345,24 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           <Flows flows={flowUnits} units={units} edges={edges} onSelectStep={(id) => select(id)} changedStepIds={changedStepIds} />
         ) : flowchartFunction ? (
           <Flowchart functionUnit={flowchartFunction} units={units} edges={edges} />
+        ) : deltaIsEmpty ? (
+          // An ordinary graph rendered next to the tray's "no delta available" notice reads
+          // as a contradiction; say it on the canvas, where the absent change would be.
+          <div
+            data-testid="delta-empty-canvas"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--surface-0)",
+              color: "var(--text-faint)",
+              fontSize: 12,
+            }}
+          >
+            Nothing changed in this revision — no delta to inspect.
+          </div>
         ) : (
           <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
         )}
