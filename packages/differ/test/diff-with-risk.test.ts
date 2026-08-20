@@ -74,6 +74,29 @@ describe("runDifferWithRisk", () => {
     expect(delta.unit_deltas[0]?.risk.formula_floor).toBeDefined();
   });
 
+  it("keeps the deterministic formula floor when Pass D returns a lower score", async () => {
+    const a = makeSnapshot([]);
+    const b = makeSnapshot([makeUnit()]);
+    // All axes low, so Pass D's max-axis score lands below the formula floor for an added unit.
+    const provider = providerReturning(
+      {
+        "src.a": {
+          axes: { functionality: 0.01, availability: 0.01, scalability: 0.01, performance: 0.01, security: 0.01 },
+          why: "trivial",
+          confidence: 0.9,
+        },
+      },
+      [1],
+    );
+
+    const delta = await runDifferWithRisk(a, b, provider, "p1");
+    const risk = delta.unit_deltas[0]?.risk;
+
+    // design.md:189 — the Interpreter "may raise the score above the floor", never lower it.
+    expect(risk?.formula_floor).toBeGreaterThan(0.01);
+    expect(risk?.score).toBe(risk?.formula_floor);
+  });
+
   it("populates inspect_queue in ranked order with rank numbers", async () => {
     const a = makeSnapshot([]);
     const unit1 = makeUnit({ id: "u:1", qualname: "n1" });

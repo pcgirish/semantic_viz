@@ -48,7 +48,11 @@ export async function runDifferWithRisk(a: Snapshot, b: Snapshot, provider: Prov
       return {
         ...delta,
         risk: {
-          score: passD.score,
+          // design.md#risk — the formula sets a floor; Pass D may raise the score above it,
+          // never lower it. Without the clamp an LLM underestimate silently buries a risky change.
+          score: delta.risk.formula_floor === undefined
+            ? passD.score
+            : Math.max(passD.score, delta.risk.formula_floor),
           axes: passD.axes,
           why: passD.why,
           confidence: passD.confidence,
