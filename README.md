@@ -102,7 +102,7 @@ The top bar switches between four views:
   inspect queue ranks the units most worth reviewing first.
 - **Depends on** — lists third-party externals (with ecosystem, version,
   direct/transitive depth) reached from the current selection.
-- **Flows** — traces a single `api_flow` end to end (the units one request
+- **API Flow** — traces a single `api_flow` end to end (the units one request
   actually touches, including every branch — e.g. success/failure — and any
   framework-wired DI/middleware ahead of the handler), with a step dot per
   changed unit in Delta mode.
@@ -120,9 +120,9 @@ both a dark and a light skin.
 |---|---|
 | ![Current mode, dark skin](docs/screenshots/current-dark.png) | ![Delta mode, dark skin](docs/screenshots/delta-dark.png) |
 
-| Depends on | Flows |
+| Depends on | API Flow |
 |---|---|
-| ![Depends-on mode, dark skin](docs/screenshots/depends-dark.png) | ![Flows mode, dark skin](docs/screenshots/flows-dark.png) |
+| ![Depends-on mode, dark skin](docs/screenshots/depends-dark.png) | ![API Flow mode, dark skin](docs/screenshots/flows-dark.png) |
 
 | Flowchart (dark) | Current (light) |
 |---|---|
@@ -211,8 +211,8 @@ packages/
   layout/        # pure layered layout engine (rank/order/place/route)
   skins/
     tiles/       # SVG rendering skin (wired into packages/ui)
-    tiles3d/     # three.js rendering skin (not yet wired into packages/ui)
-  ui/            # React app: canvas + inspector tray + Delta/Replay/Depends-on/Flows views
+    tiles3d/     # three.js rendering skin (built, not wired into packages/ui)
+  ui/            # React app: canvas + inspector tray + Delta/Replay/Depends-on/API Flow views
 docs/            # design docs, milestone plans, and the disposable Python mock
 fixtures/        # sample repos used by tests (gitignored except small TS fixtures)
 ```
@@ -259,9 +259,11 @@ local LLM in the loop — coverage is exact. Rank *order* does not yet match
 the ground truth's order; ranking is the Interpreter's judgment call and its
 quality depends on the underlying model, which a stronger model should
 improve without any code change. `risk_changed` (flagging a unit whose own
-diff is empty but whose dependency changed) is not yet implemented — the one
-ground-truth entry that requires it (`tests.integration.test_orders`) is
-absent from the queue.
+diff is empty but whose exposure changed — more code now reaches it, or it
+crossed into the public API) now ships, which is what admits the one
+ground-truth entry that requires it (`tests.integration.test_orders`) into the
+queue. It carries `amount: 0` deliberately: a change in exposure is worth
+surfacing, but it is not evidence the unit's own code became likelier to break.
 
 Canvas rendering has had a polish pass. Tile labels are measured per glyph class
 rather than by a flat per-character average — which over-truncated names built
@@ -269,7 +271,7 @@ from narrow glyphs — and the complexity glyph's corner track is now reserved, 
 long names stop short of it instead of running underneath. Legend group frames
 reserve room for their floated label, which the tray's clipped overflow was
 cutting off. The Depends-on rail is titled "Dependencies" (the "entry points"
-label belongs to the Flows view), and Delta mode on a revision with nothing to
+label belongs to the API Flow view), and Delta mode on a revision with nothing to
 compare now says so on the canvas rather than rendering an ordinary graph beside
 a "no delta" notice.
 
@@ -278,13 +280,13 @@ a "no delta" notice.
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
 | `packages/interpreter` | Pass A (leaf semantics + branch labels, with scoped retry on incomplete blocks), Pass Docs (repo README/docs structural extraction), Pass B (directory-baseline clustering + LLM-proposed merges + deterministic checker), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps; Pass C-groups uses the same baseline + LLM-merge design as Pass B), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
-| `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking | Implemented |
+| `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking. Emits `added`/`removed`/`modified`/`risk_changed`; `moved` and `renamed` are deliberately unsupported — they need rename-detection heuristics this differ does not implement | Implemented |
 | `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve` | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
-| `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Not yet wired into `packages/ui` (`tilesSkin` is still hardcoded there) | Implemented |
-| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction) + Depends-on view + Flows view + Flowchart view (with a `‹ Back` button), fully migrated onto `packages/design-system` (the CodeDream design system) — no bespoke `app.css` remains | Implemented |
+| `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc), orbit camera, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Not reachable from `packages/ui`, which renders tiles with `packages/design-system` components and consumes only the *palette* from `@scv/skin-tiles` — the `Skin` contract itself is unused by the app, so there is no seam to switch on yet (see Wave 5 in `docs/plans/remediation-security-clustering-canvas-docs.md`) | Built, unwired |
+| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction) + Depends-on view + API Flow view + Flowchart view (with a `‹ Back` button), fully migrated onto `packages/design-system` (the CodeDream design system) — no bespoke `app.css` remains | Implemented |
 | `packages/design-system` | CodeDream design tokens (color, type, spacing, radius) + shared components (`Toolbar`, `SegmentedControl`, `Select`, `Tray`, `Card`, `Badge`, `BubbleChart`, ...) consumed by `packages/ui` | Implemented |
 
 A disposable Python prototype of the *full* pipeline (extract → interpret →

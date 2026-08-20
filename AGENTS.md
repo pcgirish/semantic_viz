@@ -2,7 +2,7 @@
 
 **Stack:** TypeScript · Fastify · SQLite
 
-**Structure:** `/src · /tests · /docs`
+**Structure:** npm-workspace monorepo — `/packages/*` (each with its own `src/` and `test/`) · `/docs` · `/fixtures`
 
 ## Commands (always use the run prefix — never bare executables)
 ```
