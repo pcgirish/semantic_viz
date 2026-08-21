@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildScene } from "../src/layout.js";
+import { buildScene, type BoundaryEdge } from "../src/layout.js";
 import type { Edge, Unit } from "@scv/schema";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
@@ -20,6 +20,14 @@ function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
 
 function makeEdge(overrides: Partial<Edge> & { id: string; from: string; to: string }): Edge {
   return { kind: "calls", weight: 1, source: "static", confidence: 1, ...overrides };
+}
+
+/** A group unit and its member layers, reciprocally linked — the shape `groupOf` walks. */
+function groupWithLayers(groupId: string, name: string, layerIds: string[]): Unit[] {
+  return [
+    makeUnit({ id: groupId, kind: "group", name, children: layerIds }),
+    ...layerIds.map((id) => makeUnit({ id, kind: "layer", parent: groupId })),
+  ];
 }
 
 describe("buildScene", () => {
@@ -148,27 +156,27 @@ describe("buildScene", () => {
     expect(scene.nodes[0]!.name).toBe("interpret");
   });
 
-  it("carries the nearest layer ancestor's group onto a scene node", () => {
+  it("carries the nearest layer ancestor's group unit id onto a scene node", () => {
     const units = [
-      makeUnit({ id: "u:layer:abc123", kind: "layer", name: "orders", group: "api surface" }),
+      makeUnit({ id: "u:group:g1", kind: "group", name: "api surface", children: ["u:layer:abc123"] }),
+      makeUnit({ id: "u:layer:abc123", kind: "layer", name: "orders", parent: "u:group:g1" }),
       makeUnit({ id: "a", parent: "u:layer:abc123" }),
     ];
     const scene = buildScene(units, []);
     const a = scene.nodes.find((n) => n.id === "a")!;
-    expect(a.group).toBe("api surface");
+    expect(a.groupId).toBe("u:group:g1");
   });
 
-  it("gives a unit with no group an empty group", () => {
+  it("gives a unit under no group an empty groupId", () => {
     const units = [makeUnit({ id: "a" })];
     const scene = buildScene(units, []);
-    expect(scene.nodes[0]!.group).toBe("");
+    expect(scene.nodes[0]!.groupId).toBe("");
   });
 
   describe("regions", () => {
     it("produces one region per group when 2+ layers share a group, with a bounding box containing all member nodes", () => {
       const units = [
-        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
-        makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", group: "api surface" }),
+        ...groupWithLayers("u:group:g1", "api surface", ["u:layer:l1", "u:layer:l2"]),
         makeUnit({ id: "a", parent: "u:layer:l1" }),
         makeUnit({ id: "b", parent: "u:layer:l2" }),
       ];
@@ -176,6 +184,9 @@ describe("buildScene", () => {
 
       expect(scene.regions).toHaveLength(1);
       const region = scene.regions[0]!;
+      // The region is identified by the group unit's id, and labelled with its display name —
+      // the name is an LLM string that can change without the group's identity changing.
+      expect(region.id).toBe("u:group:g1");
       expect(region.name).toBe("api surface");
 
       const a = scene.nodes.find((n) => n.id === "a")!;
@@ -188,26 +199,24 @@ describe("buildScene", () => {
 
     it("produces no region for a group with only a single member node", () => {
       const units = [
-        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
+        ...groupWithLayers("u:group:g1", "api surface", ["u:layer:l1"]),
         makeUnit({ id: "a", parent: "u:layer:l1" }),
       ];
       const scene = buildScene(units, []);
       expect(scene.regions).toHaveLength(0);
     });
 
-    it("produces no region for units with no group", () => {
+    it("produces no region for units under no group", () => {
       const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
       const scene = buildScene(units, []);
       expect(scene.regions).toHaveLength(0);
     });
 
     it("produces a region around layer tiles themselves when 2+ layer tiles share a group (system-level view)", () => {
-      const units = [
-        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
-        makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", group: "api surface" }),
-      ];
+      const units = groupWithLayers("u:group:g1", "api surface", ["u:layer:l1", "u:layer:l2"]);
       const scene = buildScene(units, []);
       expect(scene.regions).toHaveLength(1);
+      expect(scene.regions[0]!.id).toBe("u:group:g1");
       expect(scene.regions[0]!.name).toBe("api surface");
     });
   });
@@ -274,5 +283,113 @@ describe("extrusion depth", () => {
     const scene = buildScene([makeUnit({ id: "a", loc: { files: [], sloc: 0 } })], []);
     const n = scene.nodes[0]!;
     expect(n.depth).toBeGreaterThan(Math.max(n.w, n.h));
+  });
+});
+
+describe("boundary markers", () => {
+  // An edge with exactly one endpoint inside the focused subtree renders to a collapsed
+  // external endpoint: a real SceneNode carrying `boundary`, whose `id` IS the off-screen
+  // unit, so drill/hover/search need no synthetic id space.
+  const inside = [makeUnit({ id: "in-a" }), makeUnit({ id: "in-b" })];
+  const externals = [makeUnit({ id: "ext-1", name: "Billing" }), makeUnit({ id: "ext-2", name: "Auth" })];
+
+  function boundary(overrides: Partial<BoundaryEdge> & { edge: Edge }): BoundaryEdge {
+    return { external: "ext-1", direction: "out", ...overrides };
+  }
+
+  it("emits one marker per external sibling, carrying the contributing count", () => {
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [boundary({ edge: makeEdge({ id: "e1", from: "in-a", to: "ext-1" }) })],
+    });
+
+    const markers = scene.nodes.filter((n) => n.boundary);
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.id).toBe("ext-1");
+    expect(markers[0]!.name).toBe("Billing");
+    expect(markers[0]!.boundary).toEqual({ edgeCount: 1, weight: 1, direction: "out", inCount: 0, outCount: 1 });
+  });
+
+  it("collapses two edges to the same external into one marker", () => {
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [
+        boundary({ edge: makeEdge({ id: "e1", from: "in-a", to: "ext-1", weight: 2 }) }),
+        boundary({ edge: makeEdge({ id: "e2", from: "in-b", to: "ext-1", weight: 3 }) }),
+      ],
+    });
+
+    const markers = scene.nodes.filter((n) => n.boundary);
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.boundary).toEqual({ edgeCount: 2, weight: 5, direction: "out", inCount: 0, outCount: 2 });
+  });
+
+  it("mirrors direction for an inbound-only external", () => {
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [boundary({ edge: makeEdge({ id: "e1", from: "ext-1", to: "in-a" }), direction: "in" })],
+    });
+
+    expect(scene.nodes.find((n) => n.boundary)!.boundary).toEqual({
+      edgeCount: 1, weight: 1, direction: "in", inCount: 1, outCount: 0,
+    });
+  });
+
+  it("merges a bidirectional pair into one marker with direction 'both'", () => {
+    // The assertion that fails under both rejected designs: a marker per direction would put
+    // two nodes with the same `id` in Scene.nodes, and a two-value `direction` could not
+    // describe a sibling that is both called and calling.
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [
+        boundary({ edge: makeEdge({ id: "e1", from: "in-a", to: "ext-1" }), direction: "out" }),
+        boundary({ edge: makeEdge({ id: "e2", from: "ext-1", to: "in-b" }), direction: "in" }),
+      ],
+    });
+
+    const markers = scene.nodes.filter((n) => n.boundary);
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.boundary).toEqual({ edgeCount: 2, weight: 2, direction: "both", inCount: 1, outCount: 1 });
+    expect(new Set(scene.nodes.map((n) => n.id)).size).toBe(scene.nodes.length);
+  });
+
+  it("produces no markers when nothing crosses the boundary", () => {
+    const scene = buildScene(inside, [makeEdge({ id: "e1", from: "in-a", to: "in-b" })]);
+    expect(scene.nodes.filter((n) => n.boundary)).toHaveLength(0);
+    expect(scene.nodes.every((n) => n.boundary === undefined)).toBe(true);
+  });
+
+  it("clamps markers to the frame edge and spreads them so they do not overlap", () => {
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [
+        boundary({ edge: makeEdge({ id: "e1", from: "in-a", to: "ext-1" }), external: "ext-1" }),
+        boundary({ edge: makeEdge({ id: "e2", from: "ext-2", to: "in-b" }), external: "ext-2", direction: "in" }),
+      ],
+    });
+
+    const markers = scene.nodes.filter((n) => n.boundary).sort((a, b) => a.y - b.y);
+    expect(markers).toHaveLength(2);
+    // Sorted by id, so placement does not depend on input order.
+    expect(markers.map((m) => m.id)).toEqual(["ext-1", "ext-2"]);
+    expect(markers[0]!.y + markers[0]!.h).toBeLessThanOrEqual(markers[1]!.y);
+    // Outside the interior nodes' x-extent: the markers sit on the frame, not among the tiles.
+    const interiorMaxX = Math.max(...scene.nodes.filter((n) => !n.boundary).map((n) => n.x + n.w));
+    for (const m of markers) expect(m.x).toBeGreaterThanOrEqual(interiorMaxX);
+  });
+
+  it("keeps markers out of regions, which describe the focused subtree only", () => {
+    const scene = buildScene(
+      groupWithLayers("u:group:core", "core", ["l1", "l2"]),
+      [],
+      {
+        externalUnits: externals,
+        boundaryEdges: [boundary({ edge: makeEdge({ id: "e1", from: "l1", to: "ext-1" }) })],
+      },
+    );
+
+    const region = scene.regions.find((r) => r.id === "u:group:core")!;
+    const marker = scene.nodes.find((n) => n.boundary)!;
+    expect(marker.x).toBeGreaterThanOrEqual(region.x + region.w);
   });
 });

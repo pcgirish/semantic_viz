@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { extractRepo } from "@scv/extractor";
-import type { Snapshot, Unit } from "@scv/schema";
+import type { Snapshot } from "@scv/schema";
 import {
   CachedProvider,
   ContentCache,
@@ -118,9 +118,6 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
       const groups = await ensureArtifact("groups", ctx);
       const flows = await ensureArtifact("flows", ctx);
 
-      const layerUnitsByName = new Map(groups.map((u) => [u.name, u]));
-      const groupedLayerUnits: Unit[] = layers.layerUnits.map((l) => layerUnitsByName.get(l.name) ?? l);
-
       snapshot = finalizeSnapshot({
         snapshot: structural,
         provider,
@@ -129,8 +126,10 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
         units: functions.units,
         blockUnits: functions.blockUnits,
         blockEdges: functions.blockEdges,
-        layerUnits: groupedLayerUnits,
+        layerUnits: layers.layerUnits,
         parentOverride: new Map(layers.parentOverride),
+        groupUnits: groups.groupUnits,
+        layerParent: new Map(groups.layerParent),
         flowUnits: flows,
       });
     }

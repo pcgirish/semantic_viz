@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { extractRepo } from "@scv/extractor";
 import type { Provider, ProviderResult } from "@scv/interpreter";
 import { toSnapshot } from "../src/snapshot.js";
-import { ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
+import { ARTIFACT_SCHEMA_VERSION, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
 
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));
 
@@ -192,5 +192,68 @@ describe("ensureArtifact", () => {
       String(call[0]).includes("proposing merges of a codebase's architectural layers"),
     ).length;
     expect(groupsCalls).toBe(0);
+  });
+});
+
+describe("ensureArtifact — artifact schema version", () => {
+  let scvDir: string;
+
+  beforeEach(() => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-artifacts-ver-"));
+  });
+
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function makeCtx(provider: Provider): ArtifactContext {
+    const graph = extractRepo(orderlyRoot);
+    const snapshot = toSnapshot(graph, { root: orderlyRoot, rev: { sha: "fixed-sha", kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" } });
+    return {
+      scvDir,
+      sha: "fixed-sha",
+      snapshot,
+      graph,
+      provider,
+      promptRev: "p2",
+      readSource: readSource(orderlyRoot),
+      docs: [{ path: "README.md", content: "# stable readme content, long enough" }],
+      reportProgress: () => {},
+      force: new Set(),
+    };
+  }
+
+  it("keys the groups cache on payload shape, so bumping ARTIFACT_SCHEMA_VERSION recomputes it", () => {
+    // Phase 3a changed the `groups` payload — grouped layer units became real group units —
+    // while none of its *inputs* changed. The version constant is the only thing that can
+    // distinguish the two, so it must participate in the cache key.
+    expect(ARTIFACT_SCHEMA_VERSION).toBe("2");
+  });
+
+  it("recomputes a groups artifact whose cached inputHash predates the current version", async () => {
+    const provider1 = fakeProvider();
+    await ensureArtifact("groups", makeCtx(provider1));
+
+    const artifactPath = path.join(scvDir, "artifacts", "fixed-sha", "groups.json");
+    const stored = JSON.parse(readFileSync(artifactPath, "utf-8")) as { inputHash: string; data: unknown };
+    writeFileSync(artifactPath, JSON.stringify({ inputHash: `${stored.inputHash}-stale`, data: stored.data }));
+
+    const provider2 = fakeProvider();
+    await ensureArtifact("groups", makeCtx(provider2));
+
+    const groupsCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      String(call[0]).includes("proposing merges of a codebase's architectural layers"),
+    ).length;
+    expect(groupsCalls).toBeGreaterThan(0);
+  });
+
+  it("returns group units, not layer units", async () => {
+    const result = await ensureArtifact("groups", makeCtx(fakeProvider()));
+    expect(result.groupUnits.length).toBeGreaterThan(0);
+    for (const unit of result.groupUnits) expect(unit.kind).toBe("group");
+    // Every layer reparents onto exactly one of them.
+    const groupIds = new Set(result.groupUnits.map((u) => u.id));
+    expect(result.layerParent.length).toBeGreaterThan(0);
+    for (const [, groupId] of result.layerParent) expect(groupIds.has(groupId)).toBe(true);
   });
 });

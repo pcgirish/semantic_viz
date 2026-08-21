@@ -19,7 +19,7 @@ function makeScene(): Scene {
     fanIn: 0,
     fanOut: 0,
     layer,
-    group: "",
+    groupId: "",
     complexity: 0,
   });
   return {
@@ -453,7 +453,7 @@ describe("cullLabels — screen-space collisions", () => {
     const node = (id: string, x: number) => ({
       id, x, y: 0, w: 100, h: 60, depth: 30, sides: 3, heat: 0, ring: false,
       name: `a-rather-long-unit-name-${id}`, sloc: 10, fanIn: 0, fanOut: 0,
-      layer: "edge", group: "", complexity: 0,
+      layer: "edge", groupId: "", complexity: 0,
     });
     return { nodes: [node("a", 200), node("b", 210), node("c", 220)], links: [], regions: [] } as unknown as Scene;
   }

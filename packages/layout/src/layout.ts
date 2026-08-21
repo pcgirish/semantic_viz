@@ -9,9 +9,37 @@ import type { Scene, SceneNode, SceneRegion } from "./scene.js";
 
 const REGION_PAD = 20;
 
+/**
+ * One edge crossing the focus boundary: its visible endpoint is inside the focused subtree, and
+ * `external` names the outside endpoint's highest ancestor that is a sibling of the focused unit.
+ * The caller does that resolution because only it knows the focus; layout only collapses and
+ * places. `direction` is stated rather than derived, since the edge's own endpoints are the deep
+ * leaves, not the collapsed ancestors.
+ */
+export type BoundaryEdge = {
+  edge: Edge;
+  /** Unit id of the collapsed external endpoint. */
+  external: string;
+  /** "out" = the edge leaves the focused subtree; "in" = it enters. */
+  direction: "in" | "out";
+};
+
 export type BuildSceneOptions = {
   priorScene?: Scene;
+  /**
+   * Edges with exactly one endpoint inside the focus. Each collapses onto a boundary marker;
+   * multiple edges to the same external unit merge into one, so the frame stays readable.
+   */
+  boundaryEdges?: BoundaryEdge[];
+  /** The external units the markers stand for, for their display name and heat. */
+  externalUnits?: Unit[];
 };
+
+/** Fixed marker footprint: a marker is a frame annotation, not a tile whose size means something. */
+const MARKER_W = 96;
+const MARKER_H = 48;
+/** Gap between the interior's right edge and the marker column, and between stacked markers. */
+const MARKER_GAP = 24;
 
 // Module names are the file's relative path (e.g. "packages/extractor/src/facts.ts");
 // other kinds already carry a leaf symbol name. The breadcrumb supplies the folder
@@ -70,11 +98,19 @@ function layerIdOf(u: Unit, unitMap: Map<string, Unit>): string {
   return "";
 }
 
-/** Walks a unit's parent chain to the nearest layer ancestor, returning that layer's group name. */
+/**
+ * Walks a unit's parent chain to the nearest layer ancestor, then one more hop to that layer's
+ * group *unit*, returning its id. The id rather than the name: a group's name is LLM-authored and
+ * can change without the group's identity changing, so keying regions on it made a rename read as
+ * one group vanishing and another appearing.
+ */
 function groupOf(u: Unit, unitMap: Map<string, Unit>): string {
   let c: Unit | undefined = u;
   while (c) {
-    if (c.kind === "layer") return c.group ?? "";
+    if (c.kind === "layer") {
+      const parent = c.parent ? unitMap.get(c.parent) : undefined;
+      return parent?.kind === "group" ? parent.id : "";
+    }
     c = c.parent ? unitMap.get(c.parent) : undefined;
   }
   return "";
@@ -91,21 +127,24 @@ function regionsFor(nodes: SceneNode[], unitMap: Map<string, Unit>): SceneRegion
   const byGroup = new Map<string, SceneNode[]>();
   const layersByGroup = new Map<string, Set<string>>();
   for (const n of nodes) {
-    if (!n.group) continue;
-    (byGroup.get(n.group) ?? byGroup.set(n.group, []).get(n.group)!).push(n);
+    if (!n.groupId) continue;
+    (byGroup.get(n.groupId) ?? byGroup.set(n.groupId, []).get(n.groupId)!).push(n);
     const u = unitMap.get(n.id);
     const layerId = u?.kind === "layer" ? u.id : n.layer;
-    if (layerId) (layersByGroup.get(n.group) ?? layersByGroup.set(n.group, new Set()).get(n.group)!).add(layerId);
+    if (layerId) (layersByGroup.get(n.groupId) ?? layersByGroup.set(n.groupId, new Set()).get(n.groupId)!).add(layerId);
   }
 
   const regions: SceneRegion[] = [];
-  for (const [group, members] of byGroup) {
-    if ((layersByGroup.get(group)?.size ?? 0) < 2) continue;
+  for (const [groupId, members] of byGroup) {
+    if ((layersByGroup.get(groupId)?.size ?? 0) < 2) continue;
     const minX = Math.min(...members.map((m) => m.x)) - REGION_PAD;
     const minY = Math.min(...members.map((m) => m.y)) - REGION_PAD;
     const maxX = Math.max(...members.map((m) => m.x + m.w)) + REGION_PAD;
     const maxY = Math.max(...members.map((m) => m.y + m.h)) + REGION_PAD;
-    regions.push({ id: group, name: group, x: minX, y: minY, w: maxX - minX, h: maxY - minY });
+    // Falls back to the id when the group unit is not in the visible set — a label is better
+    // than a blank frame, and an id is what the caller would have to debug with anyway.
+    const name = unitMap.get(groupId)?.name ?? groupId;
+    regions.push({ id: groupId, name, x: minX, y: minY, w: maxX - minX, h: maxY - minY });
   }
   return regions;
 }
@@ -177,10 +216,79 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
         fanOut: fanOut.get(u.id) ?? 0,
         fanIn: fanIn.get(u.id) ?? 0,
         layer: layerIdOf(u, unitMap),
-        group: groupOf(u, unitMap),
+        groupId: groupOf(u, unitMap),
         complexity: u.cost?.complexity ?? 0,
       };
     });
 
-  return { nodes, links, regions: regionsFor(nodes, unitMap) };
+  // Regions describe the focused subtree, so they are computed before markers are appended —
+  // a marker stands for a unit outside the focus and must never widen a region around it.
+  const regions = regionsFor(nodes, unitMap);
+  nodes.push(...boundaryMarkers(nodes, regions, options));
+
+  return { nodes, links, regions };
+}
+
+/**
+ * Collapses the crossing edges onto one marker per external unit and places them in a column just
+ * outside the interior's right edge, stacked in id order. Placement is deliberately dumb: markers
+ * annotate the frame, so their arrangement must be stable across runs rather than optimal.
+ */
+function boundaryMarkers(interior: SceneNode[], regions: SceneRegion[], options: BuildSceneOptions): SceneNode[] {
+  const crossings = options.boundaryEdges ?? [];
+  if (crossings.length === 0) return [];
+
+  const merged = new Map<string, { edgeCount: number; weight: number; inCount: number; outCount: number }>();
+  for (const { edge, external, direction } of crossings) {
+    const acc = merged.get(external) ?? { edgeCount: 0, weight: 0, inCount: 0, outCount: 0 };
+    acc.edgeCount += 1;
+    acc.weight += edge.weight;
+    if (direction === "in") acc.inCount += 1;
+    else acc.outCount += 1;
+    merged.set(external, acc);
+  }
+
+  const externalById = new Map((options.externalUnits ?? []).map((u) => [u.id, u]));
+  // Clear of both the tiles and any region padding drawn around them, so a marker never reads as
+  // a member of a group it is outside of.
+  const frameX =
+    Math.max(
+      ...interior.map((n) => n.x + n.w),
+      ...regions.map((r) => r.x + r.w),
+      0,
+    ) + MARKER_GAP;
+  const topY = Math.min(...interior.map((n) => n.y), 0);
+
+  return [...merged.keys()].sort().map((id, index) => {
+    const counts = merged.get(id)!;
+    const unit = externalById.get(id);
+    return {
+      id,
+      x: frameX,
+      y: topY + index * (MARKER_H + MARKER_GAP),
+      w: MARKER_W,
+      h: MARKER_H,
+      depth: unit ? depthFor(unit.loc.sloc) : MIN_DEPTH,
+      // Markers read as plain tiles on purpose: a skin with no boundary support still renders
+      // something meaningful and correctly placed.
+      sides: 4,
+      heat: 0,
+      ring: false,
+      name: unit ? displayName(unit) : id,
+      sloc: unit?.loc.sloc ?? 0,
+      // From the marker's own perspective: edges leaving the focus arrive at it, and vice versa.
+      fanIn: counts.outCount,
+      fanOut: counts.inCount,
+      layer: "",
+      groupId: "",
+      complexity: unit?.cost?.complexity ?? 0,
+      boundary: {
+        edgeCount: counts.edgeCount,
+        weight: counts.weight,
+        direction: counts.inCount > 0 && counts.outCount > 0 ? "both" : counts.inCount > 0 ? "in" : "out",
+        inCount: counts.inCount,
+        outCount: counts.outCount,
+      },
+    };
+  });
 }

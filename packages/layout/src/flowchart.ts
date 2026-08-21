@@ -166,7 +166,7 @@ export function buildFlowchartScene(rawBlocks: Unit[], edges: Edge[]): Scene {
         fanIn: cfEdges.filter((e) => e.to === id).length,
         fanOut: cfEdges.filter((e) => e.from === id).length,
         layer: "",
-        group: "",
+        groupId: "",
         complexity: 0,
         blockType,
         condition: isDiamond ? unit.name : undefined,

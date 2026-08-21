@@ -28,6 +28,17 @@ function fileOf(unit: Unit): string | undefined {
  * pass exists yet) — that state is shown explicitly rather than left blank, matching the
  * doc's rule that "empty states carry information rather than apologising."
  */
+type Dependency = { edgeId: string; unit: Unit; rollupCount: number | null };
+
+/**
+ * A rolled-up edge stands for many concrete ones, and its summed `weight` says nothing a reader
+ * can act on. `rollupProvenance.count` does — "14 calls", not "weight 20". Absent on a legacy
+ * rollup written before the field existed, which renders as a plain name rather than a guess.
+ */
+function dependencyLabel(d: Dependency): string {
+  return d.rollupCount === null ? d.unit.name : `${d.unit.name} (${d.rollupCount} calls)`;
+}
+
 export function Inspector({ unit, units, edges, external, deltaQueue }: InspectorProps): JSX.Element {
   if (external) {
     const reachedBy = external.reached_by.map((id) => units.find((u) => u.id === id)).filter((u): u is Unit => Boolean(u));
@@ -102,16 +113,16 @@ export function Inspector({ unit, units, edges, external, deltaQueue }: Inspecto
     .filter((e) => e.from === unit.id)
     .map((e) => {
       const target = units.find((u) => u.id === e.to);
-      return target && { edgeId: e.id, unit: target };
+      return target && { edgeId: e.id, unit: target, rollupCount: e.rollupProvenance?.count ?? null };
     })
-    .filter((d): d is { edgeId: string; unit: Unit } => Boolean(d));
+    .filter((d): d is Dependency => Boolean(d));
   const usedBy = edges
     .filter((e) => e.to === unit.id)
     .map((e) => {
       const source = units.find((u) => u.id === e.from);
-      return source && { edgeId: e.id, unit: source };
+      return source && { edgeId: e.id, unit: source, rollupCount: e.rollupProvenance?.count ?? null };
     })
-    .filter((d): d is { edgeId: string; unit: Unit } => Boolean(d));
+    .filter((d): d is Dependency => Boolean(d));
 
   const semanticsConfidence = unit.semantics?.confidence;
   const lowConfidence = semanticsConfidence !== undefined && semanticsConfidence < LOW_CONFIDENCE;
@@ -203,7 +214,7 @@ export function Inspector({ unit, units, edges, external, deltaQueue }: Inspecto
         {dependsOn.length > 0 ? (
           <ul>
             {dependsOn.map((d) => (
-              <li key={d.edgeId}>{d.unit.name}</li>
+              <li key={d.edgeId}>{dependencyLabel(d)}</li>
             ))}
           </ul>
         ) : (
@@ -215,7 +226,7 @@ export function Inspector({ unit, units, edges, external, deltaQueue }: Inspecto
         {usedBy.length > 0 ? (
           <ul>
             {usedBy.map((d) => (
-              <li key={d.edgeId}>{d.unit.name}</li>
+              <li key={d.edgeId}>{dependencyLabel(d)}</li>
             ))}
           </ul>
         ) : (

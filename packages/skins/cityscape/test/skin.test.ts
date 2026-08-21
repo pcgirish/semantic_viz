@@ -19,7 +19,7 @@ function node(over: Partial<SceneNode> = {}): SceneNode {
     fanIn: 0,
     fanOut: 0,
     layer: "api",
-    group: "",
+    groupId: "",
     complexity: 3,
     ...over,
   } as unknown as SceneNode;

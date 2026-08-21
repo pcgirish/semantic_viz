@@ -34,15 +34,25 @@ const railLabelStyle: CSSProperties = {
  * layer id, CodeDream cool-accent palette). A layer with no group falls under a
  * catch-all "other" header.
  */
-export function Legend({ units, mode = "current" }: LegendProps): JSX.Element | null {
+export function Legend({
+  units,
+  mode = "current",
+}: LegendProps): JSX.Element | null {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const layers = units.filter((u) => u.kind === "layer");
   if (layers.length === 0) return null;
 
+  // Keyed on the group unit's id, not its name: names are LLM-authored and not unique, so
+  // keying on the name silently merged two distinct groups into one frame.
+  const unitsById = new Map(units.map((u) => [u.id, u]));
+  const UNGROUPED = "";
   const layersByGroup = new Map<string, Unit[]>();
   for (const layer of layers) {
-    const group = layer.group ?? "other";
-    (layersByGroup.get(group) ?? layersByGroup.set(group, []).get(group)!).push(layer);
+    const parent = layer.parent ? unitsById.get(layer.parent) : undefined;
+    const groupId = parent?.kind === "group" ? parent.id : UNGROUPED;
+    (
+      layersByGroup.get(groupId) ?? layersByGroup.set(groupId, []).get(groupId)!
+    ).push(layer);
   }
 
   const showNav = mode === "current" || mode === "delta";
@@ -50,59 +60,111 @@ export function Legend({ units, mode = "current" }: LegendProps): JSX.Element | 
 
   return (
     <>
-      {[...layersByGroup.entries()].map(([group, groupLayers], i) => (
-        // GroupFrame floats its label at top:-9px, which the enclosing Tray (overflow:
-        // hidden) would clip; reserve that much room above each frame instead.
-        <GroupFrame label={group} key={group} style={{ marginTop: 12, minWidth: 0 }}>
-          {i < EXPANDED_GROUPS || expanded.has(group) ? (
-            groupLayers.map((layer) => (
-              <div key={layer.id} style={{ display: "flex", alignItems: "center", gap: "var(--gap-sm)" }}>
-                <span
-                  className="chip"
+      {[...layersByGroup.entries()].map(([groupId, groupLayers], i) => {
+        const label =
+          groupId === UNGROUPED
+            ? "other"
+            : (unitsById.get(groupId)?.name ?? groupId);
+        return (
+          // GroupFrame floats its label at top:-9px, which the enclosing Tray (overflow:
+          // hidden) would clip; reserve that much room above each frame instead.
+          <GroupFrame
+            label={label}
+            key={groupId}
+            style={{ marginTop: 12, minWidth: 0 }}
+          >
+            {i < EXPANDED_GROUPS || expanded.has(groupId) ? (
+              groupLayers.map((layer) => (
+                <div
+                  key={layer.id}
                   style={{
-                    display: "inline-block",
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: hashLayerToColor(layer.id, codedreamLayerPalette),
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--gap-sm)",
                   }}
-                />
-                {layer.name}
-              </div>
-            ))
-          ) : (
-            <button
-              type="button"
-              onClick={() => setExpanded((s) => new Set(s).add(group))}
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                font: "var(--text-xs)",
-                color: "var(--text-faint)",
-                textAlign: "left",
-              }}
-            >
-              Show {groupLayers.length} {groupLayers.length === 1 ? "layer" : "layers"}
-            </button>
-          )}
-        </GroupFrame>
-      ))}
-      <details open style={{ borderTop: "var(--border-w) solid var(--border-hair)", marginTop: "var(--space-3)" }}>
-        <summary style={{ ...railLabelStyle, padding: "var(--space-2) 0", cursor: "pointer", listStyle: "none" }}>
+                >
+                  <span
+                    className="chip"
+                    style={{
+                      display: "inline-block",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: hashLayerToColor(
+                        layer.id,
+                        codedreamLayerPalette,
+                      ),
+                    }}
+                  />
+                  {layer.name}
+                </div>
+              ))
+            ) : (
+              <button
+                type="button"
+                onClick={() => setExpanded((s) => new Set(s).add(groupId))}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  font: "var(--text-xs)",
+                  color: "var(--text-faint)",
+                  textAlign: "left",
+                }}
+              >
+                Show {groupLayers.length}{" "}
+                {groupLayers.length === 1 ? "layer" : "layers"}
+              </button>
+            )}
+          </GroupFrame>
+        );
+      })}
+      <details
+        open
+        style={{
+          borderTop: "var(--border-w) solid var(--border-hair)",
+          marginTop: "var(--space-3)",
+        }}
+      >
+        <summary
+          style={{
+            ...railLabelStyle,
+            padding: "var(--space-2) 0",
+            cursor: "pointer",
+            listStyle: "none",
+          }}
+        >
           Legend
         </summary>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", paddingBottom: "var(--space-3)" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--space-3)",
+            paddingBottom: "var(--space-3)",
+          }}
+        >
           {showTemp && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-2)",
+              }}
+            >
               <div style={railLabelStyle}>Temperature scale</div>
               <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
                 {TEMP_STOPS.map((s) => (
                   <span
                     key={s.key}
                     title={s.label}
-                    style={{ flex: 1, height: 12, background: s.token, clipPath: "var(--clip-chamfer-sm)" }}
+                    style={{
+                      flex: 1,
+                      height: 12,
+                      background: s.token,
+                      clipPath: "var(--clip-chamfer-sm)",
+                    }}
                   />
                 ))}
               </div>
@@ -121,50 +183,131 @@ export function Legend({ units, mode = "current" }: LegendProps): JSX.Element | 
               </div>
             </div>
           )}
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-2)",
+            }}
+          >
             <div style={railLabelStyle}>Complexity</div>
-            <div style={{ font: "var(--text-xs)", color: "var(--text-dim)", lineHeight: 1.8 }}>
+            <div
+              style={{
+                font: "var(--text-xs)",
+                color: "var(--text-dim)",
+                lineHeight: 1.8,
+              }}
+            >
               △ 1-2 · Trivial
               <br />
               ◇ 3-5 · Ordinary
               <br />
               ● 6-12 · Involved
-              <br />
-              ● 13+ · Look here
+              <br />● 13+ · Look here
             </div>
           </div>
           {showNav && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-2)",
+              }}
+            >
               <div style={railLabelStyle}>Connectors</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, font: "var(--text-xs)", color: "var(--text-dim)" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  font: "var(--text-xs)",
+                  color: "var(--text-dim)",
+                }}
+              >
                 <span>
-                  <span style={{ display: "inline-block", width: 14, height: 2, background: "var(--connector-active)", verticalAlign: "middle", marginRight: 6 }} />
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 14,
+                      height: 2,
+                      background: "var(--connector-active)",
+                      verticalAlign: "middle",
+                      marginRight: 6,
+                    }}
+                  />
                   calls
                 </span>
                 <span>
-                  <span style={{ display: "inline-block", width: 14, height: 2, background: "var(--cool-indigo)", verticalAlign: "middle", marginRight: 6 }} />
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 14,
+                      height: 2,
+                      background: "var(--cool-indigo)",
+                      verticalAlign: "middle",
+                      marginRight: 6,
+                    }}
+                  />
                   imports
                 </span>
               </div>
               <div style={{ ...railLabelStyle, marginTop: 8 }}>On hover</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, font: "var(--text-xs)", color: "var(--text-dim)" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  font: "var(--text-xs)",
+                  color: "var(--text-dim)",
+                }}
+              >
                 <span>
-                  <span style={{ display: "inline-block", width: 14, height: 2, background: "var(--cool-azure)", verticalAlign: "middle", marginRight: 6 }} />
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 14,
+                      height: 2,
+                      background: "var(--cool-azure)",
+                      verticalAlign: "middle",
+                      marginRight: 6,
+                    }}
+                  />
                   incoming
                 </span>
                 <span>
-                  <span style={{ display: "inline-block", width: 14, height: 2, background: "var(--temp-4)", verticalAlign: "middle", marginRight: 6 }} />
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 14,
+                      height: 2,
+                      background: "var(--temp-4)",
+                      verticalAlign: "middle",
+                      marginRight: 6,
+                    }}
+                  />
                   outgoing
                 </span>
               </div>
             </div>
           )}
           {showNav && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-2)",
+              }}
+            >
               <div style={railLabelStyle}>Navigating</div>
-              <div style={{ font: "var(--text-xs)", color: "var(--text-dim)", lineHeight: 1.6 }}>
-                Click a node to inspect it. Double-click (hex nodes) to open. Double-click empty canvas, or Zoom out
-                above, to go back up.
+              <div
+                style={{
+                  font: "var(--text-xs)",
+                  color: "var(--text-dim)",
+                  lineHeight: 1.6,
+                }}
+              >
+                Click a node to inspect it. Double-click (hex nodes) to open.
+                Double-click empty canvas, or Zoom out above, to go back up.
               </div>
             </div>
           )}

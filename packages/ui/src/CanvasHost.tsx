@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, neighbours, type FocusState } from "@scv/design-system";
-import { buildScene, type Scene } from "@scv/layout";
+import { buildScene, type BoundaryEdge, type Scene } from "@scv/layout";
 import { codedreamLayerPalette, hashLayerToColor, node as tile, region as regionBox } from "@scv/skin-tiles";
 import { useAppStore } from "./store.js";
 import { sceneBounds, usePanZoom } from "./usePanZoom.js";
@@ -13,6 +13,10 @@ export type CanvasHostProps = {
   edges: Edge[];
   /** Present only in delta mode (docs/serve.md#2 — fill saturation = amount, ring = risk≥0.5). */
   deltaByUnit?: Map<string, TileDeltaInfo>;
+  /** Edges leaving the focused subtree; each collapses onto a boundary marker on the frame. */
+  boundaryEdges?: BoundaryEdge[];
+  /** The units those markers stand for, for their display name. */
+  externalUnits?: Unit[];
 };
 
 /**
@@ -28,7 +32,7 @@ export type CanvasHostProps = {
  * so a delta tile's pulse animation (applied via a class set once, independent of hover
  * props) does not replay on hover.
  */
-export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.Element {
+export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalUnits }: CanvasHostProps): JSX.Element {
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
@@ -40,10 +44,10 @@ export function CanvasHost({ units, edges, deltaByUnit }: CanvasHostProps): JSX.
   const priorSceneRef = useRef<Scene | undefined>(undefined);
 
   const scene = useMemo(() => {
-    const s = buildScene(units, edges, { priorScene: priorSceneRef.current });
+    const s = buildScene(units, edges, { priorScene: priorSceneRef.current, boundaryEdges, externalUnits });
     priorSceneRef.current = s;
     return s;
-  }, [units, edges]);
+  }, [units, edges, boundaryEdges, externalUnits]);
 
   const base = sceneBounds(scene);
 

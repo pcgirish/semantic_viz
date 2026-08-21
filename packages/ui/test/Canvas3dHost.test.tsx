@@ -4,8 +4,8 @@ import { Canvas3dHost } from "../src/Canvas3dHost.js";
 import type { Edge, Unit } from "@scv/schema";
 
 const units = [
-  { id: "a", name: "a", kind: "module", layer: "edge", group: "g", loc: { sloc: 10 }, complexity: 2, risk: 0 },
-  { id: "b", name: "b", kind: "module", layer: "domain", group: "g", loc: { sloc: 40 }, complexity: 5, risk: 0 },
+  { id: "a", name: "a", kind: "module", layer: "edge", loc: { sloc: 10 }, complexity: 2, risk: 0 },
+  { id: "b", name: "b", kind: "module", layer: "domain", loc: { sloc: 40 }, complexity: 5, risk: 0 },
 ] as unknown as Unit[];
 const edges = [{ from: "a", to: "b", kind: "imports", weight: 1 }] as unknown as Edge[];
 

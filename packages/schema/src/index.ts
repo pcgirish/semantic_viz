@@ -6,6 +6,9 @@ const ExternalId = z.string();
 
 export const UnitKindSchema = z.enum([
   "system",
+  /** An architectural grouping of layers, derived by Pass C. Sits between the system and its
+   *  layers, so the root is a handful of named domains rather than every layer at once. */
+  "group",
   "layer",
   "module",
   "class",
@@ -134,9 +137,6 @@ export const UnitSchema = z.object({
   // kind:"api_flow" only — branching form of `steps`; present when the traced flow has
   // fan-out (e.g. success/failure paths), absent for a purely linear flow.
   stepsBranching: StepBranchSchema.optional(),
-  // kind:"layer" only — the architectural group (e.g. "api surface") this layer belongs
-  // to, one level above layer in the hierarchy without being a new parent/child edge.
-  group: z.string().optional(),
 });
 
 const EvidenceSchema = z.object({
@@ -280,6 +280,20 @@ const UnitDeltaStatusSchema = z.enum([
   "unchanged",
 ]);
 
+/**
+ * Lineage across a reclustering, emitted only by the group matcher, which computes it from member
+ * overlap. Statuses stay as they are — a split group is `added` plus a `relationship`, and its
+ * predecessor `removed` plus the mirrored one — so the schema never advertises a status nothing
+ * can produce.
+ */
+export const UnitRelationshipSchema = z.object({
+  kind: z.enum(["split", "merged"]),
+  /** Unit ids on the other side, sorted ascending so two runs byte-compare. */
+  counterparts: z.array(UnitId),
+});
+
+export type UnitRelationship = z.infer<typeof UnitRelationshipSchema>;
+
 export const UnitDeltaSchema = z.object({
   unit: UnitId,
   qualname: z.string(),
@@ -290,6 +304,7 @@ export const UnitDeltaSchema = z.object({
   blast_radius: BlastRadiusSchema,
   authors: z.array(AuthorSchema),
   risk: RiskSchema,
+  relationship: UnitRelationshipSchema.optional(),
 });
 
 const EdgeDeltaStatusSchema = z.enum(["added", "removed", "reweighted"]);
@@ -356,3 +371,5 @@ export {
   type Severity,
   type ValidationResult,
 } from "./invariants.js";
+
+export { normalizeText, semanticHashInput, type SemanticFields } from "./normalize.js";

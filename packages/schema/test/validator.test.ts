@@ -51,13 +51,13 @@ describe("orderly fixture validates against scv/1", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts a layer unit with a group field set", () => {
+  it("accepts a group unit, the tier that replaced the layer `group` string", () => {
     const snapshot = loadFixture("orderly.snapshot.base.json");
     const [firstUnit, ...restUnits] = snapshot.units;
-    const unitWithGroup = { ...firstUnit, group: "api surface" };
+    const groupUnit = { ...firstUnit, id: "u:group:g1", kind: "group", name: "api surface" };
     const result = SnapshotSchema.safeParse({
       ...snapshot,
-      units: [unitWithGroup, ...restUnits],
+      units: [groupUnit, ...restUnits],
     });
     expect(result.success).toBe(true);
   });
