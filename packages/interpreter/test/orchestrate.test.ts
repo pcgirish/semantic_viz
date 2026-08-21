@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { finalizeSnapshot, runInterpreter } from "../src/orchestrate.js";
+import { validateSnapshotInvariants } from "@scv/schema";
 import type { Provider, ProviderContext, ProviderResult } from "../src/provider.js";
 import type { SymbolGraph } from "@scv/extractor";
-import type { Snapshot } from "@scv/schema";
+import type { Snapshot, Unit } from "@scv/schema";
 
 function makeGraph(): SymbolGraph {
   return {
@@ -89,6 +90,57 @@ function makeGraph(): SymbolGraph {
     externals: [],
     blockGraph: {},
     routes: [],
+  };
+}
+
+/**
+ * Adds the enclosing module unit for any function/class the fixture declared with `parent: null`.
+ * Real extraction never emits a bare leaf — every symbol sits in the file that declares it — but
+ * fixtures written to exercise Pass A ordering or flow tracing skip the module they don't assert
+ * on. Since `finalizeSnapshot` now validates its own output, those shortcuts would read as
+ * hierarchy defects. One module per file, id derived from the file path.
+ */
+function withModuleParents(graph: SymbolGraph): SymbolGraph {
+  const loose = graph.units.filter((u) => u.parent === null && u.kind !== "module");
+  if (loose.length === 0) return graph;
+
+  const byFile = new Map<string, typeof loose>();
+  for (const unit of loose) {
+    const existing = byFile.get(unit.loc.file);
+    if (existing) existing.push(unit);
+    else byFile.set(unit.loc.file, [unit]);
+  }
+
+  const modules = [...byFile].map(([file, members]) => {
+    const qualname = file.replace(/\.[^./]+$/, "").replace(/\//g, ".");
+    return {
+      id: `u:py:${qualname}#m`,
+      kind: "module" as const,
+      name: qualname.split(".").pop()!,
+      qualname,
+      lang: "python",
+      parent: null,
+      children: members.map((m) => m.id),
+      loc: { file, start: 1, end: 1 },
+      sloc: members.reduce((sum, m) => sum + m.sloc, 0),
+      params: [],
+      returns: null,
+      bases: [],
+      hash: { struct: `s-${qualname}`, text: `t-${qualname}` },
+      metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
+      authors: [],
+    };
+  });
+  const moduleOfFile = new Map(modules.map((m) => [m.loc.file, m.id]));
+
+  return {
+    ...graph,
+    units: [
+      ...modules,
+      ...graph.units.map((u) =>
+        u.parent === null && u.kind !== "module" ? { ...u, parent: moduleOfFile.get(u.loc.file)! } : u,
+      ),
+    ],
   };
 }
 
@@ -277,7 +329,7 @@ describe("runInterpreter", () => {
   });
 
   it("processes Pass A bottom-up over the call graph — callees before callers — for a chain a -> b -> c", async () => {
-    const graph: SymbolGraph = {
+    const graph: SymbolGraph = withModuleParents({
       units: [
         {
           id: "u:py:a#f",
@@ -338,7 +390,7 @@ describe("runInterpreter", () => {
       externals: [],
       blockGraph: {},
       routes: [],
-    };
+    });
     const snapshot = makeSnapshot(graph);
     const order: string[] = [];
     const provider: Provider = {
@@ -361,7 +413,7 @@ describe("runInterpreter", () => {
   });
 
   it("completes analysis on a call cycle a -> b -> a without hanging", async () => {
-    const graph: SymbolGraph = {
+    const graph: SymbolGraph = withModuleParents({
       units: [
         {
           id: "u:py:a#f",
@@ -405,7 +457,7 @@ describe("runInterpreter", () => {
       externals: [],
       blockGraph: {},
       routes: [],
-    };
+    });
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
       "grouping the files": { merges: {} },
@@ -425,7 +477,11 @@ describe("runInterpreter", () => {
 
     const result = await runInterpreter({ snapshot, graph, provider: wrapped, promptRev: "p1", readSource: () => "def f(): ..." });
 
-    expect(result.units.filter((u) => u.semantics)).toHaveLength(2);
+    // Both sides of the cycle get analyzed — the point of the test. Asserting on the leaves by id
+    // rather than counting every semantic unit, since the enclosing module also gets a oneLiner.
+    const analyzed = result.units.filter((u) => u.semantics).map((u) => u.id);
+    expect(analyzed).toContain("u:py:a#f");
+    expect(analyzed).toContain("u:py:b#f");
   });
 
   it("folds a callee's semantic hash into the caller's cache key context, so a callee-semantics change invalidates the caller's cache entry even though the prompt text path is best-effort", async () => {
@@ -575,7 +631,7 @@ describe("runInterpreter", () => {
   });
 
   it("populates stepsBranching with labeled success/failure paths for a handler with an if/else, alongside the existing linear steps", async () => {
-    const graph: SymbolGraph = {
+    const graph: SymbolGraph = withModuleParents({
       units: [
         {
           id: "u:py:src.auth.login#f",
@@ -664,7 +720,7 @@ describe("runInterpreter", () => {
         },
       },
       routes: [],
-    };
+    });
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
       "grouping the files": { merges: {} },
@@ -710,7 +766,7 @@ describe("runInterpreter", () => {
   });
 
   it("prepends DI/middleware edges (via: 'di') ahead of a handler's own body calls in both steps and stepsBranching", async () => {
-    const graph: SymbolGraph = {
+    const graph: SymbolGraph = withModuleParents({
       units: [
         {
           id: "u:py:src.orders.create_order#f",
@@ -786,7 +842,7 @@ describe("runInterpreter", () => {
       externals: [],
       blockGraph: {},
       routes: [],
-    };
+    });
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
       "grouping the files": { merges: {} },
@@ -829,7 +885,7 @@ describe("runInterpreter", () => {
   });
 
   it("keeps two distinct flows whose entry points the LLM gives the same route/name string — flow identity must not collide just because the LLM picked the same label twice", async () => {
-    const graph: SymbolGraph = {
+    const graph: SymbolGraph = withModuleParents({
       units: [
         {
           id: "u:py:src.a.run#f",
@@ -907,7 +963,7 @@ describe("runInterpreter", () => {
       externals: [],
       blockGraph: {},
       routes: [],
-    };
+    });
     const snapshot = makeSnapshot(graph);
     const provider: Provider = {
       name: "fake",
@@ -1076,7 +1132,7 @@ describe("runInterpreter", () => {
       metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
       authors: [],
     }));
-    const graph: SymbolGraph = { units, edges: [], externals: [], blockGraph: {}, routes: [] };
+    const graph: SymbolGraph = withModuleParents({ units, edges: [], externals: [], blockGraph: {}, routes: [] });
     const snapshot = makeSnapshot(graph);
 
     let inFlight = 0;
@@ -1095,7 +1151,9 @@ describe("runInterpreter", () => {
         if (prompt.includes("identifying api_flow")) {
           return { text: JSON.stringify({ flows: [] }), tokens: 10 };
         }
-        passACalls++;
+        // Count only the leaf prompts this test is about — the enclosing modules draw their own
+        // narration prompts, which are not the concurrency-capped path under test.
+        if (/Unit: mod\d+\.run\b/.test(prompt)) passACalls++;
         inFlight++;
         maxInFlight = Math.max(maxInFlight, inFlight);
         await new Promise((resolve) => setTimeout(resolve, 5));
@@ -1491,9 +1549,8 @@ describe("runInterpreter — root policy: every unit has a parent", () => {
       provider: makeSrcOnlyProvider(),
       promptRev: "p1",
       systemName: undefined,
-      units: makeSnapshot(graph)
-        .units.filter((u) => u.kind === "module")
-        .map((u) => ({ ...u, parent: null, children: [] })),
+      // Leaves keep their module parent — only the modules themselves are unclaimed.
+      units: makeSnapshot(graph).units.map((u) => (u.kind === "module" ? { ...u, parent: null } : u)),
       blockUnits: [],
       blockEdges: [],
       layerUnits: [],
@@ -1540,5 +1597,136 @@ describe("runInterpreter — root policy: every unit has a parent", () => {
     const system = result.units.find((u) => u.kind === "system");
     const layers = result.units.filter((u) => u.kind === "layer").length;
     expect(system?.metrics?.layers).toBe(layers);
+  });
+});
+
+/** A provider that answers every pass with its minimal well-formed response. */
+function passThroughProvider(): Provider {
+  return {
+    name: "fake",
+    model: "fake-model",
+    interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+      if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+      if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+      if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+      return { text: JSON.stringify(passAResponse), tokens: 10 };
+    }),
+  };
+}
+
+describe("finalizeSnapshot — tree reciprocity", () => {
+  async function analyze() {
+    const graph = makeGraph();
+    return runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: passThroughProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+  }
+
+  it("parents every layer and flow unit to the system", async () => {
+    const result = await analyze();
+    const sysId = result.units.find((u) => u.kind === "system")!.id;
+
+    const topLevel = result.units.filter((u) => u.kind === "layer" || u.kind === "api_flow");
+    expect(topLevel.length).toBeGreaterThan(0);
+    for (const unit of topLevel) expect(unit.parent).toBe(sysId);
+  });
+
+  it("agrees in both directions on what the system's children are", async () => {
+    const result = await analyze();
+    const system = result.units.find((u) => u.kind === "system")!;
+
+    // Set equality, not containment: a child the system lists but that claims another parent is
+    // just as broken as one that claims the system without being listed.
+    const claimed = result.units.filter((u) => u.parent === system.id).map((u) => u.id).sort();
+    expect([...system.children].sort()).toEqual(claimed);
+  });
+
+  it("keeps every layer's children modules, and every module under its layer", async () => {
+    const result = await analyze();
+    const byId = new Map(result.units.map((u) => [u.id, u]));
+
+    const layers = result.units.filter((u) => u.kind === "layer");
+    expect(layers.length).toBeGreaterThan(0);
+    for (const layer of layers) {
+      for (const childId of layer.children) {
+        expect(byId.get(childId)?.kind).toBe("module");
+        expect(byId.get(childId)?.parent).toBe(layer.id);
+      }
+    }
+  });
+
+  it("counts only layers in metrics.layers, not the flows that share the system's children", async () => {
+    const result = await analyze();
+    const system = result.units.find((u) => u.kind === "system")!;
+
+    expect(system.metrics?.layers).toBe(result.units.filter((u) => u.kind === "layer").length);
+  });
+});
+
+describe("finalizeSnapshot — invariant enforcement", () => {
+  it("throws when the snapshot it just built breaks a tree invariant", () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const modules = snapshot.units.filter((u) => u.kind === "module").map((u) => ({ ...u, children: [] }));
+
+    // A layer claiming a child that does not name it back — the exact upward break Phase 1
+    // fixed. Analyze time is where this is a bug, not a legacy artifact, so it must not pass.
+    const layer: Unit = {
+      ...modules[0]!,
+      id: "u:layer:bogus",
+      kind: "layer",
+      name: "bogus",
+      qualname: "bogus",
+      children: modules.map((m) => m.id),
+    };
+
+    expect(() =>
+      finalizeSnapshot({
+        snapshot,
+        provider: fakeProvider({}),
+        promptRev: "p1",
+        systemName: undefined,
+        units: modules.map((m) => ({ ...m, parent: null })),
+        blockUnits: [],
+        blockEdges: [],
+        layerUnits: [layer],
+        parentOverride: new Map(),
+        flowUnits: [],
+      }),
+    ).toThrow(/invariant/i);
+  });
+
+  it("builds a snapshot that passes its own invariants on a normal run", async () => {
+    const graph = makeGraph();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: passThroughProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    expect(validateSnapshotInvariants(result).findings).toEqual([]);
+  });
+
+  it("emits rollupProvenance naming the concrete edges each layer rollup stands for", async () => {
+    const graph = makeGraph();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: passThroughProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    // src/ and scripts/ land in different layers, so the one calls edge between them rolls up.
+    const rollups = result.edges.filter((e) => e.rollup === true);
+    expect(rollups).toHaveLength(1);
+    expect(rollups[0]?.rollupProvenance).toEqual({ edges: ["e:1"], count: 1, weight: 1 });
+    expect(rollups[0]?.weight).toBe(1);
   });
 });

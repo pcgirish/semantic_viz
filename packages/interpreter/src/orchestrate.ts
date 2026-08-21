@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { SymbolGraph, SymbolBlockGraph, SymbolUnit } from "@scv/extractor";
 import { isTestPath } from "@scv/extractor";
+import { formatFindings, validateSnapshotInvariants } from "@scv/schema";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
 import type { Provider } from "./provider.js";
 import { runPassA } from "./pass-a.js";
@@ -913,7 +914,10 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
       for (const f of unit.loc.files) layerOfFile.set(f, parentOverride.get(unit.id)!);
     }
   }
-  const layerEdgeWeight = new Map<string, { from: string; to: string; kind: Edge["kind"]; weight: number }>();
+  const layerEdgeWeight = new Map<
+    string,
+    { from: string; to: string; kind: Edge["kind"]; weight: number; contributors: string[] }
+  >();
   for (const edge of snapshot.edges) {
     const fromFile = fileOfUnit.get(edge.from);
     const toFile = fileOfUnit.get(edge.to);
@@ -922,10 +926,23 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
     if (!fromLayer || !toLayer || fromLayer === toLayer) continue;
     const key = `${fromLayer} ${toLayer} ${edge.kind}`;
     const existing = layerEdgeWeight.get(key);
-    if (existing) existing.weight += edge.weight;
-    else layerEdgeWeight.set(key, { from: fromLayer, to: toLayer, kind: edge.kind, weight: edge.weight });
+    if (existing) {
+      existing.weight += edge.weight;
+      existing.contributors.push(edge.id);
+    } else {
+      layerEdgeWeight.set(key, {
+        from: fromLayer,
+        to: toLayer,
+        kind: edge.kind,
+        weight: edge.weight,
+        contributors: [edge.id],
+      });
+    }
   }
   for (const [key, agg] of layerEdgeWeight) {
+    // Contributors are sorted so two runs over the same graph byte-compare, and carry their own
+    // count/weight so a tile can render "14 calls" without walking back to the concrete edges.
+    const contributors = [...agg.contributors].sort();
     edges.push({
       id: `e:${createHash("sha1").update(key).digest("hex").slice(0, 10)}`,
       from: agg.from,
@@ -936,10 +953,11 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
       source: "static",
       confidence: 1,
       rollup: true,
+      rollupProvenance: { edges: contributors, count: contributors.length, weight: agg.weight },
     });
   }
 
-  return {
+  const result: Snapshot = {
     ...snapshot,
     units: [...finalUnits, ...newUnits, ...blockUnits],
     edges,
@@ -948,6 +966,15 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
       interpreter: { provider: provider.name, model: provider.model, prompt_rev: promptRev },
     },
   };
+
+  // Warnings throw here too, unlike on load: this snapshot was produced seconds ago, so it has
+  // no legacy excuse. A hierarchy defect that reaches disk is one every skin then renders.
+  const { valid, findings } = validateSnapshotInvariants(result);
+  if (!valid || findings.length > 0) {
+    throw new Error(`finalizeSnapshot produced a snapshot that violates its invariants:\n${formatFindings(findings)}`);
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------------------------

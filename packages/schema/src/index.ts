@@ -154,6 +154,16 @@ export const EdgeSchema = z.object({
   source: SourceSchema,
   confidence: z.number().min(0).max(1),
   rollup: z.boolean().optional(),
+  // Present iff `rollup` is true: which concrete edges this aggregate stands for. Optional in
+  // the schema so snapshots written before this field still parse — enforcement that a *new*
+  // rollup carries it lives in `validateEdgeInvariants`, not here.
+  rollupProvenance: z
+    .object({
+      edges: z.array(EdgeId), // contributing edge ids, sorted ascending
+      count: z.number().int(), // == edges.length; explicit so consumers need not derive it
+      weight: z.number(), // summed weight of the contributors
+    })
+    .optional(),
   // kind:"control_flow" only — which branch this edge represents.
   flowType: z.enum(["sequential", "true", "false", "loop-back", "exception"]).optional(),
   // kind:"control_flow", flowType:"true"|"false" only — semantic branch label (e.g. "invalid"/
@@ -336,3 +346,13 @@ export const LayoutSchema = z.object({
 });
 
 export type Layout = z.infer<typeof LayoutSchema>;
+
+export {
+  validateTreeInvariants,
+  validateEdgeInvariants,
+  validateSnapshotInvariants,
+  formatFindings,
+  type Finding,
+  type Severity,
+  type ValidationResult,
+} from "./invariants.js";
