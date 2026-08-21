@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent } from "@testing-library/react";
 import type { Unit } from "@scv/schema";
 import { Legend } from "../src/Legend.js";
 
@@ -100,5 +100,42 @@ describe("Legend", () => {
     const { container } = render(<Legend units={units} />);
     const chip = container.querySelector(".chip") as HTMLElement;
     expect(chip.style.background).toBeTruthy();
+  });
+});
+
+describe("Legend at repository scale", () => {
+  afterEach(cleanup);
+
+  // A real repository clusters into 15+ top-level groups where the orderly fixture has 6
+  // (docs/implement-serve.md:121-131). Rendering every one expanded turns the rail into a
+  // scroll of chips, and the legend stops being readable at a glance — which is the only
+  // thing it is for.
+  function groups(n: number): Unit[] {
+    return Array.from({ length: n }, (_, i) =>
+      makeUnit({ id: `u:layer:${i}`, kind: "layer", name: `layer ${i}`, group: `group ${i}` }),
+    );
+  }
+
+  it("shows every group expanded while there are few enough to read at once", () => {
+    const { getByText } = render(<Legend units={groups(6)} />);
+    for (let i = 0; i < 6; i++) expect(getByText(`layer ${i}`)).not.toBeNull();
+  });
+
+  it("collapses groups past the sixth, keeping their names but not their contents", () => {
+    const { getByText, queryByText } = render(<Legend units={groups(12)} />);
+    expect(getByText("layer 5")).not.toBeNull();
+    // The 7th group's header is still a visible, clickable row — you can see it exists.
+    expect(getByText("group 6")).not.toBeNull();
+    expect(queryByText("layer 6")).toBeNull();
+  });
+
+  it("expands a collapsed group on demand, so nothing is unreachable", () => {
+    const { getAllByRole, getByText, queryByText } = render(<Legend units={groups(12)} />);
+    expect(queryByText("layer 6")).toBeNull();
+    // Six groups render expanded; the buttons are the remainder, in order.
+    fireEvent.click(getAllByRole("button", { name: /show 1 layer/i })[0]!);
+    expect(getByText("layer 6")).not.toBeNull();
+    // Expanding one does not expand the rest.
+    expect(queryByText("layer 7")).toBeNull();
   });
 });

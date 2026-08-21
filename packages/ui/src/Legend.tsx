@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { GroupFrame, TEMP_STOPS } from "@scv/design-system";
 import type { Unit } from "@scv/schema";
 import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
@@ -9,6 +9,17 @@ export type LegendProps = {
    * where nodes carry a temp or the canvas supports drill/select (docs mock's renderLegend). */
   mode?: "current" | "delta" | "depends" | "flows";
 };
+
+/**
+ * How many groups render with their layers showing.
+ *
+ * A real repository clusters into 15+ top-level groups where `fixtures/orderly` has 6
+ * (docs/implement-serve.md:121-131), and every one expanded turns the rail into a scroll of
+ * chips — the legend stops being readable at a glance, which is the only thing it is for.
+ * The rest keep a visible row you can open, so nothing becomes unreachable. This is the UI
+ * half of that problem; capping the clustering itself is the Interpreter's half.
+ */
+const EXPANDED_GROUPS = 6;
 
 const railLabelStyle: CSSProperties = {
   font: "var(--weight-semibold) var(--text-xs) var(--font-core)",
@@ -24,6 +35,7 @@ const railLabelStyle: CSSProperties = {
  * catch-all "other" header.
  */
 export function Legend({ units, mode = "current" }: LegendProps): JSX.Element | null {
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const layers = units.filter((u) => u.kind === "layer");
   if (layers.length === 0) return null;
 
@@ -38,25 +50,43 @@ export function Legend({ units, mode = "current" }: LegendProps): JSX.Element | 
 
   return (
     <>
-      {[...layersByGroup.entries()].map(([group, groupLayers]) => (
+      {[...layersByGroup.entries()].map(([group, groupLayers], i) => (
         // GroupFrame floats its label at top:-9px, which the enclosing Tray (overflow:
         // hidden) would clip; reserve that much room above each frame instead.
         <GroupFrame label={group} key={group} style={{ marginTop: 12, minWidth: 0 }}>
-          {groupLayers.map((layer) => (
-            <div key={layer.id} style={{ display: "flex", alignItems: "center", gap: "var(--gap-sm)" }}>
-              <span
-                className="chip"
-                style={{
-                  display: "inline-block",
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: hashLayerToColor(layer.id, codedreamLayerPalette),
-                }}
-              />
-              {layer.name}
-            </div>
-          ))}
+          {i < EXPANDED_GROUPS || expanded.has(group) ? (
+            groupLayers.map((layer) => (
+              <div key={layer.id} style={{ display: "flex", alignItems: "center", gap: "var(--gap-sm)" }}>
+                <span
+                  className="chip"
+                  style={{
+                    display: "inline-block",
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: hashLayerToColor(layer.id, codedreamLayerPalette),
+                  }}
+                />
+                {layer.name}
+              </div>
+            ))
+          ) : (
+            <button
+              type="button"
+              onClick={() => setExpanded((s) => new Set(s).add(group))}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                font: "var(--text-xs)",
+                color: "var(--text-faint)",
+                textAlign: "left",
+              }}
+            >
+              Show {groupLayers.length} {groupLayers.length === 1 ? "layer" : "layers"}
+            </button>
+          )}
         </GroupFrame>
       ))}
       <details open style={{ borderTop: "var(--border-w) solid var(--border-hair)", marginTop: "var(--space-3)" }}>

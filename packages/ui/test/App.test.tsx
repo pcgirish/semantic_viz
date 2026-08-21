@@ -758,6 +758,22 @@ describe("App", () => {
     });
   });
 
+  it("focuses a unit picked from search, bypassing the drill hierarchy", async () => {
+    // On a repository deep enough to have a hierarchy, walking it is the slow way to reach a
+    // known file — you must first know which top-level group owns it.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    const box = await screen.findByRole("searchbox");
+    fireEvent.change(box, { target: { value: "a" } });
+    fireEvent.click(screen.getAllByRole("option")[0]!);
+
+    await waitFor(() => {
+      expect(useAppStore.getState().selection).not.toBeNull();
+    });
+  });
+
   it("shows a rev picker populated from /api/revs, newest first", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/revs") {

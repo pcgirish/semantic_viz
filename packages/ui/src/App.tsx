@@ -3,6 +3,7 @@ import type { Delta, Snapshot, Unit } from "@scv/schema";
 import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
+import { UnitSearch } from "./UnitSearch.js";
 import { ControlsHelp } from "./ControlsHelp.js";
 // Lazy: three.js is ~570kB of the bundle and only the 3D skins need it, so a user who
 // never leaves the 2D view never downloads it.
@@ -129,6 +130,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const focusStack = useAppStore((s) => s.focusStack);
   const ascend = useAppStore((s) => s.ascend);
   const goTo = useAppStore((s) => s.goTo);
+  const drill = useAppStore((s) => s.drill);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-skin", theme);
@@ -282,6 +284,16 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   // against (e.g. the earliest rev) or nothing changed — either way there is no delta.
   const deltaIsEmpty = mode === "delta" && (delta?.inspect_queue ?? []).length === 0;
 
+  // A searched-for unit is almost never on the level you are standing on, so selecting it
+  // alone would highlight something off screen. Drilling to its parent puts it among the
+  // visible tiles first; drill (rather than a bare focus set) is what keeps the breadcrumb
+  // able to walk back the way you came.
+  const revealUnit = (unitId: string) => {
+    const parent = units.find((u) => u.id === unitId)?.parent;
+    if (parent && parent !== focus) drill(parent);
+    select(unitId);
+  };
+
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Toolbar
@@ -326,13 +338,16 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           </div>
         }
         right={
-          <Select
-            data-testid="rev-picker"
-            aria-label="revision"
-            value={sha}
-            onChange={(e) => setSha(e.target.value)}
-            options={revs.map((r) => ({ value: r.sha, label: shortSha(r.sha) }))}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+            <UnitSearch units={units} onPick={revealUnit} />
+            <Select
+              data-testid="rev-picker"
+              aria-label="revision"
+              value={sha}
+              onChange={(e) => setSha(e.target.value)}
+              options={revs.map((r) => ({ value: r.sha, label: shortSha(r.sha) }))}
+            />
+          </div>
         }
       />
       <div className="body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
