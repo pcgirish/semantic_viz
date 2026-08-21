@@ -23,7 +23,7 @@ in `cityscape` as an oversight.
 | P0-1 hierarchy is LLM-authored, not evidence-constrained | `pass-b.ts:37-105` | **Confirmed** |
 | P0-1 `modularity()` doesn't distinguish good partitions | `checker.ts:113-134` | **Confirmed** |
 | P0-2 `group` is presentation metadata, not a level | `orchestrate.ts:601-615`, `schema/src/index.ts:129-139` | **Confirmed** |
-| P0-3 parent/children inconsistent | `orchestrate.ts:499-527`, `:838-843` | **Confirmed, understated** |
+| P0-3 parent/children inconsistent | `orchestrate.ts:525`, `:753`, `:822`, `:838-843` | **Confirmed** (upward only — see correction) |
 | P1 "module" used for incompatible concepts | prompts/UI | **Confirmed** |
 | P1 edge rollups misaligned with hierarchy | `orchestrate.ts:846-881`, `:579-590` | **Confirmed** |
 | 3D is "a camera variant over the same extrusion" | `skins/cityscape/src/skin.ts:1-41` | **Accurate but misread** |
@@ -49,32 +49,59 @@ group with one layer is invisible, and there is no ID to select, drill into, or 
 schema comment at `index.ts:136-138` is candid that this is "one level above layer... without
 being a new parent/child edge," which is an accurate description of a level that isn't one.
 
-**P0-3 — where the review sells its own finding short.** The review says the effect is that
-"consumers can disagree about the visible level and drill target." The actual effect is
-worse and is reachable in the running app today.
+**P0-3 — the reciprocity break is upward, not downward.** The review says the effect is that
+"consumers can disagree about the visible level and drill target." That is right, but the
+mechanism is narrower than this document originally claimed, and the correction matters because
+it changes what has to be fixed.
 
-`orchestrate.ts:516-517` builds a layer's `children` from `memberUnits`, which is every unit
-in the layer's files — modules, classes, and functions alike. `orchestrate.ts:838-843`
-reparents only units where `kind === "module"`. So a function's `parent` correctly points at
-its module, while that same function's ID also sits in the layer's `children`.
+*See "Corrections to these comments" below for the superseded downward claim, retained struck
+through.*
 
-`App.tsx:235` renders `units.filter((u) => focusedUnit.children.includes(u.id))`. It reads
-`children` directly. **Drilling into a layer therefore renders that layer's modules and those
-modules' own functions as sibling tiles at the same visual level.** That is not a latent
-invariant violation waiting for a future consumer to trip over — it is a visible rendering
-bug in the primary navigation path, and it is the mechanism by which "zoom in" already fails
-to mean one consistent thing.
+The break runs **upward only**. `orchestrate.ts:525` creates layer units with `parent: null`, and
+`:753` does the same for flow units. `finalizeSnapshot` reparents only units where
+`kind === "module"` (`:838-843`), so neither layers nor flows are ever given a parent — while
+`:822` places all of them in the system unit's `children`. The system therefore claims children
+that do not claim it back.
 
-It is also, by a wide margin, the cheapest of the three P0s: filter `memberIds` to
-`kind === "module"` at the `children` assignment. That asymmetry is invisible in the review's
-plan, which files this alongside a redesign of the clustering algorithm.
+Downward, layer `children` is sound: `orchestrate.ts:451` filters `unitsByFile` to
+`kind === "module"`, so `memberIds` at `:517` can only ever contain modules. Confirmed by
+`metrics.modules` (`:537`) and by sweeping every snapshot in `.scv/snapshots/`
+(`nonModuleLayerChildren = 0`, `dangling = 0`, six snapshots).
+
+The sweep measures the upward break exactly. In both snapshots that carry layers, **every layer
+has `parent: null` while sitting in `system.children`** — 37 of 37, and 16 of 16. Flow units
+would show the same shape (`:753`), though these snapshots contain none.
+
+The sweep also surfaces a second orphan population the review does not reach. A module reaches
+`parentOverride` (`:504`) only via `unitsByFile`, which `:451` filters — so any module that is a
+test unit, or that no cluster claimed, is never parented:
+
+| Snapshot | units | orphans | composition |
+|---|---|---|---|
+| `b63222`, `06b0e56`, `d97187`, `1bc1c6` | 304–306 | **127 modules** | 47 test-path, **80 non-test** (fixtures, `docs/mock/`, `eslint.config.js`) |
+| `c9152a1` | 528 | **37 layers** | all layers, `parent: null` in `system.children` |
+| `e5574c3` | 503 | **16 layers** | as above |
+
+The 80 non-test orphans are the part worth noting: the gap is not only the deliberate test
+exclusion. Modules in directories no cluster claimed fall out too, so a root policy scoped only
+to test units would leave most of these behind.
+
+`nonModuleLayerChildren = 0` in all six snapshots — the downward direction is clean throughout.
+
+So the fix is not one filter. It is a root policy for every unit no layer claims, then upward
+parent assignment, then validation that would have caught either half.
 
 ## Where I disagree
 
 **1. P0-3 must be pulled out of Phase 1 and shipped now.** The review's Phase 1 lists it as
-step 2 of 5, behind "freeze terminology and the canonical tree contract." A one-line filter
-that fixes a live rendering bug should not queue behind a vocabulary exercise. Ship it
-first, independently, with a fixture test asserting a layer's children are all modules.
+step 2 of 5, behind "freeze terminology and the canonical tree contract." Tree correctness
+should not queue behind a vocabulary exercise. Ship it first, independently, with a fixture
+test asserting reciprocity in both directions.
+
+*(Originally argued on the strength of "a one-line filter that fixes a live rendering bug."
+The filter already exists; see the correction below. The priority argument survives the
+correction — the work is small, isolated, and blocks everything downstream — but it is a root
+policy plus upward parent assignment, not a one-liner.)*
 
 **2. Phase 1 as written is not executable.** It contains, in one bucket: a one-line filter
 (step 2), a schema decision requiring product judgment (step 1/3), and "implement
@@ -180,6 +207,42 @@ the 2D view never downloads it." Rendering is behind `<Suspense>` at `:405-412`.
 twice listed lazy-loading as an open action, carrying the original review's framing forward
 without checking it. The Vite build warning reports the size of a chunk that is already split
 and deferred — expected output, not a gap. Strike it from the queue.
+
+**The "live rendering bug" claim was false.** This is the correction that matters most, because
+the claim was this document's headline contribution and it was wrong.
+
+What was originally asserted, retained verbatim:
+
+> ~~`orchestrate.ts:516-517` builds a layer's `children` from `memberUnits`, which is every unit
+> in the layer's files — modules, classes, and functions alike.~~
+>
+> ~~`App.tsx:235` renders `units.filter((u) => focusedUnit.children.includes(u.id))`. It reads
+> `children` directly. **Drilling into a layer therefore renders that layer's modules and those
+> modules' own functions as sibling tiles at the same visual level.** That is not a latent
+> invariant violation waiting for a future consumer to trip over — it is a visible rendering
+> bug in the primary navigation path.~~
+>
+> ~~It is also, by a wide margin, the cheapest of the three P0s: filter `memberIds` to
+> `kind === "module"` at the `children` assignment.~~
+
+`memberUnits` is not "every unit in the layer's files." It is built from `unitsByFile`, and
+`orchestrate.ts:451` populates that map under `if (unit.kind !== "module" || isTestUnit(unit))
+continue`. A layer's `children` has therefore always been module-only. The recommended fix — a
+filter — was a filter that already existed.
+
+Two independent checks confirm it: `metrics.modules` (`:537`) counts `memberIds` directly as
+modules, and sweeping all six snapshots in `.scv/snapshots/` yields `nonModuleLayerChildren = 0`.
+
+The error came from reading the `memberUnits` expression at `:502` and `:516` without following
+`unitsByFile` back to its construction 50 lines earlier — inferring behavior from a plausible
+local reading instead of tracing the data. The irony is exact: this document opens by saying
+"nothing here is taken on the review's word," then took its own reading on its own word.
+
+What survives is the *upward* half, which the review found and this document initially treated as
+secondary. That half is real and total: every layer in every layered snapshot has `parent: null`
+while appearing in `system.children`. The sweep also found 80 orphaned **non-test** modules
+alongside the 47 test ones — so the root policy this implies is wider than the test-exclusion
+story alone suggests.
 
 **"One-line filter" understated the tree fix.** Layer units are created with `parent: null`
 (`orchestrate.ts:525`) and so are flow units (`:753`). `finalizeSnapshot` reparents only
