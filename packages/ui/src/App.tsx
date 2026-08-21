@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import type { Delta, Snapshot, Unit } from "@scv/schema";
+import type { Delta, Edge, Snapshot, Unit } from "@scv/schema";
+import type { BoundaryEdge } from "@scv/layout";
 import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
@@ -106,6 +107,68 @@ export function buildUnitToAncestor(visibleUnits: Unit[], unitsById: Map<string,
 /** @deprecated kept as a thin alias — call sites should use {@link buildUnitToAncestor}. */
 export const buildUnitToDomain = buildUnitToAncestor;
 
+/**
+ * Finds the edges with exactly one endpoint inside the focused subtree, and resolves each one's
+ * outside endpoint to the focused unit's *sibling* that contains it — at group focus, the other
+ * group; at layer focus, the other layer.
+ *
+ * Without this, cross-boundary coupling simply vanishes: the endpoints' nearest common ancestor
+ * is the system, which is not rendered at group focus, so the edge has no visible endpoint and
+ * gets dropped. Cross-group coupling is precisely what a reviewer opens a group to see.
+ */
+export function collectBoundaryEdges(input: {
+  focusedUnit: Unit;
+  visibleUnits: Unit[];
+  edges: Edge[];
+  unitsById: Map<string, Unit>;
+}): { boundaryEdges: BoundaryEdge[]; externalUnits: Unit[] } {
+  const { focusedUnit, visibleUnits, edges, unitsById } = input;
+
+  // Siblings of the focused unit are the collapse targets. At root the focused unit has no
+  // parent, so there are none — and correctly so: nothing is outside the system.
+  const parent = focusedUnit.parent ? unitsById.get(focusedUnit.parent) : undefined;
+  const siblingIds = new Set((parent?.children ?? []).filter((id) => id !== focusedUnit.id));
+  if (siblingIds.size === 0) return { boundaryEdges: [], externalUnits: [] };
+
+  const insideIds = descendantIds(focusedUnit, unitsById);
+  const toVisible = buildUnitToAncestor(visibleUnits, unitsById);
+  const toSibling = buildUnitToAncestor([...siblingIds].map((id) => unitsById.get(id)!).filter(Boolean), unitsById);
+
+  const boundaryEdges: BoundaryEdge[] = [];
+  const externalUnits = new Map<string, Unit>();
+  for (const e of edges) {
+    const fromInside = insideIds.has(e.from);
+    const toInside = insideIds.has(e.to);
+    if (fromInside === toInside) continue; // wholly inside, or wholly outside
+
+    // A crossing edge whose inside endpoint has no visible tile has nothing to draw from.
+    const insideEndpoint = fromInside ? e.from : e.to;
+    if (!toVisible.get(insideEndpoint)) continue;
+
+    const external = toSibling.get(fromInside ? e.to : e.from);
+    const externalUnit = external ? unitsById.get(external) : undefined;
+    if (!externalUnit) continue; // outside the focus but under no sibling — nothing to collapse onto
+
+    externalUnits.set(externalUnit.id, externalUnit);
+    boundaryEdges.push({ edge: e, external: externalUnit.id, direction: fromInside ? "out" : "in" });
+  }
+
+  return { boundaryEdges, externalUnits: [...externalUnits.values()] };
+}
+
+/** The focused unit plus everything beneath it, by `children` — the same ownership rule as above. */
+function descendantIds(root: Unit, unitsById: Map<string, Unit>): Set<string> {
+  const ids = new Set<string>();
+  const stack = [root.id];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (ids.has(id)) continue;
+    ids.add(id);
+    stack.push(...(unitsById.get(id)?.children ?? []));
+  }
+  return ids;
+}
+
 const MODE_LABEL: Record<string, string> = {
   current: "Current",
   delta: "Delta",
@@ -200,8 +263,15 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   // actually change the visible scene (e.g. selecting a tile) — otherwise every such
   // render hands CanvasHost new array/Map instances, which re-triggers its build effect
   // and replays each delta tile's pulse animation just from being selected.
-  const { visibleUnits, visibleEdges, deltaByUnit } = useMemo(() => {
-    if (!snapshot) return { visibleUnits: [], visibleEdges: [], deltaByUnit: new Map<string, TileDeltaInfo>() };
+  const { visibleUnits, visibleEdges, deltaByUnit, boundaryEdges, externalUnits } = useMemo(() => {
+    if (!snapshot)
+      return {
+        visibleUnits: [],
+        visibleEdges: [],
+        deltaByUnit: new Map<string, TileDeltaInfo>(),
+        boundaryEdges: [] as BoundaryEdge[],
+        externalUnits: [] as Unit[],
+      };
     const { units, edges } = snapshot;
 
     // docs/serve.md#4 "Current": outermost is the system unit; a view shows only the
@@ -216,6 +286,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     const useDomainTier = rootDomainUnits.length > 1;
 
     let visibleUnits: Unit[];
+    // Hoisted out of the branch below: the boundary pass needs the real focused unit, and a
+    // synthetic domain is not one — at a domain focus there are no real siblings to collapse onto.
+    let realFocusedUnit: Unit | null = null;
     if (focus === null && systemUnit && useDomainTier) {
       // System root: show the synthetic domain tier (mock parity) instead of the real,
       // module-granular layer units directly — same data, one grouped level inserted
@@ -225,6 +298,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
       const focusIsDomain = useDomainTier && !!focus && isDomainId(focus);
       const focusedUnit = focusIsDomain ? null : (focus && unitsById.get(focus)) || systemUnit;
       const domainUnit = focusIsDomain ? (rootDomainUnits.find((d) => d.id === focus) ?? null) : null;
+      realFocusedUnit = domainUnit ? null : focusedUnit;
       // api_flow units are listed among the system unit's children (so Flows.tsx can find
       // them) but belong only in the dedicated Flows view, not the structural
       // Current/Delta/Depends-on tree.
@@ -265,7 +339,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         return [];
       }),
     );
-    return { visibleUnits, visibleEdges, deltaByUnit };
+    // Edges with exactly one endpoint inside the focus were dropped by the loop above (their
+    // outside endpoint has no visible tile). They come back as boundary markers on the frame.
+    const { boundaryEdges, externalUnits } = realFocusedUnit
+      ? collectBoundaryEdges({ focusedUnit: realFocusedUnit, visibleUnits, edges, unitsById })
+      : { boundaryEdges: [], externalUnits: [] };
+
+    return { visibleUnits, visibleEdges, deltaByUnit, boundaryEdges, externalUnits };
   }, [snapshot, focus, delta]);
 
   if (state.status === "loading") return <div>Loading…</div>;
@@ -411,7 +491,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
               />
             </Suspense>
           ) : (
-            <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+            <CanvasHost
+              units={visibleUnits}
+              edges={visibleEdges}
+              deltaByUnit={mode === "delta" ? deltaByUnit : undefined}
+              boundaryEdges={boundaryEdges}
+              externalUnits={externalUnits}
+            />
           )
         )}
         <Inspector

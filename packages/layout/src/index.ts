@@ -1,5 +1,5 @@
 export { buildScene } from "./layout.js";
-export type { BuildSceneOptions } from "./layout.js";
+export type { BuildSceneOptions, BoundaryEdge } from "./layout.js";
 export { buildFlowchartScene } from "./flowchart.js";
 export { rank } from "./rank.js";
 export type { RankEdge } from "./rank.js";

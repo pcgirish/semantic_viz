@@ -204,3 +204,45 @@ describe("Inspector", () => {
     expect(screen.queryByText("u:check")).not.toBeInTheDocument();
   });
 });
+
+describe("Inspector — rolled-up dependency edges", () => {
+  afterEach(() => cleanup());
+
+  const caller = makeUnit({ id: "caller" });
+  const callee = makeUnit({ id: "callee" });
+
+  function edge(overrides: Partial<Edge> & { id: string; from: string; to: string }): Edge {
+    return { kind: "calls", weight: 1, source: "static", confidence: 1, ...overrides };
+  }
+
+  it("says how many concrete edges a rollup stands for, rather than showing its summed weight", () => {
+    // A group->group edge standing for 14 calls is unreadable as a bare weight; `count` is what
+    // makes it say "14 calls".
+    render(
+      <Inspector
+        unit={caller}
+        units={[caller, callee]}
+        edges={[
+          edge({
+            id: "e1", from: "caller", to: "callee", weight: 20, rollup: true,
+            rollupProvenance: { edges: ["c1", "c2"], count: 14, weight: 20 },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/callee/)).toHaveTextContent("14");
+  });
+
+  it("leaves a plain, non-rolled-up edge as a bare name", () => {
+    render(<Inspector unit={caller} units={[caller, callee]} edges={[edge({ id: "e1", from: "caller", to: "callee" })]} />);
+    expect(screen.getByText("callee")).toBeInTheDocument();
+  });
+
+  it("shows nothing extra for a legacy rollup that predates the provenance field", () => {
+    render(
+      <Inspector unit={caller} units={[caller, callee]} edges={[edge({ id: "e1", from: "caller", to: "callee", rollup: true })]} />,
+    );
+    expect(screen.getByText("callee")).toBeInTheDocument();
+  });
+});

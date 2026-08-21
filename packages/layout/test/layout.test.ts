@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildScene } from "../src/layout.js";
+import { buildScene, type BoundaryEdge } from "../src/layout.js";
 import type { Edge, Unit } from "@scv/schema";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
@@ -274,5 +274,113 @@ describe("extrusion depth", () => {
     const scene = buildScene([makeUnit({ id: "a", loc: { files: [], sloc: 0 } })], []);
     const n = scene.nodes[0]!;
     expect(n.depth).toBeGreaterThan(Math.max(n.w, n.h));
+  });
+});
+
+describe("boundary markers", () => {
+  // An edge with exactly one endpoint inside the focused subtree renders to a collapsed
+  // external endpoint: a real SceneNode carrying `boundary`, whose `id` IS the off-screen
+  // unit, so drill/hover/search need no synthetic id space.
+  const inside = [makeUnit({ id: "in-a" }), makeUnit({ id: "in-b" })];
+  const externals = [makeUnit({ id: "ext-1", name: "Billing" }), makeUnit({ id: "ext-2", name: "Auth" })];
+
+  function boundary(overrides: Partial<BoundaryEdge> & { edge: Edge }): BoundaryEdge {
+    return { external: "ext-1", direction: "out", ...overrides };
+  }
+
+  it("emits one marker per external sibling, carrying the contributing count", () => {
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [boundary({ edge: makeEdge({ id: "e1", from: "in-a", to: "ext-1" }) })],
+    });
+
+    const markers = scene.nodes.filter((n) => n.boundary);
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.id).toBe("ext-1");
+    expect(markers[0]!.name).toBe("Billing");
+    expect(markers[0]!.boundary).toEqual({ edgeCount: 1, weight: 1, direction: "out", inCount: 0, outCount: 1 });
+  });
+
+  it("collapses two edges to the same external into one marker", () => {
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [
+        boundary({ edge: makeEdge({ id: "e1", from: "in-a", to: "ext-1", weight: 2 }) }),
+        boundary({ edge: makeEdge({ id: "e2", from: "in-b", to: "ext-1", weight: 3 }) }),
+      ],
+    });
+
+    const markers = scene.nodes.filter((n) => n.boundary);
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.boundary).toEqual({ edgeCount: 2, weight: 5, direction: "out", inCount: 0, outCount: 2 });
+  });
+
+  it("mirrors direction for an inbound-only external", () => {
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [boundary({ edge: makeEdge({ id: "e1", from: "ext-1", to: "in-a" }), direction: "in" })],
+    });
+
+    expect(scene.nodes.find((n) => n.boundary)!.boundary).toEqual({
+      edgeCount: 1, weight: 1, direction: "in", inCount: 1, outCount: 0,
+    });
+  });
+
+  it("merges a bidirectional pair into one marker with direction 'both'", () => {
+    // The assertion that fails under both rejected designs: a marker per direction would put
+    // two nodes with the same `id` in Scene.nodes, and a two-value `direction` could not
+    // describe a sibling that is both called and calling.
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [
+        boundary({ edge: makeEdge({ id: "e1", from: "in-a", to: "ext-1" }), direction: "out" }),
+        boundary({ edge: makeEdge({ id: "e2", from: "ext-1", to: "in-b" }), direction: "in" }),
+      ],
+    });
+
+    const markers = scene.nodes.filter((n) => n.boundary);
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.boundary).toEqual({ edgeCount: 2, weight: 2, direction: "both", inCount: 1, outCount: 1 });
+    expect(new Set(scene.nodes.map((n) => n.id)).size).toBe(scene.nodes.length);
+  });
+
+  it("produces no markers when nothing crosses the boundary", () => {
+    const scene = buildScene(inside, [makeEdge({ id: "e1", from: "in-a", to: "in-b" })]);
+    expect(scene.nodes.filter((n) => n.boundary)).toHaveLength(0);
+    expect(scene.nodes.every((n) => n.boundary === undefined)).toBe(true);
+  });
+
+  it("clamps markers to the frame edge and spreads them so they do not overlap", () => {
+    const scene = buildScene(inside, [], {
+      externalUnits: externals,
+      boundaryEdges: [
+        boundary({ edge: makeEdge({ id: "e1", from: "in-a", to: "ext-1" }), external: "ext-1" }),
+        boundary({ edge: makeEdge({ id: "e2", from: "ext-2", to: "in-b" }), external: "ext-2", direction: "in" }),
+      ],
+    });
+
+    const markers = scene.nodes.filter((n) => n.boundary).sort((a, b) => a.y - b.y);
+    expect(markers).toHaveLength(2);
+    // Sorted by id, so placement does not depend on input order.
+    expect(markers.map((m) => m.id)).toEqual(["ext-1", "ext-2"]);
+    expect(markers[0]!.y + markers[0]!.h).toBeLessThanOrEqual(markers[1]!.y);
+    // Outside the interior nodes' x-extent: the markers sit on the frame, not among the tiles.
+    const interiorMaxX = Math.max(...scene.nodes.filter((n) => !n.boundary).map((n) => n.x + n.w));
+    for (const m of markers) expect(m.x).toBeGreaterThanOrEqual(interiorMaxX);
+  });
+
+  it("keeps markers out of regions, which describe the focused subtree only", () => {
+    const scene = buildScene(
+      [makeUnit({ id: "l1", kind: "layer", group: "core" }), makeUnit({ id: "l2", kind: "layer", group: "core" })],
+      [],
+      {
+        externalUnits: externals,
+        boundaryEdges: [boundary({ edge: makeEdge({ id: "e1", from: "l1", to: "ext-1" }) })],
+      },
+    );
+
+    const region = scene.regions.find((r) => r.id === "core")!;
+    const marker = scene.nodes.find((n) => n.boundary)!;
+    expect(marker.x).toBeGreaterThanOrEqual(region.x + region.w);
   });
 });
