@@ -35,16 +35,91 @@ export function orbitControls(camera: THREE.Camera, dom: HTMLElement): Controls3
   return { update: () => c.update(), dispose: () => c.dispose(), target: c.target };
 }
 
+/** Radians of camera rotation per pixel dragged. Tuned so crossing the canvas turns ~180°. */
+const FLY_LOOK_SENSITIVITY = 0.004;
+
+/** Just short of straight up/down, so the horizon can never flip past vertical. */
+const MAX_PITCH = Math.PI / 2 - 0.01;
+
 /**
- * Fly: travel across the city while keeping the overview. `dragToLook` rather than
- * always-look, so a pointer resting over the canvas does not swing the camera on its own.
+ * Fly: travel across the city while keeping the overview.
+ *
+ * `FlyControls` supplies the movement — WASD/arrows plus R/F, which is the whole point of the
+ * mode — but its looking is unusable and is turned off here. Stock reads the cursor's
+ * *absolute offset from the canvas centre* and feeds it to `update()` as a rotation **rate**,
+ * so holding the pointer anywhere off-centre spins the camera continuously and dragging back
+ * toward centre only slows the spin rather than unwinding it. No cursor position returns the
+ * camera to where it started, which is what made fly mode "only move away, hard to reverse".
+ *
+ * Looking is therefore ours: a drag delta maps to a fixed rotation, so a gesture and its
+ * reverse cancel exactly. Yaw is applied in world space and pitch in camera space, which is
+ * what keeps the horizon level — composing both locally would let repeated diagonal drags
+ * accumulate roll.
  */
 export function flyControls(camera: THREE.Camera, dom: HTMLElement): Controls3d {
   const c = new FlyControls(camera, dom);
   c.movementSpeed = FLY_SPEED;
-  c.rollSpeed = 0.6;
+  c.rollSpeed = 0;
+  // Leaves stock's pointer handlers installed but inert: with dragToLook on, onPointerMove
+  // only writes rotation state while `_status > 0`, and that counter is only raised by the
+  // pointerdown listener we stop below.
   c.dragToLook = true;
-  return { update: (dt) => c.update(dt), dispose: () => c.dispose() };
+
+  let dragging = false;
+  let lastX = 0;
+  let lastY = 0;
+  let yaw = 0;
+  let pitch = 0;
+
+  // Seeded from the camera's current facing so the first drag continues from where the host
+  // pointed it, rather than snapping to level.
+  const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, "YXZ");
+  yaw = euler.y;
+  pitch = euler.x;
+
+  const apply = () => {
+    camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
+  };
+
+  // Capture-phase, so stock's own pointerdown never sees the event and never raises the
+  // `_status` counter that would re-enable its rate-based looking.
+  const onDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    dragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+  };
+
+  const onMove = (e: PointerEvent) => {
+    if (!dragging) return;
+    e.stopPropagation();
+    yaw -= (e.clientX - lastX) * FLY_LOOK_SENSITIVITY;
+    pitch = THREE.MathUtils.clamp(pitch - (e.clientY - lastY) * FLY_LOOK_SENSITIVITY, -MAX_PITCH, MAX_PITCH);
+    lastX = e.clientX;
+    lastY = e.clientY;
+    apply();
+  };
+
+  const onUp = () => {
+    dragging = false;
+  };
+
+  dom.addEventListener("pointerdown", onDown, true);
+  dom.addEventListener("pointermove", onMove, true);
+  // On window rather than the canvas: releasing outside the element must still end the drag,
+  // or the camera keeps turning after the button is up.
+  window.addEventListener("pointerup", onUp);
+
+  return {
+    update: (dt) => c.update(dt),
+    dispose: () => {
+      dom.removeEventListener("pointerdown", onDown, true);
+      dom.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp);
+      c.dispose();
+    },
+  };
 }
 
 /**
