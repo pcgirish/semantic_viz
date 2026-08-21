@@ -95,6 +95,28 @@ Note that beacon *fading* is already handled: `applyFocus` only touches the mesh
 
 **Tests (RED first).** `packages/ui/test/scene3d.test.ts` (or new): `applyFocus` — focused group ends at top of children order. A beacon-never-dims test is worth keeping as a regression pin even though it passes today. `packages/skins/cityscape/test/minimap.test.ts`: risk field passed through projection.
 
+**Closed.** Both halves landed and were browser-verified against `fixtures/orderly`. Three notes
+that change what came after:
+
+1. **Render order was the smaller half.** The problem statement above named draw order as the
+   whole gap; it is not. A faded mesh kept `depthWrite` on, so it still wrote into the depth
+   buffer and punched a hole straight through the focused building behind it — reordering alone
+   leaves that hole. The fix is both: `depthWrite = !faded`, *and* re-appending the focused
+   child. Verified discriminating by temporarily reverting each in a built bundle and
+   re-shooting the same focused view.
+2. **Risk uses the boolean `ring`, not a numeric threshold.** The fix bullet above proposed
+   `risk?: number` with a `≥ 0.5` cutoff in the UI. Implemented instead as `risk: boolean` read
+   from the same `ring` flag `tiles3d` grows its beacon from (`node.ts:144`). A second threshold
+   in the UI could drift out of step with the 3D view, and the map disagreeing with the city
+   about what is flagged is worse than either alone.
+3. **The risk channel has no producer.** `ring` is hardcoded `false` at both layout sites
+   (`layout.ts:163`, `flowchart.ts:163`), as is `heat: 0`. So no fixture can currently show a
+   beacon *or* a map marker — the encoding `docs/serve.md:187-192` specifies is unreachable
+   end to end. The marker's render path is pinned by unit tests, but it cannot be seen in the
+   browser until something computes risk. **Out of scope for this plan** — it is an
+   analyze/layout gap, not a navigation one — but it should get its own issue, because Phase 2's
+   beacon work is dormant until then.
+
 ## Phase 3 — Continuous zoom triggers drill/ascend
 
 **Problem.** The user's ask ("zoom in, and it breaks apart") requires camera distance to drive navigation. Today navigation is discrete: click = select, dblclick = drill (`packages/ui/src/Canvas3dHost.tsx:253-270`), raycast-based only. `Scene` (`packages/layout/src/scene.ts`) is deliberately flat with no parent/child field — drilling swaps which flat Scene is loaded, server/store-side. So true geometric LOD isn't there to reveal; the practical fix is to auto-fire the *existing* discrete drill/ascend intents once the camera crosses a distance threshold, reusing the current `navigate()` machinery rather than building a new LOD data model.
@@ -127,7 +149,16 @@ Note that beacon *fading* is already handled: `applyFocus` only touches the mesh
 - **13+ complexity** ("look at this") extrudes to a **cylinder**, deliberately not a sphere, so it keeps reporting height/sloc (`docs/serve.md`'s explicit reasoning, `node.ts:92-94`).
 - **Hue** = layer; **risk beacon** (cone) floats above roofline for high-risk units, a channel not otherwise spent (`node.ts:107-114`).
 
-So "just blobs" is a rendering/legibility problem, not a missing encoding. Two likely causes, both addressable independently:
+**Observed while verifying Phase 2, and likely the dominant cause of "just blobs":** in the
+cityscape view on `fixtures/orderly`, buildings render **inverted** — widest at the roofline and
+tapering down to a point at street level, standing on their apex. `ngonShape()` builds the
+footprint and `body()` extrudes it, so the taper is a geometry defect (circumradius or extrude
+direction), not a material one. An upside-down cone reads as a blob from any angle, and no
+amount of edge accenting fixes a silhouette that is wrong to begin with. **Diagnose this before
+the edge-outline work below** — the outline fix is aimed at a subtler problem than the one
+actually on screen, and may prove unnecessary once the geometry is upright.
+
+So "just blobs" is a rendering/legibility problem, not a missing encoding. Two further likely causes, both addressable independently:
 
 1. **Silhouette is a top-down signal, street level removes the vantage that shows it.** A triangular vs. hexagonal footprint is easy to read from orbit/overview but hard to distinguish edge-on at eye height, especially at typical building spacing. Cityscape inherits `tiles3d`'s geometry unchanged (per the "3D is just extrusion over the 2D layout" rule), so nothing skin-specific currently compensates for the street vantage.
 2. **Uniform flat material.** `facade()` (`node.ts:55-79`) gives every building the same `roughness`/`metalness` and no edge/texture treatment — hue is the only strongly-legible differentiator at range; shape has to be inferred from silhouette alone, which compounds problem 1.
