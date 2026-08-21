@@ -43,6 +43,22 @@ is faithfully reporting it. Fix Bug B first, then re-check the compass in the br
 need no change at all. Only if the spin persists in walk mode (which uses
 `PointerLockControls`, not `FlyControls`) is there a second, separate bug to find.
 
+**Closed — Bug A was a symptom of Bug B, and the minimap needed no change.** Re-checked in a
+browser against `fixtures/orderly` after the Bug B fix landed. From a clean camera, four exact
+90° left turns:
+
+| Facing | Wedge apex |
+|---|---|
+| north (-z), start | up |
+| west (-x) | left |
+| south (+z) | down |
+| east (+x) | right |
+| back to north | up |
+
+All four cardinals correct, sweeping counter-clockwise for left turns, and returning exactly to
+the start after 360°. The "spins continuously in one direction" report was the compass honestly
+tracking a camera that really was spinning.
+
 **Bug B: dragging in fly mode only moves away, hard to reverse.**
 
 Root cause: `packages/ui/src/Canvas3dHost.tsx:178` selects `flyControls` for cityscape's non-street ("Fly") view. `flyControls` (`packages/ui/src/controls3d.ts:42-48`) wraps three.js's stock `FlyControls` with `dragToLook: true`. The problem is how that controller reads the pointer:
@@ -201,8 +217,8 @@ Branch `feature/cityscape-skin` has not merged to `main` yet — it's the branch
 
 ## Verification
 
-- Phase 1 (Bug B): in-browser, confirm dragging in fly mode is reversible — a drag and its reverse return the camera to roughly where it started, and holding the cursor off-centre no longer spins the view continuously.
-- Phase 1 (Bug A): *after* Bug B is fixed, re-check whether the compass still misbehaves. Face each of north/south/east/west in turn and confirm the wedge points the way the camera faces — checking all four matters, since north/south alone cannot distinguish a sign error. If the compass is correct once B lands, Bug A was a symptom and needs no separate fix; record that and close it.
+- Phase 1 (Bug B): **done.** Verified in-browser on `fixtures/orderly`: a 300px drag turned the camera 68.75°, the reverse drag returned it to 0° exactly, and holding the pointer off-centre for 1.2s produced 0° of drift where stock spun continuously.
+- Phase 1 (Bug A): **done — closed as a symptom, no code change.** All four cardinals verified in-browser after the Bug B fix; see the Phase 1 Bug A table.
 - Phase 2: manually drive cityscape in-browser (per CLAUDE.md's "test the golden path in a browser" rule for UI changes) — confirm a focused building is never visually occluded by a faded one, and a high-risk beacon stays visible when unfocused/behind other geometry.
 - Phase 3: walk toward a building in cityscape without clicking; confirm auto-drill fires at the threshold and auto-ascend on backing away, with no flicker at the boundary; confirm manual dblclick drill/ascend still work unchanged.
 - Phase 4: in-browser at street level, confirm triangle/square/hexagon/cylinder buckets are visually distinguishable at typical walking distance and viewing angle, not just from overview; confirm the skyline against a large real repo (`../eq_to_word_problem`) reads as varied buildings rather than a few towers dwarfing everything else, and that `fixtures/orderly`'s skyline is not meaningfully changed by the rescale (small-file heights stay visually reasonable). Explicitly re-check Checkpoint 2's finding: a median building must still be taller than its footprint is wide, so the street does not revert to a plain of slabs.
