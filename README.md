@@ -294,6 +294,22 @@ controls guide that names the keys for whichever skin and camera are current.
 For repositories too deep to drill through, a toolbar search box jumps
 straight to a unit by name, and the legend collapses groups past the sixth.
 
+The navigation hierarchy is being made structurally sound, following
+`docs/plans/hierarchy-correctness-and-clustering-redesign.md`. Landed so far: a
+single-root policy, so every unit but the system has a parent and test modules
+sit in a `test_suite` container rather than dangling as orphans; referential
+integrity validators that separate a structural defect from a legacy artifact by
+severity, and so throw at analyze time while still letting an old snapshot on
+disk load and serve; and real `group` units built deterministically from layer
+ids rather than from LLM-chosen names, with rollup edges now carrying the
+concrete edges they stand for, so a group-to-group edge reads as "14 calls"
+instead of an opaque summed weight. Focusing a group no longer hides its coupling
+to the rest of the system: an edge with one endpoint outside the focus renders to
+a boundary marker on the frame, labelled with the sibling it addresses, the
+direction, and how many edges collapsed into it. Still ahead: retiring the
+synthetic domain tier the group units replace, and the deterministic clustering
+work behind it.
+
 | Package | What it does | Status |
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
