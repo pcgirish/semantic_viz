@@ -306,9 +306,12 @@ concrete edges they stand for, so a group-to-group edge reads as "14 calls"
 instead of an opaque summed weight. Focusing a group no longer hides its coupling
 to the rest of the system: an edge with one endpoint outside the focus renders to
 a boundary marker on the frame, labelled with the sibling it addresses, the
-direction, and how many edges collapsed into it. Still ahead: retiring the
-synthetic domain tier the group units replace, and the deterministic clustering
-work behind it.
+direction, and how many edges collapsed into it. The synthetic client-side
+domain tier those group units replace is now gone, and with it the layer `group`
+name string: regions, the legend, and the breadcrumb key on a group unit's id, so
+renaming a group no longer reads as one group vanishing and another appearing,
+and two groups that happen to share a name stay distinct. Still ahead: the
+deterministic clustering work behind it.
 
 | Package | What it does | Status |
 |---|---|---|
