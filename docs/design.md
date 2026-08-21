@@ -81,7 +81,7 @@ Every level is a Unit — system, layer, module, class, function, api_flow, bloc
 ```jsonc
 {
   "id": "u:py:src.api.middleware.rate_limiter.rate_limit.check#f",
-  "kind": "system|layer|module|package|class|function|api_flow|block|config",
+  "kind": "system|layer|module|class|function|api_flow|block|unclustered",
   "name": "check",
   "qualname": "src.api.middleware.rate_limiter.rate_limit.check",
   "lang": "python",

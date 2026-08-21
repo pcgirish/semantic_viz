@@ -804,14 +804,74 @@ export interface FinalizeSnapshotOptions {
   flowUnits: Unit[];
 }
 
+/** Builds a structural container holding modules no layer claimed, so they have a parent
+ *  instead of dangling at the root. Returns null when there is nothing to hold — an empty
+ *  container would be a tile with no meaning. Purely static: containers are never narrated. */
+function buildContainerUnit(options: {
+  id: string;
+  kind: "unclustered";
+  name: string;
+  members: Unit[];
+  sysId: string;
+}): Unit | null {
+  const { id, kind, name, members, sysId } = options;
+  if (members.length === 0) return null;
+
+  const memberIds = members.map((u) => u.id);
+  return {
+    id,
+    kind,
+    name,
+    qualname: name,
+    lang: undefined,
+    parent: sysId,
+    children: memberIds,
+    loc: {
+      files: [...new Set(members.flatMap((u) => u.loc.files))],
+      start: null,
+      end: null,
+      sloc: members.reduce((sum, u) => sum + u.loc.sloc, 0),
+    },
+    semantics: null,
+    cost: null,
+    tags: [],
+    metrics: { sloc: members.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
+    authors: undefined,
+    hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
+    provenance: { source: "static" },
+  };
+}
+
 /** Merges the functions/layers/groups/flows pass outputs into one scv/1 Snapshot: reparents
  *  modules under their layer, rolls up layer-to-layer edges, and adds a root system unit. */
 export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
   const { snapshot, provider, promptRev, systemName, units, blockUnits, blockEdges, layerUnits, parentOverride, flowUnits } = options;
 
-  const newUnits: Unit[] = [...layerUnits, ...flowUnits];
-
   const sysId = `u:sys:${systemName ?? snapshot.repo.root}`;
+
+  // Pass B routes every file into some cluster (`checkAndRepairClusters` has its own unclustered
+  // fallback), so a module normally has a layer. A module that still has none — because the
+  // layers pass did not run, or it was excluded from the file list it clustered — would sit at
+  // parent: null and break the single-root invariant, so it is collected here instead.
+  const unclaimedModules = units.filter((u) => u.kind === "module" && !parentOverride.has(u.id));
+  const containers = [
+    buildContainerUnit({
+      id: `u:unclustered:${systemName ?? snapshot.repo.root}`,
+      kind: "unclustered",
+      name: "Unclustered",
+      members: unclaimedModules,
+      sysId,
+    }),
+  ].filter((c): c is Unit => c !== null);
+
+  const containerParent = new Map<string, string>();
+  for (const container of containers) {
+    for (const memberId of container.children) containerParent.set(memberId, container.id);
+  }
+
+  const layerCount = layerUnits.length;
+  const newUnits: Unit[] = [...layerUnits, ...flowUnits, ...containers].map((u) => ({ ...u, parent: sysId }));
+
   newUnits.push({
     id: sysId,
     kind: "system",
@@ -829,18 +889,16 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
     semantics: null,
     cost: null,
     tags: [],
-    metrics: { modules: units.filter((u) => u.kind === "module").length, layers: newUnits.length },
+    metrics: { modules: units.filter((u) => u.kind === "module").length, layers: layerCount },
     authors: undefined,
     hash: { struct: createHash("sha1").update(newUnits.map((u) => u.id).sort().join("")).digest("hex"), text: null, semantic: null },
     provenance: { source: "llm", pass: "C" },
   });
 
   const finalUnits = units.map((unit) => {
-    const newParent = parentOverride.get(unit.id);
-    if (newParent && unit.kind === "module") {
-      return { ...unit, parent: newParent };
-    }
-    return unit;
+    if (unit.kind !== "module") return unit;
+    const newParent = parentOverride.get(unit.id) ?? containerParent.get(unit.id);
+    return newParent ? { ...unit, parent: newParent } : unit;
   });
 
   const fileOfUnit = new Map<string, string>();

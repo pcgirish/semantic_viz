@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runInterpreter } from "../src/orchestrate.js";
+import { finalizeSnapshot, runInterpreter } from "../src/orchestrate.js";
 import type { Provider, ProviderContext, ProviderResult } from "../src/provider.js";
 import type { SymbolGraph } from "@scv/extractor";
 import type { Snapshot } from "@scv/schema";
@@ -1370,5 +1370,175 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
     expect(passBPrompt).toContain("scripts");
     expect(passCPrompt).toContain("Repo context");
     expect(passCGroupsPrompt).toContain("Repo context");
+  });
+});
+
+describe("runInterpreter — root policy: every unit has a parent", () => {
+  /** A graph with three orphan classes: a test module, a module no cluster will claim,
+   *  and the layer/flow units the passes themselves create. */
+  function makeGraphWithOrphanClasses(): SymbolGraph {
+    const graph = makeGraph();
+    graph.units.push(
+      {
+        id: "u:py:tests.test_admin_tasks#m",
+        kind: "module",
+        name: "test_admin_tasks",
+        qualname: "tests",
+        lang: "python",
+        parent: null,
+        children: [],
+        loc: { file: "tests/test_admin_tasks.py", start: 1, end: 10 },
+        sloc: 4,
+        params: [],
+        returns: null,
+        bases: [],
+        hash: { struct: "s-test-mod", text: "t-test-mod" },
+        metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
+        authors: [],
+      },
+      {
+        id: "u:py:fixtures.sample#m",
+        kind: "module",
+        name: "sample",
+        qualname: "fixtures.sample",
+        lang: "python",
+        parent: null,
+        children: [],
+        loc: { file: "fixtures/sample.py", start: 1, end: 6 },
+        sloc: 3,
+        params: [],
+        returns: null,
+        bases: [],
+        hash: { struct: "s-fix-mod", text: "t-fix-mod" },
+        metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
+        authors: [],
+      },
+    );
+    return graph;
+  }
+
+  /** Clusters only src/, deliberately leaving fixtures/sample.py unclaimed. */
+  function makeSrcOnlyProvider(): Provider {
+    return {
+      name: "fake",
+      model: "fake-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+  }
+
+  it("leaves no unit other than the system root with a null parent", async () => {
+    const graph = makeGraphWithOrphanClasses();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: makeSrcOnlyProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const orphans = result.units.filter((u) => u.parent === null && u.kind !== "system");
+    expect(orphans.map((u) => `${u.kind}:${u.id}`)).toEqual([]);
+  });
+
+  it("gives every layer the system as its parent, reciprocally", async () => {
+    const graph = makeGraphWithOrphanClasses();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: makeSrcOnlyProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const system = result.units.find((u) => u.kind === "system");
+    const layers = result.units.filter((u) => u.kind === "layer");
+    expect(layers.length).toBeGreaterThan(0);
+    for (const layer of layers) {
+      expect(layer.parent).toBe(system?.id);
+      expect(system?.children).toContain(layer.id);
+    }
+  });
+
+  it("parents test modules through the normal clustering path, not a special container", async () => {
+    const graph = makeGraphWithOrphanClasses();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: makeSrcOnlyProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    // Pass B clusters files by directory, so tests/ becomes a layer like any other. The
+    // coverage-only policy is about analysis, not placement: the module is present and
+    // parented, but carries no LLM semantics.
+    const testModule = result.units.find((u) => u.id === "u:py:tests.test_admin_tasks#m");
+    expect(testModule?.parent).not.toBeNull();
+    expect(testModule?.semantics).toBeFalsy();
+  });
+
+  it("collects modules no layer claimed under an unclustered container", async () => {
+    const graph = makeGraphWithOrphanClasses();
+    // No layers pass output at all: every module is unclaimed, which is the case that would
+    // otherwise leave the snapshot full of parent: null units.
+    const result = finalizeSnapshot({
+      snapshot: makeSnapshot(graph),
+      provider: makeSrcOnlyProvider(),
+      promptRev: "p1",
+      systemName: undefined,
+      units: makeSnapshot(graph)
+        .units.filter((u) => u.kind === "module")
+        .map((u) => ({ ...u, parent: null, children: [] })),
+      blockUnits: [],
+      blockEdges: [],
+      layerUnits: [],
+      parentOverride: new Map(),
+      flowUnits: [],
+    });
+
+    const system = result.units.find((u) => u.kind === "system");
+    const bucket = result.units.find((u) => u.kind === "unclustered");
+    expect(bucket).toBeDefined();
+    expect(bucket?.parent).toBe(system?.id);
+    expect(system?.children).toContain(bucket?.id);
+    expect(bucket?.semantics).toBeNull();
+    expect(bucket?.provenance.source).toBe("static");
+
+    const orphans = result.units.filter((u) => u.parent === null && u.kind !== "system");
+    expect(orphans).toEqual([]);
+  });
+
+  it("emits no container when every module already has a layer", async () => {
+    const graph = makeGraph();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: makeSrcOnlyProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    // An empty container would be a tile standing for nothing.
+    expect(result.units.find((u) => u.kind === "unclustered")).toBeUndefined();
+  });
+
+  it("counts only layer units in the system's layer metric", async () => {
+    const graph = makeGraphWithOrphanClasses();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: makeSrcOnlyProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const system = result.units.find((u) => u.kind === "system");
+    const layers = result.units.filter((u) => u.kind === "layer").length;
+    expect(system?.metrics?.layers).toBe(layers);
   });
 });

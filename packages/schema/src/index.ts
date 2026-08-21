@@ -8,12 +8,13 @@ export const UnitKindSchema = z.enum([
   "system",
   "layer",
   "module",
-  "package",
   "class",
   "function",
   "api_flow",
   "block",
-  "config",
+  /** Container for modules no layer claimed, so every unit has a parent. Purely structural:
+   *  never LLM-analyzed, and empty containers are not emitted. */
+  "unclustered",
 ]);
 
 export const EdgeKindSchema = z.enum([
