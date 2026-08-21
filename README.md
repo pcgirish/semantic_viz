@@ -276,6 +276,24 @@ label belongs to the API Flow view), and Delta mode on a revision with nothing t
 compare now says so on the canvas rather than rendering an ordinary graph beside
 a "no delta" notice.
 
+The 3D views have had a navigability pass, closing the gaps that made the
+cityscape hard to move around in. Fly-mode drag is now delta-based, so
+dragging back unwinds the turn instead of setting a rotation *rate* the camera
+never stops obeying — that spin was also what made the minimap compass appear
+to spin, so the compass needed no fix of its own once the camera stopped.
+Walking toward a building drills into it and backing away ascends, with
+hysteresis at the boundary so the threshold cannot flicker; a focused building
+is never occluded by a faded one. Building height is now √-scaled like tile
+area already was, which keeps one 2000-line file from flattening the rest of
+the skyline, and a floor above the footprint width keeps the street from
+reading as a plain of slabs. Facade edges are outlined so corner count — the
+complexity bucket — stays readable edge-on at eye level, where a top-down
+silhouette tells you nothing. The left rail now always shows the legend
+(collapsing the layer tray used to take the legend with it) alongside a
+controls guide that names the keys for whichever skin and camera are current.
+For repositories too deep to drill through, a toolbar search box jumps
+straight to a unit by name, and the legend collapses groups past the sixth.
+
 | Package | What it does | Status |
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
@@ -289,7 +307,8 @@ a "no delta" notice.
 | `packages/skin-contract` | The `Skin` contract itself: `node`/`link`/`region`/`theme`, the declared `camera` model, and `navigate(intent) -> CameraMove`. Generic in its drawable type (`Skin<TNode, TLink, TRegion>`), so a 2D host cannot be handed a `THREE.Group`. Depends on `packages/layout` and nothing else — no renderer, no `three` | Implemented |
 | `packages/skins/tiles3d` | three.js rendering skin: same scene extruded to prisms/cylinders (sides = complexity, height = sloc via `SceneNode.depth`), orbit camera, CSS2D labels, layer hue on the facades, delta as emissive glow, risk beacons above the roofline, density-gated links; zero changes under `packages/layout`. Selectable as **3D** in the toolbar | Implemented |
 | `packages/skins/cityscape` | The walkable skin: the same buildings as `tiles3d` (imported, not reimplemented — one encoding, one place), plus a ground plane on the 2D canvas's grid and a top-down minimap projection. Declares `camera: "walk"`, so the host attaches pointer-lock walk and fly controls instead of orbit, and shows the minimap — at eye level that minimap is the only instrument that answers "which way is up the dependency graph?" (`docs/serve.md#6`). Selectable as **City** in the toolbar | Implemented |
-| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction) + Depends-on view + API Flow view + Flowchart view (with a `‹ Back` button), fully migrated onto `packages/design-system` (the CodeDream design system) — no bespoke `app.css` remains | Implemented |
+| `packages/ui` | React app: canvas (select/drill/ascend, hover-highlight) + inspector tray + Delta view (rev picker, status/amount/risk tile coloring, rollup fallback for collapsed ancestors, left-margin inspect queue) + Replay timeline (rev scrub, PR/commit density toggle, per-rev amount bars, human/agent distinction) + Depends-on view + API Flow view + Flowchart view (with a `‹ Back` button) + find-a-unit search that drills to a
+result's parent before selecting it, fully migrated onto `packages/design-system` (the CodeDream design system) — no bespoke `app.css` remains | Implemented |
 | `packages/design-system` | CodeDream design tokens (color, type, spacing, radius) + shared components (`Toolbar`, `SegmentedControl`, `Select`, `Tray`, `Card`, `Badge`, `BubbleChart`, ...) consumed by `packages/ui` | Implemented |
 
 A disposable Python prototype of the *full* pipeline (extract → interpret →
