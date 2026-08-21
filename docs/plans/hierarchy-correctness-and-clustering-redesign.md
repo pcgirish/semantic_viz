@@ -36,34 +36,41 @@ remediation in dependency order, from documentation correctness through determin
 
 ### Verification findings
 
-**Orphaned units, measured.** Across `.scv/snapshots/`:
+**Orphaned units, measured.** Across `.scv/snapshots/`, split by whether the interpreter ever ran:
 
-| Snapshots | units | orphaned (`parent: null`) | composition |
-|---|---|---|---|
-| `4b63222`, `06b0e56`, `7d97187`, `21bc1c6` | 304–306 | **127 modules** | 47 test-path, **80 non-test** |
-| `c9152a1` | 528 | **37 layers** | every layer, all in `system.children` |
-| `e5574c3` | 503 | **16 layers** | as above |
+| Snapshots | units | layers | system unit | orphaned (`parent: null`) |
+|---|---|---|---|---|
+| `4b63222`, `06b0e56`, `7d97187`, `21bc1c6` | 304–306 | **0** | **absent** | 127 modules |
+| `c9152a1` | 528 | 37 | present | **37 layers**, 0 modules |
+| `e5574c3` | 503 | 16 | present | **16 layers**, 0 modules |
 
-*(Corrected during Phase 0. Earlier revisions of this plan recorded "47 test modules, 47 orphans"
-and "0" for the layered snapshots. Both were wrong: 47 is a subset of the 127, and the layered
-snapshots orphan every layer they contain. The corrected numbers widen Phase 1's scope — see
-below.)*
+*(Corrected twice. Earlier revisions recorded "47 test modules, 47 orphans" and "0" for the
+layered snapshots; a Phase 0 correction then read the 127 as a defect and widened Phase 1 around
+it. Both readings were wrong, and the `layers`/`system unit` columns are why: the first four
+snapshots are **extractor-only output that was never interpreted**. They have no system root and
+no layers because no pass ran. Their modules are `parent: null` correctly — there is nothing yet
+to parent them to. Only the bottom two rows describe interpreted snapshots, and in both,
+**`orphanModules = 0`**.)*
 
-Two distinct causes, and only one is the test policy:
+So there is exactly one real defect, not two:
 
-1. **Layers and flows are never parented.** `orchestrate.ts:525` and `:753` create them with
-   `parent: null`; `:838-843` reparents only `kind === "module"`; `:822` nonetheless puts them all
-   in `system.children`. Measured: **37/37 and 16/16 layers** orphaned while listed as children.
-   This is the reciprocity break, in its pure form.
-2. **Modules no cluster claimed.** A module reaches `parentOverride` (`:504`) only via
-   `unitsByFile`, which `:451` filters by `kind === "module" && !isTestUnit`. `isTestUnit`
-   (`:122`) also gates Pass A (`:227`), leaf summaries (`:460`), and flowcharts (`:692`) — the
-   coverage-only policy, which stays. But **80 of the 127 orphaned modules are not tests**: they
-   are fixtures, `docs/mock/` tooling, and `eslint.config.js` — files in directories no cluster
-   claimed.
+**Layers and flows are never parented.** `orchestrate.ts:525` and `:753` create them with
+`parent: null`; `:838-843` reparents only `kind === "module"`; `:822` nonetheless puts them all in
+`system.children`. Measured: **37/37 and 16/16 layers** orphaned while listed as children. This is
+the reciprocity break in its pure form, and it is what Phase 1 fixes.
 
-That second number is why the root policy in Phase 1 cannot be scoped to test units alone; a
-`test_suite` container would leave 80 modules still orphaned. Phase 1 handles both.
+**The module-orphan problem does not exist**, and the container work an earlier revision specified
+for it is dropped. `checkAndRepairClusters` (`checker.ts:70`) already repairs any LLM proposal into
+a strict partition, with **its own `UNCLUSTERED` fallback bucket** for files the model never
+mentioned, so every file lands in exactly one cluster. Confirmed in the data: `c9152a1` contains a
+layer literally named `unclustered`, and all 75 of its test modules are parented to layers. The
+`isTestUnit` exclusions (`:122`, gating Pass A at `:227`, leaf summaries at `:460`, flowcharts at
+`:692`) are analysis-only and never affected placement — the coverage-only policy stays exactly as
+it is. A `test_suite` kind is therefore not added: no unit would ever be constructed with it.
+
+What Phase 1 keeps is a **defensive** `unclustered` container for modules that reach finalization
+with no `parentOverride` entry — reachable only when the layers pass did not run at all. It is
+never emitted when empty, so on any normal run it produces nothing.
 
 Same sweep reconfirms `nonModuleLayerChildren = 0` and `dangling = 0` in all six — the downward
 direction is clean, which is what Phase 0 corrects the commentary about.
@@ -100,40 +107,30 @@ comments". The document's value is auditable reasoning; silently rewriting destr
 
 **Policy — single root.** One `kind === "system"` root; every other unit has a non-null parent.
 
-**Test container kind (new point 2).** Add **`test_suite`** and **`unclustered`** to
-`UnitKindSchema` alongside `group`. Not `group`: a group is an LLM-derived architectural grouping of layers, and reusing it
-for a structural, never-analyzed bucket recreates exactly the kind-overloading P1 objects to. A
-distinct kind lets `NARRATABLE_KINDS`, the inspect queue, and skins exclude it by kind rather
-than by path heuristics.
+**Container kind (corrected scope).** Add **`unclustered`** to `UnitKindSchema` alongside `group`.
+Not `group`: a group is an LLM-derived architectural grouping of layers, and reusing it for a
+structural, never-analyzed bucket recreates exactly the kind-overloading P1 objects to. A distinct
+kind lets `NARRATABLE_KINDS`, the inspect queue, and skins exclude it by kind rather than by path
+heuristics.
 
-**Unclustered non-test modules (corrected scope).** The sweep found **80 orphaned modules that
-are not tests** — fixtures, `docs/mock/` tooling, `eslint.config.js`. They are orphaned for a
-different reason than test modules: they pass the `isTestUnit` gate but no cluster claimed their
-directory, so `parentOverride` (`:504`) has no entry. A `test_suite` container alone leaves all 80
-still orphaned, which would fail this phase's own single-root policy on the first real run.
-
-They get a second container, `u:unclustered:<repo>`, kind **`unclustered`**. Kept distinct from
-`test_suite` because the two mean different things and warrant different treatment: a test module
-is *deliberately* excluded and should stay excluded, whereas an unclustered production module is a
-**clustering gap** — evidence Pass B under-covered the repo. Merging them would hide that signal
-behind an "expected" label.
+**No `test_suite` kind.** An earlier revision specified one, on the premise that `isTestUnit`
+exclusion left test modules unparented. The sweep disproves it: Pass B clusters *files* by
+directory through `checkAndRepairClusters`, whose own `UNCLUSTERED` fallback guarantees a strict
+partition, so `tests/` becomes a layer like any other and all 75 test modules in `c9152a1` are
+parented. `isTestUnit` governs analysis, not placement. A kind nothing would ever construct is
+precisely what the `:260` schema rule forbids — a capability the tool does not have.
 
 | Unit class | Placement | Kind | Analysis |
 |---|---|---|---|
-| Test modules | `u:tests:<repo>` container, `parent: sysId` | container is `test_suite`; members stay `module` | **None.** `semantics: null`, `provenance: { source: "static" }`. No Pass A/B/D, no flowcharts, excluded from inspect queue and `clusteringQuality`. Coverage only. |
-| Unclustered non-test modules | `u:unclustered:<repo>` container, `parent: sysId` | container is `unclustered`; members stay `module` | Pass A **as normal** (they are production code); no Pass B membership by definition; container itself gets no narration. |
+| Test modules | their directory's layer, via the normal clustering path | stay `module` | **None.** `semantics: null`, `provenance: { source: "static" }`. No Pass A/B/D, no flowcharts, excluded from inspect queue and `clusteringQuality`. Coverage only — unchanged by this phase. |
+| Modules with no `parentOverride` entry | `u:unclustered:<repo>` container, `parent: sysId` | container is `unclustered`; members stay `module` | Container itself gets no narration. Reachable only when the layers pass did not run; **not emitted when empty**, so a normal run produces no container at all. |
 | `package`, `config` | never constructed | **remove from `UnitKindSchema`**, and from `docs/design.md:84` | n/a |
 | Layers, flows | parent to system | unchanged | unchanged |
 
-Both containers are full `Unit`s (`hash.struct` over sorted member ids, `loc` union,
-`metrics.modules`), so they validate like any other. UI renders them as siblings of groups at
-root, visually de-emphasized; drilling into `test_suite` shows test modules with no semantics
-panel.
-
-**The unclustered container is a metric, not just a bucket.** Its member count is reported after
-analysis, and Phase 4's `clusteringQuality` treats a growing bucket as a quality regression — an
-empty one is the goal. This is the honest version of "coverage repair": rather than silently
-attaching stray modules to a nearest-neighbour layer, the gap stays visible and countable.
+The container is a full `Unit` (`hash.struct` over sorted member ids, `loc` union,
+`metrics.modules`), so it validates like any other. It exists to keep the single-root invariant
+total rather than conditional on an earlier pass having run — a defensive floor under Phase 2's
+validator, not a feature with a caseload.
 
 **Provenance shape** (review v5 point 2). `UnitProvenanceSchema` (`schema:92-95`) is
 `{ source: "static" | "llm", pass: z.enum(["A","B","C","D"]).optional() }`. `pass` is *optional,
@@ -144,17 +141,14 @@ to say the same thing.
 
 **Documentation sync** (review v5 point 5). `docs/design.md:84` spells the kind union out
 verbatim — `"kind": "system|layer|module|package|class|function|api_flow|block|config"`. It is
-updated in this same phase to drop `package`/`config` and add `group`/`test_suite`/`unclustered`,
-so the doc
+updated in this same phase to drop `package`/`config` and add `group`/`unclustered`, so the doc
 never disagrees with `UnitKindSchema`. The repo has no generated `.schema.json` fixtures (checked:
 none exist), so `docs/design.md:84` is the only documentation site to sync.
 
-**Test first**: zero `parent === null` except system — asserted over the whole unit list, which is
-the assertion that fails today at 127; test modules parent to the `test_suite` container and
-unclustered non-test modules to the `unclustered` container; both containers in
-`system.children`; no test module in any layer's `children`; no test module reaches Pass A/B/D;
-**a module that no cluster claims lands in `unclustered` rather than nowhere** — the case the 80
-non-test orphans represent, and the one a test-only policy would miss.
+**Test first**: zero `parent === null` except system, asserted over the whole unit list; every
+layer parents to the system reciprocally; a test module is parented and still carries no
+semantics; a finalization with no layers at all puts its modules under `unclustered`; a normal run
+emits **no** container; `metrics.layers` counts only layer units.
 
 ## Phase 2 — Reciprocity, validation, and the reachability assertion (v3 points 2, 3; new point 7)
 
@@ -187,8 +181,8 @@ defect from a legacy artifact — see the call-site table below. Structured find
 
 Tree checks: one system root; no other null parent; parent/child ids resolve; reciprocity both
 ways; acyclicity; **every unit reachable from the system and visited exactly once** (new point 7 —
-a single DFS with a visit counter catches both orphans and diamonds);
-**no `module` under a `test_suite` ancestor is also under a production layer**.
+a single DFS with a visit counter catches both orphans and diamonds); **no `module` under an
+`unclustered` ancestor is also under a layer**.
 
 | Call site | File | On `error` findings | On `warning` findings |
 |---|---|---|---|
@@ -302,9 +296,8 @@ split and merge both qualify and precedence decides.
 `schema: z.literal("scv/1")` (`:208`). Stay on `scv/1` as an additive extension, with the
 guarantee stated in a schema comment and in `docs/design.md`:
 - old snapshots parse under new code — **guaranteed**;
-- new snapshots require the updated binary — a snapshot containing `group`, `test_suite`, or
-  `unclustered` fails
-  `UnitKindSchema` on older code;
+- new snapshots require the updated binary — a snapshot containing `group` or `unclustered`
+  fails `UnitKindSchema` on older code;
 - **no downgrade compatibility is promised.**
 
 Update JSON schema fixtures. No migration script — `.scv/` is a rebuildable cache, and stale
@@ -376,7 +369,7 @@ re-run. Repairing rather than failing is what produced the hierarchy this plan e
 `systemId`, `children` set, hashes and metrics computed — and returns `layerParent` describing
 how layers reparent onto them. `finalizeSnapshot` does no group construction; it only applies
 `layerParent` to rewrite each layer's `parent` from `sysId` to its group id, and sets
-`system.children` to groups + flows + the test container. v5 split parent assignment across both,
+`system.children` to groups + flows (+ the `unclustered` container, when one exists). v5 split parent assignment across both,
 leaving no single owner. One rule: a unit leaves its builder complete, and finalization only
 attaches.
 
@@ -511,7 +504,7 @@ analyze time and a legacy bare rollup loading with a warning.
 ### Group risk policy
 `diff-with-risk.ts:11` sets `NARRATABLE_KINDS = new Set(["module"])`, excluding layer/system as
 "LLM-invented groupings whose identity churns." Groups are *more* LLM-derived. Groups and
-`test_suite`/`unclustered` appear in `unit_deltas` and rollups, receive **no Pass D narration**, and stay **out
+`unclustered` appear in `unit_deltas` and rollups, receive **no Pass D narration**, and stay **out
 of the inspect queue**. State it in the `:5-9` comment beside the existing exclusions.
 
 ### Scene and layout migration — full audit, **51 references / 17 files**
@@ -631,12 +624,13 @@ new `schema/src/normalize.ts` · `cli/src/artifacts.ts` (:17-49, :104-140, :181-
 Per phase: `npm test` and `npm run lint` (never bare executables). TDD throughout — each phase
 starts RED, per CLAUDE.md.
 
-After Phase 1, re-run the snapshot sweep: zero `parent === null` except the system in every
-snapshot. After 3a, assert the stale-artifact test recomputes rather than reuses. After 3b, the
+After Phase 1, re-run the snapshot sweep over **newly analyzed** snapshots: zero `parent === null`
+except the system. Snapshots already on disk that predate this work are not a check — four of the
+six were never interpreted at all, and their `parent: null` modules are correct for what they are. After 3a, assert the stale-artifact test recomputes rather than reuses. After 3b, the
 audit grep returns zero `\.group\b` hits. End-to-end: analyze `fixtures/orderly`, then
 `npm run dev` and confirm drill/ascend traverse system → group → layer → module → function,
-breadcrumbs show real group names, Legend renders, Flows unaffected, test container present and
-de-emphasized. Diff two revisions before and after 3a to confirm group promotion did not turn
+breadcrumbs show real group names, Legend renders, Flows unaffected, and no `unclustered`
+container is emitted. Diff two revisions before and after 3a to confirm group promotion did not turn
 stable groups into remove/add churn.
 
 Git: one branch per phase — `docs/review-comment-correction`, `feature/root-policy`,
