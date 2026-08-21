@@ -110,7 +110,7 @@ that change what came after:
    in the UI could drift out of step with the 3D view, and the map disagreeing with the city
    about what is flagged is worse than either alone.
 3. **The risk channel has no producer.** `ring` is hardcoded `false` at both layout sites
-   (`layout.ts:163`, `flowchart.ts:163`), as is `heat: 0`. So no fixture can currently show a
+   (`layout.ts:174`, `flowchart.ts:163`), as is `heat: 0`. So no fixture can currently show a
    beacon *or* a map marker — the encoding `docs/serve.md:187-192` specifies is unreachable
    end to end. The marker's render path is pinned by unit tests, but it cannot be seen in the
    browser until something computes risk. **Out of scope for this plan** — it is an
