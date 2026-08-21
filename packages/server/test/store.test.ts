@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SnapshotStore } from "../src/store.js";
 import { makeSnapshot, writeScvFixture } from "./fixtures.js";
 
@@ -116,5 +116,61 @@ describe("SnapshotStore", () => {
 
     expect(store.getLayout("a".repeat(40), "tiles")).toEqual({ nodeX: { a: 0 } });
     expect(store.getLayout("a".repeat(40), "tiles3d")).toEqual({ nodeX: { a: 200 } });
+  });
+
+  describe("invariant findings on load", () => {
+    it("still serves a snapshot whose hierarchy predates the root policy, logging what it found", () => {
+      // Every snapshot written before Phase 1 has orphan modules and often no system unit at all.
+      // Refusing them would make the server unable to serve any history the repo already has, so
+      // load logs and serves; analyze-time is where a hierarchy defect is a bug.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const scvDir = writeScvFixture([makeSnapshot()]);
+      const store = new SnapshotStore(scvDir);
+
+      expect(store.getSnapshot("a".repeat(40))).toBeDefined();
+      expect(warn).toHaveBeenCalled();
+      expect(warn.mock.calls.flat().join(" ")).toMatch(/orphan|no_root/);
+      warn.mockRestore();
+    });
+
+    it("logs nothing for a snapshot that satisfies its invariants", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const healthy = makeSnapshot({
+        units: [
+          {
+            id: "unit:system",
+            kind: "system",
+            name: "orderly",
+            qualname: "orderly",
+            parent: null,
+            children: ["unit:orders"],
+            loc: { files: [], start: null, end: null, sloc: 0 },
+            tags: [],
+            metrics: {},
+            hash: { struct: null, text: null, semantic: null },
+            provenance: { source: "static" },
+          },
+          {
+            id: "unit:orders",
+            kind: "module",
+            name: "orders",
+            qualname: "orders",
+            parent: "unit:system",
+            children: [],
+            loc: { files: ["src/orders.ts"], start: 1, end: 10, sloc: 10 },
+            tags: [],
+            metrics: {},
+            hash: { struct: null, text: null, semantic: null },
+            provenance: { source: "static" },
+          },
+        ],
+        edges: [],
+      });
+      const store = new SnapshotStore(writeScvFixture([healthy]));
+
+      expect(store.getSnapshot("a".repeat(40))).toBeDefined();
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
   });
 });

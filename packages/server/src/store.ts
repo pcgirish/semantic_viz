@@ -1,6 +1,16 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { DeltaSchema, LayoutSchema, SnapshotSchema, type Delta, type Layout, type Snapshot, type Unit } from "@scv/schema";
+import {
+  DeltaSchema,
+  LayoutSchema,
+  SnapshotSchema,
+  formatFindings,
+  validateSnapshotInvariants,
+  type Delta,
+  type Layout,
+  type Snapshot,
+  type Unit,
+} from "@scv/schema";
 
 export type { Layout };
 
@@ -28,6 +38,9 @@ export interface UnitWithNeighbours {
 export function isSafePathSegment(segment: string): boolean {
   return /^[A-Za-z0-9_.-]+$/.test(segment) && segment !== "." && segment !== "..";
 }
+
+/** Cap on findings printed per snapshot, so one pre-policy file cannot bury the startup log. */
+const MAX_LOGGED_FINDINGS = 5;
 
 /** Parsed contents of one snapshot file, plus the mtime it was parsed at. */
 interface CacheEntry {
@@ -93,7 +106,9 @@ export class SnapshotStore {
     for (const file of files.keys()) {
       const full = this.containedPath(this.snapshotsDir, file);
       if (!full) continue;
-      snapshots.push(parseOrThrow(SnapshotSchema, readFileSync(full, "utf-8"), full));
+      const snapshot = parseOrThrow(SnapshotSchema, readFileSync(full, "utf-8"), full);
+      reportInvariantFindings(snapshot, full);
+      snapshots.push(snapshot);
     }
 
     this.cache = { files, snapshots };
@@ -180,6 +195,29 @@ export class SnapshotStore {
     if (!existsSync(this.layoutsDir)) mkdirSync(this.layoutsDir, { recursive: true });
     writeFileSync(file, JSON.stringify(LayoutSchema.parse(layout)));
   }
+}
+
+/**
+ * Logs referential-integrity findings without refusing the snapshot.
+ *
+ * The schema is the trust boundary — a file that does not parse is rejected. Hierarchy invariants
+ * are different: every snapshot written before the root policy landed has orphan modules, and some
+ * have no system unit at all. Refusing those would leave the server unable to serve any history
+ * the repo already has, for defects the user cannot fix except by re-analyzing. So a defective
+ * hierarchy is fatal where it is a bug — at analyze time, in `finalizeSnapshot` — and a logged
+ * observation here, where it is a fact about a file on disk.
+ */
+function reportInvariantFindings(snapshot: Snapshot, file: string): void {
+  const { findings } = validateSnapshotInvariants(snapshot);
+  if (findings.length === 0) return;
+  // A pre-policy snapshot can carry hundreds of findings; the first few name the shape of the
+  // problem, and the count says how widespread it is. Dumping all of them buries the startup log.
+  const shown = findings.slice(0, MAX_LOGGED_FINDINGS);
+  const more = findings.length - shown.length;
+  console.warn(
+    `[WARN] ${file}: snapshot has ${findings.length} invariant finding(s)\n${formatFindings(shown)}` +
+      (more > 0 ? `\n… and ${more} more` : ""),
+  );
 }
 
 /**

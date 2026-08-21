@@ -2,7 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { runDifferWithRisk } from "@scv/differ";
 import { createProvider, loadInterpreterConfig, type Provider } from "@scv/interpreter";
-import { SnapshotSchema, type Delta, type Snapshot } from "@scv/schema";
+import {
+  SnapshotSchema,
+  formatFindings,
+  validateSnapshotInvariants,
+  type Delta,
+  type Snapshot,
+} from "@scv/schema";
 
 export interface RunDiffOptions {
   scvDir: string;
@@ -36,7 +42,30 @@ function readSnapshot(scvDir: string, sha: string): Snapshot {
     const at = issue && issue.path.length > 0 ? ` at ${issue.path.join(".")}` : "";
     throw new Error(`${snapshotPath}: does not match its schema${at}${issue ? `: ${issue.message}` : ""}`);
   }
+  reportInvariantFindings(parsed.data, snapshotPath);
   return parsed.data;
+}
+
+/** Cap on findings printed per snapshot, so one pre-policy file cannot bury the diff output. */
+const MAX_LOGGED_FINDINGS = 5;
+
+/**
+ * Logs referential-integrity findings without refusing to diff, matching the server's load policy.
+ *
+ * Every revision analyzed before the root policy landed has orphan modules, and some no system
+ * unit at all. Refusing them would make `scv diff` unusable across all existing history, for
+ * defects the user cannot fix except by re-analyzing both revisions. A defective hierarchy is
+ * fatal where it is a bug — at analyze time, in `finalizeSnapshot` — and an observation here.
+ */
+function reportInvariantFindings(snapshot: Snapshot, file: string): void {
+  const { findings } = validateSnapshotInvariants(snapshot);
+  if (findings.length === 0) return;
+  const shown = findings.slice(0, MAX_LOGGED_FINDINGS);
+  const more = findings.length - shown.length;
+  console.warn(
+    `[WARN] ${file}: snapshot has ${findings.length} invariant finding(s)\n${formatFindings(shown)}` +
+      (more > 0 ? `\n… and ${more} more` : ""),
+  );
 }
 
 /** Reads two previously written snapshots by sha and writes their Differ output (with Pass D risk narration and ranking) to `<scvDir>/deltas/<from>__<to>.json`. */

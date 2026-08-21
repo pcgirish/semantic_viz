@@ -160,6 +160,56 @@ describe("runDiffer", () => {
     expect(delta.rollup["u:parent"]?.sloc).toBe(10);
   });
 
+  it("counts each unit's sloc once when a system root sits above the layers", () => {
+    // Pins the totals across the single-root hierarchy Phase 1 introduced. `rollup` seeds its walk
+    // from `parent === null`, so before the root policy layers were roots *and* reachable from the
+    // system — a shape that would walk each subtree twice. Exact sloc is what makes that visible:
+    // the system must report 10, the sum of its leaves, not 20.
+    const system = makeUnit({
+      id: "u:sys",
+      qualname: "sys",
+      kind: "system",
+      parent: null,
+      children: ["u:layer1", "u:layer2"],
+      loc: { files: [], start: null, end: null, sloc: 0 },
+    });
+    const layer1 = makeUnit({
+      id: "u:layer1",
+      qualname: "layer1",
+      kind: "layer",
+      parent: "u:sys",
+      children: ["u:child1"],
+      loc: { files: [], start: null, end: null, sloc: 0 },
+    });
+    const layer2 = makeUnit({
+      id: "u:layer2",
+      qualname: "layer2",
+      kind: "layer",
+      parent: "u:sys",
+      children: ["u:child2"],
+      loc: { files: [], start: null, end: null, sloc: 0 },
+    });
+    const child1 = makeUnit({ id: "u:child1", qualname: "child1", parent: "u:layer1", loc: { files: ["a.py"], start: 1, end: 3, sloc: 3 } });
+    const child2 = makeUnit({ id: "u:child2", qualname: "child2", parent: "u:layer2", loc: { files: ["b.py"], start: 1, end: 7, sloc: 7 } });
+
+    const units = [system, layer1, layer2, child1, child2];
+    const a = makeSnapshot(units.map((u) => ({ ...u, hash: { struct: "s1", text: "t1", semantic: null } })));
+    const b = makeSnapshot(
+      units.map((u) => (u.id === "u:child1" ? { ...u, hash: { struct: "s1", text: "t1-changed", semantic: null } } : { ...u, hash: { struct: "s1", text: "t1", semantic: null } })),
+    );
+
+    const delta = runDiffer(a, b);
+
+    expect(delta.rollup["u:sys"]?.sloc).toBe(10);
+    expect(delta.rollup["u:layer1"]?.sloc).toBe(3);
+    expect(delta.rollup["u:layer2"]?.sloc).toBe(7);
+    // Only child1 changed, so the system's sloc-weighted mean is child1's amount scaled by 3/10.
+    // A leaf has no rollup entry of its own — the walk records only units with children — so the
+    // contribution comes from its unit delta.
+    const child1Amount = delta.unit_deltas.find((d) => d.unit === "u:child1")!.amount;
+    expect(delta.rollup["u:sys"]?.amount).toBeCloseTo((child1Amount * 3) / 10, 3);
+  });
+
   it("returns schema-required from/to snapshot refs and formulas provenance", () => {
     const a = makeSnapshot([], [], "aaa1111");
     const b = makeSnapshot([], [], "bbb2222");

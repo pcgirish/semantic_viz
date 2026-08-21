@@ -187,8 +187,30 @@ a single DFS with a visit counter catches both orphans and diamonds); **no `modu
 | Call site | File | On `error` findings | On `warning` findings |
 |---|---|---|---|
 | After `finalizeSnapshot` | `orchestrate.ts:893` | **Throw** — analyze-time is where this is a bug | **Throw too**: code this run just produced has no legacy excuse |
-| Snapshot load (server) | `server/src/store.ts:96` | **Throw**, matching `parseOrThrow` | **Log and serve** — an old snapshot on disk must stay readable |
-| Snapshot load / pre-diff (CLI) | `cli/src/diff.ts:33` | **Refuse to diff**, naming offending ids | **Log and diff** |
+| Snapshot load (server) | `server/src/store.ts:96` | ~~**Throw**, matching `parseOrThrow`~~ → **Log and serve** (see deviation below) | **Log and serve** — an old snapshot on disk must stay readable |
+| Snapshot load / pre-diff (CLI) | `cli/src/diff.ts:33` | ~~**Refuse to diff**, naming offending ids~~ → **Log and diff** (see deviation below) | **Log and diff** |
+
+**Deviation recorded during Phase 2 implementation (2026-08-21).** The two load rows as originally
+written contradict their own `warning` column, which promises "an old snapshot on disk must stay
+readable." An audit of `.scv/snapshots/*.json` proved both cannot hold — every snapshot in the repo
+carries `error` findings:
+
+| Snapshot | units | system units | orphans |
+|---|---|---|---|
+| `c9152a1` | 528 | 1 | 37 |
+| `4b63222` | 306 | 0 | 127 |
+| `06b0e56` | 304 | 0 | 127 |
+| `e5574c3` | 503 | 1 | 16 |
+| `7d97187` | 306 | 0 | 127 |
+| `21bc1c6` | 306 | 0 | 127 |
+
+Throwing on `error` findings at load would leave the server unable to serve, and `scv diff` unable
+to compare, *any* revision the repo already has — for a defect the user cannot fix except by
+re-analyzing every revision. So the plan's own severity reasoning is applied one step further:
+structural findings encountered **on load** are legacy artifacts by definition, exactly as the plan
+already argues for bare rollups. Load logs and serves; **analyze throws**, which is where a
+defective hierarchy is a bug rather than a fact about a file on disk. The schema remains the trust
+boundary at both sites — a file that does not parse is still rejected.
 
 The two columns are what reconcile "server load throws" with "legacy bare rollups warn": severity
 is a property of the *finding*, the call site only decides what to do with each. A broken parent
