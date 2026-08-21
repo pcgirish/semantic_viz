@@ -137,9 +137,6 @@ export const UnitSchema = z.object({
   // kind:"api_flow" only — branching form of `steps`; present when the traced flow has
   // fan-out (e.g. success/failure paths), absent for a purely linear flow.
   stepsBranching: StepBranchSchema.optional(),
-  // kind:"layer" only — the architectural group (e.g. "api surface") this layer belongs
-  // to, one level above layer in the hierarchy without being a new parent/child edge.
-  group: z.string().optional(),
 });
 
 const EvidenceSchema = z.object({

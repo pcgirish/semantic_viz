@@ -526,7 +526,6 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
       lang: undefined,
       parent: null,
       children: memberIds,
-      group: undefined,
       loc: {
         files: [...new Set(memberUnits.flatMap((u) => u.loc.files))],
         start: null,

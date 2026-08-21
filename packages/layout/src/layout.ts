@@ -98,11 +98,19 @@ function layerIdOf(u: Unit, unitMap: Map<string, Unit>): string {
   return "";
 }
 
-/** Walks a unit's parent chain to the nearest layer ancestor, returning that layer's group name. */
+/**
+ * Walks a unit's parent chain to the nearest layer ancestor, then one more hop to that layer's
+ * group *unit*, returning its id. The id rather than the name: a group's name is LLM-authored and
+ * can change without the group's identity changing, so keying regions on it made a rename read as
+ * one group vanishing and another appearing.
+ */
 function groupOf(u: Unit, unitMap: Map<string, Unit>): string {
   let c: Unit | undefined = u;
   while (c) {
-    if (c.kind === "layer") return c.group ?? "";
+    if (c.kind === "layer") {
+      const parent = c.parent ? unitMap.get(c.parent) : undefined;
+      return parent?.kind === "group" ? parent.id : "";
+    }
     c = c.parent ? unitMap.get(c.parent) : undefined;
   }
   return "";
@@ -119,21 +127,24 @@ function regionsFor(nodes: SceneNode[], unitMap: Map<string, Unit>): SceneRegion
   const byGroup = new Map<string, SceneNode[]>();
   const layersByGroup = new Map<string, Set<string>>();
   for (const n of nodes) {
-    if (!n.group) continue;
-    (byGroup.get(n.group) ?? byGroup.set(n.group, []).get(n.group)!).push(n);
+    if (!n.groupId) continue;
+    (byGroup.get(n.groupId) ?? byGroup.set(n.groupId, []).get(n.groupId)!).push(n);
     const u = unitMap.get(n.id);
     const layerId = u?.kind === "layer" ? u.id : n.layer;
-    if (layerId) (layersByGroup.get(n.group) ?? layersByGroup.set(n.group, new Set()).get(n.group)!).add(layerId);
+    if (layerId) (layersByGroup.get(n.groupId) ?? layersByGroup.set(n.groupId, new Set()).get(n.groupId)!).add(layerId);
   }
 
   const regions: SceneRegion[] = [];
-  for (const [group, members] of byGroup) {
-    if ((layersByGroup.get(group)?.size ?? 0) < 2) continue;
+  for (const [groupId, members] of byGroup) {
+    if ((layersByGroup.get(groupId)?.size ?? 0) < 2) continue;
     const minX = Math.min(...members.map((m) => m.x)) - REGION_PAD;
     const minY = Math.min(...members.map((m) => m.y)) - REGION_PAD;
     const maxX = Math.max(...members.map((m) => m.x + m.w)) + REGION_PAD;
     const maxY = Math.max(...members.map((m) => m.y + m.h)) + REGION_PAD;
-    regions.push({ id: group, name: group, x: minX, y: minY, w: maxX - minX, h: maxY - minY });
+    // Falls back to the id when the group unit is not in the visible set — a label is better
+    // than a blank frame, and an id is what the caller would have to debug with anyway.
+    const name = unitMap.get(groupId)?.name ?? groupId;
+    regions.push({ id: groupId, name, x: minX, y: minY, w: maxX - minX, h: maxY - minY });
   }
   return regions;
 }
@@ -205,7 +216,7 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
         fanOut: fanOut.get(u.id) ?? 0,
         fanIn: fanIn.get(u.id) ?? 0,
         layer: layerIdOf(u, unitMap),
-        group: groupOf(u, unitMap),
+        groupId: groupOf(u, unitMap),
         complexity: u.cost?.complexity ?? 0,
       };
     });
@@ -269,7 +280,7 @@ function boundaryMarkers(interior: SceneNode[], regions: SceneRegion[], options:
       fanIn: counts.outCount,
       fanOut: counts.inCount,
       layer: "",
-      group: "",
+      groupId: "",
       complexity: unit?.cost?.complexity ?? 0,
       boundary: {
         edgeCount: counts.edgeCount,

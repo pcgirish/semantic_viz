@@ -16,7 +16,7 @@ export type SceneNode = {
   fanIn: number;
   fanOut: number;
   layer: string; // nearest ancestor unit's stable id with kind "layer", or "" if none
-  group: string; // nearest layer ancestor's group name, or "" if none
+  groupId: string; // nearest layer ancestor's group unit id, or "" if none
   complexity: number; // raw cyclomatic complexity, or 0 if unavailable
   /**
    * Present only on collapsed external endpoints — "boundary markers". Such a node stands for a
@@ -42,7 +42,7 @@ export type SceneNode = {
 };
 
 export type SceneRegion = {
-  id: string; // group name, stable slug
+  id: string; // the group unit's id — stable across renames, unlike its name
   name: string; // group display name
   x: number;
   y: number;

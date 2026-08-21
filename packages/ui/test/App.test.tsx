@@ -1,8 +1,41 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor, fireEvent, within } from "@testing-library/react";
 import type { Snapshot } from "@scv/schema";
-import { App, buildUnitToDomain } from "../src/App.js";
+import { App, buildUnitToAncestor } from "../src/App.js";
 import { useAppStore } from "../src/store.js";
+
+/** A real group unit: the tier that used to be synthesised client-side from a layer's `group` string. */
+function makeGroup(id: string, name: string, children: string[]) {
+  return {
+    kind: "group",
+    id,
+    name,
+    qualname: name,
+    parent: "u:sys:orderly",
+    children,
+    loc: { files: [], sloc: 10 * children.length },
+    tags: [],
+    metrics: {},
+    hash: { struct: null, text: null, semantic: null },
+    provenance: { source: "llm" },
+  };
+}
+
+function makeLayer(id: string, name: string, parent: string, children: string[]) {
+  return {
+    kind: "layer",
+    id,
+    name,
+    qualname: name,
+    parent,
+    children,
+    loc: { files: [], sloc: 10 },
+    tags: [],
+    metrics: {},
+    hash: { struct: null, text: null, semantic: null },
+    provenance: { source: "llm" },
+  };
+}
 
 function makeSnapshot(): Snapshot {
   return {
@@ -98,55 +131,18 @@ function makeGroupedSnapshot(): Snapshot {
         name: "orderly",
         qualname: "orderly",
         parent: null,
-        children: ["u:layer:api", "u:layer:auth", "u:layer:db"],
+        children: ["u:group:api", "u:group:platform"],
         loc: { files: [], sloc: 30 },
         tags: [],
         metrics: {},
         hash: { struct: null, text: null, semantic: null },
         provenance: { source: "llm" },
       },
-      {
-        kind: "layer",
-        id: "u:layer:api",
-        name: "api_routes",
-        qualname: "api_routes",
-        parent: "u:sys:orderly",
-        children: [],
-        loc: { files: [], sloc: 10 },
-        tags: [],
-        metrics: {},
-        hash: { struct: null, text: null, semantic: null },
-        provenance: { source: "llm" },
-        group: "api surface",
-      },
-      {
-        kind: "layer",
-        id: "u:layer:auth",
-        name: "auth",
-        qualname: "auth",
-        parent: "u:sys:orderly",
-        children: [],
-        loc: { files: [], sloc: 10 },
-        tags: [],
-        metrics: {},
-        hash: { struct: null, text: null, semantic: null },
-        provenance: { source: "llm" },
-        group: "api surface",
-      },
-      {
-        kind: "layer",
-        id: "u:layer:db",
-        name: "database_connection",
-        qualname: "database_connection",
-        parent: "u:sys:orderly",
-        children: [],
-        loc: { files: [], sloc: 10 },
-        tags: [],
-        metrics: {},
-        hash: { struct: null, text: null, semantic: null },
-        provenance: { source: "llm" },
-        group: "platform",
-      },
+      makeGroup("u:group:api", "api surface", ["u:layer:api", "u:layer:auth"]),
+      makeGroup("u:group:platform", "platform", ["u:layer:db"]),
+      makeLayer("u:layer:api", "api_routes", "u:group:api", []),
+      makeLayer("u:layer:auth", "auth", "u:group:api", []),
+      makeLayer("u:layer:db", "database_connection", "u:group:platform", []),
     ],
     edges: [
       { id: "e1", from: "u:layer:api", to: "u:layer:db", kind: "calls", weight: 1, source: "static", confidence: 1 },
@@ -169,43 +165,19 @@ function makeGroupedSnapshotWithLeafEdges(): Snapshot {
         name: "orderly",
         qualname: "orderly",
         parent: null,
-        children: ["u:layer:api", "u:layer:db"],
+        children: ["u:group:api", "u:group:platform"],
         loc: { files: [], sloc: 20 },
         tags: [],
         metrics: {},
         hash: { struct: null, text: null, semantic: null },
         provenance: { source: "llm" },
       },
-      {
-        kind: "layer",
-        id: "u:layer:api",
-        name: "api_routes",
-        qualname: "api_routes",
-        parent: "u:sys:orderly",
-        children: ["u:mod:api_handler"],
-        loc: { files: [], sloc: 10 },
-        tags: [],
-        metrics: {},
-        hash: { struct: null, text: null, semantic: null },
-        provenance: { source: "llm" },
-        group: "api surface",
-      },
-      {
-        kind: "layer",
-        id: "u:layer:db",
-        name: "database_connection",
-        qualname: "database_connection",
-        parent: "u:sys:orderly",
-        children: ["u:mod:db_conn"],
-        loc: { files: [], sloc: 10 },
-        tags: [],
-        metrics: {},
-        hash: { struct: null, text: null, semantic: null },
-        provenance: { source: "llm" },
-        group: "platform",
-      },
+      makeGroup("u:group:api", "api surface", ["u:layer:api"]),
+      makeGroup("u:group:platform", "platform", ["u:layer:db"]),
+      makeLayer("u:layer:api", "api_routes", "u:group:api", ["u:mod:api_handler"]),
+      makeLayer("u:layer:db", "database_connection", "u:group:platform", ["u:mod:db_conn"]),
       // Real snapshots only carry edges between leaf module/function units nested under a
-      // layer, never between the layer units themselves — this is what the domain rollup
+      // layer, never between the layer units themselves — this is what the group rollup
       // must walk up through, not just check direct layer children.
       {
         kind: "module",
@@ -270,8 +242,8 @@ function makeUngroupedSnapshotWithDeepLeafEdges(): Snapshot {
         hash: { struct: null, text: null, semantic: null },
         provenance: { source: "llm" },
       },
-      // No `group` field on either layer — mirrors a real snapshot where the domain tier
-      // never activates, so root falls back to the plain layer list (`u.parent === null`).
+      // No group units — mirrors a snapshot whose layers were never grouped, so root falls
+      // back to the plain layer list (`u.parent === null`).
       {
         kind: "layer",
         id: "u:layer:api",
@@ -370,23 +342,23 @@ function makeUngroupedSnapshotWithDeepLeafEdges(): Snapshot {
   } as unknown as Snapshot;
 }
 
-describe("buildUnitToDomain", () => {
-  it("maps a leaf unit nested under a layer to that layer's domain, not just direct layer children", () => {
-    const domainUnits = [
-      { id: "group:api surface", children: ["u:layer:api"] },
-      { id: "group:platform", children: ["u:layer:db"] },
+describe("buildUnitToAncestor", () => {
+  it("maps a leaf unit nested under a layer to that layer's group, not just direct group children", () => {
+    const groupUnits = [
+      { id: "u:group:api", children: ["u:layer:api"] },
+      { id: "u:group:platform", children: ["u:layer:db"] },
     ] as unknown as import("@scv/schema").Unit[];
     const unitsById = new Map([
-      ["u:layer:api", { id: "u:layer:api", parent: "u:sys:orderly" }],
-      ["u:layer:db", { id: "u:layer:db", parent: "u:sys:orderly" }],
+      ["u:layer:api", { id: "u:layer:api", parent: "u:group:api" }],
+      ["u:layer:db", { id: "u:layer:db", parent: "u:group:platform" }],
       ["u:mod:api_handler", { id: "u:mod:api_handler", parent: "u:layer:api" }],
       ["u:mod:db_conn", { id: "u:mod:db_conn", parent: "u:layer:db" }],
     ] as unknown as [string, import("@scv/schema").Unit][]);
 
-    const result = buildUnitToDomain(domainUnits, unitsById);
+    const result = buildUnitToAncestor(groupUnits, unitsById);
 
-    expect(result.get("u:mod:api_handler")).toBe("group:api surface");
-    expect(result.get("u:mod:db_conn")).toBe("group:platform");
+    expect(result.get("u:mod:api_handler")).toBe("u:group:api");
+    expect(result.get("u:mod:db_conn")).toBe("u:group:platform");
   });
 });
 
@@ -528,52 +500,56 @@ describe("App", () => {
     expect(container.querySelector('.tile[data-id="u:sys:orderly"]')).toBeNull();
   });
 
-  it("groups the system's layer children by their group field into a synthetic domain tier at the root", async () => {
+  it("shows the system's group units at the root, not its layer units flat", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeGroupedSnapshot()) }));
 
     const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
 
     await waitFor(() => {
-      expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+      expect(container.querySelector('.tile[data-id="u:group:api"]')).not.toBeNull();
     });
 
-    // 2 domains ("api surface", "platform"), not the 3 real layer units flat.
+    // The 2 group units, not the 3 layer units beneath them.
     expect(container.querySelectorAll(".tile")).toHaveLength(2);
-    expect(container.querySelector('.tile[data-id="group:platform"]')).not.toBeNull();
+    expect(container.querySelector('.tile[data-id="u:group:platform"]')).not.toBeNull();
     expect(container.querySelector('.tile[data-id="u:layer:api"]')).toBeNull();
   });
 
-  it("drilling into a synthetic domain tile reveals its real member layer units", async () => {
+  it("drilling into a group tile reveals its member layer units", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeGroupedSnapshot()) }));
 
     const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
 
     await waitFor(() => {
-      expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+      expect(container.querySelector('.tile[data-id="u:group:api"]')).not.toBeNull();
     });
 
-    fireEvent.doubleClick(container.querySelector('.tile[data-id="group:api surface"]')!);
+    fireEvent.doubleClick(container.querySelector('.tile[data-id="u:group:api"]')!);
 
     await waitFor(() => {
       expect(container.querySelector('.tile[data-id="u:layer:api"]')).not.toBeNull();
       expect(container.querySelector('.tile[data-id="u:layer:auth"]')).not.toBeNull();
     });
-    expect(container.querySelectorAll(".tile")).toHaveLength(2);
+    // Two member layers, plus a boundary marker for the sibling group this group calls out to:
+    // the fixture's api->db edge crosses the focus, and collapsing it onto the sibling is what
+    // keeps cross-group coupling visible from inside a group.
+    expect(container.querySelectorAll(".tile")).toHaveLength(3);
+    expect(container.querySelector('.tile[data-id="u:group:platform"]')).not.toBeNull();
 
     fireEvent.doubleClick(screen.getByTestId("canvas-svg"));
 
     await waitFor(() => {
-      expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+      expect(container.querySelector('.tile[data-id="u:group:api"]')).not.toBeNull();
     });
   });
 
-  it("rolls up an edge between leaf units in different domains to a domain-to-domain edge, not just edges between layer units directly", async () => {
+  it("rolls up an edge between leaf units in different groups to a group-to-group edge, not just edges between layer units directly", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeGroupedSnapshotWithLeafEdges()) }));
 
     const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
 
     await waitFor(() => {
-      expect(container.querySelector('.tile[data-id="group:api surface"]')).not.toBeNull();
+      expect(container.querySelector('.tile[data-id="u:group:api"]')).not.toBeNull();
     });
 
     await waitFor(() => {
@@ -582,7 +558,7 @@ describe("App", () => {
     });
   });
 
-  it("rolls up an edge between deeply nested functions to a connector between their root layer tiles when no domain grouping applies", async () => {
+  it("rolls up an edge between deeply nested functions to a connector between their root layer tiles when the layers are in no group", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeUngroupedSnapshotWithDeepLeafEdges()) }));
 
     const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);

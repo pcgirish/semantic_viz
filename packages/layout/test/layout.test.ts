@@ -22,6 +22,14 @@ function makeEdge(overrides: Partial<Edge> & { id: string; from: string; to: str
   return { kind: "calls", weight: 1, source: "static", confidence: 1, ...overrides };
 }
 
+/** A group unit and its member layers, reciprocally linked — the shape `groupOf` walks. */
+function groupWithLayers(groupId: string, name: string, layerIds: string[]): Unit[] {
+  return [
+    makeUnit({ id: groupId, kind: "group", name, children: layerIds }),
+    ...layerIds.map((id) => makeUnit({ id, kind: "layer", parent: groupId })),
+  ];
+}
+
 describe("buildScene", () => {
   it("produces a scene node per unit and a scene link per (bundled) edge", () => {
     const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
@@ -148,27 +156,27 @@ describe("buildScene", () => {
     expect(scene.nodes[0]!.name).toBe("interpret");
   });
 
-  it("carries the nearest layer ancestor's group onto a scene node", () => {
+  it("carries the nearest layer ancestor's group unit id onto a scene node", () => {
     const units = [
-      makeUnit({ id: "u:layer:abc123", kind: "layer", name: "orders", group: "api surface" }),
+      makeUnit({ id: "u:group:g1", kind: "group", name: "api surface", children: ["u:layer:abc123"] }),
+      makeUnit({ id: "u:layer:abc123", kind: "layer", name: "orders", parent: "u:group:g1" }),
       makeUnit({ id: "a", parent: "u:layer:abc123" }),
     ];
     const scene = buildScene(units, []);
     const a = scene.nodes.find((n) => n.id === "a")!;
-    expect(a.group).toBe("api surface");
+    expect(a.groupId).toBe("u:group:g1");
   });
 
-  it("gives a unit with no group an empty group", () => {
+  it("gives a unit under no group an empty groupId", () => {
     const units = [makeUnit({ id: "a" })];
     const scene = buildScene(units, []);
-    expect(scene.nodes[0]!.group).toBe("");
+    expect(scene.nodes[0]!.groupId).toBe("");
   });
 
   describe("regions", () => {
     it("produces one region per group when 2+ layers share a group, with a bounding box containing all member nodes", () => {
       const units = [
-        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
-        makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", group: "api surface" }),
+        ...groupWithLayers("u:group:g1", "api surface", ["u:layer:l1", "u:layer:l2"]),
         makeUnit({ id: "a", parent: "u:layer:l1" }),
         makeUnit({ id: "b", parent: "u:layer:l2" }),
       ];
@@ -176,6 +184,9 @@ describe("buildScene", () => {
 
       expect(scene.regions).toHaveLength(1);
       const region = scene.regions[0]!;
+      // The region is identified by the group unit's id, and labelled with its display name —
+      // the name is an LLM string that can change without the group's identity changing.
+      expect(region.id).toBe("u:group:g1");
       expect(region.name).toBe("api surface");
 
       const a = scene.nodes.find((n) => n.id === "a")!;
@@ -188,26 +199,24 @@ describe("buildScene", () => {
 
     it("produces no region for a group with only a single member node", () => {
       const units = [
-        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
+        ...groupWithLayers("u:group:g1", "api surface", ["u:layer:l1"]),
         makeUnit({ id: "a", parent: "u:layer:l1" }),
       ];
       const scene = buildScene(units, []);
       expect(scene.regions).toHaveLength(0);
     });
 
-    it("produces no region for units with no group", () => {
+    it("produces no region for units under no group", () => {
       const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
       const scene = buildScene(units, []);
       expect(scene.regions).toHaveLength(0);
     });
 
     it("produces a region around layer tiles themselves when 2+ layer tiles share a group (system-level view)", () => {
-      const units = [
-        makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
-        makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", group: "api surface" }),
-      ];
+      const units = groupWithLayers("u:group:g1", "api surface", ["u:layer:l1", "u:layer:l2"]);
       const scene = buildScene(units, []);
       expect(scene.regions).toHaveLength(1);
+      expect(scene.regions[0]!.id).toBe("u:group:g1");
       expect(scene.regions[0]!.name).toBe("api surface");
     });
   });
@@ -371,7 +380,7 @@ describe("boundary markers", () => {
 
   it("keeps markers out of regions, which describe the focused subtree only", () => {
     const scene = buildScene(
-      [makeUnit({ id: "l1", kind: "layer", group: "core" }), makeUnit({ id: "l2", kind: "layer", group: "core" })],
+      groupWithLayers("u:group:core", "core", ["l1", "l2"]),
       [],
       {
         externalUnits: externals,
@@ -379,7 +388,7 @@ describe("boundary markers", () => {
       },
     );
 
-    const region = scene.regions.find((r) => r.id === "core")!;
+    const region = scene.regions.find((r) => r.id === "u:group:core")!;
     const marker = scene.nodes.find((n) => n.boundary)!;
     expect(marker.x).toBeGreaterThanOrEqual(region.x + region.w);
   });

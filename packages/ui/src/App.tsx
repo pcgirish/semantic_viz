@@ -32,49 +32,6 @@ function shaFromSnapshotUrl(url: string): string {
   return url.split("/").pop() ?? "";
 }
 
-const DOMAIN_PREFIX = "group:";
-
-/** True for a synthetic domain pseudo-id (`group:<name>`) — has no matching real `Unit`. */
-export function isDomainId(id: string): boolean {
-  return id.startsWith(DOMAIN_PREFIX);
-}
-
-function domainId(group: string): string {
-  return `${DOMAIN_PREFIX}${group}`;
-}
-
-/**
- * Synthetic client-side-only "domain" tier, grouping the system's layer-kind children by
- * their existing `group` field (mock parity — docs/mock/codedream-ui-mock.html shows 5
- * broad domains at the root, but the real analyzer's layer units are module-granularity;
- * `group` already carries the missing broader tier, driving the sidebar LAYERS panel, just
- * unused for canvas drill-level construction until now). No analyze/schema change: this
- * reads only fields already present in the .scv snapshot.
- */
-function buildDomainUnits(systemUnit: Unit, unitsById: Map<string, Unit>): Unit[] {
-  const layerChildren = systemUnit.children.map((id) => unitsById.get(id)).filter((u): u is Unit => !!u && u.kind === "layer");
-  const byGroup = new Map<string, Unit[]>();
-  for (const layer of layerChildren) {
-    const group = layer.group ?? "ungrouped";
-    const list = byGroup.get(group) ?? [];
-    list.push(layer);
-    byGroup.set(group, list);
-  }
-  return [...byGroup.entries()].map(([group, members]) => ({
-    id: domainId(group),
-    kind: "layer",
-    name: `${group} · ${members.length}`,
-    qualname: group,
-    parent: systemUnit.id,
-    children: members.map((m) => m.id),
-    loc: { files: [], sloc: members.reduce((sum, m) => sum + m.loc.sloc, 0) },
-    tags: [],
-    metrics: {},
-    hash: {},
-    provenance: { source: "static" },
-  }));
-}
-
 /**
  * Maps every unit to whichever visible unit is its nearest ancestor, so edges between real
  * leaf units (module/function, arbitrarily nested) roll up to the tile actually shown —
@@ -103,9 +60,6 @@ export function buildUnitToAncestor(visibleUnits: Unit[], unitsById: Map<string,
   }
   return result;
 }
-
-/** @deprecated kept as a thin alias — call sites should use {@link buildUnitToAncestor}. */
-export const buildUnitToDomain = buildUnitToAncestor;
 
 /**
  * Finds the edges with exactly one endpoint inside the focused subtree, and resolves each one's
@@ -280,37 +234,18 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     const unitsById = new Map(units.map((u) => [u.id, u]));
     const systemUnit = units.find((u) => u.kind === "system") ?? null;
 
-    const rootDomainUnits = systemUnit ? buildDomainUnits(systemUnit, unitsById) : [];
-    // Only worth a synthetic grouping level when it actually groups something; a single
-    // domain (or none) collapses back to the plain flat list of the system's children.
-    const useDomainTier = rootDomainUnits.length > 1;
+    // The system's children are the group units the analyzer now emits, so the root view is
+    // real units all the way down — the synthetic client-side domain tier this replaced could
+    // not be drilled to, searched for, or diffed, because it had no unit behind it.
+    const focusedUnit = (focus && unitsById.get(focus)) || systemUnit;
+    // api_flow units are listed among the system unit's children (so Flows.tsx can find
+    // them) but belong only in the dedicated Flows view, not the structural
+    // Current/Delta/Depends-on tree.
+    const visibleUnits = (
+      focusedUnit ? units.filter((u) => focusedUnit.children.includes(u.id)) : units.filter((u) => u.parent === null)
+    ).filter((u) => u.kind !== "api_flow");
 
-    let visibleUnits: Unit[];
-    // Hoisted out of the branch below: the boundary pass needs the real focused unit, and a
-    // synthetic domain is not one — at a domain focus there are no real siblings to collapse onto.
-    let realFocusedUnit: Unit | null = null;
-    if (focus === null && systemUnit && useDomainTier) {
-      // System root: show the synthetic domain tier (mock parity) instead of the real,
-      // module-granular layer units directly — same data, one grouped level inserted
-      // client-side only (App.tsx docblock plan, items 1-3).
-      visibleUnits = rootDomainUnits;
-    } else {
-      const focusIsDomain = useDomainTier && !!focus && isDomainId(focus);
-      const focusedUnit = focusIsDomain ? null : (focus && unitsById.get(focus)) || systemUnit;
-      const domainUnit = focusIsDomain ? (rootDomainUnits.find((d) => d.id === focus) ?? null) : null;
-      realFocusedUnit = domainUnit ? null : focusedUnit;
-      // api_flow units are listed among the system unit's children (so Flows.tsx can find
-      // them) but belong only in the dedicated Flows view, not the structural
-      // Current/Delta/Depends-on tree.
-      visibleUnits = (
-        domainUnit
-          ? units.filter((u) => domainUnit.children.includes(u.id))
-          : focusedUnit
-            ? units.filter((u) => focusedUnit.children.includes(u.id))
-            : units.filter((u) => u.parent === null)
-      ).filter((u) => u.kind !== "api_flow");
-    }
-    // Every tile (real layer, real module, or a synthetic domain) can own descendants many
+    // Every tile can own descendants many
     // levels deep — edges almost always connect those deep leaves, not the tiles themselves,
     // so roll each edge's endpoints up to whichever visible tile is their nearest ancestor.
     const unitToVisible = buildUnitToAncestor(visibleUnits, unitsById);
@@ -341,8 +276,8 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
     );
     // Edges with exactly one endpoint inside the focus were dropped by the loop above (their
     // outside endpoint has no visible tile). They come back as boundary markers on the frame.
-    const { boundaryEdges, externalUnits } = realFocusedUnit
-      ? collectBoundaryEdges({ focusedUnit: realFocusedUnit, visibleUnits, edges, unitsById })
+    const { boundaryEdges, externalUnits } = focusedUnit
+      ? collectBoundaryEdges({ focusedUnit, visibleUnits, edges, unitsById })
       : { boundaryEdges: [], externalUnits: [] };
 
     return { visibleUnits, visibleEdges, deltaByUnit, boundaryEdges, externalUnits };

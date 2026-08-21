@@ -69,8 +69,9 @@ describe("CanvasHost", () => {
 
   it("draws a region behind the node layer for a group with 2+ layers", () => {
     const units = [
-      makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", group: "api surface" }),
-      makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", group: "api surface" }),
+      makeUnit({ id: "u:group:g1", kind: "group", name: "api surface", children: ["u:layer:l1", "u:layer:l2"] }),
+      makeUnit({ id: "u:layer:l1", kind: "layer", name: "orders", parent: "u:group:g1" }),
+      makeUnit({ id: "u:layer:l2", kind: "layer", name: "billing", parent: "u:group:g1" }),
       makeUnit({ id: "a", parent: "u:layer:l1" }),
       makeUnit({ id: "b", parent: "u:layer:l2" }),
     ];

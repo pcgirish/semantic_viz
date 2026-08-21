@@ -1,6 +1,5 @@
 import { Button, PathBreadcrumb } from "@scv/design-system";
 import type { Unit } from "@scv/schema";
-import { isDomainId } from "./App.js";
 
 export type BreadcrumbProps = {
   focus: string | null;
@@ -17,8 +16,7 @@ export function focusPathSegments(focus: string | null, focusStack: string[], un
   if (focus === null) return [];
   const unitsById = new Map(units.map((u) => [u.id, u]));
   const path = [...focusStack, focus];
-  // A synthetic domain id (`group:<name>`) has no matching real unit — label it from the id.
-  return path.map((id) => ({ label: isDomainId(id) ? id.slice("group:".length) : (unitsById.get(id)?.name ?? id) }));
+  return path.map((id) => ({ label: unitsById.get(id)?.name ?? id }));
 }
 
 /** Path from root to the current focus, plus a back button — mirrors the mock's #crumb (docs/mock/scv-mock.html). */

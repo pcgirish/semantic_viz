@@ -19,6 +19,14 @@ function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
   };
 }
 
+/** A group unit and its member layers, reciprocally linked — the shape the Legend walks. */
+function groupWithLayers(groupId: string, name: string, layers: Array<{ id: string; name: string }>): Unit[] {
+  return [
+    makeUnit({ id: groupId, kind: "group", name, children: layers.map((l) => l.id) }),
+    ...layers.map((l) => makeUnit({ id: l.id, kind: "layer", name: l.name, parent: groupId })),
+  ];
+}
+
 describe("Legend", () => {
   afterEach(() => {
     cleanup();
@@ -62,9 +70,11 @@ describe("Legend", () => {
 
   it("renders one header row per group, with member layers nested underneath", () => {
     const units = [
-      makeUnit({ id: "u:layer:a", kind: "layer", name: "orders", group: "api surface" }),
-      makeUnit({ id: "u:layer:b", kind: "layer", name: "billing", group: "api surface" }),
-      makeUnit({ id: "u:layer:c", kind: "layer", name: "queue", group: "platform" }),
+      ...groupWithLayers("u:group:g1", "api surface", [
+        { id: "u:layer:a", name: "orders" },
+        { id: "u:layer:b", name: "billing" },
+      ]),
+      ...groupWithLayers("u:group:g2", "platform", [{ id: "u:layer:c", name: "queue" }]),
     ];
     const { getByText, getAllByText } = render(<Legend units={units} />);
     expect(getAllByText("api surface").length + getAllByText("platform").length).toBe(2);
@@ -76,7 +86,7 @@ describe("Legend", () => {
   });
 
   it("keeps the group label inside the frame, so a tray that clips overflow cannot hide it", () => {
-    const units = [makeUnit({ id: "u:layer:a", kind: "layer", name: "orders", group: "api surface" })];
+    const units = groupWithLayers("u:group:g1", "api surface", [{ id: "u:layer:a", name: "orders" }]);
     const { container } = render(<Legend units={units} />);
 
     // The design-system GroupFrame floats its label at top:-9px; inside a Tray with
@@ -88,7 +98,20 @@ describe("Legend", () => {
     expect(parseFloat(frame!.style.marginTop)).toBeGreaterThanOrEqual(9);
   });
 
-  it("falls a layer with no group under an 'other' header", () => {
+  it("groups by the group unit's identity, so two groups sharing a name stay separate headers", () => {
+    // Group names are LLM-authored and not unique; keying the legend on the name alone would
+    // silently merge two distinct groups into one frame.
+    const units = [
+      ...groupWithLayers("u:group:g1", "platform", [{ id: "u:layer:a", name: "orders" }]),
+      ...groupWithLayers("u:group:g2", "platform", [{ id: "u:layer:b", name: "billing" }]),
+    ];
+    const { getAllByText, getByText } = render(<Legend units={units} />);
+    expect(getAllByText("platform")).toHaveLength(2);
+    expect(getByText("orders")).not.toBeNull();
+    expect(getByText("billing")).not.toBeNull();
+  });
+
+  it("falls a layer under no group unit into an 'other' header", () => {
     const units = [makeUnit({ id: "u:layer:a", kind: "layer", name: "orders" })];
     const { getByText } = render(<Legend units={units} />);
     expect(getByText("other")).not.toBeNull();
@@ -96,7 +119,7 @@ describe("Legend", () => {
   });
 
   it("still shows the existing per-layer chip color nested under its group header", () => {
-    const units = [makeUnit({ id: "u:layer:a", kind: "layer", name: "orders", group: "api surface" })];
+    const units = groupWithLayers("u:group:g1", "api surface", [{ id: "u:layer:a", name: "orders" }]);
     const { container } = render(<Legend units={units} />);
     const chip = container.querySelector(".chip") as HTMLElement;
     expect(chip.style.background).toBeTruthy();
@@ -112,8 +135,8 @@ describe("Legend at repository scale", () => {
   // thing it is for.
   function groups(n: number): Unit[] {
     return Array.from({ length: n }, (_, i) =>
-      makeUnit({ id: `u:layer:${i}`, kind: "layer", name: `layer ${i}`, group: `group ${i}` }),
-    );
+      groupWithLayers(`u:group:${i}`, `group ${i}`, [{ id: `u:layer:${i}`, name: `layer ${i}` }]),
+    ).flat();
   }
 
   it("shows every group expanded while there are few enough to read at once", () => {

@@ -18,7 +18,7 @@ function makeNode(overrides: Partial<SceneNode> & { id: string }): SceneNode {
     fanIn: 0,
     fanOut: 0,
     layer: "",
-    group: "",
+    groupId: "",
     complexity: 0,
     ...overrides,
   };
