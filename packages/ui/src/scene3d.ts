@@ -2,7 +2,28 @@ import * as THREE from "three";
 import type { Scene } from "@scv/layout";
 import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
 import { tiles3dSkin } from "@scv/skin-tiles3d";
-import type { DeltaInfo } from "@scv/skin-contract";
+import { cityscapeSkin, ground } from "@scv/skin-cityscape";
+import type { DeltaInfo, Skin } from "@scv/skin-contract";
+import type { ViewMode } from "./store.js";
+
+/** Which 3D skin the host is drawing. Both draw into the same scene graph (docs/serve.md#6). */
+export type Skin3dName = "tiles3d" | "cityscape";
+
+type Skin3d = Skin<THREE.Object3D, THREE.Object3D, THREE.Object3D>;
+
+/**
+ * The host resolves a skin by name rather than importing one. That indirection is the whole
+ * point of the contract: the host knows it is handed something that can draw a node and
+ * declares a camera model, and nothing else about it (docs/serve.md#6).
+ */
+const SKINS: Record<Skin3dName, Skin3d> = {
+  tiles3d: tiles3dSkin,
+  cityscape: cityscapeSkin,
+};
+
+export function skin3d(name: Skin3dName): Skin3d {
+  return SKINS[name];
+}
 
 /** Above this ratio the scene is dense enough that background edges fade (docs/serve.md#3). */
 const GATE_RATIO = 1.6;
@@ -10,6 +31,8 @@ const GATE_RATIO = 1.6;
 export type SceneGraphOptions = {
   /** Present only in delta mode — the same map CanvasHost takes (docs/serve.md#2). */
   deltaByUnit?: Map<string, DeltaInfo>;
+  /** Which skin draws the buildings. Defaults to the orbit skin. */
+  skin?: Skin3dName;
 };
 
 /**
@@ -22,10 +45,17 @@ export function buildSceneGraph(scene: Scene, options: SceneGraphOptions): THREE
   const root = new THREE.Group();
   root.name = "scene";
 
+  const name = options.skin ?? "tiles3d";
+  const skin = skin3d(name);
   const gated = scene.links.length > scene.nodes.length * GATE_RATIO;
 
+  // A walkable skin needs something underfoot; an orbiting one is looking down at rooftops
+  // and never sees whether there is a floor. Asking the skin for it rather than drawing one
+  // here keeps the host free of geometry.
+  if (name === "cityscape") root.add(ground(scene));
+
   for (const l of scene.links) {
-    const line = tiles3dSkin.link(l, { gated }) as THREE.Object3D;
+    const line = skin.link(l, { gated }) as THREE.Object3D;
     line.userData.linkEnds = [l.from, l.to];
     root.add(line);
   }
@@ -35,7 +65,7 @@ export function buildSceneGraph(scene: Scene, options: SceneGraphOptions): THREE
     // same hashLayerToColor over the same palette, so a unit keeps its colour across skins.
     const layerColor = n.layer ? hashLayerToColor(n.layer, codedreamLayerPalette) : undefined;
     root.add(
-      tiles3dSkin.node(n, {
+      skin.node(n, {
         layerColor,
         delta: options.deltaByUnit?.get(n.id),
         gated,
@@ -60,6 +90,8 @@ const UNFOCUSED_EDGE_OPACITY = 0.08;
  * is; mutating the existing materials keeps a click to a property write.
  */
 export function applyFocus(root: THREE.Group, focusId: string | null): void {
+  let focused: THREE.Object3D | null = null;
+
   for (const child of root.children) {
     const id = child.userData.sceneNodeId;
     if (typeof id !== "string") continue;
@@ -69,6 +101,21 @@ export function applyFocus(root: THREE.Group, focusId: string | null): void {
     const faded = focusId !== null && id !== focusId;
     material.transparent = faded;
     material.opacity = faded ? UNFOCUSED_OPACITY : 1;
+    // Opacity alone does not stop a dimmed building occluding what is behind it: a
+    // transparent mesh still writes depth by default, so a faded facade in front of the
+    // focused one punches a hole showing the background rather than the building. Dropping
+    // depth writes on faded bodies is what makes focus actually see-through
+    // (docs/serve.md#187-192). The focused body keeps writing, or it renders inside-out.
+    material.depthWrite = !faded;
+    if (id === focusId) focused = child;
+  }
+
+  // Draw the focused building last. Transparent meshes are painted after opaque ones and
+  // blended in traversal order, so without this a faded neighbour later in the list paints
+  // over the solid focused building.
+  if (focused) {
+    root.remove(focused);
+    root.add(focused);
   }
 
   // Edges touching the focused unit stay at full strength — that trace is the reason to
@@ -164,8 +211,9 @@ const FRAME_MARGIN = 1.25;
 
 export type CameraFraming = { position: THREE.Vector3; target: THREE.Vector3 };
 
-/** Which way the camera looks at the city: down at it, or from inside it (docs/serve.md#6). */
-export type ViewMode = "orbit" | "street";
+/** Which way the camera looks at the city — owned by the store, since the controls legend
+ * outside the canvas reads it too. Re-exported here for the framing code that consumes it. */
+export type { ViewMode } from "./store.js";
 
 /**
  * Where to put the camera for a scene. Orbit pulls back far enough to hold the whole city
@@ -215,4 +263,74 @@ function footprint(scene: Scene): { cx: number; cz: number; width: number; depth
   const minZ = Math.min(...scene.nodes.map((n) => n.y));
   const maxZ = Math.max(...scene.nodes.map((n) => n.y + n.h));
   return { cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, width: maxX - minX, depth: maxZ - minZ };
+}
+
+/**
+ * How far a label stays readable, in scene units. Buildings are ~96 wide, so this is roughly
+ * a dozen of them — far enough that the block you are walking toward is named before you
+ * reach it, near enough that the back of the city stops writing over the front of it.
+ */
+export const LABEL_MAX_DISTANCE = 1200;
+
+/**
+ * Half-size of the screen-space box a label is assumed to occupy, in normalised device units.
+ * CSS2D labels are DOM whose real width depends on the text, but measuring every one per frame
+ * would cost a layout pass per building; a fixed box is the cheap approximation, and erring
+ * generous is the safe direction — a label wrongly dropped is recoverable by walking closer,
+ * a label wrongly kept is the overlap this exists to prevent.
+ */
+const LABEL_HALF_NDC = { x: 0.11, y: 0.035 };
+
+/**
+ * Hides labels that cannot be read: too far away, or overlapping a nearer one.
+ *
+ * Checkpoint 2 confirmed the plan's "label legibility at distance" risk, and then the browser
+ * showed that distance was only half of it. `scripts`, `migrations_group` and `src_db` collided
+ * while all three were *near* the camera — they sit side by side in one rank row, so from the
+ * street their names project into the same pixels however close you stand. Distance culling
+ * cannot fix a failure that happens in screen space, so this does both: drop what is too far to
+ * read, then drop what would be drawn on top of something nearer.
+ *
+ * Nearest wins, because that is the building you are walking toward and the one whose name you
+ * are most likely to want.
+ *
+ * Called every frame from the render loop, so it stays cheap: projection into NDC and a box
+ * test against the labels already kept. At 105 units the pairwise scan is nothing; if a repo
+ * ever makes it matter, this is the place to put a grid.
+ */
+export function cullLabels(root: THREE.Group, camera: THREE.Camera): void {
+  const eye = camera.position;
+
+  const candidates: { label: THREE.Object3D; ndc: THREE.Vector3; distance: number }[] = [];
+  for (const child of root.children) {
+    if (typeof child.userData.sceneNodeId !== "string") continue;
+    const label = child.getObjectByName("label");
+    if (!label) continue;
+
+    const distance = eye.distanceTo(child.position);
+    if (distance > LABEL_MAX_DISTANCE) {
+      label.visible = false;
+      continue;
+    }
+
+    const ndc = label.getWorldPosition(new THREE.Vector3()).project(camera);
+    // Behind the camera: `project` mirrors those to the front of the frustum, so without this
+    // a building at your back can suppress the label of one ahead of you.
+    if (ndc.z > 1) {
+      label.visible = false;
+      continue;
+    }
+    candidates.push({ label, ndc, distance });
+  }
+
+  candidates.sort((a, b) => a.distance - b.distance);
+
+  const kept: THREE.Vector3[] = [];
+  for (const c of candidates) {
+    const collides = kept.some(
+      (k) => Math.abs(k.x - c.ndc.x) < LABEL_HALF_NDC.x * 2 && Math.abs(k.y - c.ndc.y) < LABEL_HALF_NDC.y * 2,
+    );
+    c.label.visible = !collides;
+    if (!collides) kept.push(c.ndc);
+  }
 }

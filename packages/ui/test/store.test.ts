@@ -129,4 +129,36 @@ describe("renderSkin", () => {
     expect(after.focusStack).toEqual(focusStack);
     expect(after.selection).toBe(selection);
   });
+
+  it("carries selection and focus across all three skins, including cityscape", () => {
+    // The switch is the whole point of the contract: three skins, one Scene, and the same
+    // place in the codebase throughout. A skin that resets your position would make the
+    // switch a navigation event rather than a change of representation.
+    useAppStore.getState().drill("mod-a");
+    useAppStore.getState().select("mod-a");
+    const { focus, focusStack, selection } = useAppStore.getState();
+
+    for (const skin of ["tiles", "tiles3d", "cityscape"] as const) {
+      useAppStore.getState().setRenderSkin(skin);
+      const after = useAppStore.getState();
+      expect(after.renderSkin).toBe(skin);
+      expect(after.focus).toBe(focus);
+      expect(after.focusStack).toEqual(focusStack);
+      expect(after.selection).toBe(selection);
+    }
+  });
+
+  it("carries the walk/fly view mode, so a sibling of the canvas can read it", () => {
+    // The controls legend lives in App's left rail, a sibling of Canvas3dHost — it cannot
+    // see state held locally inside the canvas.
+    expect(useAppStore.getState().view).toBe("orbit");
+    useAppStore.getState().setView("street");
+    expect(useAppStore.getState().view).toBe("street");
+  });
+
+  it("keeps view orthogonal to skin, so switching skins does not eject you to the sky", () => {
+    useAppStore.getState().setView("street");
+    useAppStore.getState().setRenderSkin("cityscape");
+    expect(useAppStore.getState().view).toBe("street");
+  });
 });

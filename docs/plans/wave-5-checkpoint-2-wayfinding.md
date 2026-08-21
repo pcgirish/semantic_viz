@@ -108,6 +108,14 @@ Proceed to 5.4. Carry four things into it:
   `migrations_group`, and `src_db` collide into unreadable overlapping text. This is the
   plan's "label legibility at distance" risk, now confirmed rather than hypothetical. It
   needs distance-based culling or collision-aware placement in 5.4, not a framing tweak.
+
+  **Closed in 5.4** — and the diagnosis above was half wrong, which is worth recording. The
+  first fix was distance culling, and it changed nothing: the three colliding labels were all
+  *near* the camera. Distance was never the variable. The overlap is a screen-space failure,
+  so the fix has to be screen-space too — labels are now projected to NDC and the nearer of
+  any colliding pair wins (`ui/src/scene3d.ts`, `cullLabels`). Distance culling was kept as a
+  cheap pre-filter, not as the mechanism.
+
 *(The WebGL leak check that used to sit here has since been run; see below.)*
 
 ## The WebGL context leak was real

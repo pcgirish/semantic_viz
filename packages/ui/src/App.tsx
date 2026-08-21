@@ -3,6 +3,8 @@ import type { Delta, Snapshot, Unit } from "@scv/schema";
 import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
+import { UnitSearch } from "./UnitSearch.js";
+import { ControlsHelp } from "./ControlsHelp.js";
 // Lazy: three.js is ~570kB of the bundle and only the 3D skins need it, so a user who
 // never leaves the 2D view never downloads it.
 const Canvas3dHost = lazy(async () => ({ default: (await import("./Canvas3dHost.js")).Canvas3dHost }));
@@ -118,6 +120,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [sha, setSha] = useState(() => shaFromSnapshotUrl(snapshotUrl));
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const renderSkin = useAppStore((s) => s.renderSkin);
+  const view = useAppStore((s) => s.view);
   const setRenderSkin = useAppStore((s) => s.setRenderSkin);
   const selection = useAppStore((s) => s.selection);
   const focus = useAppStore((s) => s.focus);
@@ -127,6 +130,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const focusStack = useAppStore((s) => s.focusStack);
   const ascend = useAppStore((s) => s.ascend);
   const goTo = useAppStore((s) => s.goTo);
+  const drill = useAppStore((s) => s.drill);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-skin", theme);
@@ -280,6 +284,16 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   // against (e.g. the earliest rev) or nothing changed — either way there is no delta.
   const deltaIsEmpty = mode === "delta" && (delta?.inspect_queue ?? []).length === 0;
 
+  // A searched-for unit is almost never on the level you are standing on, so selecting it
+  // alone would highlight something off screen. Drilling to its parent puts it among the
+  // visible tiles first; drill (rather than a bare focus set) is what keeps the breadcrumb
+  // able to walk back the way you came.
+  const revealUnit = (unitId: string) => {
+    const parent = units.find((u) => u.id === unitId)?.parent;
+    if (parent && parent !== focus) drill(parent);
+    select(unitId);
+  };
+
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Toolbar
@@ -318,18 +332,22 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
               options={[
                 { value: "tiles", label: "2D" },
                 { value: "tiles3d", label: "3D" },
+                { value: "cityscape", label: "City" },
               ]}
             />
           </div>
         }
         right={
-          <Select
-            data-testid="rev-picker"
-            aria-label="revision"
-            value={sha}
-            onChange={(e) => setSha(e.target.value)}
-            options={revs.map((r) => ({ value: r.sha, label: shortSha(r.sha) }))}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+            <UnitSearch units={units} onPick={revealUnit} />
+            <Select
+              data-testid="rev-picker"
+              aria-label="revision"
+              value={sha}
+              onChange={(e) => setSha(e.target.value)}
+              options={revs.map((r) => ({ value: r.sha, label: shortSha(r.sha) }))}
+            />
+          </div>
         }
       />
       <div className="body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
@@ -337,9 +355,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
         {mode === "current" && (
-          <div data-testid="legend-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
-            <Tray title="Layers" dock="left">
+          <div data-testid="legend-rail" style={{ flex: "none", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            {/* The legend is a reading aid for an encoding that is on screen the whole time,
+                so it has no useful collapsed state. It was the sole child of a collapsible
+                "Layers" tray, where the gesture for hiding a layer list hid the legend too. */}
+            <Tray title="Legend" dock="left" collapsible={false}>
               <Legend units={units} mode="current" />
+              {renderSkin !== "tiles" && <ControlsHelp skin={renderSkin} view={view} />}
             </Tray>
           </div>
         )}
@@ -377,9 +399,16 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
             Nothing changed in this revision — no delta to inspect.
           </div>
         ) : (
-          renderSkin === "tiles3d" ? (
+          renderSkin !== "tiles" ? (
+            // Both 3D skins share one host: the contract makes which buildings get drawn and
+            // how the camera moves the skin's business, so the host does not fork.
             <Suspense fallback={<div style={{ flex: 1, minWidth: 0 }} />}>
-              <Canvas3dHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />
+              <Canvas3dHost
+                units={visibleUnits}
+                edges={visibleEdges}
+                deltaByUnit={mode === "delta" ? deltaByUnit : undefined}
+                skin={renderSkin}
+              />
             </Suspense>
           ) : (
             <CanvasHost units={visibleUnits} edges={visibleEdges} deltaByUnit={mode === "delta" ? deltaByUnit : undefined} />

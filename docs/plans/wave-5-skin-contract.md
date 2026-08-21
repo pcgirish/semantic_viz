@@ -1,8 +1,13 @@
 # Wave 5 — a real skin contract, and a 3D view you can move through
 
-> **Status.** 5.1 done (`packages/skin-contract` shipped, both skins import it, `depth`
-> populated). 5.2 in progress. Supersedes the earlier "make the skin contract real (PR J)"
-> plan at this path, whose recommendation to archive `tiles3d` is overtaken by Decision 3.
+> **Status: complete (2026-08-20).** All of 5.1-5.6 shipped across three PRs. Three skins
+> switch in the toolbar — `tiles` (2D), `tiles3d` (orbit), `cityscape` (walk/fly) — behind one
+> contract in `packages/skin-contract`, with two hosts executing it. Supersedes the earlier
+> "make the skin contract real (PR J)" scoping in
+> `remediation-security-clustering-canvas-docs.md`, whose recommendation to archive `tiles3d`
+> is overtaken by Decision 3. Checkpoint 2's findings are recorded separately in
+> `wave-5-checkpoint-2-wayfinding.md`; its one open item, label overlap at distance, was
+> closed in 5.4 by distance culling (`scene3d.ts` `cullLabels`).
 
 ## Context
 

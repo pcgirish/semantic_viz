@@ -31,4 +31,38 @@ describe("Canvas3dHost", () => {
     expect(getByTestId("canvas-3d")).toBeTruthy();
     expect(() => unmount()).not.toThrow();
   });
+
+  it("shows the minimap for a walkable skin, because rank is invisible at eye level", () => {
+    // Checkpoint 2's second question: standing among the buildings there is no visual answer
+    // to "which way is up the dependency graph?". The map is the only instrument that can
+    // give one, which is why it renders as part of the walkable view rather than as an
+    // optional inset the user has to find (docs/serve.md#189).
+    const { getByTestId } = render(<Canvas3dHost units={units} edges={edges} skin="cityscape" />);
+    expect(getByTestId("minimap")).toBeTruthy();
+  });
+
+  it("omits the minimap from the orbit skin, which can already see rank", () => {
+    // From orbit the rank axis reads at a glance — the map would be redundant chrome over a
+    // view that has not lost anything.
+    const { queryByTestId } = render(<Canvas3dHost units={units} edges={edges} skin="tiles3d" />);
+    expect(queryByTestId("minimap")).toBeNull();
+  });
+
+  it("labels its camera toggle in the walkable skin's own terms", () => {
+    // tiles3d switches between looking at the city and standing in it. cityscape is always
+    // inside it, and switches how you travel: on foot or airborne.
+    const { getByRole } = render(<Canvas3dHost units={units} edges={edges} skin="cityscape" />);
+    expect(getByRole("button", { name: /walk/i })).toBeTruthy();
+  });
+
+  it("starts the walkable skin airborne, not on the pavement", () => {
+    // Fly is the arrival mode: it keeps the whole city — and therefore the rank axis — in
+    // view, which is exactly what Checkpoint 2 found street level destroys. Landing the user
+    // between two buildings with no overview reproduces the failure the minimap exists to
+    // mitigate, before they have been given any reason to walk. Travel first, arrive second
+    // (docs/serve.md#6). The toggle offering "Walk" is the observable form of that default.
+    const { getByRole, queryByRole } = render(<Canvas3dHost units={units} edges={edges} skin="cityscape" />);
+    expect(getByRole("button", { name: /walk/i })).toBeTruthy();
+    expect(queryByRole("button", { name: /^fly$/i })).toBeNull();
+  });
 });

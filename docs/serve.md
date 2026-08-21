@@ -156,14 +156,17 @@ Hovering any unit highlights `depends_on` and `users` in **different colours wit
 
 - **`tiles`** (v1) — flat polygons, maximum legibility. The reference implementation.
 - **`tiles3d`** — same scene, extruded prisms, orbit camera.
-- **`atlas` / `cityscape` / `landscape` / `seafloor`** — later.
+- **`cityscape`** — the same prisms with a ground plane and a walk/fly camera, plus a
+  top-down minimap. Moving *through* the scene rather than looking *at* it.
+- **`atlas` / `landscape` / `seafloor`** — later.
 
-> **Implementation status (2026-08-20):** both `tiles` and `tiles3d` implement this
-> contract, but `packages/ui` does not yet *consume* it — `CanvasHost` renders tiles
-> with `packages/design-system` components and imports only the layer palette from
-> `@scv/skin-tiles`. Making the skin selectable therefore requires routing rendering
-> through the contract first; scoped as Wave 5 in
-> `docs/plans/remediation-security-clustering-canvas-docs.md`.
+> **Implementation status (2026-08-20):** all three skins implement this contract and
+> `packages/ui` consumes it. The contract lives in `packages/skin-contract` — not in
+> `packages/layout`, which must not know renderers exist (§1). Two hosts execute it:
+> `CanvasHost` draws `Skin<ReactElement>`, `Canvas3dHost` draws `Skin<Object3D>`, and the
+> toolbar switches between all three while preserving selection and focus. "3D is just a
+> skin" holds for geometry and breaks for navigation, so the split is one contract, two
+> hosts — see below.
 
 A skin may reinterpret the *theme* freely. A skin may not reinterpret the *encoding*: rank is still vertical, area is still sloc, sides are still complexity. Otherwise two people looking at the same repo in two skins are not looking at the same thing.
 

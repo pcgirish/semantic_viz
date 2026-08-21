@@ -30,15 +30,26 @@ function displayName(u: Unit): string {
  * encoding stays in the layout engine and no skin recomputes it (docs/serve.md#1).
  *
  * The scale is set against the footprint, not chosen in the abstract: depth is world height
- * in the same units a tile is wide, so a unit of ordinary size has to come out taller than
- * its footprint or the scene reads as a plain of slabs rather than a skyline. The earlier
- * tuning put a 40-sloc unit at 28 against a 96-wide tile, which is why the first street-level
- * look had nothing to walk between (docs/plans/wave-5-checkpoint-2-wayfinding.md).
+ * in the same units a tile is wide, so a unit has to come out taller than its footprint or the
+ * scene reads as a plain of slabs rather than a skyline. The earlier tuning put a 40-sloc unit
+ * at 28 against a 96-wide tile, which is why the first street-level look had nothing to walk
+ * between (docs/plans/wave-5-checkpoint-2-wayfinding.md).
+ *
+ * The curve is √, matching what `place.ts` already does to tile *area* and for the same reason
+ * (docs/serve.md#2, "√-scaled so a 500-line module does not erase a 20-line one"). Height had
+ * kept a linear scale, which left a 2000-line file standing forty times a 50-line one — one
+ * tower with the rest of the city as noise around its feet. Compression changes the curve, not
+ * the encoding: sloc is still the only thing that drives height.
+ *
+ * `MIN_DEPTH` carries the slab constraint on its own, and is deliberately larger than
+ * `MIN_DIM` (96) rather than tuned against a median. Real repositories are dominated by small
+ * files — `fixtures/orderly`'s median unit is 2 sloc — so a floor below the footprint width
+ * leaves most of the city as slabs no matter how the rest of the curve is shaped.
  */
-const MIN_DEPTH = 40;
-const DEPTH_PER_SLOC = 3;
+const MIN_DEPTH = 120;
+const DEPTH_PER_SQRT_SLOC = 22;
 function depthFor(sloc: number): number {
-  return MIN_DEPTH + sloc * DEPTH_PER_SLOC;
+  return MIN_DEPTH + Math.sqrt(Math.max(0, sloc)) * DEPTH_PER_SQRT_SLOC;
 }
 
 function sidesFor(complexity: number | undefined): SceneNode["sides"] {

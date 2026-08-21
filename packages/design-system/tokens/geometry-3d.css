@@ -29,3 +29,56 @@
 --grid-line:rgba(152,174,191,.07);
 --grid-line-major:rgba(152,174,191,.13);
 }
+
+/* ---- 3D scene chrome ----------------------------------------------------
+   The DOM that sits over a WebGL canvas: CSS2D building labels, the walker's
+   minimap, and the camera toggle. It lives here rather than in the app because
+   it is the same "flat UI and 3D scene share one light rig and palette" idea
+   this file opens with — a label floating over a facade is design-system
+   surface, not application logic. */
+
+.scene3d-label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: #dbe6ef;
+  /* Buildings are saturated and lit; a bare text node disappears against the
+     bright faces and the dark sky alike. The plate is what keeps a name legible
+     over both. */
+  background: rgba(10, 16, 23, .78);
+  border: 1px solid var(--geo-edge, rgba(152, 174, 191, .18));
+  border-radius: 3px;
+  padding: 2px 5px;
+  white-space: nowrap;
+  /* Labels are annotation, never a click target: a name hovering in front of a
+     facade must not swallow the click meant for the building behind it. */
+  pointer-events: none;
+  user-select: none;
+}
+
+.scene3d-minimap {
+  background: rgba(10, 16, 23, .82);
+  border: 1px solid var(--geo-edge, rgba(152, 174, 191, .18));
+  border-radius: 4px;
+  /* The map is a readout, not a control — it must not eat a walk gesture that
+     happens to end over it. */
+  pointer-events: none;
+}
+
+.view-toggle {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #dbe6ef;
+  background: rgba(10, 16, 23, .82);
+  border: 1px solid var(--geo-edge, rgba(152, 174, 191, .18));
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.view-toggle:hover {
+  border-color: var(--geo-edge-hot, rgba(242, 169, 59, .55));
+}

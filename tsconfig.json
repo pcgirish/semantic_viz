@@ -1,16 +1,41 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/schema" },
-    { "path": "packages/extractor" },
-    { "path": "packages/interpreter" },
-    { "path": "packages/differ" },
-    { "path": "packages/cli" },
-    { "path": "packages/server" },
-    { "path": "packages/layout" },
-    { "path": "packages/skin-contract" },
-    { "path": "packages/skins/tiles" },
-    { "path": "packages/skins/tiles3d" },
-    { "path": "packages/ui" }
+    {
+      "path": "packages/schema"
+    },
+    {
+      "path": "packages/extractor"
+    },
+    {
+      "path": "packages/interpreter"
+    },
+    {
+      "path": "packages/differ"
+    },
+    {
+      "path": "packages/cli"
+    },
+    {
+      "path": "packages/server"
+    },
+    {
+      "path": "packages/layout"
+    },
+    {
+      "path": "packages/skin-contract"
+    },
+    {
+      "path": "packages/skins/tiles"
+    },
+    {
+      "path": "packages/skins/tiles3d"
+    },
+    {
+      "path": "packages/skins/cityscape"
+    },
+    {
+      "path": "packages/ui"
+    }
   ]
 }

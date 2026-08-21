@@ -23,6 +23,9 @@ diffable and durable.
 | `llm-call-timing-and-progress.md` | Per-call LLM timing, sub-phase in-flight progress logging, duration on INFO lines, end-of-run timing summary |
 | `repo-docs-and-directory-context-for-pass-b-c.md` | Feed repo docs (README/`docs/`) + directory structure into Pass B/C prompts via new Pass Docs extraction pass, plus Pass B target-cluster-count heuristic |
 | `cli-serve-ui.md` | Wire `scv serve` (JSON API) and `scv ui` (static SPA + `/api` proxy) into the `scv` CLI |
+| `wave-5-skin-contract.md` | Wave 5: a real, swappable `Skin` contract plus a 3D view you can move through — `packages/skin-contract`, both 2D and 3D hosts routed through it, `tiles3d` wired, `cityscape` (walk/fly + minimap) built, three-way toolbar switch |
+| `wave-5-checkpoint-2-wayfinding.md` | Wave 5 Checkpoint 2: what the street-level camera on `fixtures/orderly` actually showed — hue massing works, rank does not survive entering the scene, and four defects no unit test was asking about |
+| `dapper-drifting-fern.md` | Fix 3D-skin navigation and scale gaps: cityscape fly-drag (`FlyControls` rotates by cursor-offset-from-centre, not drag delta) and the compass symptom it likely explains, focus render order, continuous-zoom drill/ascend, building shape legibility + sloc height rescale under Checkpoint 2's slab constraint, always-visible legend tray, controls-help guide, large-repo layer count |
 
 New plans: write to `~/.claude/plans/` as usual during plan mode, then copy the approved
 file here (and commit) once implementation starts, so its history is preserved.

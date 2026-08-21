@@ -1,19 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Edge, Unit } from "@scv/schema";
 import { buildScene, type Scene } from "@scv/layout";
 import { useAppStore } from "./store.js";
-import { applyFocus, buildSceneGraph, disposeGraph, disposeRenderer, frameScene, FOV_DEG, unitAt, type ViewMode } from "./scene3d.js";
+import { applyFocus, buildSceneGraph, cullLabels, disposeGraph, disposeRenderer, frameScene, FOV_DEG, skin3d, unitAt, type Skin3dName } from "./scene3d.js";
 import type { TileDeltaInfo } from "./CanvasHost.js";
+import { Minimap } from "./Minimap.js";
+import { flyControls, orbitControls, walkControls, type Controls3d } from "./controls3d.js";
+import { computeAutoNavIntent, distanceToLevel, distanceToSelection, facingLevel, type AutoNavState } from "./autonav.js";
+import type { Viewer } from "@scv/skin-cityscape";
 
 export type Canvas3dHostProps = {
   units: Unit[];
   edges: Edge[];
   /** Present only in delta mode (docs/serve.md#2). */
   deltaByUnit?: Map<string, TileDeltaInfo>;
+  /** Which 3D skin to draw. Defaults to the orbit skin. */
+  skin?: Skin3dName;
 };
+
+/** How often the minimap re-reads the camera, in frames. 60fps / 6 = 10Hz — smooth enough to
+ * track a walk, infrequent enough that it never costs a frame. */
+const MINIMAP_EVERY = 6;
 
 /** Matches --light-key: 145deg in design-system/tokens/geometry-3d.css, so 2D and 3D share one light. */
 const KEY_LIGHT_DEG = 145;
@@ -29,13 +38,23 @@ const DRAG_THRESHOLD = 3;
  * Click selects and double-click drills, the same verbs as the 2D CanvasHost — a raycast
  * resolves the hit back to a unit id through `userData.sceneNodeId`.
  */
-export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): JSX.Element {
+export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Canvas3dHostProps): JSX.Element {
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
   const selection = useAppStore((s) => s.selection);
   const focus = useAppStore((s) => s.focus);
-  const [view, setView] = useState<ViewMode>("orbit");
+  // cityscape is always inside the city; what switches is how you travel through it. So the
+  // walkable skin starts at street level, where the orbit skin starts above.
+  const walkable = skin3d(skin).camera !== "orbit";
+  // In the store rather than here: the controls legend in App's left rail explains whichever
+  // camera is current, and it is a sibling of this component.
+  const view = useAppStore((s) => s.view);
+  const setView = useAppStore((s) => s.setView);
+
+  // Mirrors the camera into React state for the minimap. Kept out of the rAF loop's own
+  // cadence deliberately — see MINIMAP_EVERY.
+  const [viewer, setViewer] = useState<Viewer>({ x: 0, z: 0, heading: 0 });
 
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +71,7 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const labelRendererRef = useRef<CSS2DRenderer>();
   const cameraRef = useRef<THREE.PerspectiveCamera>();
-  const controlsRef = useRef<OrbitControls>();
+  const controlsRef = useRef<Controls3d>();
   const graphRef = useRef<THREE.Group>();
   const threeSceneRef = useRef<THREE.Scene>();
 
@@ -60,6 +79,18 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
   // every store change (which would tear down and rebuild the whole WebGL context).
   const actionsRef = useRef({ select, drill, ascend });
   actionsRef.current = { select, drill, ascend };
+
+  // Whether the current level was entered by the camera rather than by the user, so pulling
+  // back only unwinds what auto-navigation itself did. A ref, not state: the rAF loop reads
+  // and writes it every frame, and none of it should re-render anything.
+  const autoNavRef = useRef<AutoNavState>({ drilled: false, nearest: Number.POSITIVE_INFINITY });
+  // Auto-navigation is cityscape-only. `tiles3d` uses OrbitControls, where camera distance
+  // *is* the zoom affordance — auto-drilling there would hijack scroll-zoom and make the
+  // orbit view impossible to inspect closely.
+  const autoNavEnabled = useRef(false);
+  autoNavEnabled.current = skin === "cityscape";
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -102,16 +133,49 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
     const camera = new THREE.PerspectiveCamera(FOV_DEG, mount.clientWidth / mount.clientHeight, 1, 8000);
     cameraRef.current = camera;
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controlsRef.current = controls;
-
     let frame = 0;
+    let ticks = 0;
+    const timer = new THREE.Timer();
     const tick = () => {
       frame = requestAnimationFrame(tick);
-      controls.update();
+      timer.update();
+      const dt = timer.getDelta();
+      controlsRef.current?.update(dt);
+      // Before rendering, not after: the CSS2D pass reads `visible` on the same frame.
+      if (graphRef.current) cullLabels(graphRef.current, camera);
       renderer.render(threeScene, camera);
       labelRenderer.render(threeScene, camera);
+
+      if (autoNavEnabled.current) {
+        // Each direction is measured against what actually defines it. Going in, that is the
+        // building the user selected — drilling into whatever is merely nearest would navigate
+        // somewhere they never pointed at. Coming out, the selection is already gone (drilling
+        // clears it), so the way back is measured against the level as a whole.
+        const distance = autoNavRef.current.drilled
+          ? distanceToLevel(graphRef.current, camera)
+          : distanceToSelection(graphRef.current, selectionRef.current, camera);
+        // A drill can only come out of a finite `distanceToSelection`, which requires a
+        // selection — so `target` is non-null on that branch by construction.
+        const target = selectionRef.current;
+        // Only the way out needs a facing test, and only it pays for one.
+        const facing = autoNavRef.current.drilled ? facingLevel(graphRef.current, camera) : true;
+        const intent = computeAutoNavIntent(distance, autoNavRef.current, facing);
+        if (intent === "drill" && target) {
+          autoNavRef.current.drilled = true;
+          actionsRef.current.drill(target);
+        } else if (intent === "ascend") {
+          autoNavRef.current.drilled = false;
+          actionsRef.current.ascend();
+        }
+      }
+
+      // Throttled: a setState every frame would re-render the whole subtree at 60Hz to move
+      // one wedge a few pixels.
+      if (++ticks % MINIMAP_EVERY === 0) {
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        setViewer({ x: camera.position.x, z: camera.position.z, heading: Math.atan2(dir.x, -dir.z) });
+      }
     };
     tick();
 
@@ -129,7 +193,6 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
     return () => {
       cancelAnimationFrame(frame);
       resize.disconnect();
-      controls.dispose();
       // The graph is disposed by the rebuild effect's own cleanup, which React runs before
       // this one; disposing it again here would double-free.
       // Frees the GL context itself. Without it, toggling skins repeatedly walks into the
@@ -139,6 +202,24 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
     };
   }, []);
 
+  // Camera controls are attached in their own effect, because which controller is right is
+  // not fixed for the life of the host: it follows the skin's declared camera model and the
+  // current view. `walkable` skins swap walk<->fly on the toggle; the orbit skin swaps
+  // orbit<->walk. Rebuilding here rather than in the mount effect keeps the WebGL context —
+  // and everything on the ~16-context budget — untouched by a mere change of controller.
+  useEffect(() => {
+    const camera = cameraRef.current;
+    const renderer = rendererRef.current;
+    if (!camera || !renderer) return;
+    const make = walkable ? (view === "street" ? walkControls : flyControls) : view === "street" ? walkControls : orbitControls;
+    const controls = make(camera, renderer.domElement);
+    controlsRef.current = controls;
+    return () => {
+      controls.dispose();
+      controlsRef.current = undefined;
+    };
+  }, [walkable, view]);
+
   // Rebuild the graph when the scene or delta data changes, disposing the previous one
   // first — a rebuild that only detaches would leak every geometry and material it dropped.
   // Deliberately not keyed on `selection`: focus is applied in place below, because
@@ -146,7 +227,7 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
   useEffect(() => {
     const threeScene = threeSceneRef.current;
     if (!threeScene) return;
-    const graph = buildSceneGraph(scene, { deltaByUnit });
+    const graph = buildSceneGraph(scene, { deltaByUnit, skin });
     threeScene.add(graph);
     graphRef.current = graph;
     return () => {
@@ -154,7 +235,17 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
       disposeGraph(graph);
       graphRef.current = undefined;
     };
-  }, [scene, deltaByUnit]);
+  }, [scene, deltaByUnit, skin]);
+
+  // A level the user navigated to by hand is theirs, not auto-navigation's to unwind: pulling
+  // the camera back out of it must not undo their navigation. So a focus change clears the
+  // flag — unless auto-navigation is the thing that caused it, which it marks on its way past.
+  useEffect(() => {
+    // Either way this is a new level, so the distance datum from the old one means nothing.
+    autoNavRef.current.nearest = Number.POSITIVE_INFINITY;
+    if (autoNavRef.current.pending) autoNavRef.current.pending = false;
+    else autoNavRef.current.drilled = false;
+  }, [focus]);
 
   // Focus is a property write on the existing materials, not a rebuild.
   useEffect(() => {
@@ -173,11 +264,14 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
     if (!camera || !controls) return;
     const { position, target } = frameScene(scene, view);
     camera.position.copy(position);
-    controls.target.copy(target);
-    controls.update();
+    // Orbit is the only model with a look-at point to write; walk and fly carry their
+    // heading on the camera itself, so they are aimed rather than targeted.
+    if (controls.target) controls.target.copy(target);
+    else camera.lookAt(target);
+    controls.update(0);
     // `scene` is deliberately not a dependency: it is read for its bounds, but a rebuild at
     // the same level must not re-frame.
-  }, [view, focus]);
+  }, [view, focus, walkable]);
 
   // Pointer verbs. Bound to the mount rather than the canvas so they survive a renderer
   // swap, and gated on drag distance so releasing an orbit gesture never selects a unit.
@@ -238,11 +332,12 @@ export function Canvas3dHost({ units, edges, deltaByUnit }: Canvas3dHostProps): 
       <button
         type="button"
         className="view-toggle"
-        onClick={() => setView((v) => (v === "orbit" ? "street" : "orbit"))}
+        onClick={() => setView(view === "orbit" ? "street" : "orbit")}
         style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}
       >
-        {view === "orbit" ? "Street view" : "Overview"}
+        {walkable ? (view === "street" ? "Fly" : "Walk") : view === "orbit" ? "Street view" : "Overview"}
       </button>
+      {walkable && <Minimap scene={scene} viewer={viewer} selection={selection} />}
     </div>
   );
 }

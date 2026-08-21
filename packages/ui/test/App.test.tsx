@@ -441,6 +441,39 @@ describe("App", () => {
     expect(useAppStore.getState().selection).toBe("u:a");
   });
 
+  it("offers all three skins and walks into the city, keeping selection across both switches", async () => {
+    // The whole point of Wave 5: one Scene, three representations, and the same place in the
+    // codebase throughout. Cityscape is a second 3D skin rather than a mode of the first, so
+    // it must be reachable from the toolbar in its own right.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeSnapshot()) }),
+    );
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+    await waitFor(() => {
+      expect(screen.getByTestId("canvas-svg")).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByTestId("canvas-svg").querySelector('.tile[data-id="u:a"]')!);
+    fireEvent.click(screen.getByRole("button", { name: "City" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("canvas-3d")).not.toBeNull();
+    });
+    // The minimap is what distinguishes the walkable skin: at eye level it is the only
+    // instrument that can answer "which way is up the dependency graph?".
+    expect(screen.getByTestId("minimap")).not.toBeNull();
+    expect(useAppStore.getState().selection).toBe("u:a");
+
+    fireEvent.click(screen.getByRole("button", { name: "3D" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("minimap")).toBeNull();
+    });
+    expect(screen.getByTestId("canvas-3d")).not.toBeNull();
+    expect(useAppStore.getState().selection).toBe("u:a");
+  });
+
   it("shows an error state when the fetch fails, not a silent blank canvas", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
 
@@ -664,6 +697,80 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByText("orderly")).toBeInTheDocument();
       expect(screen.getByTestId("legend-rail")).not.toBeNull();
+    });
+  });
+
+  it("keeps the legend readable when its tray header is clicked", async () => {
+    // The legend is a reading aid, not a panel: the encoding it explains is on screen the
+    // whole time, so there is no state in which hiding it helps. It used to be the sole
+    // child of a collapsible "Layers" tray, where the collapse gesture meant to hide a layer
+    // list took the legend with it.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    const rail = await screen.findByTestId("legend-rail");
+    const header = rail.querySelector("header")!;
+    const legendText = () => within(rail).queryByText(/complexity/i);
+    expect(legendText()).not.toBeNull();
+
+    fireEvent.click(header);
+
+    await waitFor(() => {
+      expect(legendText()).not.toBeNull();
+    });
+  });
+
+  it("puts the controls help in the same rail as the legend, only for a 3D skin", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    const rail = await screen.findByTestId("legend-rail");
+    // The 2D grid has no camera to explain.
+    expect(within(rail).queryByTestId("controls-help")).toBeNull();
+
+    useAppStore.getState().setRenderSkin("cityscape");
+
+    await waitFor(() => {
+      expect(within(rail).getByTestId("controls-help")).toBeInTheDocument();
+    });
+  });
+
+  it("rewrites the controls help when the camera switches, from outside the canvas", async () => {
+    // The pin for lifting view state out of Canvas3dHost: the rail is its sibling, so this
+    // text can only track the camera if the mode lives in the store.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+    const rail = await screen.findByTestId("legend-rail");
+    useAppStore.getState().setRenderSkin("cityscape");
+
+    await waitFor(() => {
+      expect(within(rail).getByText(/fly across the city/i)).toBeInTheDocument();
+    });
+
+    useAppStore.getState().setView("street");
+
+    await waitFor(() => {
+      expect(within(rail).getByText(/release the pointer/i)).toBeInTheDocument();
+      expect(within(rail).queryByText(/fly across the city/i)).toBeNull();
+    });
+  });
+
+  it("focuses a unit picked from search, bypassing the drill hierarchy", async () => {
+    // On a repository deep enough to have a hierarchy, walking it is the slow way to reach a
+    // known file — you must first know which top-level group owns it.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    const box = await screen.findByRole("searchbox");
+    fireEvent.change(box, { target: { value: "a" } });
+    fireEvent.click(screen.getAllByRole("option")[0]!);
+
+    await waitFor(() => {
+      expect(useAppStore.getState().selection).not.toBeNull();
     });
   });
 
