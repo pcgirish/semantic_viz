@@ -8,6 +8,7 @@ import { applyFocus, buildSceneGraph, cullLabels, disposeGraph, disposeRenderer,
 import type { TileDeltaInfo } from "./CanvasHost.js";
 import { Minimap } from "./Minimap.js";
 import { flyControls, orbitControls, walkControls, type Controls3d } from "./controls3d.js";
+import { computeAutoNavIntent, distanceToLevel, distanceToSelection, facingLevel, type AutoNavState } from "./autonav.js";
 import type { Viewer } from "@scv/skin-cityscape";
 
 export type Canvas3dHostProps = {
@@ -79,6 +80,18 @@ export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Ca
   const actionsRef = useRef({ select, drill, ascend });
   actionsRef.current = { select, drill, ascend };
 
+  // Whether the current level was entered by the camera rather than by the user, so pulling
+  // back only unwinds what auto-navigation itself did. A ref, not state: the rAF loop reads
+  // and writes it every frame, and none of it should re-render anything.
+  const autoNavRef = useRef<AutoNavState>({ drilled: false, nearest: Number.POSITIVE_INFINITY });
+  // Auto-navigation is cityscape-only. `tiles3d` uses OrbitControls, where camera distance
+  // *is* the zoom affordance — auto-drilling there would hijack scroll-zoom and make the
+  // orbit view impossible to inspect closely.
+  const autoNavEnabled = useRef(false);
+  autoNavEnabled.current = skin === "cityscape";
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
@@ -132,6 +145,29 @@ export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Ca
       if (graphRef.current) cullLabels(graphRef.current, camera);
       renderer.render(threeScene, camera);
       labelRenderer.render(threeScene, camera);
+
+      if (autoNavEnabled.current) {
+        // Each direction is measured against what actually defines it. Going in, that is the
+        // building the user selected — drilling into whatever is merely nearest would navigate
+        // somewhere they never pointed at. Coming out, the selection is already gone (drilling
+        // clears it), so the way back is measured against the level as a whole.
+        const distance = autoNavRef.current.drilled
+          ? distanceToLevel(graphRef.current, camera)
+          : distanceToSelection(graphRef.current, selectionRef.current, camera);
+        // A drill can only come out of a finite `distanceToSelection`, which requires a
+        // selection — so `target` is non-null on that branch by construction.
+        const target = selectionRef.current;
+        // Only the way out needs a facing test, and only it pays for one.
+        const facing = autoNavRef.current.drilled ? facingLevel(graphRef.current, camera) : true;
+        const intent = computeAutoNavIntent(distance, autoNavRef.current, facing);
+        if (intent === "drill" && target) {
+          autoNavRef.current.drilled = true;
+          actionsRef.current.drill(target);
+        } else if (intent === "ascend") {
+          autoNavRef.current.drilled = false;
+          actionsRef.current.ascend();
+        }
+      }
 
       // Throttled: a setState every frame would re-render the whole subtree at 60Hz to move
       // one wedge a few pixels.
@@ -200,6 +236,16 @@ export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Ca
       graphRef.current = undefined;
     };
   }, [scene, deltaByUnit, skin]);
+
+  // A level the user navigated to by hand is theirs, not auto-navigation's to unwind: pulling
+  // the camera back out of it must not undo their navigation. So a focus change clears the
+  // flag — unless auto-navigation is the thing that caused it, which it marks on its way past.
+  useEffect(() => {
+    // Either way this is a new level, so the distance datum from the old one means nothing.
+    autoNavRef.current.nearest = Number.POSITIVE_INFINITY;
+    if (autoNavRef.current.pending) autoNavRef.current.pending = false;
+    else autoNavRef.current.drilled = false;
+  }, [focus]);
 
   // Focus is a property write on the existing materials, not a rebuild.
   useEffect(() => {
