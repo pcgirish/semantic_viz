@@ -4,7 +4,7 @@ import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Edge, Unit } from "@scv/schema";
 import { buildScene, type Scene } from "@scv/layout";
 import { useAppStore } from "./store.js";
-import { applyFocus, buildSceneGraph, cullLabels, disposeGraph, disposeRenderer, frameScene, FOV_DEG, skin3d, unitAt, type Skin3dName, type ViewMode } from "./scene3d.js";
+import { applyFocus, buildSceneGraph, cullLabels, disposeGraph, disposeRenderer, frameScene, FOV_DEG, skin3d, unitAt, type Skin3dName } from "./scene3d.js";
 import type { TileDeltaInfo } from "./CanvasHost.js";
 import { Minimap } from "./Minimap.js";
 import { flyControls, orbitControls, walkControls, type Controls3d } from "./controls3d.js";
@@ -47,10 +47,10 @@ export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Ca
   // cityscape is always inside the city; what switches is how you travel through it. So the
   // walkable skin starts at street level, where the orbit skin starts above.
   const walkable = skin3d(skin).camera !== "orbit";
-  // Both skins start in "orbit". For tiles3d that is the literal orbit camera; for cityscape
-  // it is the fly camera framed on the whole city. Either way the user arrives able to see the
-  // rank axis, and walks only once they have chosen somewhere to walk to.
-  const [view, setView] = useState<ViewMode>("orbit");
+  // In the store rather than here: the controls legend in App's left rail explains whichever
+  // camera is current, and it is a sibling of this component.
+  const view = useAppStore((s) => s.view);
+  const setView = useAppStore((s) => s.setView);
 
   // Mirrors the camera into React state for the minimap. Kept out of the rAF loop's own
   // cadence deliberately — see MINIMAP_EVERY.
@@ -332,7 +332,7 @@ export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Ca
       <button
         type="button"
         className="view-toggle"
-        onClick={() => setView((v) => (v === "orbit" ? "street" : "orbit"))}
+        onClick={() => setView(view === "orbit" ? "street" : "orbit")}
         style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}
       >
         {walkable ? (view === "street" ? "Fly" : "Walk") : view === "orbit" ? "Street view" : "Overview"}

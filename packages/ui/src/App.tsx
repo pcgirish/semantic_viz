@@ -3,6 +3,7 @@ import type { Delta, Snapshot, Unit } from "@scv/schema";
 import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
+import { ControlsHelp } from "./ControlsHelp.js";
 // Lazy: three.js is ~570kB of the bundle and only the 3D skins need it, so a user who
 // never leaves the 2D view never downloads it.
 const Canvas3dHost = lazy(async () => ({ default: (await import("./Canvas3dHost.js")).Canvas3dHost }));
@@ -118,6 +119,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   const [sha, setSha] = useState(() => shaFromSnapshotUrl(snapshotUrl));
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const renderSkin = useAppStore((s) => s.renderSkin);
+  const view = useAppStore((s) => s.view);
   const setRenderSkin = useAppStore((s) => s.setRenderSkin);
   const selection = useAppStore((s) => s.selection);
   const focus = useAppStore((s) => s.focus);
@@ -338,9 +340,13 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
           <InspectQueue entries={delta?.inspect_queue ?? []} onSelect={(unitId) => select(unitId)} />
         )}
         {mode === "current" && (
-          <div data-testid="legend-rail" style={{ flex: "none", display: "flex", minHeight: 0 }}>
-            <Tray title="Layers" dock="left">
+          <div data-testid="legend-rail" style={{ flex: "none", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            {/* The legend is a reading aid for an encoding that is on screen the whole time,
+                so it has no useful collapsed state. It was the sole child of a collapsible
+                "Layers" tray, where the gesture for hiding a layer list hid the legend too. */}
+            <Tray title="Legend" dock="left" collapsible={false}>
               <Legend units={units} mode="current" />
+              {renderSkin !== "tiles" && <ControlsHelp skin={renderSkin} view={view} />}
             </Tray>
           </div>
         )}

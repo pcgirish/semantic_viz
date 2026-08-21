@@ -4,6 +4,7 @@ import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
 import { tiles3dSkin } from "@scv/skin-tiles3d";
 import { cityscapeSkin, ground } from "@scv/skin-cityscape";
 import type { DeltaInfo, Skin } from "@scv/skin-contract";
+import type { ViewMode } from "./store.js";
 
 /** Which 3D skin the host is drawing. Both draw into the same scene graph (docs/serve.md#6). */
 export type Skin3dName = "tiles3d" | "cityscape";
@@ -210,8 +211,9 @@ const FRAME_MARGIN = 1.25;
 
 export type CameraFraming = { position: THREE.Vector3; target: THREE.Vector3 };
 
-/** Which way the camera looks at the city: down at it, or from inside it (docs/serve.md#6). */
-export type ViewMode = "orbit" | "street";
+/** Which way the camera looks at the city — owned by the store, since the controls legend
+ * outside the canvas reads it too. Re-exported here for the framing code that consumes it. */
+export type { ViewMode } from "./store.js";
 
 /**
  * Where to put the camera for a scene. Orbit pulls back far enough to hold the whole city

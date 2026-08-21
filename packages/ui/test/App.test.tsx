@@ -700,6 +700,64 @@ describe("App", () => {
     });
   });
 
+  it("keeps the legend readable when its tray header is clicked", async () => {
+    // The legend is a reading aid, not a panel: the encoding it explains is on screen the
+    // whole time, so there is no state in which hiding it helps. It used to be the sole
+    // child of a collapsible "Layers" tray, where the collapse gesture meant to hide a layer
+    // list took the legend with it.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    const rail = await screen.findByTestId("legend-rail");
+    const header = rail.querySelector("header")!;
+    const legendText = () => within(rail).queryByText(/complexity/i);
+    expect(legendText()).not.toBeNull();
+
+    fireEvent.click(header);
+
+    await waitFor(() => {
+      expect(legendText()).not.toBeNull();
+    });
+  });
+
+  it("puts the controls help in the same rail as the legend, only for a 3D skin", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    const rail = await screen.findByTestId("legend-rail");
+    // The 2D grid has no camera to explain.
+    expect(within(rail).queryByTestId("controls-help")).toBeNull();
+
+    useAppStore.getState().setRenderSkin("cityscape");
+
+    await waitFor(() => {
+      expect(within(rail).getByTestId("controls-help")).toBeInTheDocument();
+    });
+  });
+
+  it("rewrites the controls help when the camera switches, from outside the canvas", async () => {
+    // The pin for lifting view state out of Canvas3dHost: the rail is its sibling, so this
+    // text can only track the camera if the mode lives in the store.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeNestedSnapshot()) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+    const rail = await screen.findByTestId("legend-rail");
+    useAppStore.getState().setRenderSkin("cityscape");
+
+    await waitFor(() => {
+      expect(within(rail).getByText(/fly across the city/i)).toBeInTheDocument();
+    });
+
+    useAppStore.getState().setView("street");
+
+    await waitFor(() => {
+      expect(within(rail).getByText(/release the pointer/i)).toBeInTheDocument();
+      expect(within(rail).queryByText(/fly across the city/i)).toBeNull();
+    });
+  });
+
   it("shows a rev picker populated from /api/revs, newest first", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/revs") {
