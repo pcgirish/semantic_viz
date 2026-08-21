@@ -319,6 +319,67 @@ describe("applyFocus", () => {
       expect(material.opacity).toBe(1);
     }
   });
+
+  it("stops a faded building from writing depth, so it cannot occlude the focused one", () => {
+    // Fading alone is not enough. A transparent mesh still writes to the depth buffer by
+    // default, so a dimmed building standing in front of the focused one punches a hole in
+    // it: you see through the facade to the background, not to the building behind. This is
+    // the occlusion half of docs/serve.md#187-192.
+    const root = buildSceneGraph(makeScene(), {});
+    applyFocus(root, "a");
+
+    const material = (id: string) =>
+      (root.getObjectByName(id)!.getObjectByName("body") as THREE.Mesh).material as THREE.MeshStandardMaterial;
+
+    expect(material("b").depthWrite).toBe(false);
+    // The focused building is opaque and must keep writing depth, or it loses its own
+    // self-occlusion and renders inside-out.
+    expect(material("a").depthWrite).toBe(true);
+  });
+
+  it("restores depth writing when focus is cleared", () => {
+    const root = buildSceneGraph(makeScene(), {});
+    applyFocus(root, "a");
+    applyFocus(root, null);
+    for (const id of ["a", "b"]) {
+      const material = (root.getObjectByName(id)!.getObjectByName("body") as THREE.Mesh)
+        .material as THREE.MeshStandardMaterial;
+      expect(material.depthWrite).toBe(true);
+    }
+  });
+
+  it("draws the focused building last, so nothing faded paints over it", () => {
+    // Focuses "a", which the builder puts *first*, so this fails on unchanged order rather
+    // than passing by luck the way focusing the already-last "b" would.
+    const root = buildSceneGraph(makeScene(), {});
+    expect(root.children.filter((c) => typeof c.userData.sceneNodeId === "string")[0]!.userData.sceneNodeId).toBe("a");
+
+    applyFocus(root, "a");
+
+    const buildings = root.children.filter((c) => typeof c.userData.sceneNodeId === "string");
+    expect(buildings[buildings.length - 1]!.userData.sceneNodeId).toBe("a");
+  });
+
+  it("never dims a risk beacon, which has to stay visible behind other geometry", () => {
+    // Passes today because applyFocus only touches the mesh named "body", but that is a
+    // property worth pinning: docs/serve.md requires the beacon "cannot be hidden behind the
+    // thing you do not need to see", and a future change that fades whole groups would
+    // silently break it. Needs a node flagged `ring`, which is what grows a beacon.
+    const scene = makeScene();
+    (scene.nodes[1] as { ring: boolean }).ring = true;
+    const root = buildSceneGraph(scene, {});
+
+    const beacons = root.children
+      .map((c) => c.getObjectByName("beacon") as THREE.Mesh | undefined)
+      .filter((m): m is THREE.Mesh => Boolean(m));
+    expect(beacons.length).toBeGreaterThan(0);
+
+    applyFocus(root, "a");
+
+    for (const beacon of beacons) {
+      expect((beacon.material as THREE.MeshBasicMaterial).opacity).toBe(1);
+    }
+  });
 });
 
 describe("cullLabels", () => {

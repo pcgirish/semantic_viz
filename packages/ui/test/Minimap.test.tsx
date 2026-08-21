@@ -66,3 +66,46 @@ describe("Minimap wedge direction", () => {
     });
   }
 });
+
+describe("Minimap risk markers", () => {
+  // The 3D beacon guarantees a flagged unit cannot hide behind a taller neighbour, but from
+  // inside a dense block it can still be out of frame entirely. The map is the one vantage
+  // that cannot be occluded, so risk has to reach it — otherwise the overhead view is the
+  // only place in the app where the most important units are indistinguishable.
+  const scene: Scene = {
+    nodes: [
+      { id: "safe", x: 0, y: 0, w: 96, h: 96, depth: 50, sides: 4, heat: 0, layer: "a", ring: null },
+      { id: "risky", x: 0, y: 400, w: 96, h: 96, depth: 50, sides: 4, heat: 0, layer: "b", ring: true },
+    ],
+    links: [],
+    regions: [],
+  } as unknown as Scene;
+
+  const viewer: Viewer = { x: 48, z: 48, heading: 0 };
+
+  it("marks a flagged unit and only that unit", () => {
+    const { container } = render(<Minimap scene={scene} viewer={viewer} selection={null} />);
+    const marks = container.querySelectorAll("[data-testid='minimap-risk']");
+    expect(marks).toHaveLength(1);
+    expect(marks[0].getAttribute("data-node")).toBe("risky");
+  });
+
+  it("keeps the marker on the flagged unit's own footprint", () => {
+    // A marker that drifts off its building points at the wrong place, which is worse than
+    // no marker at all.
+    const { container } = render(<Minimap scene={scene} viewer={viewer} selection={null} />);
+    const mark = container.querySelector("[data-testid='minimap-risk']")!;
+    const rect = container.querySelector("rect:nth-of-type(2)")!;
+    const cx = Number(rect.getAttribute("x")) + Number(rect.getAttribute("width")) / 2;
+    const cy = Number(rect.getAttribute("y")) + Number(rect.getAttribute("height")) / 2;
+    expect(Number(mark.getAttribute("cx"))).toBeCloseTo(cx, 6);
+    expect(Number(mark.getAttribute("cy"))).toBeCloseTo(cy, 6);
+  });
+
+  it("still marks risk on a unit dimmed by someone else's selection", () => {
+    // Focus fades the rest of the city; risk is exactly the thing that must survive that,
+    // since the reason to look at the map is often to find what you have not selected yet.
+    const { container } = render(<Minimap scene={scene} viewer={viewer} selection="safe" />);
+    expect(container.querySelectorAll("[data-testid='minimap-risk']")).toHaveLength(1);
+  });
+});

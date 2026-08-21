@@ -62,6 +62,18 @@ describe("minimapProjection", () => {
     expect(north.viewer.heading).not.toBeCloseTo(south.viewer.heading);
   });
 
+  it("carries risk onto the map, so a beacon is findable when geometry hides it", () => {
+    // The beacon answers "the thing you most need to see cannot hide behind a taller
+    // neighbour" in the 3D view, but from inside a dense block it can still be out of frame
+    // entirely. The map is the vantage that cannot be occluded, so risk has to reach it.
+    const s = scene();
+    (s.nodes[1] as { ring: boolean }).ring = true;
+    const p = minimapProjection(s, { width: 200, height: 200 }, viewer());
+
+    expect(p.nodes.find((n) => n.id === "hi")!.risk).toBe(true);
+    expect(p.nodes.find((n) => n.id === "lo")!.risk).toBe(false);
+  });
+
   it("keeps layer hue on the map, so districts are recognisable from it", () => {
     // Hue massing is the one wayfinding channel Checkpoint 2 found already working. Carrying
     // it onto the map is what lets the user match what they see ahead of them to what the

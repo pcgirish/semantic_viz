@@ -20,6 +20,11 @@ export type MinimapNode = {
   /** Half-extent on the map, for drawing the footprint rather than a dot. */
   r: number;
   layer?: string;
+  /**
+   * Whether this unit carries a risk beacon. The same `ring` flag the 3D skin builds its
+   * beacon from, so the two views can never disagree about which buildings are flagged.
+   */
+  risk: boolean;
 };
 
 export type MinimapProjection = {
@@ -82,10 +87,13 @@ export function minimapProjection(scene: Scene, size: MinimapSize, viewer: Viewe
       id: n.id,
       x: p.x,
       y: p.y,
+      r: Math.max((Math.min(n.w, n.h) / 2) * scale, 1),
       // Hue massing is the one wayfinding channel Checkpoint 2 found already working; carrying
       // layer onto the map is what lets the user match the district ahead of them to the map.
-      r: Math.max((Math.min(n.w, n.h) / 2) * scale, 1),
       layer: n.layer,
+      // Read the same `ring` flag tiles3d grows its beacon from, rather than re-deriving risk
+      // from a threshold here — a second threshold could drift out of step with the 3D view.
+      risk: (n as { ring?: boolean }).ring === true,
     };
   });
 

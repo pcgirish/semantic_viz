@@ -58,6 +58,28 @@ export function Minimap({ scene, viewer, selection }: MinimapProps): JSX.Element
           strokeWidth={selection === n.id ? 1.5 : 0}
         />
       ))}
+      {/*
+        Risk, carried over from the same `ring` flag the 3D skin grows its beacon from. The
+        beacon stops a flagged unit hiding behind a taller neighbour, but from inside a dense
+        block it can still be out of frame entirely; the map is the vantage that cannot be
+        occluded. Drawn after the footprints so it is never covered, and unaffected by
+        selection dimming — finding what you have not selected yet is the point.
+      */}
+      {p.nodes
+        .filter((n) => n.risk)
+        .map((n) => (
+          <circle
+            key={`risk-${n.id}`}
+            data-testid="minimap-risk"
+            data-node={n.id}
+            cx={n.x}
+            cy={n.y}
+            r={Math.max(n.r * 0.5, 2)}
+            fill="#f2564b"
+            stroke="rgba(0,0,0,.45)"
+            strokeWidth={0.75}
+          />
+        ))}
       <g transform={`translate(${p.viewer.x} ${p.viewer.y}) rotate(${(p.viewer.heading * 180) / Math.PI})`}>
         <polygon points={`0,${-wedge} ${wedge * 0.4},${wedge * 0.3} ${-wedge * 0.4},${wedge * 0.3}`} fill="rgba(255,255,255,.22)" />
         <circle r={3} fill="#ffffff" />

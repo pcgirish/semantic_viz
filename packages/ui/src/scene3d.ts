@@ -89,6 +89,8 @@ const UNFOCUSED_EDGE_OPACITY = 0.08;
  * is; mutating the existing materials keeps a click to a property write.
  */
 export function applyFocus(root: THREE.Group, focusId: string | null): void {
+  let focused: THREE.Object3D | null = null;
+
   for (const child of root.children) {
     const id = child.userData.sceneNodeId;
     if (typeof id !== "string") continue;
@@ -98,6 +100,21 @@ export function applyFocus(root: THREE.Group, focusId: string | null): void {
     const faded = focusId !== null && id !== focusId;
     material.transparent = faded;
     material.opacity = faded ? UNFOCUSED_OPACITY : 1;
+    // Opacity alone does not stop a dimmed building occluding what is behind it: a
+    // transparent mesh still writes depth by default, so a faded facade in front of the
+    // focused one punches a hole showing the background rather than the building. Dropping
+    // depth writes on faded bodies is what makes focus actually see-through
+    // (docs/serve.md#187-192). The focused body keeps writing, or it renders inside-out.
+    material.depthWrite = !faded;
+    if (id === focusId) focused = child;
+  }
+
+  // Draw the focused building last. Transparent meshes are painted after opaque ones and
+  // blended in traversal order, so without this a faded neighbour later in the list paints
+  // over the solid focused building.
+  if (focused) {
+    root.remove(focused);
+    root.add(focused);
   }
 
   // Edges touching the focused unit stay at full strength — that trace is the reason to
