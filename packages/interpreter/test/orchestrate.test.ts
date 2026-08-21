@@ -541,7 +541,12 @@ describe("runInterpreter", () => {
     expect(system).toBeTruthy();
     const layer = result.units.find((u) => u.kind === "layer" && u.qualname === "ops");
     expect(layer).toBeTruthy();
-    expect(layer?.group).toBe("platform");
+    // The group is a real unit between the system and the layer, not a string on the layer:
+    // the layer parents to it, and it parents to the system.
+    const group = result.units.find((u) => u.kind === "group" && u.name === "platform");
+    expect(group?.parent).toBe(system?.id);
+    expect(layer?.parent).toBe(group?.id);
+    expect(group?.children).toContain(layer?.id);
     const opsFiles = result.units.filter((u) => u.parent === layer?.id).map((u) => u.qualname);
     expect(opsFiles.sort()).toEqual(["scripts.backfill", "src.admin_tasks"]);
   });
@@ -572,7 +577,49 @@ describe("runInterpreter", () => {
     const result = await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
 
     const layer = result.units.find((u) => u.kind === "layer" && u.qualname === "ops");
-    expect(layer?.group).toBe("ops");
+    const group = result.units.find((u) => u.kind === "group" && u.name === "ops");
+    expect(group?.children).toEqual([layer?.id]);
+    expect(layer?.parent).toBe(group?.id);
+    // The ungrouped bucket is a builder-level safety net; Pass C already emits singletons for
+    // unmerged layers, so nothing should reach it on this path.
+    expect(result.units.some((u) => u.id === "u:group:ungrouped")).toBe(false);
+  });
+
+  it("puts groups, not layers, directly under the system", async () => {
+    const graph = makeGraph();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: passThroughProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const system = result.units.find((u) => u.kind === "system")!;
+    const children = result.units.filter((u) => system.children.includes(u.id));
+    expect(children.some((u) => u.kind === "group")).toBe(true);
+    expect(children.some((u) => u.kind === "layer")).toBe(false);
+    // Reciprocity survives the new tier: every layer's parent is a group that lists it back.
+    const byId = new Map(result.units.map((u) => [u.id, u]));
+    for (const layer of result.units.filter((u) => u.kind === "layer")) {
+      const parent = byId.get(layer.parent!);
+      expect(parent?.kind).toBe("group");
+      expect(parent?.children).toContain(layer.id);
+    }
+  });
+
+  it("counts layers, not groups, in the system's metrics.layers", async () => {
+    const graph = makeGraph();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: passThroughProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const system = result.units.find((u) => u.kind === "system")!;
+    expect(system.metrics.layers).toBe(result.units.filter((u) => u.kind === "layer").length);
   });
 
   it("adds an api_flow unit traced from the proposed entry point through real calls edges", async () => {
@@ -1513,12 +1560,18 @@ describe("runInterpreter — root policy: every unit has a parent", () => {
       readSource: () => "def run(): ...",
     });
 
+    // Phase 3a put groups between the system and its layers, so a layer no longer parents to
+    // the system directly — it reaches it through exactly one group, reciprocally at each hop.
     const system = result.units.find((u) => u.kind === "system");
+    const byId = new Map(result.units.map((u) => [u.id, u]));
     const layers = result.units.filter((u) => u.kind === "layer");
     expect(layers.length).toBeGreaterThan(0);
     for (const layer of layers) {
-      expect(layer.parent).toBe(system?.id);
-      expect(system?.children).toContain(layer.id);
+      const group = byId.get(layer.parent!);
+      expect(group?.kind).toBe("group");
+      expect(group?.children).toContain(layer.id);
+      expect(group?.parent).toBe(system?.id);
+      expect(system?.children).toContain(group?.id);
     }
   });
 
@@ -1555,6 +1608,8 @@ describe("runInterpreter — root policy: every unit has a parent", () => {
       blockEdges: [],
       layerUnits: [],
       parentOverride: new Map(),
+      groupUnits: [],
+      layerParent: new Map(),
       flowUnits: [],
     });
 
@@ -1626,11 +1681,13 @@ describe("finalizeSnapshot — tree reciprocity", () => {
     });
   }
 
-  it("parents every layer and flow unit to the system", async () => {
+  it("parents every group and flow unit to the system", async () => {
+    // Layers moved down a tier in Phase 3a: groups and flows are what sit directly under the
+    // system now, and a layer's own parent is asserted in the groups suite above.
     const result = await analyze();
     const sysId = result.units.find((u) => u.kind === "system")!.id;
 
-    const topLevel = result.units.filter((u) => u.kind === "layer" || u.kind === "api_flow");
+    const topLevel = result.units.filter((u) => u.kind === "group" || u.kind === "api_flow");
     expect(topLevel.length).toBeGreaterThan(0);
     for (const unit of topLevel) expect(unit.parent).toBe(sysId);
   });
@@ -1695,6 +1752,8 @@ describe("finalizeSnapshot — invariant enforcement", () => {
         blockEdges: [],
         layerUnits: [layer],
         parentOverride: new Map(),
+        groupUnits: [],
+        layerParent: new Map(),
         flowUnits: [],
       }),
     ).toThrow(/invariant/i);

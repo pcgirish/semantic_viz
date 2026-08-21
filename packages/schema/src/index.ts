@@ -6,6 +6,9 @@ const ExternalId = z.string();
 
 export const UnitKindSchema = z.enum([
   "system",
+  /** An architectural grouping of layers, derived by Pass C. Sits between the system and its
+   *  layers, so the root is a handful of named domains rather than every layer at once. */
+  "group",
   "layer",
   "module",
   "class",
@@ -356,3 +359,5 @@ export {
   type Severity,
   type ValidationResult,
 } from "./invariants.js";
+
+export { normalizeText, semanticHashInput, type SemanticFields } from "./normalize.js";

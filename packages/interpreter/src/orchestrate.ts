@@ -8,6 +8,7 @@ import { runPassA } from "./pass-a.js";
 import { runPassABlocks, type BlockLabel } from "./pass-a-blocks.js";
 import { runPassB } from "./pass-b.js";
 import { runPassC, runPassCGroups, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
+import { buildGroupUnits, resolveGroupMembership, type BuildGroupUnitsResult } from "./groups.js";
 import { runPassDocs } from "./pass-docs.js";
 import type { DocExtract, DocInput } from "./pass-docs.js";
 import { traceFlow, traceFlowBranching } from "./checker.js";
@@ -549,6 +550,8 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
 // Groups pass (Pass C groups)
 // ---------------------------------------------------------------------------------------------
 
+export type GroupsPassResult = BuildGroupUnitsResult;
+
 export interface RunGroupsPassOptions {
   snapshot: Snapshot;
   /** Layers-pass output. */
@@ -557,15 +560,17 @@ export interface RunGroupsPassOptions {
   unitsByFile: Map<string, Unit[]>;
   layerIdByName: Map<string, string>;
   repoContextText: string | undefined;
+  /** The system unit's id, so the builder can emit complete units rather than half-built ones. */
+  systemId: string;
   provider: Provider;
   promptRev: string;
   reportProgress: ReportProgress;
 }
 
 /** Buckets layers into a small number of named architectural groups (Pass C groups), returning
- *  layer units with their `group` field populated. */
-export async function runGroupsPass(options: RunGroupsPassOptions): Promise<Unit[]> {
-  const { snapshot, layerUnits, parentOverride, unitsByFile, layerIdByName, repoContextText, provider, promptRev, reportProgress } = options;
+ *  the group units and how each layer reparents onto them. */
+export async function runGroupsPass(options: RunGroupsPassOptions): Promise<GroupsPassResult> {
+  const { snapshot, layerUnits, parentOverride, unitsByFile, layerIdByName, repoContextText, systemId, provider, promptRev, reportProgress } = options;
 
   const fileOfUnit = new Map<string, string>();
   for (const units of unitsByFile.values()) {
@@ -608,12 +613,11 @@ export async function runGroupsPass(options: RunGroupsPassOptions): Promise<Unit
     repoContext: repoContextText,
   });
   reportProgress("pass C groups", 1, 1, "grouping layers");
-  const groupByLayerName = new Map<string, string>();
-  for (const [groupName, layerNames] of Object.entries(passCGroups.groups)) {
-    for (const layerName of layerNames) groupByLayerName.set(layerName, groupName);
-  }
 
-  return layerUnits.map((layer) => ({ ...layer, group: groupByLayerName.get(layer.name) }));
+  // Pass C speaks in layer *names*, which are LLM-chosen and not unique. Resolve to ids once,
+  // here at the boundary, so nothing downstream can silently collapse two same-named layers.
+  const groups = resolveGroupMembership(passCGroups.groups, layerUnits);
+  return buildGroupUnits({ layerUnits, groups, systemId });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -797,12 +801,21 @@ export interface FinalizeSnapshotOptions {
   units: Unit[];
   blockUnits: Unit[];
   blockEdges: Edge[];
-  /** Layers-pass output (groups already merged in via runGroupsPass, or ungrouped if groups
-   *  weren't run). */
+  /** Layers-pass output. */
   layerUnits: Unit[];
   parentOverride: Map<string, string>;
+  /** Groups-pass output. Pass an empty array and an empty map when groups weren't run — layers
+   *  then stay directly under the system, which is still a valid single-root tree. */
+  groupUnits: Unit[];
+  layerParent: Map<string, string>;
   /** Flows-pass output. Pass an empty array when flows weren't run. */
   flowUnits: Unit[];
+}
+
+/** The system unit's id. Derived here rather than inline so the groups pass, which must parent
+ *  its units to the system before `finalizeSnapshot` runs, cannot drift from it. */
+export function systemIdFor(snapshot: Snapshot, systemName?: string): string {
+  return `u:sys:${systemName ?? snapshot.repo.root}`;
 }
 
 /** Builds a structural container holding modules no layer claimed, so they have a parent
@@ -846,9 +859,9 @@ function buildContainerUnit(options: {
 /** Merges the functions/layers/groups/flows pass outputs into one scv/1 Snapshot: reparents
  *  modules under their layer, rolls up layer-to-layer edges, and adds a root system unit. */
 export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
-  const { snapshot, provider, promptRev, systemName, units, blockUnits, blockEdges, layerUnits, parentOverride, flowUnits } = options;
+  const { snapshot, provider, promptRev, systemName, units, blockUnits, blockEdges, layerUnits, parentOverride, groupUnits, layerParent, flowUnits } = options;
 
-  const sysId = `u:sys:${systemName ?? snapshot.repo.root}`;
+  const sysId = systemIdFor(snapshot, systemName);
 
   // Pass B routes every file into some cluster (`checkAndRepairClusters` has its own unclustered
   // fallback), so a module normally has a layer. A module that still has none — because the
@@ -871,7 +884,11 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
   }
 
   const layerCount = layerUnits.length;
-  const newUnits: Unit[] = [...layerUnits, ...flowUnits, ...containers].map((u) => ({ ...u, parent: sysId }));
+  // Layers hang off their group when the groups pass ran, and off the system directly when it
+  // did not. Group units arrive complete from their builder, so they are attached, not rebuilt.
+  const parentedLayers = layerUnits.map((layer) => ({ ...layer, parent: layerParent.get(layer.id) ?? sysId }));
+  const rootChildren: Unit[] = [...groupUnits, ...flowUnits, ...containers].map((u) => ({ ...u, parent: sysId }));
+  const newUnits: Unit[] = [...rootChildren, ...parentedLayers];
 
   newUnits.push({
     id: sysId,
@@ -880,7 +897,7 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
     qualname: systemName ?? snapshot.repo.root,
     lang: undefined,
     parent: null,
-    children: newUnits.map((u) => u.id),
+    children: rootChildren.map((u) => u.id).concat(parentedLayers.filter((l) => l.parent === sysId).map((l) => l.id)),
     loc: {
       files: [...new Set(units.flatMap((u) => u.loc.files))],
       start: null,
@@ -1020,13 +1037,14 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     `modularity=${layerModularity.toFixed(3)} directory_baseline=${directoryModularity.toFixed(3)}`,
   );
 
-  const layerUnits = await runGroupsPass({
+  const { groupUnits, layerParent } = await runGroupsPass({
     snapshot,
     layerUnits: ungroupedLayerUnits,
     parentOverride,
     unitsByFile,
     layerIdByName,
     repoContextText,
+    systemId: systemIdFor(snapshot, systemName),
     provider,
     promptRev,
     reportProgress,
@@ -1034,5 +1052,18 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
 
   const flowUnits = await runFlowsPass({ snapshot, graph, units, provider, promptRev, reportProgress });
 
-  return finalizeSnapshot({ snapshot, provider, promptRev, systemName, units, blockUnits, blockEdges, layerUnits, parentOverride, flowUnits });
+  return finalizeSnapshot({
+    snapshot,
+    provider,
+    promptRev,
+    systemName,
+    units,
+    blockUnits,
+    blockEdges,
+    layerUnits: ungroupedLayerUnits,
+    parentOverride,
+    groupUnits,
+    layerParent,
+    flowUnits,
+  });
 }

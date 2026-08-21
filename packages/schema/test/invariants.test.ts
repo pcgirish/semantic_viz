@@ -318,6 +318,25 @@ describe("validateSnapshotInvariants", () => {
     expect(types).toContain("unresolved_endpoint");
   });
 
+  it("does not report `ext:` import targets as unresolved endpoints", () => {
+    // Import edges point at `ext:<module>` — a module path, not a unit and not an external
+    // (externals are pinned packages, `x:pypi:fastapi@0.110.0`). The extractor never registers
+    // a node for them, deliberately: `ext:os` is stdlib and has no unit to resolve to. Treating
+    // them as broken references made every real analyze run throw.
+    const result = validateSnapshotInvariants(
+      snapshot(healthyTree(), [edge({ id: "e1", from: "mod", to: "ext:fastapi" })]),
+    );
+    expect(result.findings).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("still reports a non-`ext:` endpoint that resolves to nothing", () => {
+    const result = validateSnapshotInvariants(
+      snapshot(healthyTree(), [edge({ id: "e1", from: "mod", to: "ghost" })]),
+    );
+    expect(errorTypes(result.findings)).toContain("unresolved_endpoint");
+  });
+
   it("is valid for a clean snapshot", () => {
     const result = validateSnapshotInvariants(
       snapshot(healthyTree(), [edge({ id: "e1", from: "lay", to: "mod" })]),
