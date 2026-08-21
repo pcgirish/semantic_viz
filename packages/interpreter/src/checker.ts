@@ -157,6 +157,68 @@ export function modularity(clusters: ClusterProposal, edges: ImportEdge[]): numb
 }
 
 /**
+ * A partition's shape alongside its cohesion. `modularity` alone cannot rank two partitions:
+ * it has no penalty for cluster count or imbalance, so a single cluster holding the whole repo
+ * scores a perfect 1.0 because every edge is trivially internal — and so does shattering the
+ * repo into one file per cluster. Both are useless as architecture. These fields are what
+ * separate them from a partition that actually says something.
+ */
+export interface ClusteringQuality {
+  /** Fraction of edge weight staying inside a cluster — `modularity`, carried through unchanged. */
+  modularity: number;
+  clusters: number;
+  files: number;
+  /** Cluster sizes, descending, so the shape reads at a glance. */
+  sizes: number[];
+  /** Largest cluster's share of all files: 1 for the degenerate single cluster. */
+  largestShare: number;
+  /** Clusters holding exactly one file. */
+  singletons: number;
+  /**
+   * Normalized Gini coefficient over cluster sizes: 0 when every cluster is the same size,
+   * approaching 1 as one cluster absorbs everything. Gini rather than a variance ratio so the
+   * measure is scale-free — a repo's imbalance is comparable to another's regardless of size.
+   */
+  imbalance: number;
+}
+
+/** Gini coefficient over cluster sizes, normalized to [0, 1]. 0 for a single cluster: one
+ *  cluster cannot be unequal with itself, and the degenerate case is caught by `largestShare`. */
+function giniImbalance(sizes: number[]): number {
+  const n = sizes.length;
+  if (n < 2) return 0;
+  const total = sizes.reduce((sum, s) => sum + s, 0);
+  if (total === 0) return 0;
+  const ascending = [...sizes].sort((a, b) => a - b);
+  let weighted = 0;
+  for (let i = 0; i < n; i++) weighted += (i + 1) * ascending[i]!;
+  return (2 * weighted) / (n * total) - (n + 1) / n;
+}
+
+/**
+ * Measures a proposed partition: `modularity` plus the count, size distribution, and imbalance
+ * it cannot express (plan 4a). Pure and deterministic — the same partition always scores the
+ * same, so a regression in clustering shows up as a changed number rather than as a judgement
+ * call about whether a rendered map "looks right".
+ */
+export function clusteringQuality(clusters: ClusterProposal, edges: ImportEdge[]): ClusteringQuality {
+  const sizes = Object.values(clusters)
+    .map((files) => files.length)
+    .sort((a, b) => b - a);
+  const files = sizes.reduce((sum, s) => sum + s, 0);
+
+  return {
+    modularity: modularity(clusters, edges),
+    clusters: sizes.length,
+    files,
+    sizes,
+    largestShare: files === 0 ? 0 : sizes[0]! / files,
+    singletons: sizes.filter((s) => s === 1).length,
+    imbalance: giniImbalance(sizes),
+  };
+}
+
+/**
  * Traces an api_flow's steps from a proposed entry unit by walking real `calls` edges —
  * always the single longest branch, so a conditional fan-out doesn't turn `steps` into a
  * tree. Cycle-safe via a per-branch visited set. Every hop is a validated graph edge, so
