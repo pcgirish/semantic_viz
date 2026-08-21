@@ -284,3 +284,53 @@ describe("runDiffer", () => {
     });
   });
 });
+
+describe("runDiffer — group lineage", () => {
+  function makeGroup(id: string, members: string[]): Unit {
+    return makeUnit({
+      id,
+      kind: "group",
+      name: id,
+      qualname: id,
+      parent: "u:sys:orderly",
+      children: [...members].sort(),
+      hash: { struct: [...members].sort().join(","), text: null, semantic: id },
+      provenance: { source: "llm", pass: "C" },
+    });
+  }
+
+  it("attaches a split relationship to the predecessor and every successor", () => {
+    const a = makeSnapshot([makeGroup("old", ["a", "b", "c", "d"])]);
+    const b = makeSnapshot([makeGroup("n1", ["a", "b"]), makeGroup("n2", ["c", "d"])], [], "bbb2222");
+
+    const byUnit = new Map(runDiffer(a, b).unit_deltas.map((d) => [d.unit, d]));
+
+    expect(byUnit.get("old")).toMatchObject({
+      status: "removed",
+      relationship: { kind: "split", counterparts: ["n1", "n2"] },
+    });
+    expect(byUnit.get("n1")).toMatchObject({ status: "added", relationship: { kind: "split", counterparts: ["old"] } });
+    expect(byUnit.get("n2")).toMatchObject({ status: "added", relationship: { kind: "split", counterparts: ["old"] } });
+  });
+
+  it("attaches a merged relationship when groups collapse into one", () => {
+    const a = makeSnapshot([makeGroup("o1", ["a", "b"]), makeGroup("o2", ["c", "d"])]);
+    const b = makeSnapshot([makeGroup("new", ["a", "b", "c", "d"])], [], "bbb2222");
+
+    const byUnit = new Map(runDiffer(a, b).unit_deltas.map((d) => [d.unit, d]));
+
+    expect(byUnit.get("new")?.relationship).toEqual({ kind: "merged", counterparts: ["o1", "o2"] });
+    expect(byUnit.get("o1")?.relationship).toEqual({ kind: "merged", counterparts: ["new"] });
+  });
+
+  it("leaves relationship absent for a renamed group with unchanged membership", () => {
+    // Same id and members, different name: `modified` from the semantic hash, and no lineage
+    // event — the group did not move, it was relabeled.
+    const a = makeSnapshot([makeGroup("g1", ["a", "b"])]);
+    const b = makeSnapshot([{ ...makeGroup("g1", ["a", "b"]), name: "renamed", hash: { struct: "a,b", text: null, semantic: "renamed" } }], [], "bbb2222");
+
+    const [delta] = runDiffer(a, b).unit_deltas;
+    expect(delta?.status).toBe("modified");
+    expect(delta?.relationship).toBeUndefined();
+  });
+});

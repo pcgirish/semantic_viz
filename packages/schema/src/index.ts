@@ -283,6 +283,20 @@ const UnitDeltaStatusSchema = z.enum([
   "unchanged",
 ]);
 
+/**
+ * Lineage across a reclustering, emitted only by the group matcher, which computes it from member
+ * overlap. Statuses stay as they are — a split group is `added` plus a `relationship`, and its
+ * predecessor `removed` plus the mirrored one — so the schema never advertises a status nothing
+ * can produce.
+ */
+export const UnitRelationshipSchema = z.object({
+  kind: z.enum(["split", "merged"]),
+  /** Unit ids on the other side, sorted ascending so two runs byte-compare. */
+  counterparts: z.array(UnitId),
+});
+
+export type UnitRelationship = z.infer<typeof UnitRelationshipSchema>;
+
 export const UnitDeltaSchema = z.object({
   unit: UnitId,
   qualname: z.string(),
@@ -293,6 +307,7 @@ export const UnitDeltaSchema = z.object({
   blast_radius: BlastRadiusSchema,
   authors: z.array(AuthorSchema),
   risk: RiskSchema,
+  relationship: UnitRelationshipSchema.optional(),
 });
 
 const EdgeDeltaStatusSchema = z.enum(["added", "removed", "reweighted"]);

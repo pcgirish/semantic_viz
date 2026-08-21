@@ -1,4 +1,5 @@
 import type { Delta, Edge, Snapshot, Unit, UnitDelta } from "@scv/schema";
+import { matchGroupLineage } from "./group-lineage.js";
 
 const BLAST_RADIUS_CAP = 4;
 
@@ -148,6 +149,10 @@ export function runDiffer(a: Snapshot, b: Snapshot): Delta {
   const unitsB = new Map(b.units.map((u) => [u.id, u]));
   const allIds = new Set([...unitsA.keys(), ...unitsB.keys()]);
 
+  // Computed over both snapshots up front: a split or merge is a statement about the whole
+  // reclustering, not something any single unit's before/after pair can reveal.
+  const lineage = matchGroupLineage(a.units, b.units);
+
   const unitDeltas: UnitDelta[] = [];
   for (const id of [...allIds].sort()) {
     const ua = unitsA.get(id);
@@ -185,6 +190,7 @@ export function runDiffer(a: Snapshot, b: Snapshot): Delta {
       blast_radius: { direct, transitive, public_api: publicApi },
       authors: unit.authors ?? [],
       risk: { score: floor, axes: null, why: null, confidence: 0.5, source: "formula", formula_floor: floor },
+      ...(lineage.has(id) ? { relationship: lineage.get(id) } : {}),
     });
   }
 

@@ -6,7 +6,11 @@ import { runDiffer } from "./diff.js";
  * The inspect queue surfaces module-level risk, not every function/class delta underneath it —
  * a human reviewing a PR thinks in terms of "the rate limiter module", not each of its methods.
  * layer/system units are excluded too: they're LLM-invented groupings whose identity churns
- * whenever Pass B/C reclusters, which is not a risk a human should be asked to inspect.
+ * whenever Pass B/C reclusters, which is not a risk a human should be asked to inspect. `group`
+ * is excluded for the same reason and more so — it is a grouping *of* those groupings — and
+ * `test_suite` because it is a structural bucket that is never analyzed at all. Both fall out of
+ * this allowlist without needing to be named; they are listed here so the omission reads as a
+ * decision rather than an oversight.
  */
 const NARRATABLE_KINDS = new Set(["module"]);
 
