@@ -149,14 +149,14 @@ that change what came after:
 - **13+ complexity** ("look at this") extrudes to a **cylinder**, deliberately not a sphere, so it keeps reporting height/sloc (`docs/serve.md`'s explicit reasoning, `node.ts:92-94`).
 - **Hue** = layer; **risk beacon** (cone) floats above roofline for high-risk units, a channel not otherwise spent (`node.ts:107-114`).
 
-**Observed while verifying Phase 2, and likely the dominant cause of "just blobs":** in the
-cityscape view on `fixtures/orderly`, buildings render **inverted** — widest at the roofline and
-tapering down to a point at street level, standing on their apex. `ngonShape()` builds the
-footprint and `body()` extrudes it, so the taper is a geometry defect (circumradius or extrude
-direction), not a material one. An upside-down cone reads as a blob from any angle, and no
-amount of edge accenting fixes a silhouette that is wrong to begin with. **Diagnose this before
-the edge-outline work below** — the outline fix is aimed at a subtler problem than the one
-actually on screen, and may prove unnecessary once the geometry is upright.
+**An inversion was suspected here and ruled out.** Buildings appeared, from a street-level
+screenshot, to stand on their apex — widest at the roofline, tapering to a point. They do not.
+`body()` spans y=0 to y=`depth` for every complexity bucket (0/3/4/6/8 sides), which
+`node.test.ts`'s "extrudes a prism upward from y=0" pair already pins and a direct
+`Box3.setFromObject` measurement confirms. The apparent taper is perspective: at eye height,
+close to a building far taller than it is wide, the near vertical edges diverge toward the top
+of frame. There is no geometry defect to fix, and the edge-outline work below stands on its own
+merits rather than as a workaround for one.
 
 So "just blobs" is a rendering/legibility problem, not a missing encoding. Two further likely causes, both addressable independently:
 

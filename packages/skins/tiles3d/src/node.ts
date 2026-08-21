@@ -103,6 +103,42 @@ function body(n: SceneNode, ctx: RenderContext): THREE.Mesh {
   return mesh;
 }
 
+/** Below this angle between adjacent faces, an edge is curvature rather than a corner. */
+const EDGE_ANGLE_DEG = 20;
+
+/** How much lighter than the facade an outline draws. */
+const OUTLINE_LIGHTEN = 0.45;
+
+/**
+ * A contrasting line along a body's real edges.
+ *
+ * Footprint shape is the complexity channel, and it is a top-down cue: from eye height,
+ * edge-on and flat-shaded, a hexagon and an octagon are the same slab. Drawing the edges puts
+ * the corner count back into the view a walker actually has, which is the vantage the
+ * cityscape skin exists to provide.
+ *
+ * The angle threshold is what keeps the cylinder bucket legible: `EdgesGeometry` compares
+ * adjacent face normals, so a 24-segment barrel drawn at zero would come back as 24 vertical
+ * lines and read as a hatched drum. At 20° only the rim circles survive, which is the
+ * silhouette a cylinder actually has.
+ */
+function outline(body: THREE.Mesh, ctx: RenderContext): THREE.LineSegments {
+  const base = new THREE.Color(ctx.layerColor || NEUTRAL_FACE);
+  const lines = new THREE.LineSegments(
+    new THREE.EdgesGeometry(body.geometry, EDGE_ANGLE_DEG),
+    new THREE.LineBasicMaterial({ color: base.clone().lerp(new THREE.Color(0xffffff), OUTLINE_LIGHTEN) }),
+  );
+  lines.name = "outline";
+  // A gated building fades as a whole; an outline left opaque would make the crowd *more*
+  // prominent than the focused unit it is meant to recede behind.
+  const faint = body.material as THREE.MeshStandardMaterial;
+  if (faint.transparent) {
+    lines.material.transparent = true;
+    lines.material.opacity = faint.opacity;
+  }
+  return lines;
+}
+
 /** A beacon above the roofline for high-risk units — the thing you most need to see cannot hide behind a taller neighbour (docs/serve.md#182). */
 function beacon(n: SceneNode): THREE.Mesh {
   const geometry = new THREE.ConeGeometry(4, BEACON_HEIGHT, 8);
@@ -140,7 +176,9 @@ export function node(n: SceneNode, ctx: RenderContext = {}): THREE.Group {
   g.userData.sceneNodeId = n.id;
   g.position.set(n.x + n.w / 2, 0, n.y + n.h / 2);
 
-  g.add(body(n, ctx));
+  const mesh = body(n, ctx);
+  g.add(mesh);
+  g.add(outline(mesh, ctx));
   if (n.ring) g.add(beacon(n));
   if (n.name) g.add(label(n));
 

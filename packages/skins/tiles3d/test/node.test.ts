@@ -162,6 +162,40 @@ describe("buildings stand on the ground plane", () => {
     expect(max).toBeCloseTo(120);
   });
 
+  it("outlines a body's edges, so corner count still reads at street level", () => {
+    // Footprint shape is the complexity channel, and a silhouette is a top-down cue: from eye
+    // height, edge-on, a hexagon and an octagon are the same flat-shaded slab. A contrasting
+    // line along the real edges puts the corner count back into the view the walker actually
+    // has.
+    const g = node(makeNode({ id: "a", depth: 120, sides: 6 }));
+    const outline = g.getObjectByName("outline") as THREE.LineSegments;
+    expect(outline).toBeInstanceOf(THREE.LineSegments);
+    expect(outline.geometry.type).toBe("EdgesGeometry");
+  });
+
+  it("outlines the cylinder bucket too, without drawing every segment of its barrel", () => {
+    // EdgesGeometry keys off the angle between adjacent faces, so a 24-segment barrel would
+    // become 24 vertical lines and read as a hatched drum rather than a cylinder. Only the rim
+    // circles should survive the threshold.
+    const g = node(makeNode({ id: "a", depth: 120, sides: 0 }));
+    const outline = g.getObjectByName("outline") as THREE.LineSegments;
+    expect(outline).toBeInstanceOf(THREE.LineSegments);
+    const prism = node(makeNode({ id: "b", depth: 120, sides: 6 })).getObjectByName("outline") as THREE.LineSegments;
+    const segs = (o: THREE.LineSegments) => o.geometry.getAttribute("position").count / 2;
+    expect(segs(outline)).toBeLessThan(segs(prism) * 8);
+  });
+
+  it("keeps the outline out of hit-testing, so it cannot steal a click from the body", () => {
+    // Lines are picked within a threshold *around* them, so an outline sitting exactly on a
+    // building's silhouette can win a raycast the body should have had. The host resolves a
+    // hit to a unit either way, but only the body carries the surface the user aimed at.
+    const g = node(makeNode({ id: "a", depth: 120, sides: 4 }));
+    const ray = new THREE.Raycaster(new THREE.Vector3(0, 60, 500), new THREE.Vector3(0, 0, -1));
+    const hits = ray.intersectObject(g, true);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0]!.object.name).toBe("body");
+  });
+
   it("gives a prism a footprint that fills the tile rather than shrinking to its inradius", () => {
     // A 3-gon on the circumradius covers well under half the tile it replaces, so a
     // low-complexity unit reads as a spike instead of a building. The footprint should span

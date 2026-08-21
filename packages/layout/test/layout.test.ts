@@ -244,4 +244,35 @@ describe("extrusion depth", () => {
     const scene = buildScene(units, []);
     expect(scene.nodes[0]!.depth).toBe(scene.nodes[1]!.depth);
   });
+
+  it("compresses the range so one large file cannot flatten the skyline", () => {
+    // Raw sloc is too skewed to drive a visual channel directly — the same reason
+    // docs/serve.md#2 √-scales tile *area* rather than using sloc raw. Height had kept the
+    // linear scale, so a 2000-line file stood 40x a 50-line one and everything else became
+    // noise at the feet of one tower. The curve is √ for the same reason area's is: it keeps
+    // the ordering intact while pulling the extremes back into one legible skyline.
+    const depth = (sloc: number) =>
+      buildScene([makeUnit({ id: "a", loc: { files: [], sloc } })], []).nodes[0]!.depth;
+    const ratio = depth(2000) / depth(50);
+    expect(ratio).toBeLessThan(8);
+    // Still clearly taller, though — compression must not become erasure.
+    expect(ratio).toBeGreaterThan(2);
+  });
+
+  it("keeps height strictly increasing in sloc, so the compression never flattens a pair", () => {
+    const depth = (sloc: number) =>
+      buildScene([makeUnit({ id: "a", loc: { files: [], sloc } })], []).nodes[0]!.depth;
+    const samples = [0, 1, 5, 20, 100, 500, 2000, 10000].map(depth);
+    for (let i = 1; i < samples.length; i++) expect(samples[i]!).toBeGreaterThan(samples[i - 1]!);
+  });
+
+  it("stands even a trivial unit taller than its footprint is wide", () => {
+    // The Checkpoint 2 constraint, pinned at the bottom of the range rather than the middle.
+    // On fixtures/orderly the median unit is 2 sloc, so a curve tuned to keep the *median*
+    // above the footprint still leaves most of the city as slabs — the floor is what the
+    // constraint actually rests on, and it has to clear MIN_DIM (96) on its own.
+    const scene = buildScene([makeUnit({ id: "a", loc: { files: [], sloc: 0 } })], []);
+    const n = scene.nodes[0]!;
+    expect(n.depth).toBeGreaterThan(Math.max(n.w, n.h));
+  });
 });
