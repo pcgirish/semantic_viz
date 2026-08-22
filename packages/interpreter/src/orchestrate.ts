@@ -877,10 +877,10 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
 
   const sysId = systemIdFor(snapshot, systemName);
 
-  // Pass B routes every file into some cluster (`checkAndRepairClusters` has its own unclustered
-  // fallback), so a module normally has a layer. A module that still has none — because the
-  // layers pass did not run, or it was excluded from the file list it clustered — would sit at
-  // parent: null and break the single-root invariant, so it is collected here instead.
+  // `clusterFiles` partitions every file it is given, so a module it saw always has a layer. A
+  // module that still has none — because the layers pass did not run, or because it was excluded
+  // from the clustered file list (test and generated modules are) — would sit at parent: null and
+  // break the single-root invariant, so it is collected here instead.
   const unclaimedModules = units.filter((u) => u.kind === "module" && !parentOverride.has(u.id));
   const containers = [
     buildContainerUnit({

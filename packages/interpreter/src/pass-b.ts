@@ -6,8 +6,6 @@ export interface PassBResult {
   /** Membership keyed by structural id. Not `ClusterProposal`: at this point no name exists,
    *  and naming is a strictly later step (Pass C). */
   groups: ClusterGroups;
-  /** Retained for the result's shape; the deterministic algorithm never repairs. */
-  repaired: boolean;
   modularity: number;
   directoryModularity: number;
 }
@@ -37,7 +35,6 @@ export function runPassB(options: RunPassBOptions): PassBResult {
 
   return {
     groups,
-    repaired: false,
     modularity: modularity(byId, edges),
     directoryModularity: modularity(directoryClusters(files), edges),
   };
