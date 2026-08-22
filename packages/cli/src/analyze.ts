@@ -105,7 +105,7 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
         reportProgress: (phase, done, total, current) =>
           console.error(`[INFO] progress phase=${phase} ${done}/${total} current=${current ?? ""}`),
         force: options.force && options.artifact ? new Set([options.artifact]) : new Set(),
-        previousLayers: loadPreviousLayers(scvDir, options.root),
+        previousLayers: loadPreviousLayers(scvDir, options.root, promptRev),
       };
 
       const target = options.artifact ?? "flows";

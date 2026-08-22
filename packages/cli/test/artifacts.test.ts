@@ -349,7 +349,7 @@ describe("layers artifact — carry-over across analyses", () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(path.join(dir, "layers.json"), JSON.stringify(stale));
 
-    expect(loadPreviousLayers(scvDir, orderlyRoot).size).toBe(0);
+    expect(loadPreviousLayers(scvDir, orderlyRoot, "p2").size).toBe(0);
   });
 
   it("reads the nearest ancestor's layers, keyed by structural id", () => {
@@ -374,11 +374,40 @@ describe("layers artifact — carry-over across analyses", () => {
       }),
     );
 
-    const loaded = loadPreviousLayers(scvDir, orderlyRoot);
+    const loaded = loadPreviousLayers(scvDir, orderlyRoot, "p2");
     expect(loaded.get(layerIdFor(layer.files))).toEqual(layer);
   });
 
   it("returns an empty map, rather than throwing, when no ancestor has been analyzed", () => {
-    expect(loadPreviousLayers(scvDir, orderlyRoot).size).toBe(0);
+    expect(loadPreviousLayers(scvDir, orderlyRoot, "p2").size).toBe(0);
+  });
+
+  it("ignores a predecessor narrated under a different prompt revision", () => {
+    // Carry-over skips the Pass C call outright, so a stale record's prose would survive a
+    // prompt change that every freshly-narrated cluster picks up — the artifact hash cannot
+    // catch it, because the whole point of a hit is that no call is made.
+    const ancestors = ancestorShas(orderlyRoot);
+    const layer: Layer = {
+      name: "billing",
+      files: ["src/billing.py"],
+      what: "w", how: "h", when: "wh", where: "wr", why: "y",
+      confidence: 0.9,
+      source: "llm",
+    };
+    const dir = path.join(scvDir, "artifacts", ancestors[0]!);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, "layers.json"),
+      JSON.stringify({
+        inputHash: "x",
+        data: {
+          layerUnits: [], layers: [layer], parentOverride: [], layerIdByName: [],
+          repoContextText: undefined, clusteringVersion: CLUSTERING_VERSION, promptRev: "p2",
+        },
+      }),
+    );
+
+    expect(loadPreviousLayers(scvDir, orderlyRoot, "p3").size).toBe(0);
+    expect(loadPreviousLayers(scvDir, orderlyRoot, "p2").size).toBe(1);
   });
 });
