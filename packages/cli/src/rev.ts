@@ -20,3 +20,24 @@ export function headRev(root: string): HeadRev {
   }
   return { sha, kind: "commit", author, author_kind: "human", ts };
 }
+
+/** How far back to look for a cached predecessor analysis. Far enough to cross a normal stretch
+ *  of unanalyzed commits, short enough that a long history never turns startup into a git walk. */
+export const ANCESTOR_WALK_LIMIT = 50;
+
+/**
+ * First-parent ancestors of HEAD, nearest first, excluding HEAD. Used to find the nearest
+ * previous analysis whose layers can be carried over.
+ *
+ * First-parent only: on a merge, the side the branch actually continued is the one whose layer
+ * names a reader remembers. Never throws — no git, a shallow clone, or an unborn branch just
+ * means no predecessor, and a missing carry-over costs some Pass C calls, not correctness.
+ */
+export function ancestorShas(root: string): string[] {
+  const result = spawnSync("git", ["rev-list", "--first-parent", `--max-count=${ANCESTOR_WALK_LIMIT + 1}`, "HEAD"], {
+    cwd: root,
+    encoding: "utf-8",
+  });
+  if (result.status !== 0 || !result.stdout) return [];
+  return result.stdout.trim().split("\n").filter(Boolean).slice(1);
+}

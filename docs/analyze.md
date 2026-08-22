@@ -37,23 +37,26 @@ The five questions are not decoration. `what` and `how` are recoverable from the
 
 **Pass Docs — repo doc extraction.** Runs once per analyze, one call per discovered doc (root-level and `docs/`-level `.md`/`.rst` files). Extracts `purpose`, named `modules` (with optional paths), and `architecture_notes` from each doc — structural signal, not a raw summary, and not truncated regardless of doc length. A doc with no extractable structure (e.g. CONTRIBUTING.md) validly returns empty `modules`/`architecture_notes`. Combined with a directory tree built from the same file list Pass B sees, this forms the "Repo context" section folded into Pass B and Pass C prompts.
 
-**Pass B — clustering.** The load-bearing pass: form modules and layers that are *not* directory-shaped. Input is the directory tree, per-file one-liners from Pass A, the import graph as an edge list, and (when available) the Pass Docs repo-context section. Doc-derived module hints are a signal to weigh alongside import edges, not an override — a hint whose files don't match reality is still subject to the same `checkAndRepairClusters` enforcement as the rest of the LLM's proposal. The prompt also states a target cluster count, `clamp(round(sqrt(files.length)), 2, 12)`, as advisory guidance — not enforced by the checker — to curb both over-fine and arbitrarily-merged groupings. Output is a proposed hierarchy with names and rationale, constrained by:
+**Pass B — clustering.** The load-bearing pass: form modules and layers that are *not* directory-shaped. **No LLM is involved.** Input is the file list and the import graph; output is a partition, keyed by structural id, produced by weighted agglomerative single-linkage clustering (`interpreter/src/cluster.ts`):
 
-- it must partition every file — no orphans;
-- prefer cuts that minimize cross-cluster edge weight, and report the modularity score against the directory baseline;
-- the LLM proposes, a **deterministic checker validates and repairs**.
+- **Affinity.** Undirected weight per file pair is `max(w(a→b), w(b→a))`, duplicate same-direction edges summed first. Sum within a direction is right — two imports of one module from one file are two facts about one relationship — while `max` across directions keeps a high-fan-in utility from being dragged into a cluster by many weak inbound edges.
+- **Retention.** An edge survives only if it is significant at *both* endpoints: `w(a,b) >= max(MIN_EDGE_WEIGHT, RELATIVE_EDGE_RATIO * maxIncident(a), RELATIVE_EDGE_RATIO * maxIncident(b))`, with `maxIncident` computed before any retention so the rule is order-independent. Requiring both ends is the primary defence against single linkage's chaining.
+- **Merging.** Single linkage — the maximum retained affinity across member pairs — above `MERGE_THRESHOLD`. Average linkage was tried and rejected: it penalizes a cluster for growing, diluting a real relationship with a cluster's unrelated members.
+- **Ties** break by score desc, total retained weight desc, member count asc, then sorted member list asc. That last key is a total order over distinct member sets, so no seed, insertion order, or filesystem order can reach the result.
+- **Fallback.** With no retained edge at all, the directory baseline stands in — never chosen by a modularity comparison, since modularity cannot rank partitions of differing granularity.
+- It partitions every file — no orphans — and `assertStrictPartition` throws rather than repairs, because any violation is an algorithm bug rather than an untrusted response.
 
-The checker is what makes this shippable. Without it, clustering is a coin flip that reshuffles the UI between runs.
+Determinism is what makes this shippable. Previously the LLM proposed and a checker repaired; the contract asked which whole *directories* to union, so no response could ever split one, and names and membership still drifted between runs on unchanged source.
 
-*Worked example.* In `orderly`, `src/admin_tasks.py` sits inside the application package but imports `scripts.backfill` and has no importers of its own. Directory-shaped grouping files it under the domain. Import-cohesion grouping files it under **ops**, alongside `scripts/` and `migrations/`. The second answer is the true one and no amount of static analysis alone will assert it, because "these things are alike because of how they run" is a semantic claim.
+*Worked example.* In `orderly`, `src/admin_tasks.py` sits inside the application package but imports `scripts.backfill` and has no importers of its own. Directory-shaped grouping files it under the domain. Import-cohesion grouping files it with `scripts/`. The second answer is the true one, and the clustering above reaches it from the import graph alone.
 
-**Pass C — architecture narration.** Layers, `api_flow` units (route handler → service → store, traced along real edges), system-level `why`, and the external-dependency story.
+**Pass C — architecture narration.** Names and narrates each cluster — one call per cluster, in ascending structural-id order. It cannot influence membership. A cluster whose structural id matches the nearest analyzed first-parent ancestor's has identical membership by construction, so its whole record is carried over verbatim and no call is made. Also: layers, `api_flow` units (route handler → service → store, traced along real edges), system-level `why`, and the external-dependency story.
 
 `api_flow` units are how cross-language edges get expressed: a TypeScript client and a Python handler are matched by route string, marked `source:"llm"`, `confidence<1`.
 
 **Pass D — risk narration.** Runs only for units whose `semantic_hash` changed. Writes the five axes and the `why`. See §4.
 
-**Cost control.** Content-addressed cache; only units whose `text_hash` changed are re-lifted. Pass B reruns only when cluster-relevant edges cross a threshold, not on every commit.
+**Cost control.** Content-addressed cache; only units whose `text_hash` changed are re-lifted. Pass B costs nothing — it makes no LLM calls — and Pass C is skipped per cluster whose membership is unchanged since the last analyzed ancestor.
 
 ---
 

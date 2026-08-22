@@ -244,14 +244,19 @@ changes.
 Pass A's block-level labels (used by Flowchart mode) now retry once, scoped
 to just the decision/loop blocks the LLM left without a `trueLabel`/
 `falseLabel` on the first call, instead of showing a generic branch label.
-Pass B (file clustering) and Pass C-groups (layer grouping) no longer ask the
-LLM to freely re-partition the repo from scratch each run — a design that
-produced unstable cluster/group names and membership across reruns on
-unchanged source. Both now compute a deterministic baseline (directories for
-Pass B, layers for Pass C-groups) and ask the LLM only to propose merges of
-that baseline into semantically-named groups; anything the LLM omits stays a
-singleton under its own name rather than falling into an "unclustered"
-bucket.
+Pass B (file clustering) no longer asks an LLM anything. It partitions files by
+weighted agglomerative single-linkage clustering over the import graph — pure,
+provider-free, and byte-stable for identical structural input — because the old
+contract asked which whole *directories* to union and so could not express a
+split of one. Pass C keeps naming and prose and loses membership entirely, and
+a layer's id is the hash of its file membership rather than of its name, so a
+re-analysis that renames a layer no longer reads as one layer vanishing and
+another appearing. A cluster whose membership is unchanged since the nearest
+analyzed ancestor commit reuses that run's whole record verbatim and skips its
+LLM call. Pass C-groups (layer grouping) still uses the deterministic-baseline
+plus LLM-proposed-merges design: layers form the baseline, and anything the LLM
+omits stays a singleton under its own name rather than falling into an
+"unclustered" bucket.
 
 **A6 validation against `fixtures/orderly`** (`docs/analyze.md`'s exit
 criterion): the inspect queue correctly surfaces all 7/7 module-level
@@ -310,14 +315,18 @@ direction, and how many edges collapsed into it. The synthetic client-side
 domain tier those group units replace is now gone, and with it the layer `group`
 name string: regions, the legend, and the breadcrumb key on a group unit's id, so
 renaming a group no longer reads as one group vanishing and another appearing,
-and two groups that happen to share a name stay distinct. Still ahead: the
-deterministic clustering work behind it.
+and two groups that happen to share a name stay distinct. Clustering itself is
+now deterministic too: an adversarial fixture pins the partition the algorithm
+owes, the algorithm and its thresholds are recorded in snapshot provenance so a
+moved boundary is explained by a rule rather than a number, and a split or merge
+across revisions carries an explicit lineage relationship instead of reading as
+churn.
 
 | Package | What it does | Status |
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
-| `packages/interpreter` | Pass A (leaf semantics + branch labels, with scoped retry on incomplete blocks), Pass Docs (repo README/docs structural extraction), Pass B (directory-baseline clustering + LLM-proposed merges + deterministic checker), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps; Pass C-groups uses the same baseline + LLM-merge design as Pass B), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
+| `packages/interpreter` | Pass A (leaf semantics + branch labels, with scoped retry on incomplete blocks), Pass Docs (repo README/docs structural extraction), Pass B (deterministic agglomerative single-linkage file clustering over the import graph — no LLM), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps; Pass C-groups uses a layer baseline plus LLM-proposed merges), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking. Emits `added`/`removed`/`modified`/`risk_changed`; `moved` and `renamed` are deliberately unsupported — they need rename-detection heuristics this differ does not implement | Implemented |
 | `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve` | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |

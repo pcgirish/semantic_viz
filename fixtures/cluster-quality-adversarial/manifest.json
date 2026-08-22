@@ -1,0 +1,103 @@
+{
+  "files": [
+    "app/billing/invoice.py",
+    "app/generated/pb_orders.py",
+    "app/shared/money.py",
+    "app/shipping/carrier.py",
+    "app/shipping/label.py",
+    "scripts/billing_backfill.py",
+    "scripts/rotate_logs.py",
+    "tests/test_billing.py",
+    "tests/test_shipping.py",
+    "workers/billing_worker.py"
+  ],
+  "edges": [
+    {
+      "from": "app/billing/invoice.py",
+      "to": "workers/billing_worker.py",
+      "weight": 3
+    },
+    {
+      "from": "scripts/billing_backfill.py",
+      "to": "app/billing/invoice.py",
+      "weight": 3
+    },
+    {
+      "from": "workers/billing_worker.py",
+      "to": "app/billing/invoice.py",
+      "weight": 2
+    },
+    {
+      "from": "app/shipping/label.py",
+      "to": "app/shipping/carrier.py",
+      "weight": 3
+    },
+    {
+      "from": "app/shipping/carrier.py",
+      "to": "app/shipping/label.py",
+      "weight": 3
+    },
+    {
+      "from": "app/billing/invoice.py",
+      "to": "app/shared/money.py",
+      "weight": 1
+    },
+    {
+      "from": "workers/billing_worker.py",
+      "to": "app/shared/money.py",
+      "weight": 1
+    },
+    {
+      "from": "scripts/billing_backfill.py",
+      "to": "app/shared/money.py",
+      "weight": 1
+    },
+    {
+      "from": "app/shipping/label.py",
+      "to": "app/shared/money.py",
+      "weight": 1
+    },
+    {
+      "from": "app/shipping/carrier.py",
+      "to": "app/shared/money.py",
+      "weight": 1
+    },
+    {
+      "from": "scripts/rotate_logs.py",
+      "to": "app/shared/money.py",
+      "weight": 1
+    }
+  ],
+  "expected": {
+    "billing": [
+      "app/billing/invoice.py",
+      "workers/billing_worker.py",
+      "scripts/billing_backfill.py"
+    ],
+    "shipping": [
+      "app/shipping/label.py",
+      "app/shipping/carrier.py"
+    ],
+    "money": [
+      "app/shared/money.py"
+    ],
+    "ops": [
+      "scripts/rotate_logs.py"
+    ]
+  },
+  "excluded": [
+    "app/generated/pb_orders.py",
+    "tests/test_billing.py",
+    "tests/test_shipping.py"
+  ],
+  "highFanIn": "app/shared/money.py",
+  "sameDirDifferentClusters": [
+    "scripts/billing_backfill.py",
+    "scripts/rotate_logs.py"
+  ],
+  "spansDirectories": "billing",
+  "cycle": [
+    "app/shipping/label.py",
+    "app/shipping/carrier.py"
+  ]
+}

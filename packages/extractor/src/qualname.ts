@@ -26,6 +26,21 @@ export function isTestPath(relPath: string): boolean {
   return TEST_FILENAME.test(noExt);
 }
 
+const GENERATED_DIR_SEGMENT = /^(generated|__generated__)$/;
+const GENERATED_FILENAME = /(_pb2\.py|_pb\.py|\.pb\.ts|\.generated\.ts|\.g\.dart)$/;
+
+/** True for machine-generated files: anything under a `generated`/`__generated__` directory,
+ *  or whose filename carries a generator's suffix (`*_pb2.py`, `*.pb.ts`, `*.generated.ts`,
+ *  `*.g.dart`). Such files are real code but say nothing about architecture — their imports
+ *  reflect a code generator's conventions, not a developer's design — so they are kept out of
+ *  the clustering graph while still being snapshotted. */
+export function isGeneratedPath(relPath: string): boolean {
+  const parts = relPath.split(path.sep);
+  const dirs = parts.slice(0, -1);
+  if (dirs.some((d) => GENERATED_DIR_SEGMENT.test(d))) return true;
+  return GENERATED_FILENAME.test(parts[parts.length - 1] ?? "");
+}
+
 /**
  * Collapses a test-owned module qualname to at most one level under the first
  * tests/test/__tests__ path segment, e.g. "tests.integration.api.test_deep" (from

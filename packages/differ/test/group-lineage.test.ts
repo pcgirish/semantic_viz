@@ -3,9 +3,17 @@ import type { Unit } from "@scv/schema";
 import { matchGroupLineage, MERGE_MAJORITY, OVERLAP_THRESHOLD } from "../src/group-lineage.js";
 
 function group(id: string, members: string[]): Unit {
+  return unit("group", id, members);
+}
+
+function layer(id: string, members: string[]): Unit {
+  return unit("layer", id, members);
+}
+
+function unit(kind: "group" | "layer", id: string, members: string[]): Unit {
   return {
     id,
-    kind: "group",
+    kind,
     name: id,
     qualname: id,
     parent: "u:sys:r",
@@ -96,5 +104,43 @@ describe("matchGroupLineage", () => {
   it("looks only at groups, ignoring layers and modules that share the snapshot", () => {
     const layer = { ...group("lay", ["a"]), kind: "layer" } as Unit;
     expect(matchGroupLineage([layer], [layer])).toEqual(new Map());
+  });
+});
+
+describe("matchGroupLineage — layers", () => {
+  // 4c reclusters at the file level, so a split or a merge lands on layers far more often than
+  // on groups. Lineage that only looked at groups would render the common case as pure churn.
+  it("classifies one layer breaking into two as a split", () => {
+    const before = [layer("u:layer:old", ["a", "b", "c", "d"])];
+    const after = [layer("u:layer:n1", ["a", "b"]), layer("u:layer:n2", ["c", "d"])];
+
+    const rel = matchGroupLineage(before, after);
+    expect(rel.get("u:layer:old")).toEqual({ kind: "split", counterparts: ["u:layer:n1", "u:layer:n2"] });
+    expect(rel.get("u:layer:n1")).toEqual({ kind: "split", counterparts: ["u:layer:old"] });
+    expect(rel.get("u:layer:n2")).toEqual({ kind: "split", counterparts: ["u:layer:old"] });
+  });
+
+  it("classifies two layers fusing into one as a merge", () => {
+    const before = [layer("u:layer:a", ["a", "b"]), layer("u:layer:b", ["c", "d"])];
+    const after = [layer("u:layer:both", ["a", "b", "c", "d"])];
+
+    const rel = matchGroupLineage(before, after);
+    expect(rel.get("u:layer:both")).toEqual({ kind: "merged", counterparts: ["u:layer:a", "u:layer:b"] });
+  });
+
+  it("reports nothing for a layer whose membership is unchanged but whose name moved", () => {
+    // The structural id is the membership hash, so a renamed-but-unchanged layer keeps its id
+    // and must not be reported as lineage at all.
+    const before = [layer("u:layer:same", ["a", "b"])];
+    const after = [layer("u:layer:same", ["b", "a"])];
+    expect(matchGroupLineage(before, after)).toEqual(new Map());
+  });
+
+  it("never matches a layer to a group, even on identical membership", () => {
+    // Different levels of the hierarchy can legitimately hold the same members; a layer becoming
+    // a group is not a split of anything.
+    const before = [layer("u:layer:x", ["a", "b", "c", "d"])];
+    const after = [group("g1", ["a", "b"]), group("g2", ["c", "d"])];
+    expect(matchGroupLineage(before, after)).toEqual(new Map());
   });
 });

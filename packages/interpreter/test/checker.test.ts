@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkAndRepairClusters, directoryClusters, MAX_BRANCH_DEPTH, MAX_FAN_OUT, modularity, normalizeClusterName, traceFlow, traceFlowBranching } from "../src/checker.js";
+import { checkAndRepairClusters, clusteringQuality, directoryClusters, MAX_BRANCH_DEPTH, MAX_FAN_OUT, modularity, normalizeClusterName, traceFlow, traceFlowBranching } from "../src/checker.js";
 import type { CallEdge, ImportEdge } from "../src/checker.js";
 
 const files = ["src/api/routes.py", "src/api/middleware/rate_limiter.py", "src/admin_tasks.py", "scripts/backfill.py"];
@@ -176,6 +176,70 @@ describe("modularity", () => {
 
   it("scores 0 for an empty edge list", () => {
     expect(modularity({ a: ["x"] }, [])).toBe(0);
+  });
+});
+
+describe("clusteringQuality", () => {
+  const edges: ImportEdge[] = [
+    { from: "src/admin_tasks.py", to: "scripts/backfill.py", weight: 1 },
+    { from: "src/api/routes.py", to: "src/api/middleware/rate_limiter.py", weight: 1 },
+  ];
+
+  // The reason this function exists (plan 4a): `modularity` has no penalty for cluster count
+  // or imbalance, so one giant cluster containing everything scores a perfect 1.0 — every
+  // edge is trivially internal. A partition that says "the repo is one thing" is useless as
+  // architecture, and the score alone cannot tell it apart from a genuinely cohesive one.
+  it("separates a degenerate one-cluster partition from a good one that scores the same modularity", () => {
+    const everything = ["src/admin_tasks.py", "scripts/backfill.py", "src/api/routes.py", "src/api/middleware/rate_limiter.py"];
+    const degenerate = clusteringQuality({ everything }, edges);
+    const good = clusteringQuality(
+      { ops: ["src/admin_tasks.py", "scripts/backfill.py"], api: ["src/api/routes.py", "src/api/middleware/rate_limiter.py"] },
+      edges,
+    );
+
+    expect(degenerate.modularity).toBe(1);
+    expect(good.modularity).toBe(1);
+
+    expect(degenerate.clusters).toBe(1);
+    expect(good.clusters).toBe(2);
+    expect(degenerate.largestShare).toBe(1);
+    expect(good.largestShare).toBe(0.5);
+    // `imbalance` is 0 for both here and deliberately so: a lone cluster has nothing to be
+    // unequal against, and two equal clusters are perfectly balanced. `largestShare` is the
+    // field that catches the degenerate case; imbalance catches the lopsided one below.
+    expect(degenerate.imbalance).toBe(0);
+    expect(good.imbalance).toBe(0);
+  });
+
+  it("scores a lopsided partition as more imbalanced than an even one with the same cluster count", () => {
+    const even = clusteringQuality({ a: ["a", "b"], b: ["c", "d"] }, []);
+    const lopsided = clusteringQuality({ a: ["a", "b", "c"], b: ["d"] }, []);
+    expect(lopsided.imbalance).toBeGreaterThan(even.imbalance);
+  });
+
+  it("reports the size distribution sorted descending, so the shape reads at a glance", () => {
+    const q = clusteringQuality({ big: ["a", "b", "c"], small: ["d"], mid: ["e", "f"] }, []);
+    expect(q.sizes).toEqual([3, 2, 1]);
+    expect(q.clusters).toBe(3);
+    expect(q.files).toBe(6);
+    expect(q.largestShare).toBe(0.5);
+  });
+
+  it("counts a singleton-heavy partition as imbalanced even though no cluster is giant", () => {
+    // The mirror of the degenerate case: shattering the repo into one file per cluster also
+    // scores well on nothing-crosses-a-boundary, and is equally useless.
+    const shattered = clusteringQuality({ a: ["a"], b: ["b"], c: ["c"], d: ["d"] }, []);
+    expect(shattered.singletons).toBe(4);
+    expect(shattered.largestShare).toBe(0.25);
+  });
+
+  it("returns a zeroed report for an empty partition rather than dividing by zero", () => {
+    const q = clusteringQuality({}, edges);
+    expect(q.clusters).toBe(0);
+    expect(q.files).toBe(0);
+    expect(q.largestShare).toBe(0);
+    expect(q.imbalance).toBe(0);
+    expect(q.sizes).toEqual([]);
   });
 });
 

@@ -13,7 +13,7 @@ import {
   type Provider,
   type ProviderUsage,
 } from "@scv/interpreter";
-import { ensureArtifact, type ArtifactContext, type ArtifactName } from "./artifacts.js";
+import { ensureArtifact, loadPreviousLayers, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { discoverDocs } from "./discover-docs.js";
 import { headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
@@ -105,6 +105,7 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
         reportProgress: (phase, done, total, current) =>
           console.error(`[INFO] progress phase=${phase} ${done}/${total} current=${current ?? ""}`),
         force: options.force && options.artifact ? new Set([options.artifact]) : new Set(),
+        previousLayers: loadPreviousLayers(scvDir, options.root, promptRev),
       };
 
       const target = options.artifact ?? "flows";

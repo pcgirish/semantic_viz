@@ -207,9 +207,19 @@ const InterpreterProvenanceSchema = z.object({
   prompt_rev: z.string(),
 });
 
+/** How the layer partition was computed. Optional: snapshots written before layers became
+ *  deterministic have no such record, and they stay loadable. */
+const ClusteringProvenanceSchema = z.object({
+  algorithm: z.string(),
+  version: z.string(),
+  tieBreak: z.string(),
+  constants: z.record(z.string(), z.number()),
+});
+
 const SnapshotProvenanceSchema = z.object({
   extractor: z.string(),
   interpreter: InterpreterProvenanceSchema,
+  clustering: ClusteringProvenanceSchema.optional(),
 });
 
 /** Upper bound on persisted layout entries — a repo far larger than any this tool targets. */

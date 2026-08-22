@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SymbolGraph, SymbolBlockGraph, SymbolUnit } from "@scv/extractor";
-import { isTestPath } from "@scv/extractor";
+import { isGeneratedPath, isTestPath } from "@scv/extractor";
 import { formatFindings, validateSnapshotInvariants } from "@scv/schema";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
 import type { Provider } from "./provider.js";
@@ -8,6 +8,8 @@ import { runPassA } from "./pass-a.js";
 import { runPassABlocks, type BlockLabel } from "./pass-a-blocks.js";
 import { runPassB } from "./pass-b.js";
 import { runPassC, runPassCGroups, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
+import type { Layer } from "./pass-c.js";
+import { CLUSTERING_ALGORITHM, CLUSTERING_TIE_BREAK, CLUSTERING_VERSION, MAX_CLUSTER_SHARE, MERGE_THRESHOLD, MIN_EDGE_WEIGHT, MIN_LARGE_REPO_FILES, RELATIVE_EDGE_RATIO, layerIdFor, resolveLayerNames } from "./cluster.js";
 import { buildGroupUnits, resolveGroupMembership, type BuildGroupUnitsResult } from "./groups.js";
 import { runPassDocs } from "./pass-docs.js";
 import type { DocExtract, DocInput } from "./pass-docs.js";
@@ -93,6 +95,9 @@ export interface RunInterpreterOptions {
   /** Reads a leaf unit's source text for Pass A. Defaults to reading `unit.loc.file` from disk relative to `root`. */
   readSource: (file: string, start: number, end: number) => string;
   systemName?: string;
+  /** Layers from the nearest ancestor analysis, keyed by structural id — threaded to Pass C so
+   *  an unchanged cluster keeps its name and narration without another call. */
+  previousLayers?: Map<string, Layer>;
   /** Defaults to logging `[INFO] progress phase=... done/total current=... elapsed=...` to stderr. */
   reportProgress?: ReportProgress;
   /** Raw repo docs (README, docs/**), summarized via Pass Docs and combined with a directory
@@ -126,19 +131,17 @@ function isTestUnit(unit: Unit): boolean {
   return file !== undefined && isTestPath(file);
 }
 
+/** Generated code is snapshotted but kept out of the clustering graph: its imports reflect a
+ *  code generator's conventions, not a developer's design, so they are evidence about the
+ *  generator rather than about the architecture. */
+function isGeneratedUnit(unit: Unit): boolean {
+  const file = unit.loc.files[0];
+  return file !== undefined && isGeneratedPath(file);
+}
+
 function hashSemantics(semantics: unknown): string | null {
   if (!semantics) return null;
   return createHash("sha1").update(JSON.stringify(semantics)).digest("hex");
-}
-
-/**
- * Derives a layer's id from its file membership, not the LLM's chosen cluster name. Pass B/C
- * are not deterministic across runs — the same files can get named "ops" one run and
- * "operational-scripts" the next — so naming the id after the LLM's choice would make every
- * layer look removed-and-re-added on every re-analysis even when nothing changed.
- */
-function layerIdFor(files: string[]): string {
-  return `u:layer:${createHash("sha1").update([...files].sort().join("\n")).digest("hex").slice(0, 12)}`;
 }
 
 /** Renders a sorted file-path listing as an indented directory tree, so Pass B/C can see the
@@ -427,10 +430,16 @@ export interface RunLayersPassOptions {
   provider: Provider;
   promptRev: string;
   reportProgress: ReportProgress;
+  /** Layers from the nearest ancestor analysis, keyed by structural id. A hit means identical
+   *  membership, so the layer's name and narration are carried over and Pass C is not called. */
+  previousLayers?: Map<string, Layer>;
 }
 
 export interface RunLayersPassResult {
   layerUnits: Unit[];
+  /** The resolved layer records themselves, so the artifact persists exactly what the snapshot
+   *  shows — one source for the next run's carry-over. */
+  layers: Layer[];
   /** Maps a module unit's id to the layer id it was clustered into. */
   parentOverride: Map<string, string>;
   /** Every module unit, keyed by the file(s) it covers — reused by groups/finalize. */
@@ -438,7 +447,7 @@ export interface RunLayersPassResult {
   /** Directory tree + doc context text passed into Pass B/C prompts, reused unchanged by groups. */
   repoContextText: string | undefined;
   layerIdByName: Map<string, string>;
-  /** Cohesion of the LLM's clustering, and of the directory baseline it is measured against.
+  /** Cohesion of the computed clustering, and of the directory baseline it is measured against.
    *  docs/design.md names this comparison the mitigation for clustering instability. */
   modularity: number;
   directoryModularity: number;
@@ -446,11 +455,17 @@ export interface RunLayersPassResult {
 
 /** Clusters modules into named layers (Pass B) and narrates each layer's purpose (Pass C). */
 export async function runLayersPass(options: RunLayersPassOptions): Promise<RunLayersPassResult> {
-  const { snapshot, units, docExtracts, provider, promptRev, reportProgress } = options;
+  const { snapshot, units, docExtracts, provider, promptRev, reportProgress, previousLayers } = options;
 
   const unitsByFile = new Map<string, Unit[]>();
   for (const unit of units) {
-    if (unit.kind !== "module" || isTestUnit(unit)) continue;
+    if (unit.kind !== "module" || isTestUnit(unit) || isGeneratedUnit(unit)) continue;
+    // Structural ids hash a *file* list, and every consumer maps a file back to one module unit.
+    // A module covering two files would make that mapping ambiguous and the id a lie about
+    // membership, so refuse rather than silently pick the first file.
+    if (unit.loc.files.length !== 1) {
+      throw new Error(`module unit ${unit.id} covers ${unit.loc.files.length} files; clustering requires exactly one`);
+    }
     for (const file of unit.loc.files) {
       (unitsByFile.get(file) ?? unitsByFile.set(file, []).get(file)!).push(unit);
     }
@@ -459,7 +474,7 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
 
   const leafUnitsByFile = new Map<string, Unit[]>();
   for (const unit of units) {
-    if (!LEAF_KINDS.has(unit.kind) || isTestUnit(unit)) continue;
+    if (!LEAF_KINDS.has(unit.kind) || isTestUnit(unit) || isGeneratedUnit(unit)) continue;
     for (const file of unit.loc.files) {
       (leafUnitsByFile.get(file) ?? leafUnitsByFile.set(file, []).get(file)!).push(unit);
     }
@@ -492,28 +507,28 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
   const repoContextText = formatRepoContext(docExtracts, files);
 
   reportProgress("pass B", 0, 1, "clustering files");
-  const passB = await runPassB({ files, oneLiners, edges: importEdges, provider, promptRev, repoContext: repoContextText });
+  const passB = runPassB({ files, edges: importEdges });
   reportProgress("pass B", 1, 1, "clustering files");
 
-  const layerIds: string[] = [];
   const parentOverride = new Map<string, string>();
-
-  for (const [, clusterFiles] of Object.entries(passB.clusters)) {
-    const memberUnits = clusterFiles.flatMap((f) => unitsByFile.get(f) ?? []);
-    if (memberUnits.length === 0) continue;
-    const layerId = layerIdFor(clusterFiles);
-    layerIds.push(layerId);
-    for (const member of memberUnits) parentOverride.set(member.id, layerId);
+  for (const [layerId, memberFiles] of passB.groups) {
+    for (const file of memberFiles) {
+      for (const member of unitsByFile.get(file) ?? []) parentOverride.set(member.id, layerId);
+    }
   }
 
   reportProgress("pass C", 0, 1, "narrating layers");
-  const passC = await runPassC({ clusters: passB.clusters, oneLiners, provider, promptRev, repoContext: repoContextText });
+  const passC = await runPassC({ groups: passB.groups, oneLiners, provider, promptRev, repoContext: repoContextText, previousLayers });
   reportProgress("pass C", 1, 1, "narrating layers");
 
-  const layerIdByName = new Map(passC.layers.map((l) => [l.name, layerIdFor(l.files)]));
+  // Step 4: one resolution of names for the whole run. Carried-over names are claimed first and
+  // never altered; new names are normalized and fitted around them in ascending id order.
+  const layers = resolveLayerNames(passC.layers, previousLayers ?? new Map());
+
+  const layerIdByName = new Map(layers.map((l) => [l.name, layerIdFor(l.files)]));
 
   const layerUnits: Unit[] = [];
-  for (const layer of passC.layers) {
+  for (const layer of layers) {
     const layerId = layerIdFor(layer.files);
     const memberUnits = layer.files.flatMap((f) => unitsByFile.get(f) ?? []);
     const memberIds = memberUnits.map((u) => u.id);
@@ -542,7 +557,7 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
     });
   }
 
-  return { layerUnits, parentOverride, unitsByFile, repoContextText, layerIdByName, modularity: passB.modularity, directoryModularity: passB.directoryModularity };
+  return { layerUnits, layers, parentOverride, unitsByFile, repoContextText, layerIdByName, modularity: passB.modularity, directoryModularity: passB.directoryModularity };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -862,10 +877,10 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
 
   const sysId = systemIdFor(snapshot, systemName);
 
-  // Pass B routes every file into some cluster (`checkAndRepairClusters` has its own unclustered
-  // fallback), so a module normally has a layer. A module that still has none — because the
-  // layers pass did not run, or it was excluded from the file list it clustered — would sit at
-  // parent: null and break the single-root invariant, so it is collected here instead.
+  // `clusterFiles` partitions every file it is given, so a module it saw always has a layer. A
+  // module that still has none — because the layers pass did not run, or because it was excluded
+  // from the clustered file list (test and generated modules are) — would sit at parent: null and
+  // break the single-root invariant, so it is collected here instead.
   const unclaimedModules = units.filter((u) => u.kind === "module" && !parentOverride.has(u.id));
   const containers = [
     buildContainerUnit({
@@ -980,6 +995,20 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
     provenance: {
       ...snapshot.provenance,
       interpreter: { provider: provider.name, model: provider.model, prompt_rev: promptRev },
+      // Layer boundaries are now computed, not chosen by a model, so a boundary that moves
+      // between runs is explained by these values rather than by sampling — record them.
+      clustering: {
+        algorithm: CLUSTERING_ALGORITHM,
+        version: CLUSTERING_VERSION,
+        tieBreak: CLUSTERING_TIE_BREAK,
+        constants: {
+          minEdgeWeight: MIN_EDGE_WEIGHT,
+          relativeEdgeRatio: RELATIVE_EDGE_RATIO,
+          mergeThreshold: MERGE_THRESHOLD,
+          maxClusterShare: MAX_CLUSTER_SHARE,
+          minLargeRepoFiles: MIN_LARGE_REPO_FILES,
+        },
+      },
     },
   };
 
@@ -999,7 +1028,7 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
 
 /** Runs Pass A (leaf semantics), Pass B (clustering), and Pass C (layer + system narration) over a structural snapshot, producing a fully-lifted scv/1 snapshot. Mirrors docs/mock/tools/build.py's interpret(). */
 export async function runInterpreter(options: RunInterpreterOptions): Promise<Snapshot> {
-  const { snapshot, graph, provider, promptRev, readSource, systemName, repoContext } = options;
+  const { snapshot, graph, provider, promptRev, readSource, systemName, repoContext, previousLayers } = options;
   const runStart = performance.now();
   const reportProgress: ReportProgress =
     options.reportProgress ??
@@ -1025,6 +1054,7 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
     provider,
     promptRev,
     reportProgress,
+    previousLayers,
   });
 
   // Surfaced so a drop in clustering quality is visible at analyze time rather than silent.
