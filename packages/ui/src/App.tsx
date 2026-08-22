@@ -6,6 +6,7 @@ import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { UnitSearch } from "./UnitSearch.js";
 import { ControlsHelp } from "./ControlsHelp.js";
+import { applyEdgeBudget, rollUpEdges, DEFAULT_EDGE_BUDGET } from "./edge-budget.js";
 // Lazy: three.js is ~570kB of the bundle and only the 3D skins need it, so a user who
 // never leaves the 2D view never downloads it.
 const Canvas3dHost = lazy(async () => ({ default: (await import("./Canvas3dHost.js")).Canvas3dHost }));
@@ -217,11 +218,12 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   // actually change the visible scene (e.g. selecting a tile) — otherwise every such
   // render hands CanvasHost new array/Map instances, which re-triggers its build effect
   // and replays each delta tile's pulse animation just from being selected.
-  const { visibleUnits, visibleEdges, deltaByUnit, boundaryEdges, externalUnits } = useMemo(() => {
+  const { visibleUnits, visibleEdges, elidedEdges, deltaByUnit, boundaryEdges, externalUnits } = useMemo(() => {
     if (!snapshot)
       return {
         visibleUnits: [],
         visibleEdges: [],
+        elidedEdges: 0,
         deltaByUnit: new Map<string, TileDeltaInfo>(),
         boundaryEdges: [] as BoundaryEdge[],
         externalUnits: [] as Unit[],
@@ -245,21 +247,17 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
       focusedUnit ? units.filter((u) => focusedUnit.children.includes(u.id)) : units.filter((u) => u.parent === null)
     ).filter((u) => u.kind !== "api_flow");
 
-    // Every tile can own descendants many
-    // levels deep — edges almost always connect those deep leaves, not the tiles themselves,
-    // so roll each edge's endpoints up to whichever visible tile is their nearest ancestor.
-    const unitToVisible = buildUnitToAncestor(visibleUnits, unitsById);
-    const rolledEdgeIds = new Set<string>();
-    const visibleEdges: typeof edges = [];
-    for (const e of edges) {
-      const fromVisible = unitToVisible.get(e.from);
-      const toVisible = unitToVisible.get(e.to);
-      if (!fromVisible || !toVisible || fromVisible === toVisible) continue;
-      const key = `${fromVisible}->${toVisible}`;
-      if (rolledEdgeIds.has(key)) continue;
-      rolledEdgeIds.add(key);
-      visibleEdges.push({ ...e, id: key, from: fromVisible, to: toVisible, rollup: fromVisible !== e.from || toVisible !== e.to });
-    }
+    // Every tile can own descendants many levels deep — edges almost always connect those deep
+    // leaves, not the tiles themselves — so each edge rolls up to whichever visible tile is its
+    // nearest ancestor, and all the edges sharing a resulting pair merge into one connector
+    // carrying their summed weight and the ids behind it. The budget then keeps the connectors
+    // worth drawing (cross-boundary first) and reports the rest as elided rather than hiding
+    // them silently.
+    const { edges: visibleEdges, elided: elidedEdges } = applyEdgeBudget(
+      rollUpEdges(edges, visibleUnits, unitsById),
+      DEFAULT_EDGE_BUDGET,
+      { unitsById },
+    );
 
     // docs/serve.md#4 "Delta": a unit_delta is a direct hit; otherwise fall back to the
     // rollup so a collapsed ancestor still shows a hidden descendant's change ("a hot leaf
@@ -280,7 +278,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
       ? collectBoundaryEdges({ focusedUnit, visibleUnits, edges, unitsById })
       : { boundaryEdges: [], externalUnits: [] };
 
-    return { visibleUnits, visibleEdges, deltaByUnit, boundaryEdges, externalUnits };
+    return { visibleUnits, visibleEdges, elidedEdges, deltaByUnit, boundaryEdges, externalUnits };
   }, [snapshot, focus, delta]);
 
   if (state.status === "loading") return <div>Loading…</div>;
@@ -432,6 +430,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
               deltaByUnit={mode === "delta" ? deltaByUnit : undefined}
               boundaryEdges={boundaryEdges}
               externalUnits={externalUnits}
+              elidedEdges={elidedEdges}
             />
           )
         )}

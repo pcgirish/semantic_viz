@@ -322,6 +322,17 @@ moved boundary is explained by a rule rather than a number, and a split or merge
 across revisions carries an explicit lineage relationship instead of reading as
 churn.
 
+Dense levels are now readable rather than truncated arbitrarily. Every edge rolls
+up to the nearest *visible* tile on each side and edges sharing a resulting pair
+merge into one connector carrying their summed weight, contributor count, and the
+concrete edge ids behind it — and an aggregate keeps the weakest contributor's
+confidence, so an inferred edge is never laundered into an evidenced one. Above
+120 connectors at the focused level the view draws the highest-ranked, ordering
+cross-group coupling ahead of heavier within-group edges, and says how many it
+dropped rather than hiding them silently. Edges resting on model inference draw
+dashed, including a bundle with one inferred contributor. This closes the plan:
+every phase in it is now implemented and merged.
+
 | Package | What it does | Status |
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |

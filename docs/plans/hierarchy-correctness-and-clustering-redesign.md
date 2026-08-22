@@ -635,12 +635,27 @@ applied to groups in 3a.
 
 Weeks, not days. Its own PR sequence; Phases 0–3 must not wait on it.
 
-## Phase 5 — Follow-up
+## Phase 5 — Follow-up — **done**
 
 2D edge budgets and bundling per the original review; 3D/cityscape reassessment once user tasks
 and visual acceptance criteria exist. The `cityscape`→`tiles3d` geometry delegation is deliberate
 (`skins/cityscape/src/skin.ts:8-19`), not a defect. The 3D chunk is already lazy-loaded
 (`App.tsx:1-10`); no bundle work outstanding.
+
+**Delivered.** `ui/src/edge-budget.ts` — leaf edges roll up to their nearest visible ancestor and
+merge per `(from, to)` into one connector carrying summed weight and `rollupProvenance`
+(sorted contributor ids + count); the aggregate takes the weakest contributor's confidence and is
+`source: "llm"` if any contributor is. `applyEdgeBudget` caps the focused level at
+`DEFAULT_EDGE_BUDGET` (120) under a total order — cross-boundary desc, weight desc, contributor
+count desc, id asc — and reports the dropped count, which `CanvasHost` renders as a sticky
+"N connectors hidden" notice. Unresolved edges carry `SceneLink.unresolved` through
+`layout.ts` → `route.ts` (one inferred contributor infects the bundle) and draw in the design
+system's existing `weak` (dashed) kind, with hover tracing still outranking the provenance cue.
+Policy documented in `docs/serve.md#3`.
+
+**Not done:** the review also asked for dense-graph validation via *browser screenshots*. Dense
+graphs are covered by jsdom tests (`makeDenseSnapshot` in `ui/test/App.test.tsx`, 400 edges
+collapsing to fewer than 20 connectors, plus an elision-notice case) — not by screenshots.
 
 ## Files
 
@@ -685,8 +700,7 @@ edgeCount`, bidirectional interactions stay one unique marker, tests cover both 
 uniqueness, tile migration includes directional rendering, and the validator, provenance,
 boundary-node, and 51/17 audit contracts are mutually consistent.
 
-No phase implemented yet. The docs are landing now on `docs/review-and-plan`; Phase 0 follows on
-its own branch.
+**All phases implemented and merged** as of 2026-08-21: Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, and 5.
 
 **Landing order for the docs (decided).** Two PRs, not one:
 

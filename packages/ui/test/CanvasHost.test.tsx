@@ -448,3 +448,44 @@ describe("CanvasHost", () => {
     });
   });
 });
+
+describe("CanvasHost — unresolved edges", () => {
+  beforeEach(() => {
+    useAppStore.setState(useAppStore.getInitialState());
+  });
+  afterEach(() => cleanup());
+
+  const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+  const edge = (overrides: Partial<Edge>): Edge => ({
+    id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1, ...overrides,
+  });
+
+  it("draws an LLM-inferred edge dashed, so a claim never reads as an observation", () => {
+    // The review: "distinguish unresolved edges". A static edge is something the extractor saw
+    // in the source; an LLM edge is something a model proposed. Drawing them identically means
+    // a reader cannot tell which parts of the architecture are evidence and which are guesses.
+    const { container } = render(<CanvasHost units={units} edges={[edge({ source: "llm", confidence: 0.4 })]} />);
+
+    const path = container.querySelector("path[stroke-dasharray]");
+    expect(path).not.toBeNull();
+  });
+
+  it("draws a static edge solid", () => {
+    const { container } = render(<CanvasHost units={units} edges={[edge({})]} />);
+
+    const dashed = container.querySelectorAll("path[stroke-dasharray]");
+    expect(dashed).toHaveLength(0);
+  });
+
+  it("shows the elided-connector count when the budget dropped some", () => {
+    render(<CanvasHost units={units} edges={[edge({})]} elidedEdges={7} />);
+
+    expect(screen.getByTestId("edges-elided")).toHaveTextContent(/7 connectors hidden/i);
+  });
+
+  it("shows no notice when nothing was elided", () => {
+    render(<CanvasHost units={units} edges={[edge({})]} />);
+
+    expect(screen.queryByTestId("edges-elided")).toBeNull();
+  });
+});

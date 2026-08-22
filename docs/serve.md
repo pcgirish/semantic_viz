@@ -76,6 +76,31 @@ Connector overlap made the mock hard to read. That is a routing failure, not a c
 2. **Bundling.** Edges sharing a source-box/target-box pair merge into one drawn path carrying a weight label. Ten call sites between two modules is one line marked ×10, not ten lines.
 3. **Density gating.** Above a threshold of edges per visible node, background edges drop to a faint hairline and **only edges touching the hovered or selected unit draw at full strength**. The graph stays complete; the ink does not.
 
+### Edge visibility — roll-up, budget, provenance
+
+Routing decides where a connector goes; this decides which connectors exist at all. A collapsed
+tile stands for a subtree, and the edges are almost always between deep leaves rather than the
+tiles themselves, so a level cannot draw its edge set literally.
+
+1. **Roll-up and aggregation.** Each leaf edge's endpoints resolve to their nearest *visible*
+   ancestor tile. Edges landing on the same `(from, to)` pair merge into one connector carrying
+   the summed weight, the contributor count, and the sorted list of contributing edge ids
+   (`rollupProvenance`, surfaced on inspect). Edges whose endpoints resolve to the same tile are
+   internal to it and are not drawn. This is aggregation, not a pick: a bundle's `source` is
+   `llm` if *any* contributor is, and its `confidence` is the minimum across contributors, so an
+   inferred edge is never laundered into an evidenced one.
+2. **Budget, applied per level.** Above `DEFAULT_EDGE_BUDGET` (120) connectors at the focused
+   level, only the highest-ranked are drawn. Rank is a total order — crosses a group boundary
+   desc, then weight desc, then contributor count desc, then id asc — so the kept set is a pure
+   function of the edge set, never of arrival order. Cross-boundary edges come first because
+   coupling between groups is what a reader opens a level to find. The count that was dropped is
+   reported in the view ("N connectors hidden"); a truncated graph that does not say so is
+   indistinguishable from a sparse one.
+3. **Unresolved edges draw distinctly.** A connector resting on model inference rather than
+   extractor evidence renders in the `weak` kind (dashed), including a bundle with one inferred
+   contributor. Hover tracing outranks the provenance cue: "what touches this node" is the more
+   urgent question.
+
 Exit criterion, from [`implement-serve.md`](implement-serve.md): under 5% crossing edges on a 200-node graph, relayout under 100 ms.
 
 ---
@@ -205,4 +230,4 @@ The exception is representational skins. A skin may reinterpret theme, and in `c
 
 ## 7. Known gap
 
-The current mock is functionally close but visually flat — noted and deferred. The specific work: sides-as-complexity, the nested mini-map, lane-assigned routing with bundling, and a real material treatment for the tiles rather than flat fills. Deferred does not mean optional; V3 does not exit without them.
+The current mock is functionally close but visually flat — noted and deferred. The specific work: sides-as-complexity, the nested mini-map, and a real material treatment for the tiles rather than flat fills. (Bundling with counts and weights, the per-level edge budget, and the unresolved-edge cue landed with the edge visibility policy above; lane assignment is a left-to-right sweep in `route.ts` and remains coarser than the channel subdivision §3 describes.) Deferred does not mean optional; V3 does not exit without them.

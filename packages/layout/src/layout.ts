@@ -184,7 +184,11 @@ export function buildScene(units: Unit[], edges: Edge[], options: BuildSceneOpti
   // own (from, to) bundling, keyed by the edge's original endpoints, not the dummy path.
   const routeChains: RouteChain[] = edges.map((e) => {
     const c = chains.find((ch) => ch.from === e.from && ch.to === e.to)!;
-    return { from: c.from, to: c.to, nodes: c.nodes, id: e.id, ids: [e.id], kind: e.kind, back: c.back, weight: e.weight };
+    return {
+      from: c.from, to: c.to, nodes: c.nodes, id: e.id, ids: [e.id], kind: e.kind, back: c.back,
+      weight: e.weight,
+      unresolved: e.source === "llm",
+    };
   });
   const links = route(routeChains, boxes);
 
