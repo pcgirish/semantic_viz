@@ -64,6 +64,13 @@ export type SceneLink = {
   // Max weight among bundled edges (route.ts) — drives connector thickness in skins
   // (docs mock's heavy/weight fixture pairing).
   weight?: number;
+  /**
+   * True when this connector rests on something a model proposed rather than something the
+   * extractor observed — an `source: "llm"` edge, or a bundle containing one. A skin draws it
+   * distinctly so a reader can tell inferred structure from evidenced structure before
+   * trusting it.
+   */
+  unresolved?: boolean;
   // control_flow links only (buildFlowchartScene) — which branch this edge represents,
   // so the skin can label true/false/loop-back at the link's midpoint.
   flowType?: "sequential" | "true" | "false" | "loop-back" | "exception";

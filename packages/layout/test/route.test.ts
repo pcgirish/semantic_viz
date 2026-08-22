@@ -73,4 +73,25 @@ describe("route", () => {
     // first path point is the origin port on hub's border; they must not be the same pixel
     expect(toLeft.path[0]!.x).not.toBe(toRight.path[0]!.x);
   });
+
+  it("marks a bundle unresolved when any one contributor is", () => {
+    // The bundle is a single drawn line. If one of the edges behind it is an LLM proposal
+    // rather than an observed call, drawing it as solid launders the claim into evidence.
+    const links = route(
+      [
+        { ...chain("a", "b", ["e1"]) },
+        { ...chain("a", "b", ["e2"]), unresolved: true },
+      ],
+      boxes,
+    );
+
+    expect(links).toHaveLength(1);
+    expect(links[0]!.unresolved).toBe(true);
+  });
+
+  it("leaves a bundle of wholly static edges resolved", () => {
+    const links = route([chain("a", "b", ["e1"]), chain("a", "b", ["e2"])], boxes);
+
+    expect(links[0]!.unresolved).toBeFalsy();
+  });
 });

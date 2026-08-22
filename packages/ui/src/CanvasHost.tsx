@@ -3,6 +3,7 @@ import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type BoundaryEdge, type Scene } from "@scv/layout";
 import { codedreamLayerPalette, hashLayerToColor, node as tile, region as regionBox } from "@scv/skin-tiles";
+import { DEFAULT_EDGE_BUDGET } from "./edge-budget.js";
 import { useAppStore } from "./store.js";
 import { sceneBounds, usePanZoom } from "./usePanZoom.js";
 
@@ -17,6 +18,9 @@ export type CanvasHostProps = {
   boundaryEdges?: BoundaryEdge[];
   /** The units those markers stand for, for their display name. */
   externalUnits?: Unit[];
+  /** Connectors the edge budget dropped before this scene was built. Shown as an overlay: a
+   *  truncated view that does not say so is indistinguishable from a sparse one. */
+  elidedEdges?: number;
 };
 
 /**
@@ -32,7 +36,7 @@ export type CanvasHostProps = {
  * so a delta tile's pulse animation (applied via a class set once, independent of hover
  * props) does not replay on hover.
  */
-export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalUnits }: CanvasHostProps): JSX.Element {
+export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalUnits, elidedEdges = 0 }: CanvasHostProps): JSX.Element {
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
@@ -69,8 +73,17 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
     // pool of connectors" sweeping diagonally across unrelated rows.
     // Mock's bindHoverTrace: edges *into* the hovered node (to === hover) go azure
     // ("incoming"), edges *out of* it (from === hover) go temp-4/orange ("outgoing").
+    // An unresolved connector draws dashed ("weak") unless hover is actively recoloring it —
+    // the hover trace answers "what touches this node", and losing that answer to a provenance
+    // cue would trade the more urgent question for the less urgent one.
     const kind =
-      hover && l.to === hover ? ("hover-in" as const) : hover && l.from === hover ? ("hover-out" as const) : ("import" as const);
+      hover && l.to === hover
+        ? ("hover-in" as const)
+        : hover && l.from === hover
+          ? ("hover-out" as const)
+          : l.unresolved
+            ? ("weak" as const)
+            : ("import" as const);
     // Mock fixture data (docs/mock/codedream-ui-mock.html): every edge has weight:1 except
     // one weight:3 edge marked heavy:true — so anything above the baseline weight is heavy.
     const heavy = (l.weight ?? 1) > 1;
@@ -156,6 +169,29 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
         scene coordinates) and is scaled into place, pinned to the top-left so scene
         coordinates and scroll offsets remain in the same space.
       */}
+      {/* Sticky, not absolute: the badge annotates the viewport, and an absolutely-positioned
+          child of the scroll container would scroll off with the scene it is describing. */}
+      {elidedEdges > 0 && (
+        <div
+          data-testid="edges-elided"
+          style={{
+            position: "sticky",
+            top: 0,
+            float: "right",
+            zIndex: 2,
+            margin: 8,
+            padding: "4px 8px",
+            background: "var(--surface-sunken)",
+            border: "var(--border-w) solid var(--border-hair)",
+            borderRadius: "var(--radius-xs)",
+            color: "var(--text-faint)",
+            fontSize: 11,
+            pointerEvents: "none",
+          }}
+        >
+          {elidedEdges} connectors hidden — showing the strongest {DEFAULT_EDGE_BUDGET}
+        </div>
+      )}
       <div className="canvas-extent" style={{ width: renderSize.w, height: renderSize.h, position: "relative" }}>
       <div
         className="canvas-scale"

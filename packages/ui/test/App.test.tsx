@@ -2,6 +2,7 @@ import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor, fireEvent, within } from "@testing-library/react";
 import type { Snapshot } from "@scv/schema";
 import { App, buildUnitToAncestor } from "../src/App.js";
+import { DEFAULT_EDGE_BUDGET } from "../src/edge-budget.js";
 import { useAppStore } from "../src/store.js";
 
 /** A real group unit: the tier that used to be synthesised client-side from a layer's `group` string. */
@@ -361,6 +362,53 @@ describe("buildUnitToAncestor", () => {
     expect(result.get("u:mod:db_conn")).toBe("u:group:platform");
   });
 });
+
+/**
+ * A system whose two groups are densely coupled: enough distinct module pairs between them to
+ * push the root view past `DEFAULT_EDGE_BUDGET`. The review's "test dense graphs" case — the
+ * shape where connector density stops being a routing problem and becomes a policy one.
+ */
+function makeDenseSnapshot(modulesPerGroup: number): Snapshot {
+  const left = Array.from({ length: modulesPerGroup }, (_, i) => `u:l${i}`);
+  const right = Array.from({ length: modulesPerGroup }, (_, i) => `u:r${i}`);
+  const module = (id: string, parent: string) => ({
+    kind: "module", id, name: id, qualname: id, parent, children: [],
+    loc: { files: [], sloc: 10 }, tags: [], metrics: {},
+    hash: { struct: null, text: null, semantic: null }, provenance: { source: "static" },
+  });
+  const container = (kind: string, id: string, parent: string | null, children: string[]) => ({
+    kind, id, name: id, qualname: id, parent, children,
+    loc: { files: [], sloc: 10 * children.length }, tags: [], metrics: {},
+    hash: { struct: null, text: null, semantic: null }, provenance: { source: "llm" },
+  });
+
+  // Every left module calls every right module, so the pairs vastly outnumber the budget even
+  // after roll-up — and they all land on the same two group tiles.
+  const edges = left.flatMap((from, i) =>
+    right.map((to, j) => ({
+      id: `e${i}-${j}`, from, to, kind: "calls", weight: 1, source: "static", confidence: 1,
+    })),
+  );
+
+  return {
+    schema: "scv/1",
+    snapshot_id: "s1",
+    repo: { root: "orderly", vcs: "git" },
+    rev: { sha: "abc123", kind: "commit", ts: "2026-01-01T00:00:00Z", author: "a", author_kind: "human" },
+    provenance: { extractor: "scv-ts/0.1.0" },
+    units: [
+      container("system", "u:sys:orderly", null, ["u:g:left", "u:g:right"]),
+      container("group", "u:g:left", "u:sys:orderly", ["u:layer:left"]),
+      container("group", "u:g:right", "u:sys:orderly", ["u:layer:right"]),
+      container("layer", "u:layer:left", "u:g:left", left),
+      container("layer", "u:layer:right", "u:g:right", right),
+      ...left.map((id) => module(id, "u:layer:left")),
+      ...right.map((id) => module(id, "u:layer:right")),
+    ],
+    edges,
+    externals: [],
+  } as unknown as Snapshot;
+}
 
 describe("App", () => {
   beforeEach(() => {
@@ -1290,6 +1338,83 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByText("u:a")).toBeInTheDocument();
+    });
+  });
+  it("collapses a dense cross-group graph onto one connector carrying every contributor", async () => {
+    // 400 concrete leaf edges, all between the same two groups. At root focus they are one
+    // relationship, and the view must say so with the real count rather than draw 400 lines or
+    // report the first edge's weight of 1.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makeDenseSnapshot(20)) }));
+
+    const { container } = render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tile[data-id="u:g:left"]')).not.toBeNull();
+    });
+
+    // Two group tiles, one relationship between them — not one connector per leaf pair.
+    const connectors = container.querySelectorAll(".connector, path.link, line.link");
+    expect(connectors.length).toBeLessThan(20);
+    // Nothing was dropped: 400 edges roll up to a single connector, well inside the budget.
+    expect(screen.queryByTestId("edges-elided")).toBeNull();
+  });
+
+  it("says how many connectors the budget elided instead of hiding them silently", async () => {
+    // Distinct visible tiles, each pair its own connector, so roll-up cannot rescue the count
+    // and the budget has to bite. A view showing a subset must admit it.
+    const snapshot = makeDenseSnapshot(2);
+    const many = Array.from({ length: DEFAULT_EDGE_BUDGET + 5 }, (_, i) => ({
+      kind: "module", id: `u:x${i}`, name: `x${i}`, qualname: `x${i}`, parent: "u:sys:orderly",
+      children: [], loc: { files: [], sloc: 10 }, tags: [], metrics: {},
+      hash: { struct: null, text: null, semantic: null }, provenance: { source: "static" },
+    }));
+    const system = snapshot.units.find((u) => u.kind === "system")!;
+    system.children = [...system.children, ...many.map((m) => m.id)];
+    snapshot.units = [...snapshot.units, ...(many as unknown as Snapshot["units"])];
+    // A chain x0->x1->x2... : every edge joins two distinct visible tiles, so each is its own
+    // connector and the total exceeds the budget.
+    snapshot.edges = many.slice(0, -1).map((m, i) => ({
+      id: `chain${i}`, from: m.id, to: many[i + 1]!.id, kind: "calls", weight: 1,
+      source: "static", confidence: 1,
+    })) as unknown as Snapshot["edges"];
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(snapshot) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("edges-elided")).toHaveTextContent(/4 connectors hidden/i);
+    });
+  });
+
+  it("carries the elided count into the 3D host too, which drops the same connectors", async () => {
+    // The budget runs once, before the host is chosen, so 3D shows exactly the subset 2D does.
+    // Reporting it in only one host makes the other quietly incomplete.
+    const snapshot = makeDenseSnapshot(2);
+    const many = Array.from({ length: DEFAULT_EDGE_BUDGET + 5 }, (_, i) => ({
+      kind: "module", id: `u:x${i}`, name: `x${i}`, qualname: `x${i}`, parent: "u:sys:orderly",
+      children: [], loc: { files: [], sloc: 10 }, tags: [], metrics: {},
+      hash: { struct: null, text: null, semantic: null }, provenance: { source: "static" },
+    }));
+    const system = snapshot.units.find((u) => u.kind === "system")!;
+    system.children = [...system.children, ...many.map((m) => m.id)];
+    snapshot.units = [...snapshot.units, ...(many as unknown as Snapshot["units"])];
+    snapshot.edges = many.slice(0, -1).map((m, i) => ({
+      id: `chain${i}`, from: m.id, to: many[i + 1]!.id, kind: "calls", weight: 1,
+      source: "static", confidence: 1,
+    })) as unknown as Snapshot["edges"];
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(snapshot) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+    await waitFor(() => {
+      expect(screen.getByTestId("edges-elided")).toHaveTextContent(/4 connectors hidden/i);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "3D" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("edges-elided-3d")).toHaveTextContent(/4 connectors hidden/i);
     });
   });
 });

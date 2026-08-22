@@ -11,6 +11,7 @@ export type RouteChain = {
   kind: string;
   back?: true;
   weight?: number;
+  unresolved?: boolean;
 };
 
 function centre(box: Box): { x: number; y: number } {
@@ -98,6 +99,9 @@ export function route(chains: RouteChain[], boxes: Map<string, Box>): SceneLink[
     if (existing) {
       existing.ids.push(...c.ids);
       existing.weight = Math.max(existing.weight ?? 0, c.weight ?? 0);
+      // One inferred contributor makes the whole bundle inferred: a reader must not have an
+      // unverified edge hidden inside an otherwise-solid connector.
+      existing.unresolved = existing.unresolved || c.unresolved;
     } else {
       bundled.set(key, { ...c, ids: [...c.ids] });
     }
@@ -128,6 +132,7 @@ export function route(chains: RouteChain[], boxes: Map<string, Box>): SceneLink[
       kind: c.kind,
       state: "current",
       weight: c.weight,
+      unresolved: c.unresolved,
     };
   });
 }
