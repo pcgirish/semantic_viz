@@ -95,7 +95,7 @@ and `test/` is tabulated in §3b. Production sites: `layout/src/{scene,layout,fl
 **`package` and `config` are dead enum members** — declared in `UnitKindSchema` (`:7-17`),
 constructed nowhere.
 
-## Phase 0 — Correct the commentary
+## Phase 0 — Correct the commentary — **done** (#123)
 
 `docs/review/comments-comprehensive-review-2026-08-21.md` asserts a live rendering bug (layer
 `children` holding functions). False: `orchestrate.ts:451` filters to `kind === "module"`,
@@ -103,7 +103,7 @@ corroborated by `metrics.modules` (:537) and the snapshot sweep. Amend the P0-3 
 upward-only reciprocity; **retain the false claim struck through** in "Corrections to these
 comments". The document's value is auditable reasoning; silently rewriting destroys it.
 
-## Phase 1 — Root and excluded-unit policy (v3 point 4; new point 2)
+## Phase 1 — Root and excluded-unit policy (v3 point 4; new point 2) — **done** (#124)
 
 **Policy — single root.** One `kind === "system"` root; every other unit has a non-null parent.
 
@@ -150,7 +150,7 @@ layer parents to the system reciprocally; a test module is parented and still ca
 semantics; a finalization with no layers at all puts its modules under `unclustered`; a normal run
 emits **no** container; `metrics.layers` counts only layer units.
 
-## Phase 2 — Reciprocity, validation, and the reachability assertion (v3 points 2, 3; new point 7)
+## Phase 2 — Reciprocity, validation, and the reachability assertion (v3 points 2, 3; new point 7) — **done** (#125)
 
 **Test first** (`interpreter/test/orchestrate.test.ts`): every layer and flow unit has
 `parent === sysId`; **set equality both directions** between `system.children` and ids claiming
@@ -223,7 +223,7 @@ today layers are roots *and* reachable via the system, so subtrees are walked tw
 expected `amount`/`risk`/`sloc` totals **before** the change to expose double-counting.
 `App.tsx:236` uses the same predicate for its no-focus fallback.
 
-## Phase 3a — Group contracts and units (v3 points 1, 2, 5, 7, 8; new points 3, 4, 6, 8)
+## Phase 3a — Group contracts and units (v3 points 1, 2, 5, 7, 8; new points 3, 4, 6, 8) — **done** (#126)
 
 ### Group semantics
 `runPassCGroups` returns `{ groups, repaired }` (`pass-c.ts:155-170`) — names and memberships,
@@ -521,7 +521,7 @@ any skin that renders edge weight — `count` is what makes "14 calls" renderabl
 of an opaque summed weight. Tests: each invariant above, plus a bare new rollup throwing at
 analyze time and a legacy bare rollup loading with a warning.
 
-## Phase 3b — Deltas, layout, and UI migration (v3 points 3, 6; new point 5)
+## Phase 3b — Deltas, layout, and UI migration (v3 points 3, 6; new point 5) — **done** (#126)
 
 ### Group risk policy
 `diff-with-risk.ts:11` sets `NARRATABLE_KINDS = new Set(["module"])`, excluding layer/system as
@@ -589,20 +589,20 @@ container; focusing a group shows its layers; Flows unaffected.
 `group:` prefix in `Breadcrumb.tsx:20-21`, and `group` on `UnitSchema` (:136-138). Leaving both
 paths live is the ambiguity this work exists to remove.
 
-## Phase 4 — Clustering
+## Phase 4 — Clustering — **done**
 
-### 4a. Measurable partition quality
+### 4a. Measurable partition quality — **done** (#127)
 `checker.ts:139-149` `modularity()` has no penalty for cluster count or imbalance — one giant
 cluster scores 1.0. Keep it; add `clusteringQuality(clusters, edges)` returning modularity plus
 cluster count, size distribution, imbalance. Test: a degenerate and a good partition both score
 1.0 modularity yet separate on the new fields.
 
-### 4b. Adversarial fixture
+### 4b. Adversarial fixture — **done** (#127)
 `fixtures/cluster-quality-adversarial/`: a directory with two unrelated modules, one conceptual
 module spanning directories, a package boundary, generated and test code, a cycle, a high-fan-in
 utility. Built **before** the algorithm; asserted automatically, never eyeballed.
 
-### 4c. Deterministic partition — acceptance criteria — **done**
+### 4c. Deterministic partition — acceptance criteria — **done** (#127)
 Replaced the merges-over-directory-buckets contract, which could not split a directory, with
 weighted agglomerative **single-linkage** clustering over the file import graph
 (`interpreter/src/cluster.ts`). Pass B no longer calls an LLM at all; Pass C keeps naming and
@@ -635,7 +635,7 @@ applied to groups in 3a.
 
 Weeks, not days. Its own PR sequence; Phases 0–3 must not wait on it.
 
-## Phase 5 — Follow-up — **done**
+## Phase 5 — Follow-up — **done** (#128)
 
 2D edge budgets and bundling per the original review; 3D/cityscape reassessment once user tasks
 and visual acceptance criteria exist. The `cityscape`→`tiles3d` geometry delegation is deliberate
@@ -700,7 +700,9 @@ edgeCount`, bidirectional interactions stay one unique marker, tests cover both 
 uniqueness, tile migration includes directional rendering, and the validator, provenance,
 boundary-node, and 51/17 audit contracts are mutually consistent.
 
-**All phases implemented and merged** as of 2026-08-21: Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, and 5.
+**All phases implemented and merged** as of 2026-08-21. Phase 0 in #123, Phase 1 in #124,
+Phase 2 in #125, Phases 3a and 3b together in #126, Phases 4a and 4b in the branch squashed into
+#127 alongside 4c, and Phase 5 in #128. Each heading above carries its PR.
 
 **Landing order for the docs (decided).** Two PRs, not one:
 
