@@ -92,10 +92,13 @@ tiles themselves, so a level cannot draw its edge set literally.
 2. **Budget, applied per level.** Above `DEFAULT_EDGE_BUDGET` (120) connectors at the focused
    level, only the highest-ranked are drawn. Rank is a total order — crosses a group boundary
    desc, then weight desc, then contributor count desc, then id asc — so the kept set is a pure
-   function of the edge set, never of arrival order. Cross-boundary edges come first because
-   coupling between groups is what a reader opens a level to find. The count that was dropped is
-   reported in the view ("N connectors hidden"); a truncated graph that does not say so is
-   indistinguishable from a sparse one.
+   function of the edge set, never of arrival order. The ranking applies below the limit too —
+   the order *is* the output, and `route.ts` assigns lane indices from it, so a set that fits
+   must not pass arrival order through. Cross-boundary edges come first because coupling between
+   groups is what a reader opens a level to find. The count that was dropped is reported in the
+   view ("N connectors hidden") — in both the 2D and 3D hosts, since the budget runs before
+   either is chosen; a truncated graph that does not say so is indistinguishable from a sparse
+   one.
 3. **Unresolved edges draw distinctly.** A connector resting on model inference rather than
    extractor evidence renders in the `weak` kind (dashed), including a bundle with one inferred
    contributor. Hover tracing outranks the provenance cue: "what touches this node" is the more

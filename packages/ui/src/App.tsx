@@ -421,6 +421,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
                 edges={visibleEdges}
                 deltaByUnit={mode === "delta" ? deltaByUnit : undefined}
                 skin={renderSkin}
+                elidedEdges={elidedEdges}
               />
             </Suspense>
           ) : (

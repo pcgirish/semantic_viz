@@ -83,12 +83,12 @@ export type BudgetOptions = {
  * Rank, in order: crosses a group boundary, then total weight, then how many concrete edges
  * the connector stands for, then id. Cross-boundary comes first because coupling between two
  * groups is what a reviewer opened the level to find, and it is precisely what a plain weight
- * sort buries under dense within-group traffic. The id tail-break makes the kept set a pure
- * function of the edge set — never of the order it arrived in.
+ * sort buries under dense within-group traffic. The id tail-break makes both the kept set and
+ * its order a pure function of the edge set — never of the order it arrived in. That holds
+ * below the limit too: the ranking is the output, not just the means of choosing it, and
+ * route.ts assigns lane indices from it.
  */
 export function applyEdgeBudget(edges: Edge[], limit: number = DEFAULT_EDGE_BUDGET, options: BudgetOptions = {}): BudgetResult {
-  if (edges.length <= limit) return { edges, elided: 0 };
-
   const groupOf = groupResolver(options.unitsById);
   const ranked = [...edges].sort((a, b) => {
     const crossing = Number(crossesBoundary(b, groupOf)) - Number(crossesBoundary(a, groupOf));
@@ -99,7 +99,7 @@ export function applyEdgeBudget(edges: Edge[], limit: number = DEFAULT_EDGE_BUDG
     return a.id.localeCompare(b.id);
   });
 
-  return { edges: ranked.slice(0, limit), elided: edges.length - limit };
+  return { edges: ranked.slice(0, limit), elided: Math.max(0, edges.length - limit) };
 }
 
 function crossesBoundary(edge: Edge, groupOf: (id: string) => string): boolean {

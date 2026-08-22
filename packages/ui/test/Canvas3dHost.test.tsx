@@ -66,3 +66,27 @@ describe("Canvas3dHost", () => {
     expect(queryByRole("button", { name: /^fly$/i })).toBeNull();
   });
 });
+
+describe("Canvas3dHost — elided edges", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  // The budget is applied in App before either host is chosen, so 3D drops exactly as many
+  // connectors as 2D does. A 3D reader who is not told is looking at a graph that claims
+  // completeness it does not have.
+  it("says how many connectors the budget elided", () => {
+    const { getByTestId } = render(<Canvas3dHost units={units} edges={edges} elidedEdges={7} />);
+    expect(getByTestId("edges-elided-3d").textContent).toMatch(/7 connectors hidden/i);
+  });
+
+  it("stays silent when the budget dropped nothing", () => {
+    const { queryByTestId } = render(<Canvas3dHost units={units} edges={edges} elidedEdges={0} />);
+    expect(queryByTestId("edges-elided-3d")).toBeNull();
+  });
+
+  it("stays silent when no count is passed at all", () => {
+    const { queryByTestId } = render(<Canvas3dHost units={units} edges={edges} />);
+    expect(queryByTestId("edges-elided-3d")).toBeNull();
+  });
+});

@@ -1386,4 +1386,35 @@ describe("App", () => {
       expect(screen.getByTestId("edges-elided")).toHaveTextContent(/4 connectors hidden/i);
     });
   });
+
+  it("carries the elided count into the 3D host too, which drops the same connectors", async () => {
+    // The budget runs once, before the host is chosen, so 3D shows exactly the subset 2D does.
+    // Reporting it in only one host makes the other quietly incomplete.
+    const snapshot = makeDenseSnapshot(2);
+    const many = Array.from({ length: DEFAULT_EDGE_BUDGET + 5 }, (_, i) => ({
+      kind: "module", id: `u:x${i}`, name: `x${i}`, qualname: `x${i}`, parent: "u:sys:orderly",
+      children: [], loc: { files: [], sloc: 10 }, tags: [], metrics: {},
+      hash: { struct: null, text: null, semantic: null }, provenance: { source: "static" },
+    }));
+    const system = snapshot.units.find((u) => u.kind === "system")!;
+    system.children = [...system.children, ...many.map((m) => m.id)];
+    snapshot.units = [...snapshot.units, ...(many as unknown as Snapshot["units"])];
+    snapshot.edges = many.slice(0, -1).map((m, i) => ({
+      id: `chain${i}`, from: m.id, to: many[i + 1]!.id, kind: "calls", weight: 1,
+      source: "static", confidence: 1,
+    })) as unknown as Snapshot["edges"];
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(snapshot) }));
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+    await waitFor(() => {
+      expect(screen.getByTestId("edges-elided")).toHaveTextContent(/4 connectors hidden/i);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "3D" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("edges-elided-3d")).toHaveTextContent(/4 connectors hidden/i);
+    });
+  });
 });

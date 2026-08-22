@@ -10,6 +10,7 @@ import { Minimap } from "./Minimap.js";
 import { flyControls, orbitControls, walkControls, type Controls3d } from "./controls3d.js";
 import { computeAutoNavIntent, distanceToLevel, distanceToSelection, facingLevel, type AutoNavState } from "./autonav.js";
 import type { Viewer } from "@scv/skin-cityscape";
+import { DEFAULT_EDGE_BUDGET } from "./edge-budget.js";
 
 export type Canvas3dHostProps = {
   units: Unit[];
@@ -18,6 +19,9 @@ export type Canvas3dHostProps = {
   deltaByUnit?: Map<string, TileDeltaInfo>;
   /** Which 3D skin to draw. Defaults to the orbit skin. */
   skin?: Skin3dName;
+  /** Connectors the edge budget dropped before this scene was built. The budget runs before the
+   *  host is chosen, so 3D loses exactly as many as 2D and owes the reader the same notice. */
+  elidedEdges?: number;
 };
 
 /** How often the minimap re-reads the camera, in frames. 60fps / 6 = 10Hz — smooth enough to
@@ -38,7 +42,7 @@ const DRAG_THRESHOLD = 3;
  * Click selects and double-click drills, the same verbs as the 2D CanvasHost — a raycast
  * resolves the hit back to a unit id through `userData.sceneNodeId`.
  */
-export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Canvas3dHostProps): JSX.Element {
+export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d", elidedEdges = 0 }: Canvas3dHostProps): JSX.Element {
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
@@ -337,6 +341,29 @@ export function Canvas3dHost({ units, edges, deltaByUnit, skin = "tiles3d" }: Ca
       >
         {walkable ? (view === "street" ? "Fly" : "Walk") : view === "orbit" ? "Street view" : "Overview"}
       </button>
+      {elidedEdges > 0 && (
+        // Top-left: the camera toggle already owns the top-right corner. Absolute is right here
+        // (unlike the 2D scroll container) because this parent is position: relative and fixed
+        // to the viewport, so nothing scrolls out from under the notice.
+        <div
+          data-testid="edges-elided-3d"
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            zIndex: 1,
+            padding: "4px 8px",
+            background: "var(--surface-sunken)",
+            border: "var(--border-w) solid var(--border-hair)",
+            borderRadius: "var(--radius-xs)",
+            color: "var(--text-faint)",
+            fontSize: 11,
+            pointerEvents: "none",
+          }}
+        >
+          {elidedEdges} connectors hidden — showing the strongest {DEFAULT_EDGE_BUDGET}
+        </div>
+      )}
       {walkable && <Minimap scene={scene} viewer={viewer} selection={selection} />}
     </div>
   );

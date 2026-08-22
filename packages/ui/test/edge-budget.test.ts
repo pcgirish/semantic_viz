@@ -141,4 +141,20 @@ describe("applyEdgeBudget", () => {
   it("exposes a default budget rather than leaving each caller to invent one", () => {
     expect(DEFAULT_EDGE_BUDGET).toBeGreaterThan(0);
   });
+
+  // The ranking is what makes the kept set independent of arrival order, so a set that fits
+  // under the budget must not skip it. Otherwise the drawing order — and every lane index
+  // routed from it — flips when the input happens to arrive differently, which is exactly the
+  // instability the total order exists to prevent.
+  it("orders an under-budget set too, so arrival order never reaches the output", () => {
+    const edges = [edge("c", "a1", "b1", 1), edge("a", "a2", "b2", 5), edge("b", "b1", "b2", 5)];
+
+    const forward = applyEdgeBudget(edges, 10, { unitsById });
+    const reverse = applyEdgeBudget([...edges].reverse(), 10, { unitsById });
+
+    expect(forward.elided).toBe(0);
+    expect(reverse.edges.map((e) => e.id)).toEqual(forward.edges.map((e) => e.id));
+    // Cross-boundary first, then weight — not the order they were handed over.
+    expect(forward.edges.map((e) => e.id)).toEqual(["a", "c", "b"]);
+  });
 });
