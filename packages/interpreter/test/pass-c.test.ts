@@ -1,12 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { runPassC, runPassCGroups } from "../src/pass-c.js";
+import type { Layer } from "../src/pass-c.js";
 import type { Provider, ProviderResult } from "../src/provider.js";
-import type { ClusterProposal } from "../src/checker.js";
+import { layerIdFor, type ClusterGroups } from "../src/cluster.js";
 
-const clusters: ClusterProposal = {
-  ops: ["src/admin_tasks.py", "scripts/backfill.py"],
-  api: ["src/api/routes.py", "src/api/middleware/rate_limiter.py"],
-};
+const opsFiles = ["scripts/backfill.py", "src/admin_tasks.py"];
+const apiFiles = ["src/api/middleware/rate_limiter.py", "src/api/routes.py"];
+
+/** Keyed by structural id, in the ascending-id order `clusterFiles` emits — Pass C names
+ *  clusters, it no longer receives names. */
+const groups: ClusterGroups = new Map(
+  [
+    [layerIdFor(opsFiles), opsFiles] as const,
+    [layerIdFor(apiFiles), apiFiles] as const,
+  ].sort((a, b) => (a[0] < b[0] ? -1 : 1)),
+);
+const [firstFiles, secondFiles] = [...groups.values()];
 
 const oneLiners: Record<string, string> = {
   "src/admin_tasks.py": "Runs admin-only maintenance jobs.",
@@ -28,6 +37,7 @@ describe("runPassC", () => {
   it("narrates each cluster with distinct what/how/when/where/why and confidence", async () => {
     const provider = fakeProvider([
       {
+        name: "first_cluster",
         what: "Groups operational scripts.",
         how: "Runs as standalone CLI entrypoints, not through the request path.",
         when: "Invoked manually or via cron, outside a request.",
@@ -36,6 +46,7 @@ describe("runPassC", () => {
         confidence: 0.8,
       },
       {
+        name: "second_cluster",
         what: "Handles public-facing HTTP traffic.",
         how: "Routes requests through middleware to handlers.",
         when: "On every inbound HTTP request.",
@@ -45,12 +56,12 @@ describe("runPassC", () => {
       },
     ]);
 
-    const result = await runPassC({ clusters, oneLiners, provider, promptRev: "p1" });
+    const result = await runPassC({ groups, oneLiners, provider, promptRev: "p1" });
 
     expect(result.layers).toEqual([
       {
-        name: "ops",
-        files: clusters.ops,
+        name: "first_cluster",
+        files: firstFiles,
         what: "Groups operational scripts.",
         how: "Runs as standalone CLI entrypoints, not through the request path.",
         when: "Invoked manually or via cron, outside a request.",
@@ -60,8 +71,8 @@ describe("runPassC", () => {
         source: "llm",
       },
       {
-        name: "api",
-        files: clusters.api,
+        name: "second_cluster",
+        files: secondFiles,
         what: "Handles public-facing HTTP traffic.",
         how: "Routes requests through middleware to handlers.",
         when: "On every inbound HTTP request.",
@@ -75,16 +86,75 @@ describe("runPassC", () => {
 
   it("calls the provider once per cluster, including that cluster's file summaries", async () => {
     const provider = fakeProvider([
-      { what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops narration", confidence: 0.7 },
-      { what: "api what", how: "api how", when: "api when", where: "api where", why: "api narration", confidence: 0.7 },
+      { name: "ops", what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops narration", confidence: 0.7 },
+      { name: "api", what: "api what", how: "api how", when: "api when", where: "api where", why: "api narration", confidence: 0.7 },
     ]);
 
-    await runPassC({ clusters, oneLiners, provider, promptRev: "p1" });
+    await runPassC({ groups, oneLiners, provider, promptRev: "p1" });
 
     expect(provider.interpret).toHaveBeenCalledTimes(2);
-    const firstCall = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(firstCall[0]).toContain("Runs admin-only maintenance jobs.");
-    expect(firstCall[0]).toContain("One-off backfill script.");
+    const prompts = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0] as string);
+    const opsPrompt = prompts.find((prompt) => prompt.includes("src/admin_tasks.py"));
+    expect(opsPrompt).toContain("Runs admin-only maintenance jobs.");
+    expect(opsPrompt).toContain("One-off backfill script.");
+  });
+
+  it("carries a predecessor layer over verbatim and makes no call for it — the id is a membership hash, so a hit means identical files", async () => {
+    const previous: Layer = {
+      name: "operational_scripts",
+      files: [...opsFiles],
+      what: "prev what",
+      how: "prev how",
+      when: "prev when",
+      where: "prev where",
+      why: "prev why",
+      confidence: 0.42,
+      source: "llm",
+    };
+    const provider = fakeProvider([
+      { name: "other", what: "w", how: "h", when: "wh", where: "wr", why: "y", confidence: 0.5 },
+    ]);
+
+    const result = await runPassC({
+      groups,
+      oneLiners,
+      provider,
+      promptRev: "p1",
+      previousLayers: new Map([[layerIdFor(opsFiles), previous]]),
+    });
+
+    // One cluster had a predecessor, so only the other one was asked about.
+    expect(provider.interpret).toHaveBeenCalledTimes(1);
+    const carried = result.layers.find((l) => l.name === "operational_scripts");
+    expect(carried).toEqual(previous);
+  });
+
+  it("names a cluster whose membership changed, rather than carrying the old record over — a different file set is a different id", async () => {
+    const previous: Layer = {
+      name: "operational_scripts",
+      files: ["scripts/backfill.py"],
+      what: "prev what",
+      how: "prev how",
+      when: "prev when",
+      where: "prev where",
+      why: "prev why",
+      confidence: 0.42,
+      source: "llm",
+    };
+    const provider = fakeProvider([
+      { name: "one", what: "w", how: "h", when: "wh", where: "wr", why: "y", confidence: 0.5 },
+      { name: "two", what: "w", how: "h", when: "wh", where: "wr", why: "y", confidence: 0.5 },
+    ]);
+
+    await runPassC({
+      groups,
+      oneLiners,
+      provider,
+      promptRev: "p1",
+      previousLayers: new Map([[layerIdFor(previous.files), previous]]),
+    });
+
+    expect(provider.interpret).toHaveBeenCalledTimes(2);
   });
 
   it("throws a clear error when a cluster's response is invalid JSON", async () => {
@@ -94,7 +164,7 @@ describe("runPassC", () => {
       interpret: vi.fn(async () => ({ text: "not json", tokens: 1 })),
     };
 
-    await expect(runPassC({ clusters, oneLiners, provider, promptRev: "p1" })).rejects.toThrow(/pass c/i);
+    await expect(runPassC({ groups, oneLiners, provider, promptRev: "p1" })).rejects.toThrow(/pass c/i);
   });
 });
 

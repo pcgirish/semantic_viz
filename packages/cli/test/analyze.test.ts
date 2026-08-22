@@ -28,9 +28,11 @@ const passAResponse = {
  */
 const PROMPT_RESPONSES: [match: string, response: (prompt: string) => unknown][] = [
   ["extracting structural signal", () => ({ purpose: "A fixture repo.", modules: [], architecture_notes: [] })],
-  ["grouping a codebase's directories", () => ({ merges: {} })],
   ["proposing merges of a codebase's architectural layers", () => ({ merges: {} })],
-  ["describing why the following cluster of files", () => ({
+  ["naming and describing a cluster of files", (prompt) => ({
+    // A distinct name per cluster, so a collision in the fixture would be a real finding rather
+    // than an artifact of every stubbed cluster answering with the same string.
+    name: `cluster_${[...prompt.matchAll(/^- (\S+):/gm)].length}`,
     what: "misc what", how: "misc how", when: "misc when", where: "misc where", why: "misc layer", confidence: 0.5,
   })],
   ["identifying api_flow", () => ({ flows: [] })],

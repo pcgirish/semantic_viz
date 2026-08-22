@@ -1,13 +1,15 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { extractRepo } from "@scv/extractor";
-import type { Provider, ProviderResult } from "@scv/interpreter";
+import type { Layer, Provider, ProviderResult } from "@scv/interpreter";
+import { CLUSTERING_VERSION, layerIdFor } from "@scv/interpreter";
 import { toSnapshot } from "../src/snapshot.js";
-import { ARTIFACT_SCHEMA_VERSION, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
+import { ancestorShas } from "../src/rev.js";
+import { ARTIFACT_SCHEMA_VERSION, ensureArtifact, loadPreviousLayers, type ArtifactContext, type LayersData } from "../src/artifacts.js";
 
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));
 
@@ -32,12 +34,10 @@ function fakeProvider(): Provider {
         const match = /Content:\n```\n([\s\S]*?)\n```/.exec(prompt);
         return { text: JSON.stringify({ purpose: match?.[1] ?? "", modules: [], architecture_notes: [] }), tokens: 10 };
       }
-      if (prompt.includes("grouping a codebase's directories")) {
-        return { text: JSON.stringify({ merges: {} }), tokens: 10 };
-      }
-      if (prompt.includes("describing why")) {
+      if (prompt.includes("naming and describing")) {
+        const files = [...prompt.matchAll(/^- (\S+):/gm)].length;
         return {
-          text: JSON.stringify({ what: "misc what", how: "misc how", when: "misc when", where: "misc where", why: "misc layer", confidence: 0.5 }),
+          text: JSON.stringify({ name: `cluster_${files}`, what: "misc what", how: "misc how", when: "misc when", where: "misc where", why: "misc layer", confidence: 0.5 }),
           tokens: 10,
         };
       }
@@ -79,6 +79,7 @@ describe("ensureArtifact", () => {
     docs: { path: string; content: string }[],
     force?: ArtifactContext["force"],
     promptRev = "p2",
+    previousLayers?: Map<string, Layer>,
   ): ArtifactContext {
     const graph = extractRepo(orderlyRoot);
     const snapshot = toSnapshot(graph, { root: orderlyRoot, rev: { sha: "fixed-sha", kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" } });
@@ -93,6 +94,7 @@ describe("ensureArtifact", () => {
       docs,
       reportProgress: () => {},
       force: force ?? new Set(),
+      previousLayers,
     };
   }
 
@@ -107,8 +109,7 @@ describe("ensureArtifact", () => {
     await ensureArtifact("layers", ctx2);
 
     const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("grouping a codebase's directories") &&
-        !String(call[0]).includes("describing why"),
+      (call) => !String(call[0]).includes("extracting structural signal") && !String(call[0]).includes("naming and describing"),
     ).length;
     expect(passACalls).toBe(0);
 
@@ -118,7 +119,7 @@ describe("ensureArtifact", () => {
     expect(docsCalls).toBeGreaterThan(0);
 
     const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
-      String(call[0]).includes("grouping a codebase's directories") || String(call[0]).includes("describing why"),
+      String(call[0]).includes("naming and describing"),
     ).length;
     expect(layersCalls).toBeGreaterThan(0);
   });
@@ -168,12 +169,12 @@ describe("ensureArtifact", () => {
     await ensureArtifact("layers", ctx2);
 
     const passACalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => !String(call[0]).includes("grouping a codebase's directories") && !String(call[0]).includes("describing why"),
+      (call) => !String(call[0]).includes("naming and describing"),
     ).length;
     expect(passACalls).toBe(0);
 
     const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (call) => String(call[0]).includes("grouping a codebase's directories") || String(call[0]).includes("describing why"),
+      (call) => String(call[0]).includes("naming and describing"),
     ).length;
     expect(layersCalls).toBeGreaterThan(0);
   });
@@ -227,7 +228,7 @@ describe("ensureArtifact — artifact schema version", () => {
     // Phase 3a changed the `groups` payload — grouped layer units became real group units —
     // while none of its *inputs* changed. The version constant is the only thing that can
     // distinguish the two, so it must participate in the cache key.
-    expect(ARTIFACT_SCHEMA_VERSION).toBe("2");
+    expect(ARTIFACT_SCHEMA_VERSION).toBe("3");
   });
 
   it("recomputes a groups artifact whose cached inputHash predates the current version", async () => {
@@ -255,5 +256,129 @@ describe("ensureArtifact — artifact schema version", () => {
     const groupIds = new Set(result.groupUnits.map((u) => u.id));
     expect(result.layerParent.length).toBeGreaterThan(0);
     for (const [, groupId] of result.layerParent) expect(groupIds.has(groupId)).toBe(true);
+  });
+});
+
+describe("layers artifact — carry-over across analyses", () => {
+  let scvDir: string;
+
+  beforeEach(() => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-layers-"));
+  });
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function ctxWith(provider: Provider, previousLayers?: Map<string, Layer>): ArtifactContext {
+    const graph = extractRepo(orderlyRoot);
+    const snapshot = toSnapshot(graph, {
+      root: orderlyRoot,
+      rev: { sha: "fixed-sha", kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" },
+    });
+    return {
+      scvDir,
+      sha: "fixed-sha",
+      snapshot,
+      graph,
+      provider,
+      promptRev: "p2",
+      readSource: readSource(orderlyRoot),
+      docs: [],
+      reportProgress: () => {},
+      force: new Set(),
+      previousLayers,
+    };
+  }
+
+  it("persists the resolved layer records alongside the units, so the next run has something to carry over", async () => {
+    const layers = await ensureArtifact("layers", ctxWith(fakeProvider()));
+    expect(layers.layers.length).toBe(layers.layerUnits.length);
+    expect(layers.clusteringVersion).toBe(CLUSTERING_VERSION);
+    // Every persisted record names a layer unit actually in the snapshot, keyed by its membership.
+    const unitIds = new Set(layers.layerUnits.map((u) => u.id));
+    for (const layer of layers.layers) expect(unitIds.has(layerIdFor(layer.files))).toBe(true);
+  });
+
+  it("survives a JSON round-trip — a name resolved this run is the name read back next run", async () => {
+    await ensureArtifact("layers", ctxWith(fakeProvider()));
+    const stored = JSON.parse(
+      readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8"),
+    ) as { data: LayersData };
+    expect(stored.data.layers.length).toBeGreaterThan(0);
+    for (const layer of stored.data.layers) {
+      const unit = stored.data.layerUnits.find((u) => u.id === layerIdFor(layer.files));
+      expect(unit?.name).toBe(layer.name);
+    }
+  });
+
+  it("carries a predecessor's name onto an unchanged cluster, and makes no Pass C call for it", async () => {
+    const first = await ensureArtifact("layers", ctxWith(fakeProvider()));
+    const previous = new Map(
+      first.layers.map((layer) => [layerIdFor(layer.files), { ...layer, name: `renamed_${layer.name}` }]),
+    );
+
+    rmSync(path.join(scvDir, "artifacts", "fixed-sha"), { recursive: true, force: true });
+    const provider = fakeProvider();
+    const second = await ensureArtifact("layers", ctxWith(provider, previous));
+
+    const passCCalls = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      String(call[0]).includes("naming and describing"),
+    ).length;
+    expect(passCCalls).toBe(0);
+    for (const layer of second.layers) expect(layer.name.startsWith("renamed_")).toBe(true);
+  });
+
+  it("ignores a cached predecessor written by a different clustering version — an old partition is not this binary's answer", () => {
+    const stale = {
+      inputHash: "x",
+      data: {
+        layerUnits: [],
+        layers: [{ name: "old", files: ["a.py"], what: "", how: "", when: "", where: "", why: "", confidence: 1, source: "llm" }],
+        parentOverride: [],
+        layerIdByName: [],
+        repoContextText: undefined,
+        clusteringVersion: `${CLUSTERING_VERSION}-old`,
+        promptRev: "p2",
+      },
+    };
+    // The walk looks at HEAD's ancestors; writing under a sha that is not one of them is the
+    // point of the negative control below, so use a real ancestor for the positive path.
+    const ancestors = ancestorShas(orderlyRoot);
+    expect(ancestors.length).toBeGreaterThan(0);
+    const dir = path.join(scvDir, "artifacts", ancestors[0]!);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, "layers.json"), JSON.stringify(stale));
+
+    expect(loadPreviousLayers(scvDir, orderlyRoot).size).toBe(0);
+  });
+
+  it("reads the nearest ancestor's layers, keyed by structural id", () => {
+    const ancestors = ancestorShas(orderlyRoot);
+    const layer: Layer = {
+      name: "billing",
+      files: ["src/billing.py"],
+      what: "w", how: "h", when: "wh", where: "wr", why: "y",
+      confidence: 0.9,
+      source: "llm",
+    };
+    const dir = path.join(scvDir, "artifacts", ancestors[0]!);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, "layers.json"),
+      JSON.stringify({
+        inputHash: "x",
+        data: {
+          layerUnits: [], layers: [layer], parentOverride: [], layerIdByName: [],
+          repoContextText: undefined, clusteringVersion: CLUSTERING_VERSION, promptRev: "p2",
+        },
+      }),
+    );
+
+    const loaded = loadPreviousLayers(scvDir, orderlyRoot);
+    expect(loaded.get(layerIdFor(layer.files))).toEqual(layer);
+  });
+
+  it("returns an empty map, rather than throwing, when no ancestor has been analyzed", () => {
+    expect(loadPreviousLayers(scvDir, orderlyRoot).size).toBe(0);
   });
 });

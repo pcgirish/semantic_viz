@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { clusteringQuality, directoryClusters, type ImportEdge } from "../src/checker.js";
+import { assertStrictPartition, clusterFiles } from "../src/cluster.js";
 
 /**
  * The adversarial fixture (plan 4b) exists to be *hard* for a directory-shaped clustering: it
@@ -99,6 +100,29 @@ describe("cluster-quality adversarial fixture", () => {
     expect(m.excluded.some((f) => f.includes("generated"))).toBe(true);
     expect(m.excluded.some((f) => f.startsWith("tests/"))).toBe(true);
     for (const f of m.excluded) expect(m.files).toContain(f);
+  });
+
+  it("is reproduced exactly by clusterFiles — the acceptance criterion this fixture was built to state (4c criterion 6)", () => {
+    const m = manifest();
+    const clustered = m.files.filter((f) => !m.excluded.includes(f));
+    const groups = clusterFiles(clustered, m.edges);
+    assertStrictPartition(groups, clustered);
+
+    // Compared as sets of member lists: the algorithm owes the fixture its *partition*, not the
+    // names the manifest happens to use for readability.
+    const canonical = (partition: string[][]) =>
+      partition.map((files) => [...files].sort().join(",")).sort();
+    expect(canonical([...groups.values()])).toEqual(canonical(Object.values(m.expected)));
+  });
+
+  it("beats the directory baseline on the fixture it was built to defeat", () => {
+    const m = manifest();
+    const clustered = m.files.filter((f) => !m.excluded.includes(f));
+    const groups = clusterFiles(clustered, m.edges);
+    const asProposal = Object.fromEntries(groups);
+    expect(clusteringQuality(asProposal, m.edges).modularity).toBeGreaterThan(
+      clusteringQuality(directoryClusters(clustered), m.edges).modularity,
+    );
   });
 
   it("ships every declared file on disk, so the fixture can actually be analyzed end to end", () => {

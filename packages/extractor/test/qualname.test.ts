@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moduleQualname, isTestPath, flattenTestQualname } from "../src/qualname.js";
+import { moduleQualname, isTestPath, isGeneratedPath, flattenTestQualname } from "../src/qualname.js";
 
 describe("moduleQualname", () => {
   it("strips .py", () => {
@@ -76,5 +76,30 @@ describe("flattenTestQualname", () => {
 
   it("leaves non-test qualnames untouched", () => {
     expect(flattenTestQualname("src.orders.pricing", "src/orders/pricing.py")).toBe("src.orders.pricing");
+  });
+});
+
+describe("isGeneratedPath", () => {
+  it("matches a generated/ or __generated__/ path segment anywhere in the path", () => {
+    expect(isGeneratedPath("app/generated/pb_orders.py")).toBe(true);
+    expect(isGeneratedPath("generated/api.ts")).toBe(true);
+    expect(isGeneratedPath("src/__generated__/schema.ts")).toBe(true);
+    expect(isGeneratedPath("a/b/generated/c/deep.py")).toBe(true);
+  });
+
+  it("matches the generated-code filename suffixes", () => {
+    expect(isGeneratedPath("proto/orders_pb2.py")).toBe(true);
+    expect(isGeneratedPath("proto/orders_pb.py")).toBe(true);
+    expect(isGeneratedPath("proto/orders.pb.ts")).toBe(true);
+    expect(isGeneratedPath("src/schema.generated.ts")).toBe(true);
+    expect(isGeneratedPath("lib/models.g.dart")).toBe(true);
+  });
+
+  it("does not match hand-written files that merely mention generation", () => {
+    expect(isGeneratedPath("app/generator.py")).toBe(false);
+    expect(isGeneratedPath("app/generated_report.py")).toBe(false);
+    expect(isGeneratedPath("app/regenerated/thing.py")).toBe(false);
+    expect(isGeneratedPath("src/orders/pricing.py")).toBe(false);
+    expect(isGeneratedPath("src/pbkdf2.py")).toBe(false);
   });
 });

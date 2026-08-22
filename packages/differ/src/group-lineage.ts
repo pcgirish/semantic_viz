@@ -1,7 +1,7 @@
 import type { Unit, UnitRelationship } from "@scv/schema";
 
 /**
- * Group lineage across two snapshots.
+ * Cluster lineage across two snapshots, for every clustered kind — layers and groups alike.
  *
  * Reclustering rarely edits a group in place — it breaks one apart or fuses several together, and
  * `added`/`removed` alone renders that as churn with no thread connecting the two sides. The
@@ -27,13 +27,26 @@ interface Candidate {
 }
 
 /**
- * Returns the relationship for every group on either side that participates in a split or a merge.
- * Groups with unchanged membership, 1:1 drift, or no above-threshold counterpart are absent —
+ * Returns the relationship for every unit on either side that participates in a split or a merge.
+ * Units with unchanged membership, 1:1 drift, or no above-threshold counterpart are absent —
  * `modified`/`added`/`removed` already describe those without help.
  */
 export function matchGroupLineage(before: Unit[], after: Unit[]): Map<string, UnitRelationship> {
-  const oldGroups = membership(before);
-  const newGroups = membership(after);
+  const relationships = new Map<string, UnitRelationship>();
+  // Per kind, never across: a layer and a group can legitimately hold the same members without
+  // one being the other's successor.
+  for (const kind of CLUSTERED_KINDS) {
+    for (const [id, relationship] of matchWithinKind(membership(before, kind), membership(after, kind))) {
+      relationships.set(id, relationship);
+    }
+  }
+  return relationships;
+}
+
+function matchWithinKind(
+  oldGroups: Map<string, Set<string>>,
+  newGroups: Map<string, Set<string>>,
+): Map<string, UnitRelationship> {
 
   // Identity first: equal membership is the same group, and it is out of the running for
   // everything below — a group that did not move has no lineage to explain.
@@ -107,8 +120,11 @@ export function matchGroupLineage(before: Unit[], after: Unit[]): Map<string, Un
   return relationships;
 }
 
-function membership(units: Unit[]): Map<string, Set<string>> {
-  return new Map(units.filter((u) => u.kind === "group").map((u) => [u.id, new Set(u.children)]));
+/** The unit kinds whose membership is decided by clustering, and so can split or merge. */
+const CLUSTERED_KINDS = ["group", "layer"] as const;
+
+function membership(units: Unit[], kind: (typeof CLUSTERED_KINDS)[number]): Map<string, Set<string>> {
+  return new Map(units.filter((u) => u.kind === kind).map((u) => [u.id, new Set(u.children)]));
 }
 
 function sameMembers(a: Set<string>, b: Set<string>): boolean {

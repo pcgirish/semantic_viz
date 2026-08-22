@@ -602,19 +602,36 @@ cluster count, size distribution, imbalance. Test: a degenerate and a good parti
 module spanning directories, a package boundary, generated and test code, a cycle, a high-fan-in
 utility. Built **before** the algorithm; asserted automatically, never eyeballed.
 
-### 4c. Deterministic partition — acceptance criteria
-Replaces the merges-over-directory-buckets contract (`pass-b.ts:90-114`), which cannot split a
-directory. Not done until all hold as tests:
-1. identical structural input ⇒ byte-identical membership and ids;
-2. provider/LLM variation changes names and prose only, never membership;
-3. directory-baseline fallback is itself deterministic;
-4. singleton and giant-cluster thresholds are named constants with boundary tests;
-5. split/merge across revisions is explicit in deltas (via `relationship`);
-6. 4b expectations asserted in CI.
+### 4c. Deterministic partition — acceptance criteria — **done**
+Replaced the merges-over-directory-buckets contract, which could not split a directory, with
+weighted agglomerative **single-linkage** clustering over the file import graph
+(`interpreter/src/cluster.ts`). Pass B no longer calls an LLM at all; Pass C keeps naming and
+prose and loses membership. All six criteria hold as tests:
+1. identical structural input ⇒ byte-identical membership and ids — `layerIdFor` hashes sorted
+   membership, and groups are emitted in ascending id order, so serialization is byte-stable;
+2. provider/LLM variation changes names and prose only, never membership — asserted by running
+   two different providers over one graph and comparing partitions;
+3. directory-baseline fallback is itself deterministic — taken only when no edge survives
+   retention, never on a modularity comparison (4a showed modularity cannot rank partitions of
+   differing granularity);
+4. thresholds are named constants with boundary tests — `MIN_EDGE_WEIGHT`,
+   `RELATIVE_EDGE_RATIO`, `MERGE_THRESHOLD`, `MAX_CLUSTER_SHARE`, `MIN_LARGE_REPO_FILES`;
+5. split/merge across revisions is explicit in deltas — `matchGroupLineage` now matches per
+   clustered kind, so a layer split carries a `relationship`, not bare `added`/`removed`;
+6. 4b expectations asserted in CI — `clusterFiles` reproduces the adversarial fixture's expected
+   partition exactly and beats the directory baseline on modularity.
 
-**Provenance.** Seed, algorithm id, tie-breaking rule, algorithm version persist in snapshot
-provenance so a re-analysis explains why a boundary moved. LLM contributes naming only, recorded
-separately — the same split applied to groups in 3a.
+**Name stickiness.** Unchanged membership ⇒ byte-identical layer. A cluster whose structural id
+matches the nearest first-parent ancestor's analysis reuses that whole record — name and all
+five narration fields — and skips its Pass C call. Collision precedence is by origin, not id: a
+carried-over name is claimed first and never suffixed or re-normalized, so a newly-invented name
+can never push a `-2` onto an unchanged layer.
+
+**Provenance.** Algorithm id, tie-breaking rule, algorithm version, and every threshold constant
+persist in snapshot provenance so a re-analysis explains why a boundary moved. There is no seed:
+the tie-break is a total order over member sets, so no seed, insertion order, or filesystem
+order can reach the result. LLM contributes naming only, recorded separately — the same split
+applied to groups in 3a.
 
 Weeks, not days. Its own PR sequence; Phases 0–3 must not wait on it.
 

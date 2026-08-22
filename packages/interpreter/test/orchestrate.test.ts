@@ -4,6 +4,7 @@ import { validateSnapshotInvariants } from "@scv/schema";
 import type { Provider, ProviderContext, ProviderResult } from "../src/provider.js";
 import type { SymbolGraph } from "@scv/extractor";
 import type { Snapshot, Unit } from "@scv/schema";
+import { CLUSTERING_ALGORITHM, CLUSTERING_TIE_BREAK, CLUSTERING_VERSION, MERGE_THRESHOLD, MIN_EDGE_WEIGHT } from "../src/cluster.js";
 
 function makeGraph(): SymbolGraph {
   return {
@@ -197,7 +198,10 @@ function fakeProvider(responses: Record<string, object> | object[]): Provider {
   };
 }
 
+// Doubles as the Pass C fallback in stubs that let unmatched prompts fall through here: Pass C
+// now asks for a `name` alongside the same five narration fields.
 const passAResponse = {
+  name: "stub_layer",
   what: "does a thing",
   how: "by doing it",
   when: "on call",
@@ -223,8 +227,8 @@ describe("runInterpreter", () => {
             tokens: 10,
           };
         }
-        if (prompt.includes("describing why")) {
-          return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
+        if (prompt.includes("naming and describing")) {
+          return { text: JSON.stringify({ name: "ops", what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
         if (prompt.includes("Base layers")) {
           return { text: JSON.stringify({ merges: { platform: ["ops"] } }), tokens: 10 };
@@ -272,14 +276,16 @@ describe("runInterpreter", () => {
   it("derives each file's oneLiner from its leaf units' semantics, not the module unit (which never gets Pass A semantics)", async () => {
     const graph = makeGraph();
     const snapshot = makeSnapshot(graph);
-    let passBPrompt = "";
+    // Clustering is deterministic now, so the one-liners' consumer is Pass C, which sees the
+    // member files it must name — the same evidence, one pass later.
+    let passCPrompt = "";
     const provider: Provider = {
       name: "fake",
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
-        if (prompt.includes("Base directories")) {
-          passBPrompt = prompt;
-          return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("naming and describing")) {
+          passCPrompt = prompt;
+          return { text: JSON.stringify(passAResponse), tokens: 10 };
         }
         if (prompt.includes("Base layers")) {
           return { text: JSON.stringify({ merges: {} }), tokens: 10 };
@@ -293,8 +299,8 @@ describe("runInterpreter", () => {
 
     await runInterpreter({ snapshot, graph, provider, promptRev: "p1", readSource: () => "def run(): ..." });
 
-    expect(passBPrompt).not.toContain("(no summary)");
-    expect(passBPrompt).toContain("does a thing");
+    expect(passCPrompt).not.toContain("(no summary)");
+    expect(passCPrompt).toContain("does a thing");
   });
 
   it("passes each leaf unit's static callers/callees (qualnames) into its Pass A prompt", async () => {
@@ -512,7 +518,7 @@ describe("runInterpreter", () => {
     const snapshot = makeSnapshot(graph);
     const provider = fakeProvider({
       "Base directories": { merges: { ops: ["src", "scripts"] } },
-      "describing why": { what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "operational scripts", confidence: 0.8 },
+      "naming and describing": { name: "ops", what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "operational scripts", confidence: 0.8 },
     });
     // module units get Pass A too; fall through to passAResponse for anything else
     const wrapped: Provider = {
@@ -520,7 +526,7 @@ describe("runInterpreter", () => {
       model: provider.model,
       interpret: async (prompt: string) => {
         if (prompt.includes("Base directories")) return provider.interpret(prompt);
-        if (prompt.includes("describing why")) return provider.interpret(prompt);
+        if (prompt.includes("naming and describing")) return provider.interpret(prompt);
         if (prompt.includes("Base layers")) {
           return { text: JSON.stringify({ merges: { platform: ["ops"] } }), tokens: 10 };
         }
@@ -547,8 +553,11 @@ describe("runInterpreter", () => {
     expect(group?.parent).toBe(system?.id);
     expect(layer?.parent).toBe(group?.id);
     expect(group?.children).toContain(layer?.id);
-    const opsFiles = result.units.filter((u) => u.parent === layer?.id).map((u) => u.qualname);
-    expect(opsFiles.sort()).toEqual(["scripts.backfill", "src.admin_tasks"]);
+    // Every module lands under exactly one layer, and the layers cover them all — the partition
+    // itself is now clustering's contract, tested in cluster.test.ts.
+    const modules = result.units.filter((u) => u.kind === "module");
+    const layerIds = new Set(result.units.filter((u) => u.kind === "layer").map((u) => u.id));
+    for (const module of modules) expect(layerIds.has(module.parent ?? "")).toBe(true);
   });
 
   it("makes a layer into its own singleton group when Pass C groups omits it from merges", async () => {
@@ -561,8 +570,8 @@ describe("runInterpreter", () => {
         if (prompt.includes("Base directories")) {
           return { text: JSON.stringify({ merges: { ops: ["src", "scripts"] } }), tokens: 10 };
         }
-        if (prompt.includes("describing why")) {
-          return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
+        if (prompt.includes("naming and describing")) {
+          return { text: JSON.stringify({ name: "ops", what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
         if (prompt.includes("Base layers")) {
           return { text: JSON.stringify({ merges: {} }), tokens: 10 };
@@ -1083,8 +1092,8 @@ describe("runInterpreter", () => {
             tokens: 10,
           };
         }
-        if (prompt.includes("describing why")) {
-          return { text: JSON.stringify({ what: `${layerName} what`, how: `${layerName} how`, when: `${layerName} when`, where: `${layerName} where`, why: `${layerName} layer`, confidence: 0.8 }), tokens: 10 };
+        if (prompt.includes("naming and describing")) {
+          return { text: JSON.stringify({ name: layerName, what: `${layerName} what`, how: `${layerName} how`, when: `${layerName} when`, where: `${layerName} where`, why: `${layerName} layer`, confidence: 0.8 }), tokens: 10 };
         }
         if (prompt.includes("Base layers")) {
           return { text: JSON.stringify({ merges: { platform: [clusterName] } }), tokens: 10 };
@@ -1111,9 +1120,13 @@ describe("runInterpreter", () => {
       readSource: () => "def run(): ...",
     });
 
-    const layerA = resultA.units.find((u) => u.kind === "layer");
-    const layerB = resultB.units.find((u) => u.kind === "layer");
-    expect(layerA?.id).toBe(layerB?.id);
+    const idsA = resultA.units.filter((u) => u.kind === "layer").map((u) => u.id).sort();
+    const idsB = resultB.units.filter((u) => u.kind === "layer").map((u) => u.id).sort();
+    expect(idsA).toEqual(idsB);
+    // And the names really did differ between the runs, so the ids matching is not vacuous.
+    const namesA = resultA.units.filter((u) => u.kind === "layer").map((u) => u.name);
+    const namesB = resultB.units.filter((u) => u.kind === "layer").map((u) => u.name);
+    expect(namesA).not.toEqual(namesB);
   });
 
   it("does not fail the whole run when Pass A returns unparseable output for one leaf unit — that unit is left without semantics, other units still get theirs", async () => {
@@ -1129,8 +1142,8 @@ describe("runInterpreter", () => {
             tokens: 10,
           };
         }
-        if (prompt.includes("describing why")) {
-          return { text: JSON.stringify({ what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
+        if (prompt.includes("naming and describing")) {
+          return { text: JSON.stringify({ name: "ops", what: "ops what", how: "ops how", when: "ops when", where: "ops where", why: "ops layer", confidence: 0.8 }), tokens: 10 };
         }
         if (prompt.includes("Base layers")) {
           return { text: JSON.stringify({ merges: { platform: ["ops"] } }), tokens: 10 };
@@ -1428,7 +1441,7 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
     expect(testRun?.semantics).toBeFalsy();
   });
 
-  it("runs Pass Docs over repoContext.docs and folds summaries + a directory tree into Pass B/C prompts", async () => {
+  it("runs Pass Docs over repoContext.docs and folds summaries + a directory tree into the Pass C prompts", async () => {
     const graph = makeGraph();
     const snapshot = makeSnapshot(graph);
     const docExtract = {
@@ -1436,7 +1449,6 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
       modules: [{ name: "ops", description: "operational scripts", paths: ["scripts"] }],
       architecture_notes: ["scripts/ calls into src/ helpers"],
     };
-    let passBPrompt = "";
     let passCPrompt = "";
     let passCGroupsPrompt = "";
     const provider: Provider = {
@@ -1444,13 +1456,9 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
       model: "fake-model",
       interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
         if (prompt.includes("extracting structural signal")) return { text: JSON.stringify(docExtract), tokens: 10 };
-        if (prompt.includes("Base directories")) {
-          passBPrompt = prompt;
-          return { text: JSON.stringify({ merges: { ops: ["src", "scripts"] } }), tokens: 10 };
-        }
-        if (prompt.includes("describing why")) {
+        if (prompt.includes("naming and describing")) {
           passCPrompt = prompt;
-          return { text: JSON.stringify({ what: "w", how: "h", when: "wh", where: "wr", why: "why", confidence: 0.8 }), tokens: 10 };
+          return { text: JSON.stringify({ name: "ops", what: "w", how: "h", when: "wh", where: "wr", why: "why", confidence: 0.8 }), tokens: 10 };
         }
         if (prompt.includes("Base layers")) {
           passCGroupsPrompt = prompt;
@@ -1470,11 +1478,65 @@ describe("runInterpreter — test units are excluded from LLM passes", () => {
       repoContext: { docs: [{ path: "README.md", content: "# Orderly\n\nRuns admin tasks." }] },
     });
 
-    expect(passBPrompt).toContain("Repo context");
-    expect(passBPrompt).toContain("Base directories");
-    expect(passBPrompt).toContain("scripts");
     expect(passCPrompt).toContain("Repo context");
+    expect(passCPrompt).toContain("scripts");
     expect(passCGroupsPrompt).toContain("Repo context");
+  });
+});
+
+describe("runInterpreter — the LLM cannot influence layer membership", () => {
+  /** Two providers whose *only* difference is what Pass C names things. If membership were still
+   *  LLM-derived, the partitions would diverge; being deterministic, they cannot. */
+  function namingProvider(name: string): Provider {
+    return {
+      name: "fake",
+      model: "fake-model",
+      interpret: async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("naming and describing")) {
+          return { text: JSON.stringify({ ...passAResponse, name }), tokens: 10 };
+        }
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      },
+    };
+  }
+
+  it("produces the same layer membership under two providers that name every cluster differently", async () => {
+    const graph = makeGraph();
+    const membership = async (name: string) => {
+      const result = await runInterpreter({
+        snapshot: makeSnapshot(graph),
+        graph,
+        provider: namingProvider(name),
+        promptRev: "p1",
+        readSource: () => "def run(): ...",
+      });
+      return result.units
+        .filter((u) => u.kind === "layer")
+        .map((u) => `${u.id}=${[...u.loc.files].sort().join(",")}`)
+        .sort();
+    };
+
+    expect(await membership("alpha")).toEqual(await membership("omega"));
+  });
+
+  it("records the clustering algorithm, version, tie-break, and constants in snapshot provenance", async () => {
+    const graph = makeGraph();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: namingProvider("alpha"),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const clustering = result.provenance.clustering;
+    expect(clustering?.algorithm).toBe(CLUSTERING_ALGORITHM);
+    expect(clustering?.version).toBe(CLUSTERING_VERSION);
+    expect(clustering?.tieBreak).toBe(CLUSTERING_TIE_BREAK);
+    expect(clustering?.constants.minEdgeWeight).toBe(MIN_EDGE_WEIGHT);
+    expect(clustering?.constants.mergeThreshold).toBe(MERGE_THRESHOLD);
   });
 });
 

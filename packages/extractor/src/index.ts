@@ -24,4 +24,4 @@ export type {
   BlockType,
   SymbolRoute,
 } from "./symbol-graph.js";
-export { isTestPath } from "./qualname.js";
+export { isTestPath, isGeneratedPath } from "./qualname.js";

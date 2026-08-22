@@ -5,9 +5,11 @@ import { passCEntryPointsPrompt, passCFlowNarrationPrompt } from "./prompts/pass
 import type { FlowStepSummary, FlowUnitSummary, StructuralRouteHint } from "./prompts/pass-c-flows.js";
 import { passCGroupsPrompt } from "./prompts/pass-c-groups.js";
 import type { CallEdge, ClusterProposal, ImportEdge } from "./checker.js";
+import type { ClusterGroups } from "./cluster.js";
 import { interpretJsonWithRetry } from "./retry.js";
 
 const PassCResponseSchema = z.object({
+  name: z.string().min(1).max(40),
   what: z.string(),
   how: z.string(),
   when: z.string(),
@@ -33,30 +35,49 @@ export interface PassCResult {
 }
 
 export interface RunPassCOptions {
-  clusters: ClusterProposal;
+  /** Membership keyed by structural id — names do not exist until Pass C answers. */
+  groups: ClusterGroups;
   oneLiners: Record<string, string>;
   provider: Provider;
   promptRev: string;
   repoContext?: string;
+  /** Layers from the nearest ancestor analysis, keyed by structural id. A hit means identical
+   *  membership (the id *is* the membership hash), so the whole record is reused and no call
+   *  is made for that cluster. */
+  previousLayers?: Map<string, Layer>;
 }
 
-/** Pass C — architecture narration. One LLM call per Pass B cluster, producing a layer's `why`. See analyze.md#2. */
+/**
+ * Pass C — names and narrates each cluster. One LLM call per cluster *without* a predecessor:
+ * a cluster whose id matches a previous run's has identical membership by construction, so its
+ * entire record — name and all five narration fields — is carried over verbatim. That is what
+ * makes "unchanged membership ⇒ byte-identical layer" hold, and it cuts calls on re-analysis.
+ *
+ * Clusters are visited in ascending structural-id order, so the order names are assigned in is
+ * itself deterministic. See analyze.md#2.
+ */
 export async function runPassC(options: RunPassCOptions): Promise<PassCResult> {
-  const { clusters, oneLiners, provider, repoContext } = options;
+  const { groups, oneLiners, provider, repoContext, previousLayers } = options;
   const layers: Layer[] = [];
 
-  for (const [name, files] of Object.entries(clusters)) {
-    const prompt = passCPrompt(name, files, oneLiners, repoContext);
+  for (const [layerId, files] of groups) {
+    const previous = previousLayers?.get(layerId);
+    if (previous) {
+      layers.push({ ...previous, files: [...files] });
+      continue;
+    }
+
+    const prompt = passCPrompt({ layerId, files, oneLiners, repoContext });
     const response = await interpretJsonWithRetry({
       provider,
       prompt,
-      label: `pass C: cluster "${name}"`,
+      label: `pass C: cluster ${layerId}`,
       schema: PassCResponseSchema,
       context: { callMeta: { pass: "C" } },
     });
     layers.push({
-      name,
-      files,
+      name: response.name,
+      files: [...files],
       what: response.what,
       how: response.how,
       when: response.when,

@@ -12,6 +12,21 @@ export { runPassA } from "./pass-a.js";
 export type { PassAResult, RunPassAOptions } from "./pass-a.js";
 export { runPassB } from "./pass-b.js";
 export type { PassBResult, RunPassBOptions } from "./pass-b.js";
+export {
+  CLUSTERING_ALGORITHM,
+  CLUSTERING_TIE_BREAK,
+  CLUSTERING_VERSION,
+  MAX_CLUSTER_SHARE,
+  MERGE_THRESHOLD,
+  MIN_EDGE_WEIGHT,
+  MIN_LARGE_REPO_FILES,
+  RELATIVE_EDGE_RATIO,
+  assertStrictPartition,
+  clusterFiles,
+  layerIdFor,
+  resolveLayerNames,
+} from "./cluster.js";
+export type { ClusterGroups } from "./cluster.js";
 export { runPassDocs } from "./pass-docs.js";
 export type { DocInput, DocExtract, RunPassDocsOptions } from "./pass-docs.js";
 export { runPassC, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
