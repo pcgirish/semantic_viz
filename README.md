@@ -368,13 +368,31 @@ dropped rather than hiding them silently. Edges resting on model inference draw
 dashed, including a bundle with one inferred contributor. This closes the plan:
 every phase in it is now implemented and merged.
 
+A coding agent working in a repo already knows the what/how/when/where/why for
+the units it just wrote or read — asking it to phone out to an LLM provider to
+re-derive that would be a wasted second call. `scv merge-semantics
+<pending-file> [--scope all|changed|<globs>] [--with-clustering] [--sha <sha>]`
+lets it write that knowledge to a `.scv/pending/<sha>/semantics.json` file
+instead and inject it straight into the artifact cache with zero LLM calls:
+`scv analyze --no-llm` first (so unit ids are real), the agent authors
+Pass-A-shaped function/class semantics and, with `--with-clustering`,
+Pass-C-shaped layer narration against the real deterministic clustering (Pass
+B), then `scv merge-semantics` writes correctly-hashed `functions.json`/
+`layers.json` artifacts a subsequent `scv analyze` reuses as-is. An unmatched
+unit id or a pending layer that doesn't match a real cluster is warned and
+skipped, never a hard failure. Because `--no-llm` never produces a `docs.json`
+artifact, merging layer narration in that gap caches a correctly-hashed empty
+docs artifact rather than dropping the merge or guessing — docs stay
+unsummarized until a real `scv analyze docs --force` run, which the merge
+warns about explicitly.
+
 | Package | What it does | Status |
 |---|---|---|
 | `packages/extractor` | Parses a repo (Python + TypeScript via tree-sitter), resolves imports/calls into units and edges, reads `requirements.txt`/`package.json` manifests, and pulls per-file churn/authors from `git log` | Implemented |
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
 | `packages/interpreter` | Pass A (leaf semantics + branch labels, with scoped retry on incomplete blocks), Pass Docs (repo README/docs structural extraction), Pass B (deterministic agglomerative single-linkage file clustering over the import graph — no LLM), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps; Pass C-groups uses a layer baseline plus LLM-proposed merges), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking. Emits `added`/`removed`/`modified`/`risk_changed`; `moved` and `renamed` are deliberately unsupported — they need rename-detection heuristics this differ does not implement | Implemented |
-| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve` | Implemented |
+| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve`; `scv merge-semantics` — injects agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache, zero LLM calls | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
