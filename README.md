@@ -188,11 +188,11 @@ Or write `config.yaml` directly, any time:
 ```yaml
 interpreter:
   provider: ollama       # ollama | anthropic | claude-cli
-  model: qwen3.6:0.8b-mlx  # optional; each provider has its own default
+  model: qwen3.5:9b-mlx  # optional; each provider has its own default
   effort: low             # claude-cli only: low | medium | high | xhigh | max
 ```
 
-- `ollama` — local, default model `qwen3.6:0.8b-mlx`. Requires a running
+- `ollama` — local, default model `qwen3.5:9b-mlx`. Requires a running
   Ollama daemon with that model pulled (`ollama list` to check; `--model`
   to point at whatever you actually have installed).
 - `anthropic` — Anthropic API, default model `claude-sonnet-5`. Requires

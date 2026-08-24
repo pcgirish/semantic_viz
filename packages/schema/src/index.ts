@@ -383,3 +383,12 @@ export {
 } from "./invariants.js";
 
 export { normalizeText, semanticHashInput, type SemanticFields } from "./normalize.js";
+
+export {
+  PendingSemanticsSchema,
+  PendingUnitSchema,
+  PendingLayerSchema,
+  type PendingSemantics,
+  type PendingUnit,
+  type PendingLayer,
+} from "./pending-semantics.js";

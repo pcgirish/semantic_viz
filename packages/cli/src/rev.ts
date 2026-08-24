@@ -41,3 +41,12 @@ export function ancestorShas(root: string): string[] {
   if (result.status !== 0 || !result.stdout) return [];
   return result.stdout.trim().split("\n").filter(Boolean).slice(1);
 }
+
+/** Files changed in HEAD's most recent commit (`git diff --name-only HEAD~1 HEAD`), repo-root
+ *  relative. Empty on any git failure (no history, unborn branch, not a repo) — same
+ *  never-throws convention as `ancestorShas`. */
+export function changedFiles(root: string): string[] {
+  const result = spawnSync("git", ["diff", "--name-only", "HEAD~1", "HEAD"], { cwd: root, encoding: "utf-8" });
+  if (result.status !== 0 || !result.stdout) return [];
+  return result.stdout.trim().split("\n").filter(Boolean);
+}

@@ -4,7 +4,7 @@ import { OllamaProvider } from "./providers/ollama.js";
 import { AnthropicProvider } from "./providers/anthropic.js";
 import { ClaudeCliProvider } from "./providers/claude-cli.js";
 
-const DEFAULT_OLLAMA_MODEL = "qwen3.6:0.8b-mlx";
+const DEFAULT_OLLAMA_MODEL = "qwen3.5:9b-mlx";
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
 
 export function createProvider(config: InterpreterConfig): Provider {

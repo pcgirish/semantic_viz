@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { fmtElapsed } from "@scv/interpreter";
 import { runAnalyze, type RunAnalyzeOptions } from "./analyze.js";
 import { runDiff } from "./diff.js";
+import { runMergeSemantics } from "./merge-semantics.js";
 import { runServe } from "./serve.js";
 import { runUi } from "./ui.js";
 
@@ -58,6 +59,32 @@ program
     console.log(
       `wrote ${outPath} (${delta.unit_deltas.length} unit deltas, ${delta.edge_deltas.length} edge deltas, queue of ${delta.inspect_queue.length})`,
     );
+  });
+
+program
+  .command("merge-semantics")
+  .description("inject agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache — no LLM calls")
+  .argument("<pending-file>", "path to the pending-semantics JSON file")
+  .argument("[root]", "repo root to analyze", ".")
+  .option(
+    "--scope <entries...>",
+    "restrict merge to: all pending entries (default/'all'), files changed vs HEAD~1 ('changed'), or unit-id globs",
+  )
+  .option("--with-clustering", "also run Pass B clustering (deterministic, no LLM) and merge pending layer narration")
+  .option(
+    "--sha <sha>",
+    "sha to merge against; defaults to HEAD. Merges against the persisted .scv/snapshots/<sha>.json when present, otherwise extracts the current worktree.",
+  )
+  .action(async (pendingFile: string, root: string, opts: { scope?: string[]; withClustering?: boolean; sha?: string }) => {
+    const result = await runMergeSemantics({
+      root,
+      pendingFile,
+      scope: opts.scope,
+      withClustering: opts.withClustering,
+      sha: opts.sha,
+    });
+    console.log(`merged ${result.merged}, skipped ${result.skipped}`);
+    for (const warning of result.warnings) console.error(`[WARN] ${warning}`);
   });
 
 program
