@@ -111,6 +111,41 @@ A Replay timeline along the bottom scrubs through revisions (rev picker or
 drag), toggles between PR- and commit-level density, and shows a per-rev
 amount bar with human/agent authorship distinguished.
 
+## Reviewing a PR
+
+`scv analyze` always snapshots whatever revision is checked out (`git HEAD`),
+so analyzing both endpoints of a PR means checking out each SHA in turn. Then
+diff the two snapshots and serve.
+
+```sh
+# 0. build everything once
+npm run build
+
+# 1. analyze the PR's base and head revisions, one checkout each
+git checkout <base-sha> && node packages/cli/dist/bin.js analyze /path/to/repo
+git checkout <head-sha> && node packages/cli/dist/bin.js analyze /path/to/repo
+
+# 2. diff base -> head
+node packages/cli/dist/bin.js diff <base-sha> <head-sha> --scv-dir /path/to/repo/.scv
+
+# 3. serve the API and UI
+node packages/cli/dist/bin.js serve /path/to/repo
+node packages/cli/dist/bin.js ui
+```
+
+Open `http://127.0.0.1:5173`, switch the top bar to **Delta**, and pick the
+`base-sha`/`head-sha` pair in the rev picker. Tiles are colored by change
+status (added/removed/modified); an offset ring flags high risk. Start from
+the left-margin **inspect queue** — it ranks the units most worth reviewing
+first, including `risk_changed` entries (a unit whose own diff is empty but
+whose exposure changed, e.g. it crossed into the public API). Click a queue
+entry to select its tile and open the inspector tray; double-click to drill
+into a changed group and see which of its children actually moved.
+
+For flow-level review — did this PR touch a specific request path — switch to
+**API Flow**, pick the flow, and read the per-step dots: each changed unit
+along that flow is marked, in call order, including any branch the flow takes.
+
 ## Screenshots
 
 The UI runs on the CodeDream design system (`packages/design-system`), in
