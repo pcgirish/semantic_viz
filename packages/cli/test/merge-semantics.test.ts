@@ -365,17 +365,52 @@ describe("mergeSemantics", () => {
     expect(hashWithDocs).not.toBe(hashWithoutDocs);
   });
 
-  it("with --with-clustering, skips the layers write when doc files exist but no docs artifact is cached yet", async () => {
+  it("with --with-clustering, merges pending layer narration even when doc files exist but no docs artifact is cached yet (standard analyze --no-llm workflow)", async () => {
     const docsScvDir = mkdtempSync(path.join(tmpdir(), "scv-merge-semantics-docs-"));
-    const docsCtx: ArtifactContext = { ...ctx, scvDir: docsScvDir, docs: [{ path: "README.md", content: "# Orderly\n\nSome real content here." }] };
+    try {
+      const docsCtx: ArtifactContext = { ...ctx, scvDir: docsScvDir, docs: [{ path: "README.md", content: "# Orderly\n\nSome real content here." }] };
 
-    const pendingFile = writePending({ units: {}, layers: {} });
-    const result = await mergeSemantics({ pendingFile, ctx: docsCtx, root: orderlyRoot, withClustering: true });
+      const emptyPendingFile = writePending({ units: {}, layers: {} });
+      const baselineResult = await mergeSemantics({ pendingFile: emptyPendingFile, ctx: docsCtx, root: orderlyRoot, withClustering: true });
+      expect(baselineResult.warnings.some((w) => w.includes("cached an empty docs artifact"))).toBe(true);
+      const layersArtifactFile = path.join(docsScvDir, "artifacts", sha, "layers.json");
+      const baseline = JSON.parse(readFileSync(layersArtifactFile, "utf-8")) as StoredLayers;
+      const targetLayer = baseline.data.layers[0]!;
 
-    expect(result.merged).toBe(0);
-    expect(result.warnings.some((w) => w.includes("no cached docs artifact"))).toBe(true);
-    const artifactFile = path.join(docsScvDir, "artifacts", sha, "layers.json");
-    expect(existsSync(artifactFile)).toBe(false);
+      const pendingFile = writePending({
+        units: {},
+        layers: {
+          chosen: {
+            name: "Narrated",
+            files: targetLayer.files,
+            what: "Schema migrations",
+            how: "Runs SQL DDL",
+            when: "At migration time",
+            where: "migrations/",
+            why: "Keeps schema versioned",
+            confidence: 0.9,
+          },
+        },
+      });
+      const result = await mergeSemantics({ pendingFile, ctx: docsCtx, root: orderlyRoot, withClustering: true });
+
+      expect(result.merged).toBe(1);
+
+      const stored = JSON.parse(readFileSync(layersArtifactFile, "utf-8")) as StoredLayers;
+      expect(stored.data.layers.find((l) => l.name === "Narrated")).toBeDefined();
+
+      const docsArtifactFile = path.join(docsScvDir, "artifacts", sha, "docs.json");
+      expect(existsSync(docsArtifactFile)).toBe(true);
+      const storedDocs = JSON.parse(readFileSync(docsArtifactFile, "utf-8")) as { inputHash: string; data: unknown[] };
+      expect(storedDocs.data).toEqual([]);
+
+      const realDocsHash = await computeInputHash("docs", docsCtx, {});
+      expect(storedDocs.inputHash).toBe(realDocsHash);
+      const docsViaEnsure = await ensureArtifact("docs", docsCtx);
+      expect(docsViaEnsure).toEqual([]);
+    } finally {
+      rmSync(docsScvDir, { recursive: true, force: true });
+    }
   });
 
   it("--sha with a persisted .scv/snapshots/<sha>.json merges against that snapshot, not the current worktree", async () => {

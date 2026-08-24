@@ -391,15 +391,20 @@ async function mergeLayerClustering(
     promptRev: ctx.promptRev,
   };
 
-  const docsStored = readArtifact<DocExtract[]>(ctx, "docs");
+  let docsStored = readArtifact<DocExtract[]>(ctx, "docs");
   if (!docsStored && ctx.docs.length > 0) {
-    // No cached docs artifact, but discoverable doc files exist: the real docs artifact a
-    // subsequent `scv analyze` computes will be non-empty, and we have no way to produce that
-    // narration without an LLM call. Hashing against `docs: []` here would let the merged layers
-    // artifact look fresh now and then mismatch (and get recomputed, invoking Pass C) the moment
-    // a real analyze runs docs first. Skip the write instead of caching a hash we know is wrong.
-    warnings.push("skipped layers merge: no cached docs artifact, but doc files were discovered — run a real analyze (or merge docs) first so the layers hash reflects real docs data");
-    return { merged: 0, skipped: Object.keys(pendingLayers).length };
+    // No cached docs artifact, but discoverable doc files exist: this pending file has no doc
+    // narration to offer (Phase 2 only authors layers/functions), and producing the real
+    // narration would require an LLM call — the entire point of this zero-cost merge path is to
+    // avoid that. Cache an empty docs artifact ourselves, under the SAME inputHash formula
+    // `ensureArtifact("docs")` uses, so a later `scv analyze` sees a match and reuses it rather
+    // than mismatching (which would force a layers recompute / Pass C) or silently overwriting it
+    // with real narration behind our backs later on a hash that no longer matches this merge.
+    // Docs narration is a known, visible gap in the zero-LLM workflow — not a silent one: warn.
+    const docsInputHash = await computeInputHash("docs", ctx, {});
+    writeArtifact(ctx, "docs", docsInputHash, []);
+    docsStored = { inputHash: docsInputHash, data: [] };
+    warnings.push("cached an empty docs artifact: doc files were discovered but no docs narration was available to merge — docs will show no summary until `scv analyze docs --force` is run with an LLM provider");
   }
   const layersInputHash = await computeInputHash("layers", ctx, {
     functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
