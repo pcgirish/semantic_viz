@@ -76,6 +76,10 @@ merged" in `README.md`.
   file-duplication detection
 - Check-in split: `scv export --structural` for committing deterministic
   (non-LLM) snapshot data
+- Group-narration pass — groups currently ship with `semantics: null`
+  and no cross-commit name carry-over, so an LLM-chosen group name can
+  drift between commits even when membership is unchanged (deferred in
+  `docs/plans/hierarchy-correctness-and-clustering-redesign.md`)
 
 ## Validation baseline
 
