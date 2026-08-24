@@ -392,6 +392,15 @@ async function mergeLayerClustering(
   };
 
   const docsStored = readArtifact<DocExtract[]>(ctx, "docs");
+  if (!docsStored && ctx.docs.length > 0) {
+    // No cached docs artifact, but discoverable doc files exist: the real docs artifact a
+    // subsequent `scv analyze` computes will be non-empty, and we have no way to produce that
+    // narration without an LLM call. Hashing against `docs: []` here would let the merged layers
+    // artifact look fresh now and then mismatch (and get recomputed, invoking Pass C) the moment
+    // a real analyze runs docs first. Skip the write instead of caching a hash we know is wrong.
+    warnings.push("skipped layers merge: no cached docs artifact, but doc files were discovered — run a real analyze (or merge docs) first so the layers hash reflects real docs data");
+    return { merged: 0, skipped: Object.keys(pendingLayers).length };
+  }
   const layersInputHash = await computeInputHash("layers", ctx, {
     functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
     docs: docsStored?.data ?? [],

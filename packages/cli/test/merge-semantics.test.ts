@@ -365,6 +365,19 @@ describe("mergeSemantics", () => {
     expect(hashWithDocs).not.toBe(hashWithoutDocs);
   });
 
+  it("with --with-clustering, skips the layers write when doc files exist but no docs artifact is cached yet", async () => {
+    const docsScvDir = mkdtempSync(path.join(tmpdir(), "scv-merge-semantics-docs-"));
+    const docsCtx: ArtifactContext = { ...ctx, scvDir: docsScvDir, docs: [{ path: "README.md", content: "# Orderly\n\nSome real content here." }] };
+
+    const pendingFile = writePending({ units: {}, layers: {} });
+    const result = await mergeSemantics({ pendingFile, ctx: docsCtx, root: orderlyRoot, withClustering: true });
+
+    expect(result.merged).toBe(0);
+    expect(result.warnings.some((w) => w.includes("no cached docs artifact"))).toBe(true);
+    const artifactFile = path.join(docsScvDir, "artifacts", sha, "layers.json");
+    expect(existsSync(artifactFile)).toBe(false);
+  });
+
   it("--sha with a persisted .scv/snapshots/<sha>.json merges against that snapshot, not the current worktree", async () => {
     const historicalSha = "historical-sha";
     const historicalSnapshot = toSnapshot(await extractRepo(orderlyRoot), {
