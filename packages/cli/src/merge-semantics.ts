@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { extractRepo, isGeneratedPath, isTestPath } from "@scv/extractor";
-import { PendingSemanticsSchema, semanticHashInput, type Unit } from "@scv/schema";
-import { runPassB, layerIdFor, CLUSTERING_VERSION, type ImportEdge, type Layer, type Provider } from "@scv/interpreter";
+import { extractRepo, isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
+import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type Snapshot, type Unit } from "@scv/schema";
+import { runPassB, layerIdFor, CLUSTERING_VERSION, type DocExtract, type ImportEdge, type Layer, type Provider } from "@scv/interpreter";
 import { computeInputHash, type ArtifactContext } from "./artifacts.js";
 import { discoverDocs } from "./discover-docs.js";
-import { headRev } from "./rev.js";
+import { changedFiles, headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
 
 interface FunctionsData {
@@ -33,6 +33,9 @@ interface StoredArtifact<T> {
 export interface MergeSemanticsOptions {
   pendingFile: string;
   ctx: ArtifactContext;
+  /** Filesystem repo root, used by `--scope changed` to run `git diff` against. `ctx.snapshot.repo.root`
+   *  is a display name (`path.basename`), not a usable path, so this must be passed separately. */
+  root: string;
   scope?: string[];
   withClustering?: boolean;
 }
@@ -63,10 +66,33 @@ function writeArtifact<T>(ctx: ArtifactContext, name: string, inputHash: string,
   writeFileSync(file, JSON.stringify({ inputHash, data } satisfies StoredArtifact<T>));
 }
 
-/** True when `id` is unrestricted (no --scope) or exactly listed in `scope`. */
-function inScope(id: string, scope: string[] | undefined): boolean {
-  if (!scope || scope.length === 0) return true;
-  return scope.includes(id);
+/** Converts a `--scope` glob (`*` = one path segment, `**` = any depth) to a matcher against
+ *  dotted unit ids/qualnames (e.g. `u:src.handlers.create_order`), where `.` is the segment
+ *  separator. */
+function globToRegExp(glob: string): RegExp {
+  const escaped = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  const pattern = escaped
+    .replace(/\*\*/g, " ")
+    .replace(/\*/g, "[^.]*")
+    .replace(/ /g, ".*");
+  return new RegExp(`^${pattern}$`);
+}
+
+/**
+ * `--scope` semantics per the plan: `all` (or omitted) matches every entry; `changed` matches
+ * units whose file appears in `git diff --name-only HEAD~1 HEAD`; anything else is a glob
+ * matched against the unit id.
+ */
+function inScope(unit: { id: string; loc: { files: string[] } }, scope: string[] | undefined, root: string): boolean {
+  if (!scope || scope.length === 0 || scope.includes("all")) return true;
+
+  return scope.some((pattern) => {
+    if (pattern === "changed") {
+      const changed = changedFiles(root);
+      return unit.loc.files.some((f) => changed.includes(f));
+    }
+    return globToRegExp(pattern).test(unit.id);
+  });
 }
 
 export interface RunMergeSemanticsOptions {
@@ -86,13 +112,78 @@ const noopProvider: Provider = {
   },
 };
 
+const STRUCTURAL_KINDS = new Set(["module", "class", "function"]);
+const STRUCTURAL_EDGE_KINDS = new Set(["imports", "calls", "inherits"]);
+
+/** Rebuilds a `SymbolGraph`-shaped object from a persisted structural snapshot's units/edges.
+ *  Exact for hashing: `toUnit`/`toEdge` (in snapshot.ts) copy `hash.struct`/`hash.text`/`from`/
+ *  `to`/`kind` verbatim from the original `SymbolGraph`, so `graphHash` over this reconstruction
+ *  matches what it was when the snapshot was written — the other `SymbolUnit`/`SymbolEdge`
+ *  fields (`params`, `returns`, `bases`, `metrics`, `authors`, `evidence`, `confidence`) are
+ *  never read by anything `merge-semantics` calls (no pass runs; only `graphHash` inspects
+ *  `graph`). Non-structural units (layer/group/api_flow/block/etc., only present in a
+ *  post-LLM snapshot) are dropped — raw extraction never emits those kinds either. */
+function graphFromSnapshot(snapshot: Snapshot): SymbolGraph {
+  const structuralUnits = snapshot.units.filter(
+    (u): u is Unit & { kind: "module" | "class" | "function" } => STRUCTURAL_KINDS.has(u.kind),
+  );
+  return {
+    units: structuralUnits.map((u) => ({
+      id: u.id,
+      kind: u.kind,
+      name: u.name,
+      qualname: u.qualname,
+      lang: u.lang ?? "",
+      parent: u.parent,
+      children: u.children,
+      loc: { file: u.loc.files[0] ?? "", start: u.loc.start ?? 0, end: u.loc.end ?? 0 },
+      sloc: u.loc.sloc,
+      params: [],
+      returns: null,
+      bases: [],
+      hash: { struct: u.hash.struct ?? "", text: u.hash.text ?? "" },
+      metrics: { fanIn: u.metrics.fan_in ?? 0, fanOut: u.metrics.fan_out ?? 0, churn: u.metrics.churn ?? 0, commits: u.metrics.commits ?? 0 },
+      authors: u.authors ?? [],
+    })),
+    edges: snapshot.edges
+      .filter((e): e is Edge & { kind: "imports" | "calls" | "inherits" } => STRUCTURAL_EDGE_KINDS.has(e.kind))
+      .map((e) => ({
+        id: e.id,
+        from: e.from,
+        to: e.to,
+        kind: e.kind,
+        confidence: e.confidence,
+        evidence: e.evidence?.[0] ?? { file: "", line: 0 },
+      })),
+    externals: [],
+    blockGraph: {},
+    routes: [],
+  };
+}
+
+function loadPersistedSnapshot(scvDir: string, sha: string): Snapshot | undefined {
+  const file = path.join(scvDir, "snapshots", `${sha}.json`);
+  if (!existsSync(file)) return undefined;
+  try {
+    return SnapshotSchema.parse(JSON.parse(readFileSync(file, "utf-8")));
+  } catch {
+    return undefined;
+  }
+}
+
 /** CLI entry point: builds an `ArtifactContext` from `root` (no provider, no LLM calls — merge
- *  is purely file-based) and runs `mergeSemantics` against it. */
+ *  is purely file-based) and runs `mergeSemantics` against it. When `--sha` names a commit with
+ *  a persisted `.scv/snapshots/<sha>.json` (e.g. from a prior `--no-llm` run), merges against
+ *  that structural snapshot instead of the current worktree — extraction has no historical-sha
+ *  capability, so this is the only way to merge against a non-HEAD revision. Falls back to live
+ *  extraction of the current worktree when no such snapshot exists. */
 export async function runMergeSemantics(options: RunMergeSemanticsOptions): Promise<MergeSemanticsResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
-  const graph = extractRepo(options.root, path.join(scvDir, "artifacts", "extraction-files"));
   const rev = options.sha ? { sha: options.sha, kind: "commit" as const, ts: "", author: "", author_kind: "human" as const } : headRev(options.root);
-  const snapshot = toSnapshot(graph, { root: options.root, rev });
+
+  const persisted = loadPersistedSnapshot(scvDir, rev.sha);
+  const graph = persisted ? graphFromSnapshot(persisted) : extractRepo(options.root, path.join(scvDir, "artifacts", "extraction-files"));
+  const snapshot = persisted ?? toSnapshot(graph, { root: options.root, rev });
 
   const ctx: ArtifactContext = {
     scvDir,
@@ -107,11 +198,11 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
     force: new Set(),
   };
 
-  return mergeSemantics({ pendingFile: options.pendingFile, ctx, scope: options.scope, withClustering: options.withClustering });
+  return mergeSemantics({ pendingFile: options.pendingFile, ctx, root: options.root, scope: options.scope, withClustering: options.withClustering });
 }
 
 export async function mergeSemantics(options: MergeSemanticsOptions): Promise<MergeSemanticsResult> {
-  const { pendingFile, ctx, scope, withClustering } = options;
+  const { pendingFile, ctx, root, scope, withClustering } = options;
   const warnings: string[] = [];
 
   const raw = JSON.parse(readFileSync(pendingFile, "utf-8"));
@@ -130,14 +221,13 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   let skipped = 0;
 
   for (const [id, entry] of Object.entries(pending.units)) {
-    if (!inScope(id, scope)) continue;
-
     const unit = unitById.get(id);
     if (!unit) {
       warnings.push(`unit ${id} not found in current extraction — skipped`);
       skipped++;
       continue;
     }
+    if (!inScope(unit, scope, root)) continue;
     if (unit.kind !== entry.kind) {
       warnings.push(`unit ${id} has kind "${unit.kind}", pending entry declares "${entry.kind}" — skipped`);
       skipped++;
@@ -301,9 +391,10 @@ async function mergeLayerClustering(
     promptRev: ctx.promptRev,
   };
 
+  const docsStored = readArtifact<DocExtract[]>(ctx, "docs");
   const layersInputHash = await computeInputHash("layers", ctx, {
     functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
-    docs: [],
+    docs: docsStored?.data ?? [],
   });
   writeArtifact(ctx, "layers", layersInputHash, layersData);
 

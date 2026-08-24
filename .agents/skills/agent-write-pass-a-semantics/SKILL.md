@@ -53,14 +53,16 @@ injects it into the artifact cache as if a real Pass A had produced it.
    scv merge-semantics <pending-file> [root] [--scope <id...>] [--sha <sha>]
    ```
 
-   Omit `--scope` to merge every entry in the file; pass explicit unit ids
-   to restrict a merge to a subset. `--sha` only labels which artifact
-   directory to write under (defaults to HEAD) — extraction always reads
-   the current worktree, it does not check out or diff a historical
-   commit. The command prints `merged N, skipped
-   M` and warns (to stderr) about any unit id that didn't match current
-   extraction or had a `kind` mismatch — those entries are skipped, not
-   fatal.
+   Omit `--scope` (or pass `all`) to merge every entry in the file; pass
+   `changed` to restrict to units whose files changed vs `HEAD~1`, or
+   explicit unit-id globs to restrict to a subset. `--sha` selects which
+   revision to merge against (defaults to HEAD): if a persisted
+   `.scv/snapshots/<sha>.json` exists for it (e.g. from a prior `--no-llm`
+   run at that commit), merge runs against that structural snapshot;
+   otherwise it falls back to extracting the current worktree. The command
+   prints `merged N, skipped M` and warns (to stderr) about any unit id
+   that didn't match current extraction or had a `kind` mismatch — those
+   entries are skipped, not fatal.
 5. A subsequent `scv analyze <root>` reuses the merged `functions` artifact
    as-is (its `inputHash` already matches) — no provider call happens for
    merged units. Units outside scope still compute normally on the next

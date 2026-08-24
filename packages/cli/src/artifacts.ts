@@ -119,7 +119,7 @@ function writeArtifact<T>(ctx: ArtifactContext, name: ArtifactName, inputHash: s
 }
 
 function hashOf(...parts: string[]): string {
-  return createHash("sha1").update(parts.join(" ")).digest("hex");
+  return createHash("sha1").update(parts.join("\0")).digest("hex");
 }
 
 function graphHash(graph: SymbolGraph): string {

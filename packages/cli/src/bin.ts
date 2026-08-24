@@ -66,9 +66,15 @@ program
   .description("inject agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache — no LLM calls")
   .argument("<pending-file>", "path to the pending-semantics JSON file")
   .argument("[root]", "repo root to analyze", ".")
-  .option("--scope <ids...>", "only merge these unit ids; all pending entries merge if omitted")
+  .option(
+    "--scope <entries...>",
+    "restrict merge to: all pending entries (default/'all'), files changed vs HEAD~1 ('changed'), or unit-id globs",
+  )
   .option("--with-clustering", "also run Pass B clustering (deterministic, no LLM) and merge pending layer narration")
-  .option("--sha <sha>", "sha to file the merged artifacts under; defaults to HEAD. Extraction always reads the current worktree — this does not check out or diff a historical commit.")
+  .option(
+    "--sha <sha>",
+    "sha to merge against; defaults to HEAD. Merges against the persisted .scv/snapshots/<sha>.json when present, otherwise extracts the current worktree.",
+  )
   .action(async (pendingFile: string, root: string, opts: { scope?: string[]; withClustering?: boolean; sha?: string }) => {
     const result = await runMergeSemantics({
       root,

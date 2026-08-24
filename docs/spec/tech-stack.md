@@ -40,7 +40,7 @@ it.
 Pluggable, same prompts/schema across providers, configured via
 `.scv/config.yaml`:
 
-- `ollama` — local, default (`qwen3.6:0.8b-mlx`)
+- `ollama` — local, default (`qwen3.5:9b-mlx`)
 - `anthropic` — cloud, default `claude-sonnet-5`, requires
   `ANTHROPIC_API_KEY` in environment (never committed)
 - `claude-cli` — shells out to local `claude` CLI (fixtures/manual use only,
