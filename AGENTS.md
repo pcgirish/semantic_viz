@@ -89,5 +89,10 @@ its description:
   this file and `.agents/skills/` follow the open conventions those tools read
   natively — no extra setup needed.
 
+## Project Spec
+See `docs/spec/mission.md`, `docs/spec/tech-stack.md`, and `docs/spec/roadmap.md`
+for project intent, stack choices, and current status — read these first when
+landing cold in the repo.
+
 ## Architecture
 See `docs/design.md` for design/architecture decisions.

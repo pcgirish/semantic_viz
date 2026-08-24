@@ -72,9 +72,9 @@ A grammar dependency plus one `queries.scm` emitting the uniform fact stream (`d
 
 Not every commit. Walking history commit-by-commit with the LLM is O(commits) spend for a cache nobody has looked at yet.
 
-**Step 1 — HEAD, full depth.** Extract the working tree, run Interpreter A–C, write `snapshots/<head>.json`. The only expensive step, and the one that produces the "what exists now" view — the bulk of the product. Target: 50k LOC in single-digit minutes.
+**Step 1 — HEAD, full depth.** Extract the working tree, run Interpreter A–C, write `snapshots/<head>.json`. The only expensive step, and the one that produces the "what exists now" view. Target: 50k LOC in single-digit minutes.
 
-**Step 2 — cheap structural spine.** Walk back N revs (default: last 50 PR merges, or `--since 90d`), extracting **structurally only**, no LLM. Extraction is cached by file blob hash, so a 50-rev backfill re-parses only files that actually changed in that window — typically 5–15% of the tree. This yields the replay timeline, churn, authorship, and edge-topology deltas on day one.
+**Step 2 — cheap structural spine.** Walk back N revs (default: last 50 PR merges, or `--since 90d`), extracting **structurally only**, no LLM. Extraction is cached by file blob hash, so a 50-rev backfill re-parses only files that actually changed in that window — typically 5–15% of the tree. This yields the replay timeline, churn, authorship, and edge-topology deltas on day one — the foundation the "what changed" view is built on.
 
 **Step 3 — lazy semantic lift.** Historical semantics fill in on demand: opening a delta for rev X lifts only the units whose `text_hash` changed and lack cached semantics. Cached forever after. Most historical units are never viewed and never cost anything.
 
