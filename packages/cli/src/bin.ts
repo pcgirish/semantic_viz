@@ -68,7 +68,7 @@ program
   .argument("[root]", "repo root to analyze", ".")
   .option("--scope <ids...>", "only merge these unit ids; all pending entries merge if omitted")
   .option("--with-clustering", "also run Pass B clustering (deterministic, no LLM) and merge pending layer narration")
-  .option("--sha <sha>", "commit sha to merge against; defaults to HEAD")
+  .option("--sha <sha>", "sha to file the merged artifacts under; defaults to HEAD. Extraction always reads the current worktree — this does not check out or diff a historical commit.")
   .action(async (pendingFile: string, root: string, opts: { scope?: string[]; withClustering?: boolean; sha?: string }) => {
     const result = await runMergeSemantics({
       root,

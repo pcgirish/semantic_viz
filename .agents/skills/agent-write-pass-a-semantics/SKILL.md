@@ -54,7 +54,10 @@ injects it into the artifact cache as if a real Pass A had produced it.
    ```
 
    Omit `--scope` to merge every entry in the file; pass explicit unit ids
-   to restrict a merge to a subset. The command prints `merged N, skipped
+   to restrict a merge to a subset. `--sha` only labels which artifact
+   directory to write under (defaults to HEAD) — extraction always reads
+   the current worktree, it does not check out or diff a historical
+   commit. The command prints `merged N, skipped
    M` and warns (to stderr) about any unit id that didn't match current
    extraction or had a `kind` mismatch — those entries are skipped, not
    fatal.

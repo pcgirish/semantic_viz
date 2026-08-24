@@ -8,6 +8,13 @@ import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/a
 import { mergeSemantics } from "../src/merge-semantics.js";
 import { toSnapshot } from "../src/snapshot.js";
 
+interface StoredLayers {
+  data: {
+    layerUnits: { id: string; name: string; semantics: { what: string } }[];
+    layers: { name: string; files: string[] }[];
+  };
+}
+
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));
 
 describe("mergeSemantics", () => {
@@ -159,5 +166,88 @@ describe("mergeSemantics", () => {
     const result = await mergeSemantics({ pendingFile, ctx, scope: [firstId!] });
     expect(result.merged).toBe(1);
     expect(result.skipped).toBe(0);
+  });
+
+  it("carries full Unit shape (tags/cost/provenance) onto unmerged units, not just merged ones", async () => {
+    const targetId = functionUnitIds[0]!;
+    const untouchedId = functionUnitIds[1]!;
+    expect(untouchedId).toBeDefined();
+
+    const pendingFile = writePending({
+      units: {
+        [targetId]: {
+          kind: "function",
+          semantics: { what: "a", how: "b", when: "c", where: "d", why: "e", confidence: 0.5 },
+        },
+      },
+    });
+
+    await mergeSemantics({ pendingFile, ctx });
+
+    const artifactFile = path.join(scvDir, "artifacts", sha, "functions.json");
+    const stored = JSON.parse(readFileSync(artifactFile, "utf-8"));
+    const untouchedUnit = stored.data.units.find((u: { id: string }) => u.id === untouchedId);
+    expect(untouchedUnit).toBeDefined();
+    expect(untouchedUnit.tags).toEqual([]);
+    expect(untouchedUnit.provenance).toEqual({ source: "static" });
+    expect(untouchedUnit.semantics).toBeNull();
+  });
+
+  it("with --with-clustering, preserves every real cluster's layerUnits, not only narrated ones", async () => {
+    const pendingFile = writePending({ units: {}, layers: {} });
+
+    const result = await mergeSemantics({ pendingFile, ctx, withClustering: true });
+    expect(result.merged).toBe(0);
+
+    const artifactFile = path.join(scvDir, "artifacts", sha, "layers.json");
+    expect(existsSync(artifactFile)).toBe(true);
+    const stored = JSON.parse(readFileSync(artifactFile, "utf-8")) as StoredLayers;
+
+    expect(stored.data.layerUnits.length).toBeGreaterThan(0);
+    expect(stored.data.layers.length).toBe(stored.data.layerUnits.length);
+    for (const unit of stored.data.layerUnits) {
+      expect(unit.semantics.what).toBe("(no summary)");
+    }
+  });
+
+  it("with --with-clustering, narrated clusters get pending narration; others get placeholders", async () => {
+    const emptyPendingFile = writePending({ units: {}, layers: {} });
+    await mergeSemantics({ pendingFile: emptyPendingFile, ctx, withClustering: true });
+    const baselineFile = path.join(scvDir, "artifacts", sha, "layers.json");
+    const baseline = JSON.parse(readFileSync(baselineFile, "utf-8")) as StoredLayers;
+    expect(baseline.data.layers.length).toBeGreaterThan(1);
+    const targetLayer = baseline.data.layers[0]!;
+
+    const pendingFile = writePending({
+      units: {},
+      layers: {
+        chosen: {
+          name: "Narrated",
+          files: targetLayer.files,
+          what: "Schema migrations",
+          how: "Runs SQL DDL",
+          when: "At migration time",
+          where: "migrations/",
+          why: "Keeps schema versioned",
+          confidence: 0.9,
+        },
+      },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, withClustering: true });
+    expect(result.merged).toBe(1);
+    expect(result.skipped).toBe(0);
+
+    const artifactFile = path.join(scvDir, "artifacts", sha, "layers.json");
+    const stored = JSON.parse(readFileSync(artifactFile, "utf-8")) as StoredLayers;
+
+    expect(stored.data.layers.length).toBe(baseline.data.layers.length);
+    const narrated = stored.data.layers.find((l) => l.name === "Narrated");
+    expect(narrated).toBeDefined();
+    const placeholders = stored.data.layers.filter((l) => l.name !== "Narrated");
+    expect(placeholders.length).toBe(baseline.data.layers.length - 1);
+    for (const layer of placeholders) {
+      expect(stored.data.layerUnits.find((u) => u.name === layer.name)?.semantics.what).toBe("(no summary)");
+    }
   });
 });

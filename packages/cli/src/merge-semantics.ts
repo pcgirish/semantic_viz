@@ -119,7 +119,7 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
 
   const functionsStored = readArtifact<FunctionsData>(ctx, "functions");
   const functionsData: FunctionsData = functionsStored?.data ?? {
-    units: ctx.graph.units.map((u) => u as unknown as Unit),
+    units: ctx.snapshot.units,
     blockUnits: [],
     blockEdges: [],
   };
@@ -170,7 +170,7 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   const functionsInputHash = await computeInputHash("functions", ctx, {});
   writeArtifact(ctx, "functions", functionsInputHash, functionsData);
 
-  if (withClustering && Object.keys(pending.layers).length > 0) {
+  if (withClustering) {
     const clusterResult = await mergeLayerClustering(ctx, pending.layers, functionsData.units, warnings);
     merged += clusterResult.merged;
     skipped += clusterResult.skipped;
@@ -214,44 +214,85 @@ async function mergeLayerClustering(
   }
 
   const passB = runPassB({ files, edges: importEdges });
-  const realLayerFilesById = new Map(passB.groups);
+
+  const pendingByRealId = new Map<string, (typeof pendingLayers)[string]>();
+  for (const [pendingId, entry] of Object.entries(pendingLayers)) {
+    const realId = layerIdFor(entry.files);
+    if (!passB.groups.has(realId)) {
+      warnings.push(`layer ${pendingId} (files: ${entry.files.join(", ")}) does not match any real cluster — skipped`);
+      continue;
+    }
+    pendingByRealId.set(realId, entry);
+  }
 
   let merged = 0;
-  let skipped = 0;
+  const skipped = Object.keys(pendingLayers).length - pendingByRealId.size;
   const layers: Layer[] = [];
   const parentOverride: [string, string][] = [];
   const layerIdByName: [string, string][] = [];
+  const layerUnits: Unit[] = [];
 
-  for (const [pendingId, entry] of Object.entries(pendingLayers)) {
-    const realId = layerIdFor(entry.files);
-    const realFiles = realLayerFilesById.get(realId);
-    if (!realFiles) {
-      warnings.push(`layer ${pendingId} (files: ${entry.files.join(", ")}) does not match any real cluster — skipped`);
-      skipped++;
-      continue;
-    }
-
-    const layer: Layer = {
-      name: entry.name,
-      files: realFiles,
-      what: entry.what,
-      how: entry.how,
-      when: entry.when,
-      where: entry.where,
-      why: entry.why,
-      confidence: entry.confidence,
-      source: "llm",
-    };
+  for (const [realId, realFiles] of passB.groups) {
+    const entry = pendingByRealId.get(realId);
+    const layer: Layer = entry
+      ? {
+          name: entry.name,
+          files: realFiles,
+          what: entry.what,
+          how: entry.how,
+          when: entry.when,
+          where: entry.where,
+          why: entry.why,
+          confidence: entry.confidence,
+          source: "llm",
+        }
+      : {
+          name: realId,
+          files: realFiles,
+          what: "(no summary)",
+          how: "(no summary)",
+          when: "(no summary)",
+          where: "(no summary)",
+          why: "(no summary)",
+          confidence: 0,
+          source: "llm",
+        };
     layers.push(layer);
-    layerIdByName.push([entry.name, realId]);
+    layerIdByName.push([layer.name, realId]);
     for (const file of realFiles) {
       for (const unit of unitsByFile.get(file) ?? []) parentOverride.push([unit.id, realId]);
     }
-    merged++;
+
+    const memberUnits = realFiles.flatMap((f) => unitsByFile.get(f) ?? []);
+    const memberIds = memberUnits.map((u) => u.id);
+    if (memberIds.length === 0) continue;
+    layerUnits.push({
+      id: realId,
+      kind: "layer",
+      name: layer.name,
+      qualname: layer.name,
+      lang: undefined,
+      parent: null,
+      children: memberIds,
+      loc: {
+        files: [...new Set(memberUnits.flatMap((u) => u.loc.files))],
+        start: null,
+        end: null,
+        sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0),
+      },
+      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: "llm" },
+      cost: null,
+      tags: [],
+      metrics: { sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
+      authors: undefined,
+      hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
+      provenance: { source: "llm", pass: "C" },
+    });
+    if (entry) merged++;
   }
 
   const layersData: LayersData = {
-    layerUnits: [],
+    layerUnits,
     layers,
     parentOverride,
     layerIdByName,
