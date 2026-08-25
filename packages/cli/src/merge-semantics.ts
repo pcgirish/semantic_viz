@@ -4,7 +4,8 @@ import path from "node:path";
 import { extractRepo, isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
 import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type Snapshot, type Unit } from "@scv/schema";
 import { runPassB, layerIdFor, CLUSTERING_VERSION, type DocExtract, type ImportEdge, type Layer, type Provider } from "@scv/interpreter";
-import { computeInputHash, type ArtifactContext } from "./artifacts.js";
+import { computeInputHash, type ArtifactContext, type ArtifactName } from "./artifacts.js";
+import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { discoverDocs } from "./discover-docs.js";
 import { changedFiles, headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
@@ -53,6 +54,12 @@ export interface MergeSemanticsResult {
   merged: number;
   skipped: number;
   warnings: string[];
+}
+
+export interface RunMergeSemanticsResult extends MergeSemanticsResult {
+  snapshot: Snapshot;
+  path: string;
+  emptyArtifacts: ArtifactName[];
 }
 
 function artifactFile(ctx: ArtifactContext, name: string): string {
@@ -186,7 +193,7 @@ function loadPersistedSnapshot(scvDir: string, sha: string): Snapshot | undefine
  *  that structural snapshot instead of the current worktree — extraction has no historical-sha
  *  capability, so this is the only way to merge against a non-HEAD revision. Falls back to live
  *  extraction of the current worktree when no such snapshot exists. */
-export async function runMergeSemantics(options: RunMergeSemanticsOptions): Promise<MergeSemanticsResult> {
+export async function runMergeSemantics(options: RunMergeSemanticsOptions): Promise<RunMergeSemanticsResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
   const rev = options.sha ? { sha: options.sha, kind: "commit" as const, ts: "", author: "", author_kind: "human" as const } : headRev(options.root);
 
@@ -205,9 +212,13 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
     docs: discoverDocs(options.root),
     reportProgress: () => {},
     force: new Set(),
+    noLlm: true,
   };
 
-  return mergeSemantics({ pendingFile: options.pendingFile, ctx, root: options.root, scope: options.scope, withClustering: options.withClustering });
+  const mergeResult = await mergeSemantics({ pendingFile: options.pendingFile, ctx, root: options.root, scope: options.scope, withClustering: options.withClustering });
+  const assembled = await assembleSnapshotFromCache({ ctx, rev, scvDir });
+
+  return { ...mergeResult, snapshot: assembled.snapshot, path: assembled.path, emptyArtifacts: assembled.emptyArtifacts };
 }
 
 export async function mergeSemantics(options: MergeSemanticsOptions): Promise<MergeSemanticsResult> {

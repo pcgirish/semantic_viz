@@ -188,14 +188,13 @@ describe("runAnalyze", () => {
     expect(raw).toContain("logLevel: info");
   });
 
-  it("--no-llm produces a static-only snapshot with no LLM calls", async () => {
+  it("--no-llm merges from cache only, calling no provider, and reports every uncached artifact as empty", async () => {
     const provider = fakeProvider();
     const written = await runAnalyze({ root: orderlyRoot, scvDir, provider, noLlm: true });
 
     expect(provider.interpret).not.toHaveBeenCalled();
     expect(written.snapshot.units.length).toBeGreaterThan(0);
-    expect(written.snapshot.units.every((u) => u.semantics === null)).toBe(true);
-    expect(written.snapshot.units.some((u) => u.kind === "system")).toBe(false);
+    expect(written.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "functions", "groups", "layers"]);
   });
 
   it("computing just 'functions' then 'layers' reuses the persisted functions artifact without recalling Pass A", async () => {
@@ -208,6 +207,24 @@ describe("runAnalyze", () => {
     await runAnalyze({ root: orderlyRoot, scvDir, provider: provider2, artifact: "layers" });
     const passACallsOnLayersRun = countPassACalls(provider2);
     expect(passACallsOnLayersRun).toBe(0);
+  });
+
+  it("--force contradicts --no-llm and rejects with a clear error", async () => {
+    await expect(
+      runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), noLlm: true, force: true, artifact: "layers" }),
+    ).rejects.toThrow(/--force contradicts --no-llm/);
+  });
+
+  it("scv analyze layers calls the provider for functions/docs/layers but never for groups/flows", async () => {
+    const provider = fakeProvider();
+    await runAnalyze({ root: orderlyRoot, scvDir, provider, artifact: "layers" });
+
+    const calls = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls.map((call) => String(call[0]));
+    expect(calls.some((p) => p.includes("naming and describing a cluster of files"))).toBe(true);
+    expect(calls.some((p) => p.includes("analyzing a single"))).toBe(true);
+    expect(calls.some((p) => p.includes("proposing merges of a codebase's architectural layers"))).toBe(false);
+    expect(calls.some((p) => p.includes("identifying api_flow"))).toBe(false);
+    expect(calls.some((p) => p.includes("describing an api_flow named"))).toBe(false);
   });
 
   it("running analyze twice with no changes performs zero LLM calls on the second run", async () => {

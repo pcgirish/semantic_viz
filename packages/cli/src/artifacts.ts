@@ -115,6 +115,9 @@ export interface ArtifactContext {
   /** Layers from the nearest ancestor analysis with a cached layers artifact, keyed by structural
    *  id. Absent on a first analysis; every cluster is then named fresh. */
   previousLayers?: Map<string, Layer>;
+  /** True for a `--no-llm` run. Informational only — actual no-provider gating happens via
+   *  `EnsureArtifactOptions.allowProvider`, computed by the caller from this flag. */
+  noLlm?: boolean;
 }
 
 function artifactFile(ctx: ArtifactContext, name: ArtifactName): string {
@@ -314,10 +317,67 @@ function unitsByFileFrom(units: Unit[]): Map<string, Unit[]> {
   return map;
 }
 
+function emptyArtifactDefault<N extends ArtifactName>(name: N, ctx: ArtifactContext): ArtifactDataMap[N] {
+  const defaults: ArtifactDataMap = {
+    extraction: ctx.graph,
+    functions: { units: ctx.snapshot.units, blockUnits: [], blockEdges: [] },
+    docs: [],
+    clusters: {
+      groups: [],
+      unitsByFile: [],
+      repoContextText: undefined,
+      modularity: 0,
+      directoryModularity: 0,
+      clusteringVersion: CLUSTERING_VERSION,
+    },
+    layers: {
+      layerUnits: [],
+      layers: [],
+      parentOverride: [],
+      layerIdByName: [],
+      repoContextText: undefined,
+      clusteringVersion: CLUSTERING_VERSION,
+      promptRev: ctx.promptRev,
+    },
+    groups: { groupUnits: [], layerParent: [] },
+    flows: [],
+  };
+  return defaults[name] as ArtifactDataMap[N];
+}
+
+export interface EnsureArtifactOptions {
+  /** Names allowed to call the provider on a cache miss/staleness. Absent = every artifact may
+   *  call the provider (today's full-pipeline default). Present and not containing `name` = use
+   *  `emptyArtifactDefault` instead of computing. */
+  allowProvider?: ReadonlySet<ArtifactName>;
+}
+
+export interface EnsuredArtifact<T> {
+  data: T;
+  /** Every artifact name that was empty-defaulted anywhere in this call's dependency recursion,
+   *  including `name` itself if it was defaulted. A dependency resolved from a real, fresh cache
+   *  entry is never in this set, even if its own payload happens to be empty. */
+  defaultedArtifacts: Set<ArtifactName>;
+}
+
+/** Walks `ARTIFACT_DEPENDENCIES` from `name`, returning `name` plus every name transitively
+ *  reachable from it. Used to scope `allowProvider` to a targeted artifact's dependency closure. */
+export function dependencyClosure(name: ArtifactName): Set<ArtifactName> {
+  const closure = new Set<ArtifactName>();
+  const visit = (n: ArtifactName): void => {
+    if (closure.has(n)) return;
+    closure.add(n);
+    for (const dep of ARTIFACT_DEPENDENCIES[n]) visit(dep);
+  };
+  visit(name);
+  return closure;
+}
+
 /**
  * Freshens `name`'s dependencies first (recursively), then reuses the persisted artifact at
  * `.scv/artifacts/<sha>/<name>.json` if its stored inputHash still matches; otherwise recomputes
- * it via the corresponding interpreter pass and persists the result.
+ * it via the corresponding interpreter pass and persists the result — unless `opts.allowProvider`
+ * excludes `name`, in which case an empty default is returned instead of calling the provider.
  */
 /**
  * Reads a previously-analyzed commit's layers, keyed by structural id, for carry-over. Walks
@@ -350,20 +410,42 @@ export function loadPreviousLayers(scvDir: string, root: string, promptRev: stri
   return new Map();
 }
 
-export async function ensureArtifact<N extends ArtifactName>(name: N, ctx: ArtifactContext): Promise<ArtifactDataMap[N]> {
+export async function ensureArtifact<N extends ArtifactName>(
+  name: N,
+  ctx: ArtifactContext,
+  opts?: EnsureArtifactOptions,
+): Promise<EnsuredArtifact<ArtifactDataMap[N]>> {
+  const defaultedArtifacts = new Set<ArtifactName>();
   const deps: Partial<ArtifactDataMap> = {};
   for (const dep of ARTIFACT_DEPENDENCIES[name]) {
-    const depData = await ensureArtifact(dep, ctx);
-    (deps as Record<ArtifactName, unknown>)[dep] = depData;
+    const depResult = await ensureArtifact(dep, ctx, opts);
+    (deps as Record<ArtifactName, unknown>)[dep] = depResult.data;
+    for (const d of depResult.defaultedArtifacts) defaultedArtifacts.add(d);
   }
 
   const inputHash = await computeInputHash(name, ctx, deps);
   const stored = readArtifact<ArtifactDataMap[N]>(ctx, name);
-  if (stored && stored.inputHash === inputHash && !ctx.force.has(name)) {
-    return stored.data;
+  const fresh = stored && stored.inputHash === inputHash && !ctx.force.has(name);
+  // `extraction` never calls a provider to begin with — always compute it for real, regardless
+  // of `allowProvider`; it can never be empty-defaulted.
+  const mayCallProvider = name === "extraction" || !opts?.allowProvider || opts.allowProvider.has(name);
+
+  if (!fresh && !mayCallProvider) {
+    defaultedArtifacts.add(name);
+    return { data: emptyArtifactDefault(name, ctx), defaultedArtifacts };
   }
+  if (fresh) return { data: stored.data, defaultedArtifacts };
 
   const data = (await computeArtifact(name, ctx, deps)) as ArtifactDataMap[N];
   writeArtifact(ctx, name, inputHash, data);
-  return data;
+  return { data, defaultedArtifacts };
+}
+
+/** Thin wrapper for call sites that only need the data, not the `defaultedArtifacts` set. */
+export async function ensureArtifactData<N extends ArtifactName>(
+  name: N,
+  ctx: ArtifactContext,
+  opts?: EnsureArtifactOptions,
+): Promise<ArtifactDataMap[N]> {
+  return (await ensureArtifact(name, ctx, opts)).data;
 }

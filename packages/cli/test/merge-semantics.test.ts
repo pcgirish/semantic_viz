@@ -107,7 +107,7 @@ describe("mergeSemantics", () => {
     const expectedHash = await computeInputHash("functions", ctx, {});
     expect(stored.inputHash).toBe(expectedHash);
 
-    const data = await ensureArtifact("functions", ctx);
+    const data = (await ensureArtifact("functions", ctx)).data;
     const reusedUnit = data.units.find((u) => u.id === targetId);
     expect(reusedUnit?.semantics?.what).toBe("Creates a new order");
   });
@@ -407,7 +407,7 @@ describe("mergeSemantics", () => {
       const realDocsHash = await computeInputHash("docs", docsCtx, {});
       expect(storedDocs.inputHash).toBe(realDocsHash);
       const docsViaEnsure = await ensureArtifact("docs", docsCtx);
-      expect(docsViaEnsure).toEqual([]);
+      expect(docsViaEnsure.data).toEqual([]);
     } finally {
       rmSync(docsScvDir, { recursive: true, force: true });
     }
@@ -446,5 +446,9 @@ describe("mergeSemantics", () => {
     expect(existsSync(artifactFile)).toBe(true);
     const stored = JSON.parse(readFileSync(artifactFile, "utf-8"));
     expect(stored.data.units.find((u: { id: string }) => u.id === targetId)?.semantics?.what).toBe("a");
+
+    expect(result.path).toBe(path.join(scvDir, "snapshots", `${historicalSha}.json`));
+    expect(existsSync(result.path)).toBe(true);
+    expect(result.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "groups", "layers"]);
   });
 });

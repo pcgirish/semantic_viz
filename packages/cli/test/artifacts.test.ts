@@ -226,6 +226,60 @@ describe("ensureArtifact", () => {
     expect(clustersHash2).toBe(clustersHash1);
     expect(layersHash2).not.toBe(layersHash1);
   });
+
+  it("allowProvider: empty set never calls the provider and defaults every uncached artifact", async () => {
+    const provider = fakeProvider();
+    const ctx = makeCtx(provider, []);
+
+    const result = await ensureArtifact("layers", ctx, { allowProvider: new Set() });
+
+    expect(provider.interpret).not.toHaveBeenCalled();
+    expect(result.defaultedArtifacts).toEqual(new Set(["functions", "docs", "clusters", "layers"]));
+    expect(result.data.layerUnits).toEqual([]);
+    expect(result.data.layers).toEqual([]);
+  });
+
+  it("a fresh cache hit is not counted as defaulted, even under allowProvider: empty set", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("layers", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs);
+    const result = await ensureArtifact("layers", ctx2, { allowProvider: new Set() });
+
+    expect(provider2.interpret).not.toHaveBeenCalled();
+    expect(result.defaultedArtifacts.size).toBe(0);
+    expect(result.data.layerUnits.length).toBeGreaterThan(0);
+  });
+
+  it("recursive dependency defaulting surfaces artifacts defaulted below the requested one", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("functions", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs);
+    const result = await ensureArtifact("layers", ctx2, { allowProvider: new Set() });
+
+    expect(provider2.interpret).not.toHaveBeenCalled();
+    expect(result.defaultedArtifacts.has("docs")).toBe(true);
+    expect(result.defaultedArtifacts.has("clusters")).toBe(true);
+    expect(result.defaultedArtifacts.has("layers")).toBe(true);
+    expect(result.defaultedArtifacts.has("functions")).toBe(false);
+  });
+
+  it("extraction always computes for real, even under allowProvider: empty set, and is never defaulted", async () => {
+    const provider = fakeProvider();
+    const ctx = makeCtx(provider, []);
+
+    const result = await ensureArtifact("extraction", ctx, { allowProvider: new Set() });
+
+    expect(result.defaultedArtifacts.has("extraction")).toBe(false);
+    expect(result.data).toBe(ctx.graph);
+  });
 });
 
 describe("ensureArtifact — artifact schema version", () => {
@@ -281,7 +335,7 @@ describe("ensureArtifact — artifact schema version", () => {
   });
 
   it("returns group units, not layer units", async () => {
-    const result = await ensureArtifact("groups", makeCtx(fakeProvider()));
+    const result = (await ensureArtifact("groups", makeCtx(fakeProvider()))).data;
     expect(result.groupUnits.length).toBeGreaterThan(0);
     for (const unit of result.groupUnits) expect(unit.kind).toBe("group");
     // Every layer reparents onto exactly one of them.
@@ -323,7 +377,7 @@ describe("layers artifact — carry-over across analyses", () => {
   }
 
   it("persists the resolved layer records alongside the units, so the next run has something to carry over", async () => {
-    const layers = await ensureArtifact("layers", ctxWith(fakeProvider()));
+    const layers = (await ensureArtifact("layers", ctxWith(fakeProvider()))).data;
     expect(layers.layers.length).toBe(layers.layerUnits.length);
     expect(layers.clusteringVersion).toBe(CLUSTERING_VERSION);
     // Every persisted record names a layer unit actually in the snapshot, keyed by its membership.
@@ -344,14 +398,14 @@ describe("layers artifact — carry-over across analyses", () => {
   });
 
   it("carries a predecessor's name onto an unchanged cluster, and makes no Pass C call for it", async () => {
-    const first = await ensureArtifact("layers", ctxWith(fakeProvider()));
+    const first = (await ensureArtifact("layers", ctxWith(fakeProvider()))).data;
     const previous = new Map(
       first.layers.map((layer) => [layerIdFor(layer.files), { ...layer, name: `renamed_${layer.name}` }]),
     );
 
     rmSync(path.join(scvDir, "artifacts", "fixed-sha"), { recursive: true, force: true });
     const provider = fakeProvider();
-    const second = await ensureArtifact("layers", ctxWith(provider, previous));
+    const second = (await ensureArtifact("layers", ctxWith(provider, previous))).data;
 
     const passCCalls = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
       String(call[0]).includes("naming and describing"),
