@@ -436,6 +436,23 @@ describe("App", () => {
     });
   });
 
+  it("labels the toolbar with the snapshot's repo name, not a hardcoded placeholder", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ ...makeSnapshot(), repo: { root: "eq_to_word_problem", vcs: "git" } }),
+      }),
+    );
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("eq_to_word_problem")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("orderly")).toBeNull();
+  });
+
   it("swaps the 2D canvas for the 3D host when the skin toggle is switched, keeping selection", async () => {
     vi.stubGlobal(
       "fetch",
