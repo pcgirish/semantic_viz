@@ -58,14 +58,39 @@ injects it into the artifact cache as if a real Pass A had produced it.
    (this phase's file; layer narration from `agent-narrate-layers` goes in
    a separate `semantics-layers.json` — the two are merged independently
    and in sequence, see that skill's Notes for why this is safe). Even when
-   authoring is parallelized (e.g. one subagent per module), all `units`
-   entries must land in this one file — never split output across several
-   per-module files (`semantics_backend.json`, `semantics_frontend.json`,
-   etc.). A split invites two ambiguities a single file avoids entirely:
-   which file is authoritative if scopes overlap, and whether every file
-   actually got merged. If parallelizing, have each worker return its
-   `units` map and merge them into this one file yourself before the next
-   step.
+   authoring is parallelized, all `units` entries must land in this one
+   file — never split output across several per-module files
+   (`semantics_backend.json`, `semantics_frontend.json`, etc.). A split
+   invites two ambiguities a single file avoids entirely: which file is
+   authoritative if scopes overlap, and whether every file actually got
+   merged. Each parallel worker must **return its `units` map as its
+   result**, not write its own pending file — you (the orchestrating
+   agent) collect every worker's map and merge them into this one file
+   yourself before the next step.
+
+   For a repo too large to author in one pass, parallelize by giving each
+   worker a folder as its default scope — not one function and not the
+   whole repo:
+   - One function per worker loses the sibling context (call sites, shared
+     state, the enclosing class) that makes semantics accurate, and
+     multiplies worker count for no benefit.
+     One worker per folder keeps a natural amount of local context and
+     roughly matches how Pass B will later cluster these files into layers,
+     so semantics agree across files that end up in the same layer.
+   - Adjust for size, in both directions: split a folder that's too big for
+     one worker's context (many files, or one large file) into smaller
+     per-file or per-file-subset workers; merge folders that are too small
+     to be worth a separate worker into a neighboring one.
+   - Refine the split using real call/import edges, not folder layout
+     alone: read `edges` from `.scv/snapshots/<sha>.json` (produced free by
+     `--no-llm`, no extra Pass B run needed) for the units in scope. If a
+     folder's units are connected mostly to units in a *different* folder
+     rather than to each other, put both folders in the same worker instead
+     of splitting on the directory boundary — this keeps tightly-coupled
+     code (e.g. a small `utils/` file called almost exclusively from one
+     module) together in one worker's context, and lets a large folder with
+     two loosely-coupled subsystems split cleanly along the edge cut
+     instead of an arbitrary file-count cut.
 4. Run:
 
    ```sh
