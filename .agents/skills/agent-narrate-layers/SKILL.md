@@ -16,11 +16,10 @@ artifact cache as if a real Pass C had produced it.
 ## Procedure
 
 1. Run `scv analyze --no-llm <root>` (or reuse an existing run) so file
-   paths are real. If you want to see the real clustering first, run
-   `scv analyze <root> layers --no-llm` is not sufficient (clustering needs
-   `--with-clustering` in the merge step below, not a separate analyze
-   flag) — instead just proceed to step 2 with your own understanding of
-   which files group together.
+   paths are real. To see the real clustering first, run
+   `scv analyze <root> clusters` (free, no LLM call) and read
+   `.scv/artifacts/<sha>/clusters.json` for real `files` sets per group,
+   before writing narration.
 2. For each cluster you want to narrate, write an entry into the pending
    file's `layers` map, keyed by any local id you choose. `files` must be
    the *exact* file set of a real cluster — read it from a real cluster's

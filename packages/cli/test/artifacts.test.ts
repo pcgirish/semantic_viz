@@ -194,6 +194,38 @@ describe("ensureArtifact", () => {
     ).length;
     expect(groupsCalls).toBe(0);
   });
+
+  it("ensureArtifact('clusters', ctx) computes file clustering with no additional provider call once functions/docs are cached", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("functions", ctx1);
+    await ensureArtifact("docs", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs);
+    await ensureArtifact("clusters", ctx2);
+
+    expect(provider2.interpret).not.toHaveBeenCalled();
+  });
+
+  it("clusters.json inputHash is unaffected by a promptRev change; layers.json's is not", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs, undefined, "p2");
+    await ensureArtifact("layers", ctx1);
+    const clustersHash1 = (JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "clusters.json"), "utf-8")) as { inputHash: string }).inputHash;
+    const layersHash1 = (JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8")) as { inputHash: string }).inputHash;
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs, undefined, "p3");
+    await ensureArtifact("layers", ctx2);
+    const clustersHash2 = (JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "clusters.json"), "utf-8")) as { inputHash: string }).inputHash;
+    const layersHash2 = (JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8")) as { inputHash: string }).inputHash;
+
+    expect(clustersHash2).toBe(clustersHash1);
+    expect(layersHash2).not.toBe(layersHash1);
+  });
 });
 
 describe("ensureArtifact — artifact schema version", () => {
@@ -228,7 +260,7 @@ describe("ensureArtifact — artifact schema version", () => {
     // Phase 3a changed the `groups` payload — grouped layer units became real group units —
     // while none of its *inputs* changed. The version constant is the only thing that can
     // distinguish the two, so it must participate in the cache key.
-    expect(ARTIFACT_SCHEMA_VERSION).toBe("3");
+    expect(ARTIFACT_SCHEMA_VERSION).toBe("4");
   });
 
   it("recomputes a groups artifact whose cached inputHash predates the current version", async () => {

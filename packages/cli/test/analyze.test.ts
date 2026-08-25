@@ -240,4 +240,18 @@ describe("runAnalyze", () => {
     expect(statSync(functionsFile).mtimeMs).toBe(functionsBefore);
     expect(statSync(layersFile).mtimeMs).toBeGreaterThan(layersBefore);
   });
+
+  it("'scv analyze <root> clusters' writes clusters.json without recomputing layers.json's cached content, once functions/docs are cached", async () => {
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider() });
+    const sha = (await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "functions" })).snapshot.rev.sha;
+    const layersFile = path.join(scvDir, "artifacts", sha, "layers.json");
+    const layersBefore = statSync(layersFile).mtimeMs;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const provider = fakeProvider();
+    await runAnalyze({ root: orderlyRoot, scvDir, provider, artifact: "clusters" });
+
+    expect(existsSync(path.join(scvDir, "artifacts", sha, "clusters.json"))).toBe(true);
+    expect(statSync(layersFile).mtimeMs).toBe(layersBefore);
+  });
 });

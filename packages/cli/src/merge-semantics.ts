@@ -15,6 +15,15 @@ interface FunctionsData {
   blockEdges: unknown[];
 }
 
+interface ClustersData {
+  groups: [string, string[]][];
+  unitsByFile: [string, string[]][];
+  repoContextText: string | undefined;
+  modularity: number;
+  directoryModularity: number;
+  clusteringVersion: string;
+}
+
 interface LayersData {
   layerUnits: Unit[];
   layers: Layer[];
@@ -391,6 +400,15 @@ async function mergeLayerClustering(
     promptRev: ctx.promptRev,
   };
 
+  const clustersData: ClustersData = {
+    groups: [...passB.groups],
+    unitsByFile: [...unitsByFile].map(([file, units]) => [file, units.map((u) => u.id)]),
+    repoContextText: undefined,
+    modularity: passB.modularity,
+    directoryModularity: passB.directoryModularity,
+    clusteringVersion: CLUSTERING_VERSION,
+  };
+
   let docsStored = readArtifact<DocExtract[]>(ctx, "docs");
   if (!docsStored && ctx.docs.length > 0) {
     // No cached docs artifact, but discoverable doc files exist: this pending file has no doc
@@ -406,9 +424,15 @@ async function mergeLayerClustering(
     docsStored = { inputHash: docsInputHash, data: [] };
     warnings.push("cached an empty docs artifact: doc files were discovered but no docs narration was available to merge — docs will show no summary until `scv analyze docs --force` is run with an LLM provider");
   }
-  const layersInputHash = await computeInputHash("layers", ctx, {
+  const clustersInputHash = await computeInputHash("clusters", ctx, {
     functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
     docs: docsStored?.data ?? [],
+  });
+  writeArtifact(ctx, "clusters", clustersInputHash, clustersData);
+
+  const layersInputHash = await computeInputHash("layers", ctx, {
+    clusters: clustersData,
+    functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
   });
   writeArtifact(ctx, "layers", layersInputHash, layersData);
 

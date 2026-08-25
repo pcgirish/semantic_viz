@@ -348,11 +348,11 @@ describe("mergeSemantics", () => {
     }
   });
 
-  it("with --with-clustering, layers inputHash reflects a cached docs artifact instead of assuming empty docs", async () => {
+  it("with --with-clustering, clusters inputHash reflects a cached docs artifact instead of assuming empty docs", async () => {
     const pendingFile = writePending({ units: {}, layers: {} });
 
     await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withClustering: true });
-    const artifactFile = path.join(scvDir, "artifacts", sha, "layers.json");
+    const artifactFile = path.join(scvDir, "artifacts", sha, "clusters.json");
     const hashWithoutDocs = (JSON.parse(readFileSync(artifactFile, "utf-8")) as { inputHash: string }).inputHash;
 
     const docs = [{ path: "README.md", title: "Readme", summary: "Overview", what: "", how: "", when: "", where: "", why: "", confidence: 0.8 }];

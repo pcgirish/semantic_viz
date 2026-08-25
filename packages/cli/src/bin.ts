@@ -16,7 +16,7 @@ program
   .command("analyze")
   .description("extract a repo, lift semantics/clustering, and write a scv/1 snapshot to .scv/snapshots/")
   .argument("[root]", "repo root to analyze", ".")
-  .argument("[artifact]", "compute only this artifact: functions | docs | layers | groups | flows")
+  .argument("[artifact]", "compute only this artifact: functions | docs | clusters | layers | groups | flows")
   .option("--provider <name>", "interpreter provider: ollama | anthropic | claude-cli; persisted to .scv/config.yaml")
   .option("--model <name>", "interpreter model; persisted to .scv/config.yaml")
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")

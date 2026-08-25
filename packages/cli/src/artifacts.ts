@@ -4,11 +4,12 @@ import path from "node:path";
 import type { SymbolGraph } from "@scv/extractor";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
 import {
+  runClustersPass,
   runDocsPass,
   runFlowsPass,
   runFunctionsPass,
   runGroupsPass,
-  runLayersPass,
+  runNarrationPass,
   systemIdFor,
   CLUSTERING_VERSION,
   layerIdFor,
@@ -19,22 +20,27 @@ import {
 import type { DiscoveredDoc } from "./discover-docs.js";
 import { ancestorShas } from "./rev.js";
 
-export type ArtifactName = "extraction" | "functions" | "docs" | "layers" | "groups" | "flows";
+export type ArtifactName = "extraction" | "functions" | "docs" | "clusters" | "layers" | "groups" | "flows";
 
 /**
  * Bumped whenever a cached artifact's *payload shape* changes without its inputs changing.
  * Folded into the input hash so a file written by an older binary is recomputed rather than
  * deserialized into a type it no longer matches. "2" = groups holds group units (Phase 3a);
- * "3" = layers holds the resolved layer records for carry-over (Phase 4c).
+ * "3" = layers holds the resolved layer records for carry-over (Phase 4c); "4" = layers is
+ * split into a free `clusters` artifact + narration-only `layers`.
  */
-export const ARTIFACT_SCHEMA_VERSION = "3";
+export const ARTIFACT_SCHEMA_VERSION = "4";
 
 /** Declared upstream artifacts each artifact must be fresh against before it can be computed. */
 export const ARTIFACT_DEPENDENCIES: Record<ArtifactName, ArtifactName[]> = {
   extraction: [],
   functions: ["extraction"],
   docs: [],
-  layers: ["functions", "docs"],
+  clusters: ["functions", "docs"],
+  // `functions` is also reachable transitively via `clusters`, but is listed directly here too
+  // because `computeArtifact("layers", ...)` needs real `Unit[]` objects in `deps`, not just
+  // ids — `ensureArtifact` only populates `deps` for names in this array, not transitive ones.
+  layers: ["clusters", "functions"],
   groups: ["layers", "functions"],
   flows: ["functions", "extraction"],
 };
@@ -49,6 +55,18 @@ export interface GroupsData {
   groupUnits: Unit[];
   /** Layer id -> group id, as entries so it survives a JSON round-trip. */
   layerParent: [string, string][];
+}
+
+export interface ClustersData {
+  /** Layer id -> member file list, as entries so it survives a JSON round-trip. */
+  groups: [string, string[]][];
+  unitsByFile: [string, string[]][];
+  repoContextText: string | undefined;
+  modularity: number;
+  directoryModularity: number;
+  /** Invalidates the cache when the algorithm changes: a stored partition computed by an older
+   *  clustering is not the partition this binary would produce from the same inputs. */
+  clusteringVersion: string;
 }
 
 export interface LayersData {
@@ -68,6 +86,7 @@ export interface ArtifactDataMap {
   extraction: SymbolGraph;
   functions: FunctionsData;
   docs: DocExtract[];
+  clusters: ClustersData;
   layers: LayersData;
   groups: GroupsData;
   flows: Unit[];
@@ -138,15 +157,24 @@ export async function computeInputHash(name: ArtifactName, ctx: ArtifactContext,
       return hashOf(graphHash(ctx.graph), ctx.promptRev);
     case "docs":
       return hashOf(ctx.docs.map((d) => `${d.path}:${d.content}`).join("\n"), ctx.promptRev);
-    case "layers": {
+    case "clusters": {
       const functions = deps.functions as FunctionsData;
       const docs = deps.docs as DocExtract[];
       return hashOf(
         functions.units.map((u) => `${u.id}:${u.semantics?.what ?? ""}`).join("\n"),
         ctx.snapshot.edges.map((e) => `${e.from}>${e.to}`).join("\n"),
         JSON.stringify(docs),
-        ctx.promptRev,
         CLUSTERING_VERSION,
+        ARTIFACT_SCHEMA_VERSION,
+      );
+    }
+    case "layers": {
+      const clusters = deps.clusters as ClustersData;
+      return hashOf(
+        clusters.groups.map(([id, files]) => `${id}:${files.join(",")}`).join("\n"),
+        JSON.stringify(clusters.unitsByFile),
+        clusters.repoContextText ?? "",
+        ctx.promptRev,
         ARTIFACT_SCHEMA_VERSION,
       );
     }
@@ -190,13 +218,41 @@ async function computeArtifact(name: ArtifactName, ctx: ArtifactContext, deps: P
         promptRev: ctx.promptRev,
         reportProgress: ctx.reportProgress,
       });
-    case "layers": {
+    case "clusters": {
       const functions = deps.functions as FunctionsData;
       const docExtracts = deps.docs as DocExtract[];
-      const result = await runLayersPass({
+      const result = runClustersPass({
         snapshot: ctx.snapshot,
         units: functions.units,
         docExtracts,
+        reportProgress: ctx.reportProgress,
+      });
+      const clustersData: ClustersData = {
+        groups: [...result.groups],
+        unitsByFile: [...result.unitsByFile].map(([file, units]) => [file, units.map((u) => u.id)]),
+        repoContextText: result.repoContextText,
+        modularity: result.modularity,
+        directoryModularity: result.directoryModularity,
+        clusteringVersion: CLUSTERING_VERSION,
+      };
+      return clustersData;
+    }
+    case "layers": {
+      const clusters = deps.clusters as ClustersData;
+      const functions = deps.functions as FunctionsData;
+      const unitsById = new Map(functions.units.map((u) => [u.id, u]));
+      const unitsByFile = new Map<string, Unit[]>(
+        clusters.unitsByFile.map(([file, ids]) => [file, ids.flatMap((id) => (unitsById.has(id) ? [unitsById.get(id)!] : []))]),
+      );
+      const result = await runNarrationPass({
+        clusters: {
+          groups: new Map(clusters.groups),
+          unitsByFile,
+          repoContextText: clusters.repoContextText,
+          modularity: clusters.modularity,
+          directoryModularity: clusters.directoryModularity,
+        },
+        units: functions.units,
         provider: ctx.provider,
         promptRev: ctx.promptRev,
         reportProgress: ctx.reportProgress,
@@ -207,7 +263,7 @@ async function computeArtifact(name: ArtifactName, ctx: ArtifactContext, deps: P
         layers: result.layers,
         parentOverride: [...result.parentOverride],
         layerIdByName: [...result.layerIdByName],
-        repoContextText: result.repoContextText,
+        repoContextText: clusters.repoContextText,
         clusteringVersion: CLUSTERING_VERSION,
         promptRev: ctx.promptRev,
       };
