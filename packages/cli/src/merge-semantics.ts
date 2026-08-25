@@ -4,7 +4,8 @@ import path from "node:path";
 import { extractRepo, isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
 import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type Snapshot, type Unit } from "@scv/schema";
 import { runPassB, layerIdFor, CLUSTERING_VERSION, type DocExtract, type ImportEdge, type Layer, type Provider } from "@scv/interpreter";
-import { computeInputHash, type ArtifactContext } from "./artifacts.js";
+import { computeInputHash, type ArtifactContext, type ArtifactName } from "./artifacts.js";
+import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { discoverDocs } from "./discover-docs.js";
 import { changedFiles, headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
@@ -13,6 +14,15 @@ interface FunctionsData {
   units: Unit[];
   blockUnits: Unit[];
   blockEdges: unknown[];
+}
+
+interface ClustersData {
+  groups: [string, string[]][];
+  unitsByFile: [string, string[]][];
+  repoContextText: string | undefined;
+  modularity: number;
+  directoryModularity: number;
+  clusteringVersion: string;
 }
 
 interface LayersData {
@@ -44,6 +54,12 @@ export interface MergeSemanticsResult {
   merged: number;
   skipped: number;
   warnings: string[];
+}
+
+export interface RunMergeSemanticsResult extends MergeSemanticsResult {
+  snapshot: Snapshot;
+  path: string;
+  emptyArtifacts: ArtifactName[];
 }
 
 function artifactFile(ctx: ArtifactContext, name: string): string {
@@ -177,7 +193,7 @@ function loadPersistedSnapshot(scvDir: string, sha: string): Snapshot | undefine
  *  that structural snapshot instead of the current worktree — extraction has no historical-sha
  *  capability, so this is the only way to merge against a non-HEAD revision. Falls back to live
  *  extraction of the current worktree when no such snapshot exists. */
-export async function runMergeSemantics(options: RunMergeSemanticsOptions): Promise<MergeSemanticsResult> {
+export async function runMergeSemantics(options: RunMergeSemanticsOptions): Promise<RunMergeSemanticsResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
   const rev = options.sha ? { sha: options.sha, kind: "commit" as const, ts: "", author: "", author_kind: "human" as const } : headRev(options.root);
 
@@ -196,9 +212,13 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
     docs: discoverDocs(options.root),
     reportProgress: () => {},
     force: new Set(),
+    noLlm: true,
   };
 
-  return mergeSemantics({ pendingFile: options.pendingFile, ctx, root: options.root, scope: options.scope, withClustering: options.withClustering });
+  const mergeResult = await mergeSemantics({ pendingFile: options.pendingFile, ctx, root: options.root, scope: options.scope, withClustering: options.withClustering });
+  const assembled = await assembleSnapshotFromCache({ ctx, rev, scvDir });
+
+  return { ...mergeResult, snapshot: assembled.snapshot, path: assembled.path, emptyArtifacts: assembled.emptyArtifacts };
 }
 
 export async function mergeSemantics(options: MergeSemanticsOptions): Promise<MergeSemanticsResult> {
@@ -235,20 +255,20 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
     }
 
     const semantics = entry.semantics
-      ? { ...entry.semantics, source: "llm" as const }
+      ? { ...entry.semantics, source: "manual" as const }
       : unit.semantics;
 
     const mergedUnit: Unit = {
       ...unit,
       semantics: semantics ?? unit.semantics,
-      cost: entry.cost ? { ...entry.cost, source: "llm" as const } : unit.cost,
+      cost: entry.cost ? { ...entry.cost, source: "manual" as const } : unit.cost,
       tags: entry.tags ?? unit.tags,
       signature: entry.signature ?? unit.signature,
       hash: {
         ...unit.hash,
         semantic: createHash("sha1").update(semanticHashInput(unit.name, semantics ?? null)).digest("hex"),
       },
-      provenance: { source: "llm", pass: "A" },
+      provenance: { source: "manual", pass: "A" },
     };
 
     unitById.set(id, mergedUnit);
@@ -334,7 +354,7 @@ async function mergeLayerClustering(
           where: entry.where,
           why: entry.why,
           confidence: entry.confidence,
-          source: "llm",
+          source: "manual",
         }
       : {
           name: realId,
@@ -345,7 +365,7 @@ async function mergeLayerClustering(
           where: "(no summary)",
           why: "(no summary)",
           confidence: 0,
-          source: "llm",
+          source: "static",
         };
     layers.push(layer);
     layerIdByName.push([layer.name, realId]);
@@ -370,13 +390,13 @@ async function mergeLayerClustering(
         end: null,
         sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0),
       },
-      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: "llm" },
+      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: layer.source },
       cost: null,
       tags: [],
       metrics: { sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
       authors: undefined,
       hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
-      provenance: { source: "llm", pass: "C" },
+      provenance: entry ? { source: "manual", pass: "C" } : { source: "static" },
     });
     if (entry) merged++;
   }
@@ -389,6 +409,15 @@ async function mergeLayerClustering(
     repoContextText: undefined,
     clusteringVersion: CLUSTERING_VERSION,
     promptRev: ctx.promptRev,
+  };
+
+  const clustersData: ClustersData = {
+    groups: [...passB.groups],
+    unitsByFile: [...unitsByFile].map(([file, units]) => [file, units.map((u) => u.id)]),
+    repoContextText: undefined,
+    modularity: passB.modularity,
+    directoryModularity: passB.directoryModularity,
+    clusteringVersion: CLUSTERING_VERSION,
   };
 
   let docsStored = readArtifact<DocExtract[]>(ctx, "docs");
@@ -406,9 +435,15 @@ async function mergeLayerClustering(
     docsStored = { inputHash: docsInputHash, data: [] };
     warnings.push("cached an empty docs artifact: doc files were discovered but no docs narration was available to merge — docs will show no summary until `scv analyze docs --force` is run with an LLM provider");
   }
-  const layersInputHash = await computeInputHash("layers", ctx, {
+  const clustersInputHash = await computeInputHash("clusters", ctx, {
     functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
     docs: docsStored?.data ?? [],
+  });
+  writeArtifact(ctx, "clusters", clustersInputHash, clustersData);
+
+  const layersInputHash = await computeInputHash("layers", ctx, {
+    clusters: clustersData,
+    functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
   });
   writeArtifact(ctx, "layers", layersInputHash, layersData);
 

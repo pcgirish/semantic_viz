@@ -34,7 +34,7 @@ export const EdgeKindSchema = z.enum([
   "control_flow",
 ]);
 
-const SourceSchema = z.enum(["static", "llm"]);
+const SourceSchema = z.enum(["static", "llm", "manual"]);
 
 const PortSchema = z.object({
   name: z.string(),
@@ -71,7 +71,7 @@ const CostSchema = z
     io: z.array(z.string()).optional(),
     estimate: z.string().optional(),
     confidence: z.number().min(0).max(1).optional(),
-    source: z.enum(["static", "llm"]).optional(),
+    source: SourceSchema.optional(),
   })
   .nullable();
 
@@ -94,8 +94,10 @@ const HashSchema = z.object({
 });
 
 const UnitProvenanceSchema = z.object({
-  source: z.enum(["static", "llm"]),
+  source: SourceSchema,
   pass: z.enum(["A", "B", "C", "D"]).optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 // kind:"api_flow" only — branch-preserving trace, additive to `steps` (docs/design.md#api-flow).
@@ -201,6 +203,9 @@ const RevSchema = z.object({
   message: z.string().optional(),
 });
 
+/** The provider configured for this run's call, not a claim that it produced every unit — see
+ *  each unit's own `provenance.provider`/`.model` for per-unit attribution. `runAnalyze` stamps
+ *  the real configured provider here; `runMergeSemantics` stamps `noopProvider`'s name/model. */
 const InterpreterProvenanceSchema = z.object({
   provider: z.string().optional(),
   model: z.string(),

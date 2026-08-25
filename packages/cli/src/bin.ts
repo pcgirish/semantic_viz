@@ -16,18 +16,18 @@ program
   .command("analyze")
   .description("extract a repo, lift semantics/clustering, and write a scv/1 snapshot to .scv/snapshots/")
   .argument("[root]", "repo root to analyze", ".")
-  .argument("[artifact]", "compute only this artifact: functions | docs | layers | groups | flows")
+  .argument("[artifact]", "compute only this artifact: functions | docs | clusters | layers | groups | flows")
   .option("--provider <name>", "interpreter provider: ollama | anthropic | claude-cli; persisted to .scv/config.yaml")
   .option("--model <name>", "interpreter model; persisted to .scv/config.yaml")
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
   .option("--log-level <level>", "llm call logging: info; persisted to .scv/config.yaml")
-  .option("--no-llm", "extraction only — skip all LLM passes, write a static-only snapshot")
+  .option("--no-llm", "merge from cache only — never call a provider; artifacts with no cache use an empty default")
   .option(
     "--force",
     "recompute the target artifact even if its cached inputs are unchanged; downstream artifacts recompute only if the forced output actually differs; requires [artifact]",
   )
   .action(async (root: string, artifact: string | undefined, opts: { provider?: string; model?: string; effort?: string; logLevel?: string; llm: boolean; force?: boolean }) => {
-    const { path: outPath, snapshot, usage, elapsedMs } = await runAnalyze({
+    const { path: outPath, snapshot, usage, elapsedMs, emptyArtifacts } = await runAnalyze({
       root,
       providerName: opts.provider as RunAnalyzeOptions["providerName"],
       model: opts.model,
@@ -46,6 +46,11 @@ program
     console.log(
       `usage: input tokens=${usage.inputTokens}, output tokens=${usage.outputTokens}, calls=${usage.calls}, cache hits=${usage.cacheHits}`,
     );
+    if (emptyArtifacts.length > 0) {
+      console.error(
+        `[WARN] snapshot merged without: ${emptyArtifacts.join(", ")} — run ${emptyArtifacts.map((a) => `'scv analyze ${a}'`).join(" / ")} for full narration`,
+      );
+    }
   });
 
 program
@@ -63,7 +68,7 @@ program
 
 program
   .command("merge-semantics")
-  .description("inject agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache — no LLM calls")
+  .description("inject agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache and writes a merged snapshot — no LLM calls")
   .argument("<pending-file>", "path to the pending-semantics JSON file")
   .argument("[root]", "repo root to analyze", ".")
   .option(
@@ -84,6 +89,10 @@ program
       sha: opts.sha,
     });
     console.log(`merged ${result.merged}, skipped ${result.skipped}`);
+    console.log(`wrote ${result.path}`);
+    if (result.emptyArtifacts.length > 0) {
+      console.error(`[WARN] snapshot merged without: ${result.emptyArtifacts.join(", ")}`);
+    }
     for (const warning of result.warnings) console.error(`[WARN] ${warning}`);
   });
 

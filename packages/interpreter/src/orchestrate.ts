@@ -9,7 +9,7 @@ import { runPassABlocks, type BlockLabel } from "./pass-a-blocks.js";
 import { runPassB } from "./pass-b.js";
 import { runPassC, runPassCGroups, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
 import type { Layer } from "./pass-c.js";
-import { CLUSTERING_ALGORITHM, CLUSTERING_TIE_BREAK, CLUSTERING_VERSION, MAX_CLUSTER_SHARE, MERGE_THRESHOLD, MIN_EDGE_WEIGHT, MIN_LARGE_REPO_FILES, RELATIVE_EDGE_RATIO, layerIdFor, resolveLayerNames } from "./cluster.js";
+import { CLUSTERING_ALGORITHM, CLUSTERING_TIE_BREAK, CLUSTERING_VERSION, MAX_CLUSTER_SHARE, MERGE_THRESHOLD, MIN_EDGE_WEIGHT, MIN_LARGE_REPO_FILES, RELATIVE_EDGE_RATIO, layerIdFor, resolveLayerNames, type ClusterGroups } from "./cluster.js";
 import { buildGroupUnits, resolveGroupMembership, type BuildGroupUnitsResult } from "./groups.js";
 import { runPassDocs } from "./pass-docs.js";
 import type { DocExtract, DocInput } from "./pass-docs.js";
@@ -287,6 +287,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
       tags: result.tags,
       signature: result.signature,
       hash: { ...unit.hash, semantic: hashSemantics(result.semantics) },
+      provenance: { source: "llm", pass: "A", provider: provider.name, model: provider.model },
     });
     passADone += 1;
     reportProgress("pass A", passADone, passATotal, symbolUnit.qualname);
@@ -350,10 +351,11 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
     const childIds: string[] = [];
     for (const block of bg.blocks) {
       childIds.push(block.id);
+      const label = labels?.get(block.id);
       blockUnits.push({
         id: block.id,
         kind: "block",
-        name: labels?.get(block.id)?.label ?? block.condition ?? BLOCK_TYPE_FALLBACK_NAME[block.blockType] ?? block.blockType,
+        name: label?.label ?? block.condition ?? BLOCK_TYPE_FALLBACK_NAME[block.blockType] ?? block.blockType,
         qualname: block.id,
         lang: undefined,
         parent: unit.id,
@@ -366,7 +368,9 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
         metrics: {},
         authors: undefined,
         hash: { struct: null, text: null, semantic: null },
-        provenance: { source: "static" },
+        provenance: label
+          ? { source: "llm", pass: "A", provider: provider.name, model: provider.model }
+          : { source: "static" },
       });
     }
     blockChildrenByFunction.set(unit.id, childIds);
@@ -419,43 +423,32 @@ export async function runDocsPass(options: RunDocsPassOptions): Promise<DocExtra
 }
 
 // ---------------------------------------------------------------------------------------------
-// Layers pass (Pass B clustering + Pass C narration)
+// Clusters pass (Pass B clustering — free, no provider call)
 // ---------------------------------------------------------------------------------------------
 
-export interface RunLayersPassOptions {
+export interface RunClustersPassOptions {
   snapshot: Snapshot;
   /** Functions-pass output: all units (leaf semantics + block children already applied). */
   units: Unit[];
   docExtracts: DocExtract[];
-  provider: Provider;
-  promptRev: string;
   reportProgress: ReportProgress;
-  /** Layers from the nearest ancestor analysis, keyed by structural id. A hit means identical
-   *  membership, so the layer's name and narration are carried over and Pass C is not called. */
-  previousLayers?: Map<string, Layer>;
 }
 
-export interface RunLayersPassResult {
-  layerUnits: Unit[];
-  /** The resolved layer records themselves, so the artifact persists exactly what the snapshot
-   *  shows — one source for the next run's carry-over. */
-  layers: Layer[];
-  /** Maps a module unit's id to the layer id it was clustered into. */
-  parentOverride: Map<string, string>;
-  /** Every module unit, keyed by the file(s) it covers — reused by groups/finalize. */
+export interface RunClustersPassResult {
+  groups: ClusterGroups;
+  /** Every module unit, keyed by the file(s) it covers — reused by narration/groups/finalize. */
   unitsByFile: Map<string, Unit[]>;
-  /** Directory tree + doc context text passed into Pass B/C prompts, reused unchanged by groups. */
+  /** Directory tree + doc context text passed into Pass B/C prompts, reused unchanged by narration. */
   repoContextText: string | undefined;
-  layerIdByName: Map<string, string>;
   /** Cohesion of the computed clustering, and of the directory baseline it is measured against.
    *  docs/design.md names this comparison the mitigation for clustering instability. */
   modularity: number;
   directoryModularity: number;
 }
 
-/** Clusters modules into named layers (Pass B) and narrates each layer's purpose (Pass C). */
-export async function runLayersPass(options: RunLayersPassOptions): Promise<RunLayersPassResult> {
-  const { snapshot, units, docExtracts, provider, promptRev, reportProgress, previousLayers } = options;
+/** Clusters modules into layer-shaped file groups (Pass B). No provider call. */
+export function runClustersPass(options: RunClustersPassOptions): RunClustersPassResult {
+  const { snapshot, units, docExtracts, reportProgress } = options;
 
   const unitsByFile = new Map<string, Unit[]>();
   for (const unit of units) {
@@ -471,19 +464,6 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
     }
   }
   const files = [...unitsByFile.keys()];
-
-  const leafUnitsByFile = new Map<string, Unit[]>();
-  for (const unit of units) {
-    if (!LEAF_KINDS.has(unit.kind) || isTestUnit(unit) || isGeneratedUnit(unit)) continue;
-    for (const file of unit.loc.files) {
-      (leafUnitsByFile.get(file) ?? leafUnitsByFile.set(file, []).get(file)!).push(unit);
-    }
-  }
-  const oneLiners: Record<string, string> = {};
-  for (const file of files) {
-    const withSemantics = leafUnitsByFile.get(file)?.find((u) => u.semantics);
-    oneLiners[file] = withSemantics?.semantics?.what ?? "(no summary)";
-  }
 
   const fileOfUnit = new Map<string, string>();
   for (const unit of units) {
@@ -510,15 +490,68 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
   const passB = runPassB({ files, edges: importEdges });
   reportProgress("pass B", 1, 1, "clustering files");
 
+  return {
+    groups: passB.groups,
+    unitsByFile,
+    repoContextText,
+    modularity: passB.modularity,
+    directoryModularity: passB.directoryModularity,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Narration pass (Pass C — layer naming/narration, real LLM call)
+// ---------------------------------------------------------------------------------------------
+
+export interface RunNarrationPassOptions {
+  clusters: RunClustersPassResult;
+  /** Functions-pass output, for building per-file one-liners fed to Pass C. */
+  units: Unit[];
+  provider: Provider;
+  promptRev: string;
+  reportProgress: ReportProgress;
+  /** Layers from the nearest ancestor analysis, keyed by structural id. A hit means identical
+   *  membership, so the layer's name and narration are carried over and Pass C is not called. */
+  previousLayers?: Map<string, Layer>;
+}
+
+export interface RunNarrationPassResult {
+  layerUnits: Unit[];
+  /** The resolved layer records themselves, so the artifact persists exactly what the snapshot
+   *  shows — one source for the next run's carry-over. */
+  layers: Layer[];
+  /** Maps a module unit's id to the layer id it was clustered into. */
+  parentOverride: Map<string, string>;
+  layerIdByName: Map<string, string>;
+}
+
+/** Narrates each cluster's purpose (Pass C), from an already-computed clustering. */
+export async function runNarrationPass(options: RunNarrationPassOptions): Promise<RunNarrationPassResult> {
+  const { clusters, units, provider, promptRev, reportProgress, previousLayers } = options;
+  const { groups, unitsByFile } = clusters;
+
+  const leafUnitsByFile = new Map<string, Unit[]>();
+  for (const unit of units) {
+    if (!LEAF_KINDS.has(unit.kind) || isTestUnit(unit) || isGeneratedUnit(unit)) continue;
+    for (const file of unit.loc.files) {
+      (leafUnitsByFile.get(file) ?? leafUnitsByFile.set(file, []).get(file)!).push(unit);
+    }
+  }
+  const oneLiners: Record<string, string> = {};
+  for (const file of unitsByFile.keys()) {
+    const withSemantics = leafUnitsByFile.get(file)?.find((u) => u.semantics);
+    oneLiners[file] = withSemantics?.semantics?.what ?? "(no summary)";
+  }
+
   const parentOverride = new Map<string, string>();
-  for (const [layerId, memberFiles] of passB.groups) {
+  for (const [layerId, memberFiles] of groups) {
     for (const file of memberFiles) {
       for (const member of unitsByFile.get(file) ?? []) parentOverride.set(member.id, layerId);
     }
   }
 
   reportProgress("pass C", 0, 1, "narrating layers");
-  const passC = await runPassC({ groups: passB.groups, oneLiners, provider, promptRev, repoContext: repoContextText, previousLayers });
+  const passC = await runPassC({ groups, oneLiners, provider, promptRev, repoContext: clusters.repoContextText, previousLayers });
   reportProgress("pass C", 1, 1, "narrating layers");
 
   // Step 4: one resolution of names for the whole run. Carried-over names are claimed first and
@@ -547,17 +580,17 @@ export async function runLayersPass(options: RunLayersPassOptions): Promise<RunL
         end: null,
         sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0),
       },
-      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: "llm" },
+      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: layer.source },
       cost: null,
       tags: [],
       metrics: { sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
       authors: undefined,
       hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
-      provenance: { source: "llm", pass: "C" },
+      provenance: { source: layer.source, pass: "C", provider: layer.provider, model: layer.model },
     });
   }
 
-  return { layerUnits, layers, parentOverride, unitsByFile, repoContextText, layerIdByName, modularity: passB.modularity, directoryModularity: passB.directoryModularity };
+  return { layerUnits, layers, parentOverride, layerIdByName };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -631,7 +664,7 @@ export async function runGroupsPass(options: RunGroupsPassOptions): Promise<Grou
   // Pass C speaks in layer *names*, which are LLM-chosen and not unique. Resolve to ids once,
   // here at the boundary, so nothing downstream can silently collapse two same-named layers.
   const groups = resolveGroupMembership(passCGroups.groups, layerUnits);
-  return buildGroupUnits({ layerUnits, groups, systemId });
+  return buildGroupUnits({ layerUnits, groups, systemId, provider });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -794,7 +827,7 @@ export async function runFlowsPass(options: RunFlowsPassOptions): Promise<Unit[]
         metrics: { hops: steps.length, sloc: stepUnits.reduce((sum, u) => sum + u.loc.sloc, 0) },
         authors: undefined,
         hash: { struct: createHash("sha1").update(steps.join("")).digest("hex"), text: null, semantic: null },
-        provenance: { source: "llm", pass: "C" },
+        provenance: { source: "llm", pass: "C", provider: provider.name, model: provider.model },
       });
     }
   }
@@ -924,7 +957,7 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
     metrics: { modules: units.filter((u) => u.kind === "module").length, layers: layerCount },
     authors: undefined,
     hash: { struct: createHash("sha1").update(newUnits.map((u) => u.id).sort().join("")).digest("hex"), text: null, semantic: null },
-    provenance: { source: "llm", pass: "C" },
+    provenance: { source: "static" },
   });
 
   const finalUnits = units.map((unit) => {
@@ -1039,18 +1072,16 @@ export async function runInterpreter(options: RunInterpreterOptions): Promise<Sn
 
   const docExtracts = await runDocsPass({ docs: repoContext?.docs ?? [], provider, promptRev, reportProgress });
 
+  const clusters = runClustersPass({ snapshot, units, docExtracts, reportProgress });
+  const { unitsByFile, repoContextText, modularity: layerModularity, directoryModularity } = clusters;
+
   const {
     layerUnits: ungroupedLayerUnits,
     parentOverride,
-    unitsByFile,
-    repoContextText,
     layerIdByName,
-    modularity: layerModularity,
-    directoryModularity,
-  } = await runLayersPass({
-    snapshot,
+  } = await runNarrationPass({
+    clusters,
     units,
-    docExtracts,
     provider,
     promptRev,
     reportProgress,

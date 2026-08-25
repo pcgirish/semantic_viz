@@ -97,17 +97,18 @@ describe("mergeSemantics", () => {
     const mergedUnit = stored.data.units.find((u: { id: string }) => u.id === targetId);
     expect(mergedUnit).toBeDefined();
     expect(mergedUnit.semantics.what).toBe("Creates a new order");
-    expect(mergedUnit.semantics.source).toBe("llm");
+    expect(mergedUnit.semantics.source).toBe("manual");
     expect(mergedUnit.cost.complexity).toBe(3);
+    expect(mergedUnit.cost.source).toBe("manual");
     expect(mergedUnit.tags).toEqual(["payment"]);
-    expect(mergedUnit.provenance).toEqual({ source: "llm", pass: "A" });
+    expect(mergedUnit.provenance).toEqual({ source: "manual", pass: "A" });
     expect(typeof mergedUnit.hash.semantic).toBe("string");
     expect(mergedUnit.hash.semantic.length).toBeGreaterThan(0);
 
     const expectedHash = await computeInputHash("functions", ctx, {});
     expect(stored.inputHash).toBe(expectedHash);
 
-    const data = await ensureArtifact("functions", ctx);
+    const data = (await ensureArtifact("functions", ctx)).data;
     const reusedUnit = data.units.find((u) => u.id === targetId);
     expect(reusedUnit?.semantics?.what).toBe("Creates a new order");
   });
@@ -348,11 +349,11 @@ describe("mergeSemantics", () => {
     }
   });
 
-  it("with --with-clustering, layers inputHash reflects a cached docs artifact instead of assuming empty docs", async () => {
+  it("with --with-clustering, clusters inputHash reflects a cached docs artifact instead of assuming empty docs", async () => {
     const pendingFile = writePending({ units: {}, layers: {} });
 
     await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withClustering: true });
-    const artifactFile = path.join(scvDir, "artifacts", sha, "layers.json");
+    const artifactFile = path.join(scvDir, "artifacts", sha, "clusters.json");
     const hashWithoutDocs = (JSON.parse(readFileSync(artifactFile, "utf-8")) as { inputHash: string }).inputHash;
 
     const docs = [{ path: "README.md", title: "Readme", summary: "Overview", what: "", how: "", when: "", where: "", why: "", confidence: 0.8 }];
@@ -407,7 +408,7 @@ describe("mergeSemantics", () => {
       const realDocsHash = await computeInputHash("docs", docsCtx, {});
       expect(storedDocs.inputHash).toBe(realDocsHash);
       const docsViaEnsure = await ensureArtifact("docs", docsCtx);
-      expect(docsViaEnsure).toEqual([]);
+      expect(docsViaEnsure.data).toEqual([]);
     } finally {
       rmSync(docsScvDir, { recursive: true, force: true });
     }
@@ -446,5 +447,10 @@ describe("mergeSemantics", () => {
     expect(existsSync(artifactFile)).toBe(true);
     const stored = JSON.parse(readFileSync(artifactFile, "utf-8"));
     expect(stored.data.units.find((u: { id: string }) => u.id === targetId)?.semantics?.what).toBe("a");
+
+    expect(result.path).toBe(path.join(scvDir, "snapshots", `${historicalSha}.json`));
+    expect(existsSync(result.path)).toBe(true);
+    expect(result.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "groups", "layers"]);
   });
+
 });

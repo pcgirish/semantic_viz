@@ -43,15 +43,17 @@ export { checkAndRepairClusters, directoryClusters, modularity, traceFlow } from
 export type { ClusterProposal, CheckedClusters, ImportEdge, CallEdge } from "./checker.js";
 export type { FlowUnitSummary, FlowStepSummary } from "./prompts/pass-c-flows.js";
 export { parseJsonResponse, stripCodeFence } from "./json-response.js";
-export { runInterpreter, fmtElapsed, runFunctionsPass, runDocsPass, runLayersPass, runGroupsPass, runFlowsPass, finalizeSnapshot, systemIdFor } from "./orchestrate.js";
+export { runInterpreter, fmtElapsed, runFunctionsPass, runDocsPass, runClustersPass, runNarrationPass, runGroupsPass, runFlowsPass, finalizeSnapshot, systemIdFor } from "./orchestrate.js";
 export type {
   RunInterpreterOptions,
   ReportProgress,
   RunFunctionsPassOptions,
   RunFunctionsPassResult,
   RunDocsPassOptions,
-  RunLayersPassOptions,
-  RunLayersPassResult,
+  RunClustersPassOptions,
+  RunClustersPassResult,
+  RunNarrationPassOptions,
+  RunNarrationPassResult,
   RunGroupsPassOptions,
   RunFlowsPassOptions,
   FinalizeSnapshotOptions,

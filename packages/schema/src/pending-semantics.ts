@@ -52,6 +52,8 @@ export const PendingSemanticsSchema = z.object({
   meta: z
     .object({
       createdAt: z.string().optional(),
+      // Self-identify the authoring agent here, e.g. "agent-write-pass-a-semantics" — merged
+      // units get provenance.source: "manual", not "llm", since no provider call produced them.
       agent: z.string().optional(),
       scope: z.string().optional(),
     })

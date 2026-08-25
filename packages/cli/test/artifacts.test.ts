@@ -124,6 +124,40 @@ describe("ensureArtifact", () => {
     expect(layersCalls).toBeGreaterThan(0);
   });
 
+  it("a function-semantics-only change invalidates layers, even with clusters.json left untouched on disk", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("layers", ctx1);
+    const layersHash1 = (
+      JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8")) as { inputHash: string }
+    ).inputHash;
+
+    // Simulate a Pass A-only rerun: function semantics changed, clusters.json cache untouched
+    // (mirrors clustering being purely structural and legitimately still valid).
+    const functionsPath = path.join(scvDir, "artifacts", "fixed-sha", "functions.json");
+    const functionsFile = JSON.parse(readFileSync(functionsPath, "utf-8")) as {
+      data: { units: { semantics: { what: string } | null }[] };
+    };
+    const firstUnitWithSemantics = functionsFile.data.units.find((u) => u.semantics);
+    if (!firstUnitWithSemantics?.semantics) throw new Error("fixture expected at least one unit with semantics");
+    firstUnitWithSemantics.semantics.what = "CHANGED semantics, simulating a Pass A rerun";
+    writeFileSync(functionsPath, JSON.stringify(functionsFile));
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs);
+    await ensureArtifact("layers", ctx2);
+    const layersHash2 = (
+      JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8")) as { inputHash: string }
+    ).inputHash;
+
+    expect(layersHash2).not.toBe(layersHash1);
+    const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      String(call[0]).includes("naming and describing"),
+    ).length;
+    expect(layersCalls).toBeGreaterThan(0);
+  });
+
   it("reruns with unchanged docs make zero LLM calls for functions/docs/layers", async () => {
     const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
     const provider1 = fakeProvider();
@@ -194,6 +228,92 @@ describe("ensureArtifact", () => {
     ).length;
     expect(groupsCalls).toBe(0);
   });
+
+  it("ensureArtifact('clusters', ctx) computes file clustering with no additional provider call once functions/docs are cached", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("functions", ctx1);
+    await ensureArtifact("docs", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs);
+    await ensureArtifact("clusters", ctx2);
+
+    expect(provider2.interpret).not.toHaveBeenCalled();
+  });
+
+  it("clusters.json inputHash is unaffected by a promptRev change; layers.json's is not", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs, undefined, "p2");
+    await ensureArtifact("layers", ctx1);
+    const clustersHash1 = (JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "clusters.json"), "utf-8")) as { inputHash: string }).inputHash;
+    const layersHash1 = (JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8")) as { inputHash: string }).inputHash;
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs, undefined, "p3");
+    await ensureArtifact("layers", ctx2);
+    const clustersHash2 = (JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "clusters.json"), "utf-8")) as { inputHash: string }).inputHash;
+    const layersHash2 = (JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8")) as { inputHash: string }).inputHash;
+
+    expect(clustersHash2).toBe(clustersHash1);
+    expect(layersHash2).not.toBe(layersHash1);
+  });
+
+  it("allowProvider: empty set never calls the provider and defaults every uncached artifact", async () => {
+    const provider = fakeProvider();
+    const ctx = makeCtx(provider, []);
+
+    const result = await ensureArtifact("layers", ctx, { allowProvider: new Set() });
+
+    expect(provider.interpret).not.toHaveBeenCalled();
+    expect(result.defaultedArtifacts).toEqual(new Set(["functions", "docs", "clusters", "layers"]));
+    expect(result.data.layerUnits).toEqual([]);
+    expect(result.data.layers).toEqual([]);
+  });
+
+  it("a fresh cache hit is not counted as defaulted, even under allowProvider: empty set", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("layers", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs);
+    const result = await ensureArtifact("layers", ctx2, { allowProvider: new Set() });
+
+    expect(provider2.interpret).not.toHaveBeenCalled();
+    expect(result.defaultedArtifacts.size).toBe(0);
+    expect(result.data.layerUnits.length).toBeGreaterThan(0);
+  });
+
+  it("recursive dependency defaulting surfaces artifacts defaulted below the requested one", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("functions", ctx1);
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs);
+    const result = await ensureArtifact("layers", ctx2, { allowProvider: new Set() });
+
+    expect(provider2.interpret).not.toHaveBeenCalled();
+    expect(result.defaultedArtifacts.has("docs")).toBe(true);
+    expect(result.defaultedArtifacts.has("clusters")).toBe(true);
+    expect(result.defaultedArtifacts.has("layers")).toBe(true);
+    expect(result.defaultedArtifacts.has("functions")).toBe(false);
+  });
+
+  it("extraction always computes for real, even under allowProvider: empty set, and is never defaulted", async () => {
+    const provider = fakeProvider();
+    const ctx = makeCtx(provider, []);
+
+    const result = await ensureArtifact("extraction", ctx, { allowProvider: new Set() });
+
+    expect(result.defaultedArtifacts.has("extraction")).toBe(false);
+    expect(result.data).toBe(ctx.graph);
+  });
 });
 
 describe("ensureArtifact — artifact schema version", () => {
@@ -228,7 +348,7 @@ describe("ensureArtifact — artifact schema version", () => {
     // Phase 3a changed the `groups` payload — grouped layer units became real group units —
     // while none of its *inputs* changed. The version constant is the only thing that can
     // distinguish the two, so it must participate in the cache key.
-    expect(ARTIFACT_SCHEMA_VERSION).toBe("3");
+    expect(ARTIFACT_SCHEMA_VERSION).toBe("4");
   });
 
   it("recomputes a groups artifact whose cached inputHash predates the current version", async () => {
@@ -249,7 +369,7 @@ describe("ensureArtifact — artifact schema version", () => {
   });
 
   it("returns group units, not layer units", async () => {
-    const result = await ensureArtifact("groups", makeCtx(fakeProvider()));
+    const result = (await ensureArtifact("groups", makeCtx(fakeProvider()))).data;
     expect(result.groupUnits.length).toBeGreaterThan(0);
     for (const unit of result.groupUnits) expect(unit.kind).toBe("group");
     // Every layer reparents onto exactly one of them.
@@ -291,7 +411,7 @@ describe("layers artifact — carry-over across analyses", () => {
   }
 
   it("persists the resolved layer records alongside the units, so the next run has something to carry over", async () => {
-    const layers = await ensureArtifact("layers", ctxWith(fakeProvider()));
+    const layers = (await ensureArtifact("layers", ctxWith(fakeProvider()))).data;
     expect(layers.layers.length).toBe(layers.layerUnits.length);
     expect(layers.clusteringVersion).toBe(CLUSTERING_VERSION);
     // Every persisted record names a layer unit actually in the snapshot, keyed by its membership.
@@ -312,14 +432,14 @@ describe("layers artifact — carry-over across analyses", () => {
   });
 
   it("carries a predecessor's name onto an unchanged cluster, and makes no Pass C call for it", async () => {
-    const first = await ensureArtifact("layers", ctxWith(fakeProvider()));
+    const first = (await ensureArtifact("layers", ctxWith(fakeProvider()))).data;
     const previous = new Map(
       first.layers.map((layer) => [layerIdFor(layer.files), { ...layer, name: `renamed_${layer.name}` }]),
     );
 
     rmSync(path.join(scvDir, "artifacts", "fixed-sha"), { recursive: true, force: true });
     const provider = fakeProvider();
-    const second = await ensureArtifact("layers", ctxWith(provider, previous));
+    const second = (await ensureArtifact("layers", ctxWith(provider, previous))).data;
 
     const passCCalls = (provider.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
       String(call[0]).includes("naming and describing"),

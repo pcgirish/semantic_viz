@@ -90,6 +90,8 @@ describe("narrateFlow", () => {
       tags: ["hot-path"],
       confidence: 0.81,
       source: "llm",
+      provider: "fake",
+      model: "fake-model",
     });
   });
 });
