@@ -124,6 +124,40 @@ describe("ensureArtifact", () => {
     expect(layersCalls).toBeGreaterThan(0);
   });
 
+  it("a function-semantics-only change invalidates layers, even with clusters.json left untouched on disk", async () => {
+    const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
+    const provider1 = fakeProvider();
+    const ctx1 = makeCtx(provider1, docs);
+    await ensureArtifact("layers", ctx1);
+    const layersHash1 = (
+      JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8")) as { inputHash: string }
+    ).inputHash;
+
+    // Simulate a Pass A-only rerun: function semantics changed, clusters.json cache untouched
+    // (mirrors clustering being purely structural and legitimately still valid).
+    const functionsPath = path.join(scvDir, "artifacts", "fixed-sha", "functions.json");
+    const functionsFile = JSON.parse(readFileSync(functionsPath, "utf-8")) as {
+      data: { units: { semantics: { what: string } | null }[] };
+    };
+    const firstUnitWithSemantics = functionsFile.data.units.find((u) => u.semantics);
+    if (!firstUnitWithSemantics?.semantics) throw new Error("fixture expected at least one unit with semantics");
+    firstUnitWithSemantics.semantics.what = "CHANGED semantics, simulating a Pass A rerun";
+    writeFileSync(functionsPath, JSON.stringify(functionsFile));
+
+    const provider2 = fakeProvider();
+    const ctx2 = makeCtx(provider2, docs);
+    await ensureArtifact("layers", ctx2);
+    const layersHash2 = (
+      JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "layers.json"), "utf-8")) as { inputHash: string }
+    ).inputHash;
+
+    expect(layersHash2).not.toBe(layersHash1);
+    const layersCalls = (provider2.interpret as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      String(call[0]).includes("naming and describing"),
+    ).length;
+    expect(layersCalls).toBeGreaterThan(0);
+  });
+
   it("reruns with unchanged docs make zero LLM calls for functions/docs/layers", async () => {
     const docs = [{ path: "README.md", content: "# stable readme content, long enough" }];
     const provider1 = fakeProvider();

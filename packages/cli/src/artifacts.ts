@@ -173,10 +173,12 @@ export async function computeInputHash(name: ArtifactName, ctx: ArtifactContext,
     }
     case "layers": {
       const clusters = deps.clusters as ClustersData;
+      const functions = deps.functions as FunctionsData;
       return hashOf(
         clusters.groups.map(([id, files]) => `${id}:${files.join(",")}`).join("\n"),
         JSON.stringify(clusters.unitsByFile),
         clusters.repoContextText ?? "",
+        functions.units.map((u) => `${u.id}:${u.semantics?.what ?? ""}`).join("\n"),
         ctx.promptRev,
         ARTIFACT_SCHEMA_VERSION,
       );
