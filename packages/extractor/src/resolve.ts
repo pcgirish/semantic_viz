@@ -201,6 +201,14 @@ export function resolveGraph(
           resolvedQualname = c;
           break;
         }
+        // A relative import path may target a file whose own module qualname was
+        // flattened away (test-folder collapsing) — retry against the flattened form
+        // so the edge lands on the unit that actually got registered.
+        const flattened = flattenTestQualname(c, c.split(".").join(path.sep));
+        if (flattened !== c && units.some((u) => u.qualname === flattened)) {
+          resolvedQualname = flattened;
+          break;
+        }
       }
 
       if (resolvedQualname) {
