@@ -97,10 +97,11 @@ describe("mergeSemantics", () => {
     const mergedUnit = stored.data.units.find((u: { id: string }) => u.id === targetId);
     expect(mergedUnit).toBeDefined();
     expect(mergedUnit.semantics.what).toBe("Creates a new order");
-    expect(mergedUnit.semantics.source).toBe("llm");
+    expect(mergedUnit.semantics.source).toBe("manual");
     expect(mergedUnit.cost.complexity).toBe(3);
+    expect(mergedUnit.cost.source).toBe("manual");
     expect(mergedUnit.tags).toEqual(["payment"]);
-    expect(mergedUnit.provenance).toEqual({ source: "llm", pass: "A" });
+    expect(mergedUnit.provenance).toEqual({ source: "manual", pass: "A" });
     expect(typeof mergedUnit.hash.semantic).toBe("string");
     expect(mergedUnit.hash.semantic.length).toBeGreaterThan(0);
 
@@ -451,4 +452,5 @@ describe("mergeSemantics", () => {
     expect(existsSync(result.path)).toBe(true);
     expect(result.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "groups", "layers"]);
   });
+
 });

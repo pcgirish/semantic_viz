@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { semanticHashInput, type Unit } from "@scv/schema";
+import type { Provider } from "./provider.js";
 
 /**
  * Group units — the architectural tier between the system and its layers.
@@ -21,6 +22,7 @@ export interface BuildGroupUnitsInput {
   /** Group name -> member layer **ids**, already resolved by `resolveGroupMembership`. */
   groups: Record<string, string[]>;
   systemId: string;
+  provider: Provider;
 }
 
 export interface BuildGroupUnitsResult {
@@ -82,7 +84,7 @@ export function resolveGroupMembership(groups: Record<string, string[]>, layerUn
  * attaches them, so there is exactly one owner of a group's shape.
  */
 export function buildGroupUnits(input: BuildGroupUnitsInput): BuildGroupUnitsResult {
-  const { layerUnits, groups, systemId } = input;
+  const { layerUnits, groups, systemId, provider } = input;
   const layerById = new Map(layerUnits.map((l) => [l.id, l]));
 
   const claimedBy = new Map<string, string>();
@@ -110,7 +112,7 @@ export function buildGroupUnits(input: BuildGroupUnitsInput): BuildGroupUnitsRes
   const groupUnits = all.map(({ name, memberIds, id }) => {
     const members = [...memberIds].sort();
     for (const memberId of members) layerParent.set(memberId, id);
-    return buildGroupUnit({ id, name, members, layerById, systemId, isBucket: id === UNGROUPED_ID });
+    return buildGroupUnit({ id, name, members, layerById, systemId, provider, isBucket: id === UNGROUPED_ID });
   });
 
   return { groupUnits, layerParent };
@@ -127,9 +129,10 @@ function buildGroupUnit(options: {
   members: string[];
   layerById: Map<string, Unit>;
   systemId: string;
+  provider: Provider;
   isBucket: boolean;
 }): Unit {
-  const { id, name, members, layerById, systemId, isBucket } = options;
+  const { id, name, members, layerById, systemId, provider, isBucket } = options;
   const memberUnits = members.map((memberId) => layerById.get(memberId)!);
 
   return {
@@ -165,6 +168,6 @@ function buildGroupUnit(options: {
       // group rename invisible for exactly as long as the narration pass is missing.
       semantic: createHash("sha1").update(semanticHashInput(name, null)).digest("hex"),
     },
-    provenance: isBucket ? { source: "static" } : { source: "llm", pass: "C" },
+    provenance: isBucket ? { source: "static" } : { source: "llm", pass: "C", provider: provider.name, model: provider.model },
   };
 }

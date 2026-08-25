@@ -69,6 +69,8 @@ describe("runPassC", () => {
         why: "Groups operational scripts that run outside the request path.",
         confidence: 0.8,
         source: "llm",
+        provider: "fake",
+        model: "fake-model",
       },
       {
         name: "second_cluster",
@@ -80,6 +82,8 @@ describe("runPassC", () => {
         why: "Handles all public-facing HTTP traffic.",
         confidence: 0.9,
         source: "llm",
+        provider: "fake",
+        model: "fake-model",
       },
     ]);
   });
@@ -165,6 +169,45 @@ describe("runPassC", () => {
     };
 
     await expect(runPassC({ groups, oneLiners, provider, promptRev: "p1" })).rejects.toThrow(/pass c/i);
+  });
+
+  it("carries layer provenance.provider/model from predecessor and assigns new provider to fresh narrations", async () => {
+    const previous: Layer = {
+      name: "operational_scripts",
+      files: [...opsFiles],
+      what: "prev what",
+      how: "prev how",
+      when: "prev when",
+      where: "prev where",
+      why: "prev why",
+      confidence: 0.42,
+      source: "llm",
+      provider: "old-provider",
+      model: "old-model",
+    };
+    const providerY: Provider = {
+      name: "new-provider",
+      model: "new-model",
+      interpret: vi.fn(async () => ({ text: JSON.stringify({ name: "n", what: "w", how: "h", when: "wh", where: "wr", why: "y", confidence: 0.5 }), tokens: 1 })),
+    };
+
+    const result = await runPassC({
+      groups,
+      oneLiners,
+      provider: providerY,
+      promptRev: "p1",
+      previousLayers: new Map([[layerIdFor(opsFiles), previous]]),
+    });
+
+    const carriedOps = result.layers.find((l) => l.name === "operational_scripts");
+    expect(carriedOps).toBeDefined();
+    expect(carriedOps!.provider).toBe("old-provider");
+    expect(carriedOps!.model).toBe("old-model");
+
+    const freshNarration = result.layers.find((l) => l.name === "n");
+    expect(freshNarration).toBeDefined();
+    expect(freshNarration!.provider).toBe("new-provider");
+    expect(freshNarration!.model).toBe("new-model");
   });
 });
 

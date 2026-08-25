@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { SnapshotSchema, DeltaSchema } from "../src/index.js";
+import { SnapshotSchema, DeltaSchema, UnitSchema } from "../src/index.js";
 import { snapshotJsonSchema, deltaJsonSchema } from "../src/json-schema.js";
 
 const fixturePath = (name: string) =>
@@ -103,6 +103,39 @@ describe("orderly fixture validates against scv/1", () => {
       edges: [cfEdge, ...restEdges],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("Unit provenance backward compatibility and new source values", () => {
+  it("parses a unit with pre-existing provenance lacking provider/model fields", () => {
+    const snapshot = loadFixture("orderly.snapshot.base.json");
+    const [firstUnit] = snapshot.units;
+    const oldProvenance = { ...firstUnit, provenance: { source: "llm", pass: "A" } };
+    const result = UnitSchema.safeParse(oldProvenance);
+    expect(result.success).toBe(true);
+  });
+
+  it("parses a unit with cost.source === 'manual'", () => {
+    const snapshot = loadFixture("orderly.snapshot.base.json");
+    const [firstUnit] = snapshot.units;
+    const unitWithManualCost = {
+      ...firstUnit,
+      cost: { complexity: 1, io: [], estimate: "O(1)", confidence: 0.9, source: "manual" as const },
+    };
+    const result = UnitSchema.safeParse(unitWithManualCost);
+    expect(result.success).toBe(true);
+  });
+
+  it("parses a unit with provenance.source === 'manual'", () => {
+    const snapshot = loadFixture("orderly.snapshot.base.json");
+    const [firstUnit] = snapshot.units;
+    const unitWithManual = {
+      ...firstUnit,
+      provenance: { source: "manual", pass: "A" },
+      semantics: firstUnit.semantics ? { ...firstUnit.semantics, source: "manual" } : null,
+    };
+    const result = UnitSchema.safeParse(unitWithManual);
+    expect(result.success).toBe(true);
   });
 });
 

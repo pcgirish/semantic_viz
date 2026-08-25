@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Unit } from "@scv/schema";
 import { UNGROUPED_ID, buildGroupUnits, resolveGroupMembership } from "../src/groups.js";
+import type { Provider } from "../src/provider.js";
+
+const fakeProvider: Provider = {
+  name: "fake",
+  model: "fake-model",
+  interpret: async () => {
+    throw new Error("not implemented in test fixture");
+  },
+};
 
 function makeLayer(id: string, name: string, overrides: Partial<Unit> = {}): Unit {
   return {
@@ -54,7 +63,7 @@ describe("buildGroupUnits", () => {
     const { groupUnits } = buildGroupUnits({
       layerUnits: [orders, billing],
       groups: { Commerce: ["u:layer:a", "u:layer:b"] },
-      systemId: "u:sys:x",
+      systemId: "u:sys:x", provider: fakeProvider,
     });
 
     expect(groupUnits).toHaveLength(1);
@@ -70,7 +79,7 @@ describe("buildGroupUnits", () => {
     const { groupUnits, layerParent } = buildGroupUnits({
       layerUnits: [orders, billing],
       groups: { Commerce: ["u:layer:a"], Ops: ["u:layer:b"] },
-      systemId: "u:sys:x",
+      systemId: "u:sys:x", provider: fakeProvider,
     });
 
     const idByName = new Map(groupUnits.map((g) => [g.name, g.id]));
@@ -80,27 +89,27 @@ describe("buildGroupUnits", () => {
   });
 
   it("derives the id from member ids only, so a rename does not churn identity", () => {
-    const named = buildGroupUnits({ layerUnits: [orders], groups: { Commerce: ["u:layer:a"] }, systemId: "u:sys:x" });
-    const renamed = buildGroupUnits({ layerUnits: [orders], groups: { Trade: ["u:layer:a"] }, systemId: "u:sys:x" });
+    const named = buildGroupUnits({ layerUnits: [orders], groups: { Commerce: ["u:layer:a"] }, systemId: "u:sys:x", provider: fakeProvider });
+    const renamed = buildGroupUnits({ layerUnits: [orders], groups: { Trade: ["u:layer:a"] }, systemId: "u:sys:x", provider: fakeProvider });
 
     expect(renamed.groupUnits[0]?.id).toBe(named.groupUnits[0]?.id);
     expect(renamed.groupUnits[0]?.hash.struct).toBe(named.groupUnits[0]?.hash.struct);
   });
 
   it("changes hash.semantic when only the name changes, so a rename reads as modified", () => {
-    const named = buildGroupUnits({ layerUnits: [orders], groups: { Commerce: ["u:layer:a"] }, systemId: "u:sys:x" });
-    const renamed = buildGroupUnits({ layerUnits: [orders], groups: { Trade: ["u:layer:a"] }, systemId: "u:sys:x" });
+    const named = buildGroupUnits({ layerUnits: [orders], groups: { Commerce: ["u:layer:a"] }, systemId: "u:sys:x", provider: fakeProvider });
+    const renamed = buildGroupUnits({ layerUnits: [orders], groups: { Trade: ["u:layer:a"] }, systemId: "u:sys:x", provider: fakeProvider });
 
     expect(named.groupUnits[0]?.hash.semantic).toBeTruthy();
     expect(renamed.groupUnits[0]?.hash.semantic).not.toBe(named.groupUnits[0]?.hash.semantic);
   });
 
   it("changes hash.struct when membership changes", () => {
-    const one = buildGroupUnits({ layerUnits: [orders, billing], groups: { C: ["u:layer:a"] }, systemId: "u:sys:x" });
+    const one = buildGroupUnits({ layerUnits: [orders, billing], groups: { C: ["u:layer:a"] }, systemId: "u:sys:x", provider: fakeProvider });
     const two = buildGroupUnits({
       layerUnits: [orders, billing],
       groups: { C: ["u:layer:a", "u:layer:b"] },
-      systemId: "u:sys:x",
+      systemId: "u:sys:x", provider: fakeProvider,
     });
 
     expect(two.groupUnits.find((g) => g.name === "C")?.hash.struct).not.toBe(one.groupUnits.find((g) => g.name === "C")?.hash.struct);
@@ -110,12 +119,12 @@ describe("buildGroupUnits", () => {
     const forward = buildGroupUnits({
       layerUnits: [orders, billing],
       groups: { C: ["u:layer:a", "u:layer:b"] },
-      systemId: "u:sys:x",
+      systemId: "u:sys:x", provider: fakeProvider,
     });
     const reversed = buildGroupUnits({
       layerUnits: [billing, orders],
       groups: { C: ["u:layer:b", "u:layer:a"] },
-      systemId: "u:sys:x",
+      systemId: "u:sys:x", provider: fakeProvider,
     });
 
     expect(reversed.groupUnits[0]?.id).toBe(forward.groupUnits[0]?.id);
@@ -126,7 +135,7 @@ describe("buildGroupUnits", () => {
     const { groupUnits } = buildGroupUnits({
       layerUnits: [orders, billing],
       groups: { Commerce: ["u:layer:a", "u:layer:b"] },
-      systemId: "u:sys:x",
+      systemId: "u:sys:x", provider: fakeProvider,
     });
 
     expect(groupUnits[0]?.metrics.layers).toBe(2);
@@ -141,7 +150,7 @@ describe("buildGroupUnits", () => {
     const { groupUnits, layerParent } = buildGroupUnits({
       layerUnits: [orders, billing, ops],
       groups: { Commerce: ["u:layer:a", "u:layer:b"] },
-      systemId: "u:sys:x",
+      systemId: "u:sys:x", provider: fakeProvider,
     });
 
     const bucket = groupUnits.find((g) => g.id === UNGROUPED_ID);
@@ -155,7 +164,7 @@ describe("buildGroupUnits", () => {
     const { groupUnits } = buildGroupUnits({
       layerUnits: [orders, billing],
       groups: { Commerce: ["u:layer:a", "u:layer:b"] },
-      systemId: "u:sys:x",
+      systemId: "u:sys:x", provider: fakeProvider,
     });
 
     expect(groupUnits.find((g) => g.id === UNGROUPED_ID)).toBeUndefined();
@@ -163,7 +172,7 @@ describe("buildGroupUnits", () => {
 
   it("throws when a group claims a layer that does not exist", () => {
     expect(() =>
-      buildGroupUnits({ layerUnits: [orders], groups: { Commerce: ["u:layer:missing"] }, systemId: "u:sys:x" }),
+      buildGroupUnits({ layerUnits: [orders], groups: { Commerce: ["u:layer:missing"] }, systemId: "u:sys:x", provider: fakeProvider }),
     ).toThrow(/u:layer:missing/);
   });
 
@@ -172,14 +181,14 @@ describe("buildGroupUnits", () => {
       buildGroupUnits({
         layerUnits: [orders],
         groups: { Commerce: ["u:layer:a"], Ops: ["u:layer:a"] },
-        systemId: "u:sys:x",
+        systemId: "u:sys:x", provider: fakeProvider,
       }),
     ).toThrow(/u:layer:a/);
   });
 
   it("throws when a group is empty", () => {
     expect(() =>
-      buildGroupUnits({ layerUnits: [orders], groups: { Commerce: ["u:layer:a"], Empty: [] }, systemId: "u:sys:x" }),
+      buildGroupUnits({ layerUnits: [orders], groups: { Commerce: ["u:layer:a"], Empty: [] }, systemId: "u:sys:x", provider: fakeProvider }),
     ).toThrow(/Empty/);
   });
 });

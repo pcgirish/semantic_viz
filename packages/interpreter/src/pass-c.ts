@@ -27,7 +27,9 @@ export interface Layer {
   where: string;
   why: string;
   confidence: number;
-  source: "llm";
+  source: "static" | "llm" | "manual";
+  provider?: string;
+  model?: string;
 }
 
 export interface PassCResult {
@@ -85,6 +87,8 @@ export async function runPassC(options: RunPassCOptions): Promise<PassCResult> {
       why: response.why,
       confidence: response.confidence,
       source: "llm",
+      provider: provider.name,
+      model: provider.model,
     });
   }
 
@@ -248,6 +252,8 @@ export interface FlowNarration {
   tags: string[];
   confidence: number;
   source: "llm";
+  provider?: string;
+  model?: string;
 }
 
 export interface NarrateFlowOptions {
@@ -270,5 +276,5 @@ export async function narrateFlow(options: NarrateFlowOptions): Promise<FlowNarr
     context: { callMeta: { pass: "C" } },
   });
 
-  return { ...response, source: "llm" };
+  return { ...response, source: "llm", provider: provider.name, model: provider.model };
 }

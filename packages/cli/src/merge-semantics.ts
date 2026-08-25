@@ -255,20 +255,20 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
     }
 
     const semantics = entry.semantics
-      ? { ...entry.semantics, source: "llm" as const }
+      ? { ...entry.semantics, source: "manual" as const }
       : unit.semantics;
 
     const mergedUnit: Unit = {
       ...unit,
       semantics: semantics ?? unit.semantics,
-      cost: entry.cost ? { ...entry.cost, source: "llm" as const } : unit.cost,
+      cost: entry.cost ? { ...entry.cost, source: "manual" as const } : unit.cost,
       tags: entry.tags ?? unit.tags,
       signature: entry.signature ?? unit.signature,
       hash: {
         ...unit.hash,
         semantic: createHash("sha1").update(semanticHashInput(unit.name, semantics ?? null)).digest("hex"),
       },
-      provenance: { source: "llm", pass: "A" },
+      provenance: { source: "manual", pass: "A" },
     };
 
     unitById.set(id, mergedUnit);
@@ -354,7 +354,7 @@ async function mergeLayerClustering(
           where: entry.where,
           why: entry.why,
           confidence: entry.confidence,
-          source: "llm",
+          source: "manual",
         }
       : {
           name: realId,
@@ -365,7 +365,7 @@ async function mergeLayerClustering(
           where: "(no summary)",
           why: "(no summary)",
           confidence: 0,
-          source: "llm",
+          source: "static",
         };
     layers.push(layer);
     layerIdByName.push([layer.name, realId]);
@@ -390,13 +390,13 @@ async function mergeLayerClustering(
         end: null,
         sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0),
       },
-      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: "llm" },
+      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: layer.source },
       cost: null,
       tags: [],
       metrics: { sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
       authors: undefined,
       hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
-      provenance: { source: "llm", pass: "C" },
+      provenance: entry ? { source: "manual", pass: "C" } : { source: "static" },
     });
     if (entry) merged++;
   }

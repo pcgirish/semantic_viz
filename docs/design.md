@@ -95,12 +95,12 @@ Every level is a Unit — system, layer, module, class, function, api_flow, bloc
     "confidence": 0.86, "source": "llm"
   },
   "cost": { "complexity": 3, "io": ["redis"], "estimate": "2 Redis round-trips, blocking",
-            "confidence": 0.82, "source": "static|llm" },
+            "confidence": 0.82, "source": "static|llm|manual" },
   "tags": ["no-fallback", "hot-path"],
   "metrics": { "sloc": 10, "fan_in": 0, "fan_out": 1, "churn": 24, "commits": 1 },
   "authors": [{ "name": "orderly-agent", "lines": 24 }],
   "hash": { "struct": "…", "text": "…", "semantic": "…" },
-  "provenance": { "source": "static|llm", "pass": "B" }
+  "provenance": { "source": "static|llm|manual", "pass": "B" }
 }
 ```
 
@@ -131,7 +131,7 @@ fields, resolved from `calls` edges tagged `via: "di"` on the underlying `Symbol
   "kind": "calls|imports|inherits|implements|reads|writes|emits|handles|configures|tests",
   "weight": 3,
   "evidence": [{ "file": "src/orders/repo.py", "line": 5 }],
-  "source": "static|llm", "confidence": 1.0, "rollup": false }
+  "source": "static|llm|manual", "confidence": 1.0, "rollup": false }
 ```
 
 `depends_on` is outgoing, `users` is incoming. Stored once; the server indexes both directions.

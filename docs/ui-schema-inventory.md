@@ -33,7 +33,7 @@ Zod-based (`src/index.ts`). Top-level exported types:
 - **UnitDelta** — unit, qualname, kind, status, fields, amount, blast_radius (`BlastRadius`), authors, risk (`Risk`→`RiskAxes`)
 - **EdgeDelta** — edge, from, to, kind, status
 
-Metadata fields: `confidence` (Semantics, Cost, Edge, Risk, InspectQueueEntry), `source`/`provenance` (static|llm, on Port/Semantics/Cost/Edge/External/Unit), `loc`/`evidence` (files, line, sloc), `hash` (struct/text/semantic), `rev` (sha, ts, author).
+Metadata fields: `confidence` (Semantics, Cost, Edge, Risk, InspectQueueEntry), `source`/`provenance` (static|llm|manual, on Port/Semantics/Cost/Edge/External/Unit), `loc`/`evidence` (files, line, sloc), `hash` (struct/text/semantic), `rev` (sha, ts, author).
 
 ## 3. Cross-Reference
 
@@ -41,7 +41,7 @@ Metadata fields: `confidence` (Semantics, Cost, Edge, Risk, InspectQueueEntry), 
 |---|---|---|
 | `Unit` core (id, kind, name, qualname, parent, children) | CanvasHost, Inspector, Breadcrumb, Legend, Flows | — |
 | `Unit.loc` (files, start, end, sloc) | Inspector (sloc only) | `files`, `start`, `end` not shown |
-| `Unit.signature` / `Port[]` | Inspector | `Port.source` (static/llm) not shown |
+| `Unit.signature` / `Port[]` | Inspector | `Port.source` (static/llm/manual) not shown |
 | `Unit.semantics` (what/how/when/where/why + confidence) | Inspector | — |
 | `Unit.cost` (complexity, io, estimate, confidence) | Inspector (metrics section) | `Cost.source` not shown |
 | `Unit.tags` | Inspector | — |

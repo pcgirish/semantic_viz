@@ -1850,4 +1850,114 @@ describe("finalizeSnapshot — invariant enforcement", () => {
     expect(rollups[0]?.rollupProvenance).toEqual({ edges: ["e:1"], count: 1, weight: 1 });
     expect(rollups[0]?.weight).toBe(1);
   });
+
+  it("stamps provenance.provider and .model on Pass A function units matching the configured provider", async () => {
+    const graph = makeGraph();
+    const testProvider: Provider = {
+      name: "test-provider",
+      model: "test-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: testProvider,
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const functionUnits = result.units.filter((u) => u.kind === "function");
+    expect(functionUnits.length).toBeGreaterThan(0);
+    for (const unit of functionUnits) {
+      expect(unit.provenance.provider).toBe("test-provider");
+      expect(unit.provenance.model).toBe("test-model");
+    }
+  });
+
+  it("system unit carries provenance.source === 'static' regardless of provider", async () => {
+    const graph = makeGraph();
+    const result = await runInterpreter({
+      snapshot: makeSnapshot(graph),
+      graph,
+      provider: passThroughProvider(),
+      promptRev: "p1",
+      readSource: () => "def run(): ...",
+    });
+
+    const system = result.units.find((u) => u.kind === "system");
+    expect(system).toBeDefined();
+    expect(system!.provenance.source).toBe("static");
+  });
+
+  it("block units carry provenance.source/provider/model matching the configured provider", async () => {
+    const graph: SymbolGraph = withModuleParents({
+      units: [
+        {
+          id: "u:py:src.login#f",
+          kind: "function",
+          name: "login",
+          qualname: "src.login",
+          lang: "python",
+          parent: null,
+          children: [],
+          loc: { file: "src/login.py", start: 1, end: 10 },
+          sloc: 8,
+          params: [],
+          returns: null,
+          bases: [],
+          hash: { struct: "s1", text: "t1" },
+          metrics: { fanIn: 0, fanOut: 0, churn: 0, commits: 1 },
+          authors: [],
+        },
+      ],
+      edges: [],
+      externals: [],
+      blockGraph: {
+        "src.login": {
+          blocks: [
+            { id: "u:block:entry1", blockType: "entry", startLine: 1, endLine: 3, condition: null },
+            { id: "u:block:true1", blockType: "sequential", startLine: 5, endLine: 5, condition: null },
+          ],
+          edges: [{ from: "u:block:entry1", to: "u:block:true1", edgeType: "sequential" }],
+        },
+      },
+      routes: [],
+    });
+    const snapshot = makeSnapshot(graph);
+    const testProvider: Provider = {
+      name: "test-block-provider",
+      model: "test-block-model",
+      interpret: vi.fn(async (prompt: string): Promise<ProviderResult> => {
+        if (prompt.includes("Base directories")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("Base layers")) return { text: JSON.stringify({ merges: {} }), tokens: 10 };
+        if (prompt.includes("identifying api_flow")) return { text: JSON.stringify({ flows: [] }), tokens: 10 };
+        if (prompt.includes("Branch")) return { text: JSON.stringify({ label: "success" }), tokens: 10 };
+        return { text: JSON.stringify(passAResponse), tokens: 10 };
+      }),
+    };
+
+    const result = await runInterpreter({
+      snapshot,
+      graph,
+      provider: testProvider,
+      promptRev: "p1",
+      readSource: () => "def login(): ...",
+    });
+
+    const labeledBlock = result.units.find((u) => u.kind === "block" && u.name === "success");
+    if (labeledBlock) {
+      expect(labeledBlock.provenance.source).toBe("llm");
+      expect(labeledBlock.provenance.pass).toBe("A");
+      expect(labeledBlock.provenance.provider).toBe("test-block-provider");
+      expect(labeledBlock.provenance.model).toBe("test-block-model");
+    }
+
+    const unlabeledBlock = result.units.find((u) => u.kind === "block" && u.provenance.source === "static");
+    expect(unlabeledBlock).toBeDefined();
+  });
 });

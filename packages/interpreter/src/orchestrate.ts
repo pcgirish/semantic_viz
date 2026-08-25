@@ -287,6 +287,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
       tags: result.tags,
       signature: result.signature,
       hash: { ...unit.hash, semantic: hashSemantics(result.semantics) },
+      provenance: { source: "llm", pass: "A", provider: provider.name, model: provider.model },
     });
     passADone += 1;
     reportProgress("pass A", passADone, passATotal, symbolUnit.qualname);
@@ -350,10 +351,11 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
     const childIds: string[] = [];
     for (const block of bg.blocks) {
       childIds.push(block.id);
+      const label = labels?.get(block.id);
       blockUnits.push({
         id: block.id,
         kind: "block",
-        name: labels?.get(block.id)?.label ?? block.condition ?? BLOCK_TYPE_FALLBACK_NAME[block.blockType] ?? block.blockType,
+        name: label?.label ?? block.condition ?? BLOCK_TYPE_FALLBACK_NAME[block.blockType] ?? block.blockType,
         qualname: block.id,
         lang: undefined,
         parent: unit.id,
@@ -366,7 +368,9 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
         metrics: {},
         authors: undefined,
         hash: { struct: null, text: null, semantic: null },
-        provenance: { source: "static" },
+        provenance: label
+          ? { source: "llm", pass: "A", provider: provider.name, model: provider.model }
+          : { source: "static" },
       });
     }
     blockChildrenByFunction.set(unit.id, childIds);
@@ -576,13 +580,13 @@ export async function runNarrationPass(options: RunNarrationPassOptions): Promis
         end: null,
         sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0),
       },
-      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: "llm" },
+      semantics: { what: layer.what, how: layer.how, when: layer.when, where: layer.where, why: layer.why, confidence: layer.confidence, source: layer.source },
       cost: null,
       tags: [],
       metrics: { sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
       authors: undefined,
       hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
-      provenance: { source: "llm", pass: "C" },
+      provenance: { source: layer.source, pass: "C", provider: layer.provider, model: layer.model },
     });
   }
 
@@ -660,7 +664,7 @@ export async function runGroupsPass(options: RunGroupsPassOptions): Promise<Grou
   // Pass C speaks in layer *names*, which are LLM-chosen and not unique. Resolve to ids once,
   // here at the boundary, so nothing downstream can silently collapse two same-named layers.
   const groups = resolveGroupMembership(passCGroups.groups, layerUnits);
-  return buildGroupUnits({ layerUnits, groups, systemId });
+  return buildGroupUnits({ layerUnits, groups, systemId, provider });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -823,7 +827,7 @@ export async function runFlowsPass(options: RunFlowsPassOptions): Promise<Unit[]
         metrics: { hops: steps.length, sloc: stepUnits.reduce((sum, u) => sum + u.loc.sloc, 0) },
         authors: undefined,
         hash: { struct: createHash("sha1").update(steps.join("")).digest("hex"), text: null, semantic: null },
-        provenance: { source: "llm", pass: "C" },
+        provenance: { source: "llm", pass: "C", provider: provider.name, model: provider.model },
       });
     }
   }
@@ -953,7 +957,7 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
     metrics: { modules: units.filter((u) => u.kind === "module").length, layers: layerCount },
     authors: undefined,
     hash: { struct: createHash("sha1").update(newUnits.map((u) => u.id).sort().join("")).digest("hex"), text: null, semantic: null },
-    provenance: { source: "llm", pass: "C" },
+    provenance: { source: "static" },
   });
 
   const finalUnits = units.map((unit) => {
