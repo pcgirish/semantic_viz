@@ -312,7 +312,9 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
       <Toolbar
         left={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-            <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>orderly</span>
+            <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>
+              {state.snapshot.repo.root}
+            </span>
             <span style={{ color: "var(--text-dim)", font: "var(--weight-regular) var(--text-sm) var(--font-core)" }}>
               {shortSha(sha)} · {MODE_LABEL[mode]} mode
             </span>
