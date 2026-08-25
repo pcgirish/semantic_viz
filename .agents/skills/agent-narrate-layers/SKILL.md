@@ -48,7 +48,10 @@ artifact cache as if a real Pass C had produced it.
    `files` must be the *exact* file set of a real cluster — `scv` computes
    the real clustering and matches by that set (via the same id function
    the pipeline uses internally), not by your chosen key. A `files` set
-   that doesn't match any real cluster is skipped with a warning.
+   that doesn't match any real cluster is skipped with a warning. Write all
+   entries into a single pending file (`.scv/pending/<sha>/semantics.json`)
+   — the same file used for Phase 1 `units`, if both are authored together
+   — never split narration across several files.
 3. Run:
 
    ```sh

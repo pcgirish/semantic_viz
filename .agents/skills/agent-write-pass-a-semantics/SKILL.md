@@ -54,7 +54,14 @@ injects it into the artifact cache as if a real Pass A had produced it.
    present; omit the whole `semantics` key to leave a unit's existing
    semantics untouched while still setting `cost`/`tags`.
 
-3. Save the file (e.g. `.scv/pending/<sha>/semantics.json`).
+3. Save the file to a single path: `.scv/pending/<sha>/semantics.json`.
+   Even when authoring is parallelized (e.g. one subagent per module), all
+   entries must land in this one file — never split output across several
+   files (`semantics_backend.json`, `semantics_frontend.json`, etc.). A
+   split invites two ambiguities a single file avoids entirely: which file
+   is authoritative if scopes overlap, and whether every file actually got
+   merged. If parallelizing, have each worker return its `units` map and
+   merge them into this one file yourself before the next step.
 4. Run:
 
    ```sh
