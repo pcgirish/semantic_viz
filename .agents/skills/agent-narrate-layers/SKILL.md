@@ -49,10 +49,18 @@ artifact cache as if a real Pass C had produced it.
    the real clustering and matches by that set (via the same id function
    the pipeline uses internally), not by your chosen key. A `files` set
    that doesn't match any real cluster is skipped with a warning. Write all
-   entries into a single pending file (`.scv/pending/<sha>/semantics.json`)
-   — the same file used for Phase 1 `units`, if both are authored together
-   — never split narration across several files.
-3. Run:
+   entries into a single path: `.scv/pending/<sha>/semantics-layers.json` —
+   a file separate from Phase 1's `semantics-functions.json`, never split
+   narration across several files.
+3. If `agent-write-pass-a-semantics` (Phase 1) is also being run for this
+   scope, run its `scv merge-semantics` **first** and let it finish writing
+   `.scv/artifacts/<sha>/functions.json` before continuing. This is not
+   just artifact freshness: real Pass C's own LLM prompt is built from each
+   file's per-unit `semantics.what` one-liners (falling back to
+   `"(no summary)"` when a file has none) — so a layer's narration, whether
+   you write it yourself or a real Pass C generates it later, is only as
+   good as the Phase 1 coverage already merged for that layer's files at
+   the time it runs. Then run:
 
    ```sh
    scv merge-semantics <pending-file> [root] --with-clustering [--sha <sha>]
