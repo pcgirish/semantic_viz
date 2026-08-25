@@ -22,13 +22,11 @@ artifact cache as if a real Pass C had produced it.
    flag) — instead just proceed to step 2 with your own understanding of
    which files group together.
 2. For each cluster you want to narrate, write an entry into the pending
-   file's `layers` map, keyed by any local id you choose (only `files` is
-   used to match it against the real cluster). Real clustering already
-   excludes test paths (`tests?/`, `__tests__/`, `test_*.py`, `*_test.py`,
-   `*.test.ts(x)`, `*.spec.ts(x)`) and generated paths (`generated/`,
-   `__generated__/`, `*_pb2.py`, `*.pb.ts`, `*.generated.ts`, `*.g.dart`)
-   from cluster membership, so a `files` set containing any such path will
-   never match a real cluster — leave those files out.
+   file's `layers` map, keyed by any local id you choose. `files` must be
+   the *exact* file set of a real cluster — read it from a real cluster's
+   `files` (see step 1 / Notes) rather than assembling it yourself, since
+   real clustering already excludes test and generated paths from cluster
+   membership and a `files` set containing one will never match.
 
    ```json
    {

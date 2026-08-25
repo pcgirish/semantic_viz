@@ -17,14 +17,16 @@ injects it into the artifact cache as if a real Pass A had produced it.
 1. Run `scv analyze --no-llm <root>` (or reuse an existing run) so unit ids
    are real, not guessed. Read `.scv/snapshots/<sha>.json` for the unit ids
    in your scope (a file, folder, function list, or the whole repo).
-2. For each `function` or `class` unit in scope, write an entry keyed by its
-   exact `id` from the snapshot into a pending-semantics file. Skip units
-   whose file is a test path (`tests?/`, `__tests__/`, `test_*.py`,
-   `*_test.py`, `*.test.ts(x)`, `*.spec.ts(x)`) or a generated path
-   (`generated/`, `__generated__/`, `*_pb2.py`, `*.pb.ts`,
-   `*.generated.ts`, `*.g.dart`) — real Pass A treats these the same way
-   (excluded from clustering/architecture narration), and `scv analyze`
-   would never spend an LLM call narrating them either.
+2. For each `function` or `class` unit in scope, check its `loc.files[0]`
+   in the snapshot and skip it if that path is a test path (under a
+   `tests?/`/`__tests__/` directory, or filename matches
+   `test_*.py`/`*_test.py`/`*.test.ts(x)`/`*.spec.ts(x)`) or a generated
+   path (under a `generated/`/`__generated__/` directory, or filename ends
+   `_pb2.py`/`_pb.py`/`.pb.ts`/`.generated.ts`/`.g.dart`) — real Pass A
+   excludes exactly these same units from narration/clustering, so this
+   check is derived from the snapshot's own unit data, not a separate
+   guess. Only units passing that check get an entry, keyed by their exact
+   `id` from the snapshot, in the pending-semantics file:
 
    ```json
    {
