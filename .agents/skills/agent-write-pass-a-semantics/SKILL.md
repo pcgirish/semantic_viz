@@ -18,7 +18,13 @@ injects it into the artifact cache as if a real Pass A had produced it.
    are real, not guessed. Read `.scv/snapshots/<sha>.json` for the unit ids
    in your scope (a file, folder, function list, or the whole repo).
 2. For each `function` or `class` unit in scope, write an entry keyed by its
-   exact `id` from the snapshot into a pending-semantics file:
+   exact `id` from the snapshot into a pending-semantics file. Skip units
+   whose file is a test path (`tests?/`, `__tests__/`, `test_*.py`,
+   `*_test.py`, `*.test.ts(x)`, `*.spec.ts(x)`) or a generated path
+   (`generated/`, `__generated__/`, `*_pb2.py`, `*.pb.ts`,
+   `*.generated.ts`, `*.g.dart`) — real Pass A treats these the same way
+   (excluded from clustering/architecture narration), and `scv analyze`
+   would never spend an LLM call narrating them either.
 
    ```json
    {
