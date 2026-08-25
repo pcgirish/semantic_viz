@@ -300,4 +300,14 @@ describe("extractRepo — test folder flattening", () => {
     const rateLimiterFn = graph.units.find((u) => u.qualname === "tests.test_direct_under_tests");
     expect(rateLimiterFn?.parent).toBe(testsModule.id);
   });
+
+  it("resolves an import of a flattened test module to the flattened unit, not a dangling qualname", () => {
+    const unitIds = new Set(graph.units.map((u) => u.id));
+    const importEdge = graph.edges.find(
+      (e) => e.kind === "imports" && e.from === graph.units.find((u) => u.qualname === "tests.integration")?.id,
+    );
+    expect(importEdge).toBeDefined();
+    expect(importEdge!.to).toBe("u:tests");
+    expect(unitIds.has(importEdge!.to)).toBe(true);
+  });
 });

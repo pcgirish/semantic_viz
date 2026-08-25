@@ -5,7 +5,7 @@ import { langForFile, parserFor } from "./grammars/registry.js";
 import { walkPythonFile } from "./walk-python.js";
 import { walkTypeScriptFile } from "./walk-typescript.js";
 import type { FileFacts } from "./facts.js";
-import { moduleQualname } from "./qualname.js";
+import { flattenTestQualname, moduleQualname } from "./qualname.js";
 import { shortHash } from "./hash.js";
 
 /**
@@ -83,5 +83,5 @@ export function parseRepoFiles(root: string, cacheDir?: string): FileFacts[] {
 }
 
 export function knownModulesOf(files: FileFacts[]): Set<string> {
-  return new Set(files.map((f) => moduleQualname(f.file)));
+  return new Set(files.map((f) => flattenTestQualname(moduleQualname(f.file), f.file)));
 }
