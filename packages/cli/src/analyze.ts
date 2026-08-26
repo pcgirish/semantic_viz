@@ -16,7 +16,7 @@ import {
 import { dependencyClosure, ensureArtifact, loadPreviousLayers, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { discoverDocs } from "./discover-docs.js";
-import { inScope } from "./merge-semantics.js";
+import { inScope, resolveChangedFiles } from "./merge-semantics.js";
 import { headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
 
@@ -120,9 +120,12 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   };
 
   const scopeIsAll = !options.scope || options.scope.length === 0 || options.scope.includes("all");
+  // Resolved once for the whole snapshot — `inScope` runs per unit, so a git call inside it
+  // would cost one subprocess per unit. Skipped entirely unless `changed` is actually asked for.
+  const changed = !scopeIsAll && options.scope!.includes("changed") ? resolveChangedFiles(options.root) : new Set<string>();
   const scopedLeafIds = scopeIsAll
     ? undefined
-    : new Set(structural.units.filter((u) => inScope(u, options.scope, options.root)).map((u) => u.id));
+    : new Set(structural.units.filter((u) => inScope(u, options.scope, changed)).map((u) => u.id));
 
   const runStart = performance.now();
   let snapshot: Snapshot;

@@ -114,19 +114,30 @@ export function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${pattern}$`);
 }
 
+/** The changed-file set `--scope changed` matches against, resolved once per invocation.
+ *  Callers pass this to `inScope` rather than letting it shell out per unit. */
+export function resolveChangedFiles(root: string): Set<string> {
+  return new Set(changedFiles(root));
+}
+
 /**
  * `--scope` semantics per the plan: `all` (or omitted) matches every entry; `changed` matches
  * units whose file appears in `git diff --name-only HEAD~1 HEAD`; anything else is a glob
  * matched against the unit id.
+ *
+ * `changed` is a `Set` resolved once by the caller (`resolveChangedFiles`), not fetched here —
+ * this predicate runs once per structural unit, and shelling out to git inside it would spawn
+ * one subprocess per unit on exactly the large repos scoped analysis exists to serve.
  */
-export function inScope(unit: { id: string; loc: { files: string[] } }, scope: string[] | undefined, root: string): boolean {
+export function inScope(
+  unit: { id: string; loc: { files: string[] } },
+  scope: string[] | undefined,
+  changed: ReadonlySet<string>,
+): boolean {
   if (!scope || scope.length === 0 || scope.includes("all")) return true;
 
   return scope.some((pattern) => {
-    if (pattern === "changed") {
-      const changed = changedFiles(root);
-      return unit.loc.files.some((f) => changed.includes(f));
-    }
+    if (pattern === "changed") return unit.loc.files.some((f) => changed.has(f));
     return globToRegExp(pattern).test(unit.id);
   });
 }
@@ -276,6 +287,9 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   let merged = 0;
   let skipped = 0;
 
+  // Resolved once, not per unit — see `inScope`.
+  const changed = scope?.includes("changed") ? resolveChangedFiles(root) : new Set<string>();
+
   for (const [id, entry] of Object.entries(pending.units)) {
     const unit = unitById.get(id);
     if (!unit) {
@@ -283,7 +297,7 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
       skipped++;
       continue;
     }
-    if (!inScope(unit, scope, root)) continue;
+    if (!inScope(unit, scope, changed)) continue;
     if (unit.kind !== entry.kind) {
       warnings.push(`unit ${id} has kind "${unit.kind}", pending entry declares "${entry.kind}" — skipped`);
       skipped++;
