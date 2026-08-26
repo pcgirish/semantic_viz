@@ -614,7 +614,7 @@ describe("mergeSemantics", () => {
     expect(expected.steps.indexOf("u:src.auth.verify_token")).toBeLessThan(expected.steps.indexOf(flowEntryUnit));
   });
 
-  it("with --with-flows, warns and skips an entryUnit that is not an eligible function unit", async () => {
+  it("with --with-flows, warns and skips an entryUnit that is not an eligible entry point", async () => {
     const pendingFile = writePending({
       units: {},
       flows: { f1: { name: "Nope", route: "GET /nope", entryUnit: "u:does.not.exist", tags: [], ...narration } },
@@ -623,8 +623,35 @@ describe("mergeSemantics", () => {
     const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
     expect(result.merged).toBe(0);
     expect(result.skipped).toBe(1);
-    expect(result.warnings.some((w) => w.includes("is not an eligible function unit"))).toBe(true);
+    expect(result.warnings.some((w) => w.includes("is not an eligible entry point"))).toBe(true);
     expect(readFlows()).toEqual([]);
+  });
+
+  it("with --with-flows, accepts exactly the entry points the real flows pass proposes from", async () => {
+    // The zero-LLM merge path exists to produce what Pass C would produce, minus the narration
+    // call. `runFlowsPass` proposes entry points from `buildFlowTracingContext`'s
+    // `flowUnitSummaries` (non-test `function` *and* `class` units), so `mergeFlows` must accept
+    // that same set. Narrowing eligibility to `function` here would make a class-rooted flow
+    // reachable via `analyze` but not via `merge-semantics` — class-based route handlers
+    // (Django CBVs, Flask MethodView, DRF APIView) are ordinary entry points.
+    const tracing = buildFlowTracingContext({ snapshot: ctx.snapshot, graph: ctx.graph, units: ctx.snapshot.units });
+    const eligible = new Set(tracing.flowUnitSummaries.map((u) => u.id));
+    const unitById = new Map(ctx.snapshot.units.map((u) => [u.id, u]));
+
+    expect([...eligible].every((id) => ["function", "class"].includes(unitById.get(id)!.kind))).toBe(true);
+    expect(eligible.has(flowEntryUnit)).toBe(true);
+
+    // A module is a real unit but never an entry point, so eligibility is genuinely a filter.
+    const moduleUnit = ctx.snapshot.units.find((u) => u.kind === "module")!;
+    expect(eligible.has(moduleUnit.id)).toBe(false);
+
+    const pendingFile = writePending({
+      units: {},
+      flows: { f1: { name: "Nope", route: "GET /nope", entryUnit: moduleUnit.id, tags: [], ...narration } },
+    });
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
+    expect(result.merged).toBe(0);
+    expect(result.warnings.some((w) => w.includes("is not an eligible entry point"))).toBe(true);
   });
 
   it("with --with-flows, keeps the first of two entries colliding on the same flow id", async () => {

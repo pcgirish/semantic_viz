@@ -50,7 +50,11 @@ against.
    }
    ```
 
-   `entryUnit` must be a **real function unit id**. Use
+   `entryUnit` must be a **real, non-test leaf unit id** — a `function` or a
+   `class`. Classes are accepted because class-based route handlers (Django
+   CBVs, Flask `MethodView`, DRF `APIView`) are legitimate entry points, and
+   because this is exactly the candidate set the real Pass C proposes entry
+   points from. Use
    `.scv/pending/<sha>/semantics-flows.json` by convention — one file per
    skill. `merge-semantics` accepts any path and does not check it against
    the sha being merged.
@@ -67,7 +71,9 @@ against.
 
 Failures are per entry: a bad entry is skipped with a warning, the rest merge.
 
-- `entryUnit` that is not a real, non-test function unit → skipped.
+- `entryUnit` that is not a real, non-test leaf (`function` or `class`) unit
+  → skipped. A module or an already-derived unit (layer, group, flow) is not
+  an eligible entry point.
 - An entry whose trace yields fewer than two steps → skipped, matching what
   the real pass considers too short to be a flow.
 - Two entries resolving to the same flow id (same route and same traced

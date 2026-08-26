@@ -689,7 +689,7 @@ export async function mergeFlows(
 
   for (const [key, entry] of Object.entries(pendingFlows)) {
     if (!eligibleIds.has(entry.entryUnit)) {
-      warnings.push(`flow "${key}" entryUnit '${entry.entryUnit}' is not an eligible function unit — skipped`);
+      warnings.push(`flow "${key}" entryUnit '${entry.entryUnit}' is not an eligible entry point (needs a non-test function or class unit) — skipped`);
       continue;
     }
     const traced = traceFlowSteps(entry.entryUnit, knownUnitIds, tracing);
