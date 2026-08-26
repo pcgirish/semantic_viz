@@ -6,7 +6,7 @@ export { createProvider } from "./create-provider.js";
 export { loadInterpreterConfig, writeInterpreterConfig } from "./config.js";
 export type { InterpreterConfig } from "./config.js";
 export { ContentCache } from "./cache.js";
-export type { CacheKey } from "./cache.js";
+export type { CacheKey, PassAUnitRecord, PassAUnitsKey } from "./cache.js";
 export { CachedProvider } from "./cached-provider.js";
 export { runPassA } from "./pass-a.js";
 export type { PassAResult, RunPassAOptions } from "./pass-a.js";

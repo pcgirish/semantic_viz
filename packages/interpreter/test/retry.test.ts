@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import Database from "better-sqlite3";
 import { interpretJsonWithRetry } from "../src/retry.js";
+import { ContentCache } from "../src/cache.js";
+import { CachedProvider } from "../src/cached-provider.js";
 import type { Provider, ProviderResult } from "../src/provider.js";
 import { z } from "zod";
 
@@ -15,6 +21,45 @@ function providerReturning(...texts: string[]): Provider {
 }
 
 describe("interpretJsonWithRetry", () => {
+  // Test 12 — write side, end to end through a real CachedProvider: a bad first response must
+  // leave no cache row behind, or the retry re-reads it and the unit fails permanently.
+  it("leaves no unparseable row in the cache when a bad response is retried successfully", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "scv-retry-cache-"));
+    const cache = new ContentCache(path.join(dir, "cache.sqlite"));
+    const inner = providerReturning('{"a": bad syntax', '{"a":2}');
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    const result = await interpretJsonWithRetry({ provider, prompt: "p", label: "test", schema: Schema });
+
+    expect(result).toEqual({ a: 2 });
+    expect(inner.interpret).toHaveBeenCalledTimes(2);
+
+    const db = new Database(path.join(dir, "cache.sqlite"));
+    const texts = (db.prepare("SELECT text FROM cache").all() as { text: string }[]).map((r) => r.text);
+    db.close();
+    for (const text of texts) expect(() => JSON.parse(text)).not.toThrow();
+
+    cache.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("supplies a validate that also rejects a schema-invalid response, so it is never cached", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "scv-retry-cache-schema-"));
+    const cache = new ContentCache(path.join(dir, "cache.sqlite"));
+    const inner = providerReturning('{"a":"not a number"}', '{"a":3}');
+    const provider = new CachedProvider(inner, cache, "p1");
+
+    await interpretJsonWithRetry({ provider, prompt: "p", label: "test", schema: Schema });
+
+    const db = new Database(path.join(dir, "cache.sqlite"));
+    const rows = db.prepare("SELECT text FROM cache").all() as { text: string }[];
+    db.close();
+    expect(rows.map((r) => r.text)).toEqual(['{"a":3}']);
+
+    cache.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it("returns the parsed+validated result on the first successful call", async () => {
     const provider = providerReturning('{"a":1}');
 

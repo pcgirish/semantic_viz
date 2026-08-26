@@ -24,9 +24,22 @@ export async function interpretJsonWithRetry<T extends z.ZodTypeAny>(
 ): Promise<z.infer<T>> {
   const { provider, prompt, label, schema, context, maxAttempts = DEFAULT_MAX_ATTEMPTS } = options;
 
+  // "Usable" here means exactly what the loop below demands: parses as JSON *and* satisfies the
+  // schema. Handing this to the provider keeps an unusable response out of the cache, so the next
+  // attempt is a fresh call rather than a replay of the same failure.
+  const validate = (text: string): boolean => {
+    try {
+      schema.parse(parseJsonResponse(text, label));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const callContext: ProviderContext = { ...context, validate };
+
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const { text } = await provider.interpret(prompt, context);
+    const { text } = await provider.interpret(prompt, callContext);
     try {
       const parsed = parseJsonResponse(text, label);
       return schema.parse(parsed);
