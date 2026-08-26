@@ -26,7 +26,11 @@ program
     "--force",
     "recompute the target artifact even if its cached inputs are unchanged; downstream artifacts recompute only if the forced output actually differs; requires [artifact]",
   )
-  .action(async (root: string, artifact: string | undefined, opts: { provider?: string; model?: string; effort?: string; logLevel?: string; llm: boolean; force?: boolean }) => {
+  .option(
+    "--scope <entries...>",
+    "restrict Pass A to: everything (default/'all'), files changed vs HEAD~1 ('changed'), or unit-id globs (e.g. 'u:src.handlers.**', 'u:src.*.create_order')",
+  )
+  .action(async (root: string, artifact: string | undefined, opts: { provider?: string; model?: string; effort?: string; logLevel?: string; llm: boolean; force?: boolean; scope?: string[] }) => {
     const { path: outPath, snapshot, usage, elapsedMs, emptyArtifacts } = await runAnalyze({
       root,
       providerName: opts.provider as RunAnalyzeOptions["providerName"],
@@ -36,6 +40,7 @@ program
       artifact: artifact as RunAnalyzeOptions["artifact"],
       force: opts.force,
       noLlm: !opts.llm,
+      scope: opts.scope,
     });
     console.log(
       `wrote ${outPath} (${snapshot.units.length} units, ${snapshot.edges.length} edges, ${snapshot.externals.length} externals)`,
@@ -73,7 +78,7 @@ program
   .argument("[root]", "repo root to analyze", ".")
   .option(
     "--scope <entries...>",
-    "restrict merge to: all pending entries (default/'all'), files changed vs HEAD~1 ('changed'), or unit-id globs",
+    "restrict merge to: all pending entries (default/'all'), files changed vs HEAD~1 ('changed'), or unit-id globs (e.g. 'u:src.handlers.**')",
   )
   .option("--with-clustering", "also run Pass B clustering (deterministic, no LLM) and merge pending layer narration")
   .option("--with-groups", "also merge pending group narration into the groups artifact (requires a fresh layers artifact)")
