@@ -2,7 +2,7 @@
 
 ## Context
 
-`soft-bubbling-valley.md`'s prior plan (architectural groups/region boxes, implemented in
+`layer-grouping-and-region-boxes.md`'s prior plan (architectural groups/region boxes, implemented in
 PR #54) explicitly deferred function-internal flowcharts — the mockup's `create_order()`
 view with decision diamonds — as out of scope, needing new AST extraction, a new
 interpreter pass, the never-populated `block` unit kind, a new layout algorithm, and a new

@@ -245,7 +245,7 @@ Pass B already uses both `oneLiners` and `importEdges` together, not just names.
 
 No grouping-of-layers step exists at all today. This is the concrete, scoped gap already covered
 by the separate implementation plan in progress this session
-(`~/.claude/plans/soft-bubbling-valley.md`, Part A): a new post-Pass-C step, following the same
+(`docs/plans/layer-grouping-and-region-boxes.md`, Part A): a new post-Pass-C step, following the same
 propose-then-repair discipline as Pass B, taking Pass C's `layers[]` (name + what/why) as input
 and producing a `group` assignment per layer.
 
@@ -260,7 +260,7 @@ ignores structure the codebase already computes.
 
 ### Plan
 
-(Supersedes/extends Part A of `soft-bubbling-valley.md` with the edge-weight input.)
+(Supersedes/extends Part A of `layer-grouping-and-region-boxes.md` with the edge-weight input.)
 
 0. **Fix the `oneLiners` bug above first** — it's upstream of everything else in this section
    and currently silently starves Pass B/C of the interpretation half of their input. Add
@@ -342,7 +342,7 @@ untouched-because-unexamined.
 |---|---|---|---|
 | 1. Extraction | None (control-flow extraction is a separate, larger ask, out of scope here) | — | — |
 | 2. Pass A | Graph structure (callers/callees) computed but never passed into the per-function LLM call, despite `analyze.md` already documenting this as intended | **Root cause candidate** for weak `where`/`why` semantics feeding everything downstream | This document, §2 — not yet in an implementation plan file |
-| 3. Clustering/grouping | No super-grouping of layers into architectural groups; new step should use layer-to-layer edge weight, not just names/semantics | Directly caused this session's original "module grouping unsatisfactory" complaint | `~/.claude/plans/soft-bubbling-valley.md` (Part A), extended by this document's §3 refinement |
+| 3. Clustering/grouping | No super-grouping of layers into architectural groups; new step should use layer-to-layer edge weight, not just names/semantics | Directly caused this session's original "module grouping unsatisfactory" complaint | `docs/plans/layer-grouping-and-region-boxes.md` (Part A), extended by this document's §3 refinement |
 | 4. Diff | None found | — | — |
 
 **Sequencing note:** §2 (Pass A context) and §3 (layer grouping) are independent — §3 does not
