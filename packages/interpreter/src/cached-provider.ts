@@ -39,11 +39,19 @@ export class CachedProvider implements Provider {
     const key = { inputHash, promptRev: this.promptRev, provider: this.inner.name, model: this.inner.model };
     const callMeta = context?.callMeta;
 
+    const validate = context?.validate;
+
     const cached = this.cache.get(key);
     if (cached) {
-      this.usageState.cacheHits += 1;
-      if (callMeta) this.cache.logCall({ ...callMeta, inTokens: 0, outTokens: 0, cacheHit: true, durationMs: 0 });
-      return cached;
+      // A row written before validation existed (or by a build without it) can be unusable. Evict
+      // it rather than serving it, so the retry below can actually reach the provider.
+      if (validate && !validate(cached.text)) {
+        this.cache.delete(key);
+      } else {
+        this.usageState.cacheHits += 1;
+        if (callMeta) this.cache.logCall({ ...callMeta, inTokens: 0, outTokens: 0, cacheHit: true, durationMs: 0 });
+        return cached;
+      }
     }
 
     const innerContext: ProviderContext | undefined = context?.system !== undefined ? { system: context.system } : undefined;
@@ -55,7 +63,9 @@ export class CachedProvider implements Provider {
     this.usageState.inputTokens += inTokens;
     this.usageState.outputTokens += outTokens;
     this.usageState.totalDurationMs += durationMs;
-    this.cache.set(key, result);
+    // Only cache what the caller can use. Caching first and validating later poisons the key: the
+    // retry re-reads the same bad text and the unit can never succeed.
+    if (!validate || validate(result.text)) this.cache.set(key, result);
     if (callMeta) this.cache.logCall({ ...callMeta, inTokens, outTokens, cacheHit: false, durationMs });
     return result;
   }

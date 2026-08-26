@@ -9,7 +9,7 @@ import { buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
 import { semanticHashInput, type Unit } from "@scv/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
-import { mergeFlows, mergeSemantics, runMergeSemantics } from "../src/merge-semantics.js";
+import { inScope, mergeFlows, mergeSemantics, runMergeSemantics } from "../src/merge-semantics.js";
 import { headRev } from "../src/rev.js";
 import { toSnapshot } from "../src/snapshot.js";
 
@@ -810,4 +810,43 @@ describe("mergeSemantics", () => {
     expect(result.merged).toBe(1);
   });
 
+});
+
+describe("inScope with --scope changed", () => {
+  const unit = (id: string, file: string) => ({ id, loc: { files: [file] } });
+
+  it("consults git once for the whole snapshot, not once per unit", () => {
+    // The point of scoped analysis is large repos. Resolving the changed set inside the
+    // per-unit predicate would spawn one `git diff` per structural unit — hundreds or
+    // thousands of subprocesses before Pass A starts — so the set is resolved by the
+    // caller and passed in. This asserts that seam exists rather than a memo that a
+    // future caller could bypass.
+    let gitCalls = 0;
+    const resolve = () => {
+      gitCalls += 1;
+      return new Set(["src/a.py"]);
+    };
+
+    const changed = resolve();
+    const units = Array.from({ length: 200 }, (_, i) => unit(`u:src.mod${i}.fn`, `src/mod${i}.py`));
+    for (const u of units) inScope(u, ["changed"], changed);
+
+    expect(gitCalls).toBe(1);
+  });
+
+  it("matches a unit whose file is in the changed set", () => {
+    const changed = new Set(["src/orders.py"]);
+    expect(inScope(unit("u:src.orders.create", "src/orders.py"), ["changed"], changed)).toBe(true);
+    expect(inScope(unit("u:src.auth.verify", "src/auth.py"), ["changed"], changed)).toBe(false);
+  });
+
+  it("matches nothing when no files changed", () => {
+    expect(inScope(unit("u:src.orders.create", "src/orders.py"), ["changed"], new Set())).toBe(false);
+  });
+
+  it("still honours globs and `all` alongside `changed`", () => {
+    const changed = new Set(["src/orders.py"]);
+    expect(inScope(unit("u:src.auth.verify", "src/auth.py"), ["changed", "u:src.auth.**"], changed)).toBe(true);
+    expect(inScope(unit("u:src.auth.verify", "src/auth.py"), ["all"], changed)).toBe(true);
+  });
 });
