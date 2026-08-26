@@ -276,18 +276,6 @@ stops after extraction and writes a static-only snapshot. The on-disk/wire
 `.scv/snapshots/<sha>.json` contract is unchanged — server and UI need no
 changes.
 
-Pass A is resumable. Every unit's result is persisted the moment it resolves,
-keyed by the unit's structural hash, so an interrupted `scv analyze` costs at
-most the units still in flight — a re-run reanalyzes only what is genuinely
-missing or whose source actually changed. `functions.json` is flushed
-periodically as a `partial` artifact (written atomically, and never mistaken
-for a fresh one), so a run killed mid-pass still leaves a readable snapshot for
-`--no-llm` to merge over. `scv analyze --scope all|changed|<unit-id globs>`
-analyzes a repo in slices, e.g. `--scope 'u:src.handlers.**'`; globs match the
-full unit id including the `u:` prefix. A provider response that fails
-validation is never cached, so a retry can succeed instead of re-reading the
-same bad text forever.
-
 Pass A's block-level labels (used by Flowchart mode) now retry once, scoped
 to just the decision/loop blocks the LLM left without a `trueLabel`/
 `falseLabel` on the first call, instead of showing a generic branch label.

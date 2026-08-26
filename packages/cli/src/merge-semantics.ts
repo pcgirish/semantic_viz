@@ -105,7 +105,7 @@ function writeArtifact<T>(ctx: ArtifactContext, name: string, inputHash: string,
 /** Converts a `--scope` glob (`*` = one path segment, `**` = any depth) to a matcher against
  *  dotted unit ids/qualnames (e.g. `u:src.handlers.create_order`), where `.` is the segment
  *  separator. */
-export function globToRegExp(glob: string): RegExp {
+function globToRegExp(glob: string): RegExp {
   const escaped = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&");
   const pattern = escaped
     .replace(/\*\*/g, " ")
@@ -119,7 +119,7 @@ export function globToRegExp(glob: string): RegExp {
  * units whose file appears in `git diff --name-only HEAD~1 HEAD`; anything else is a glob
  * matched against the unit id.
  */
-export function inScope(unit: { id: string; loc: { files: string[] } }, scope: string[] | undefined, root: string): boolean {
+function inScope(unit: { id: string; loc: { files: string[] } }, scope: string[] | undefined, root: string): boolean {
   if (!scope || scope.length === 0 || scope.includes("all")) return true;
 
   return scope.some((pattern) => {

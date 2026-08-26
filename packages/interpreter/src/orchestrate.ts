@@ -4,7 +4,6 @@ import { isGeneratedPath, isTestPath } from "@scv/extractor";
 import { formatFindings, validateSnapshotInvariants } from "@scv/schema";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
 import type { Provider } from "./provider.js";
-import type { PassAUnitRecord } from "./cache.js";
 import { runPassA } from "./pass-a.js";
 import { runPassABlocks, type BlockLabel } from "./pass-a-blocks.js";
 import { runPassB } from "./pass-b.js";
@@ -193,16 +192,6 @@ export interface RunFunctionsPassOptions {
   promptRev: string;
   readSource: (file: string, start: number, end: number) => string;
   reportProgress: ReportProgress;
-  /**
-   * Pass A results carried over from an earlier, interrupted run. `ok` entries are restored
-   * instead of re-analyzed; `failed` entries are re-attempted. The caller owns persistence —
-   * the interpreter never touches the cache DB itself.
-   */
-  priorResults?: Map<string, PassAUnitRecord>;
-  /** Called as each in-scope unit resolves, so the caller can persist it before the pass ends. */
-  onUnitComplete?: (id: string, unit: Unit, status: "ok" | "failed") => void;
-  /** When present, only these leaf ids are analyzed; the rest pass through structurally. */
-  scopedLeafIds?: ReadonlySet<string>;
 }
 
 export interface RunFunctionsPassResult {
@@ -211,18 +200,13 @@ export interface RunFunctionsPassResult {
   units: Unit[];
   blockUnits: Unit[];
   blockEdges: Edge[];
-  /** False when `scopedLeafIds` held the pass back from some leaf units. Only a run that
-   *  attempted every unit and failed none may be recorded as a complete, fresh artifact. */
-  attemptedAll: boolean;
-  /** Units whose Pass A call threw. Non-zero keeps the artifact partial so they are retried. */
-  failedCount: number;
 }
 
 /** Lifts leaf (function/class) units with Pass A semantics, then labels each function's
  *  control-flow blocks (Pass A-blocks). Bottom-up by call graph so a caller's prompt can see
  *  its callees' already-known one-liners inline. */
 export async function runFunctionsPass(options: RunFunctionsPassOptions): Promise<RunFunctionsPassResult> {
-  const { snapshot, graph, provider, promptRev, readSource, reportProgress, priorResults, onUnitComplete, scopedLeafIds } = options;
+  const { snapshot, graph, provider, promptRev, readSource, reportProgress } = options;
   const graphById = new Map(graph.units.map((u) => [u.id, u]));
 
   // Precomputed once (O(edges)) rather than per-unit (O(edges × units)) — static caller/callee
@@ -245,40 +229,16 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
   // already-known one-liners inline (free — no extra LLM call). Reorder only leaf units by the
   // call graph; everything else keeps declaration order and runs through unchanged below.
   const snapshotUnitById = new Map(snapshot.units.map((u) => [u.id, u]));
-  const allLeafIds = snapshot.units.filter((u) => LEAF_KINDS.has(u.kind) && !isTestUnit(u)).map((u) => u.id);
-  const leafIds = scopedLeafIds ? allLeafIds.filter((id) => scopedLeafIds.has(id)) : allLeafIds;
-  const attemptedAll = leafIds.length === allLeafIds.length;
+  const leafIds = snapshot.units.filter((u) => LEAF_KINDS.has(u.kind) && !isTestUnit(u)).map((u) => u.id);
   const callEdgeRefs = graph.edges.filter((e) => e.kind === "calls").map((e) => ({ from: e.from, to: e.to }));
-  // `topoOrder` walks into callees to order them first, so it returns transitive callees that were
-  // never asked for. Unscoped that is a no-op (every leaf is already in `leafIds`); scoped it would
-  // silently analyze the whole call closure, so the ordering is filtered back down to what is in scope.
-  const inScope = new Set(leafIds);
-  const processingOrder = topoOrder(leafIds, callEdgeRefs).filter((id) => inScope.has(id));
+  const processingOrder = topoOrder(leafIds, callEdgeRefs);
 
-  // Seed from a previous run's completed units. Both maps matter: `passAResultById` feeds the
-  // callee digest, and `knownOneLiners` feeds the caller's prompt text — leaving either empty
-  // changes the provider cache key and re-analyzes work that was already paid for.
   const knownOneLiners = new Map<string, string>();
   const passAResultById = new Map<string, Unit>();
-  const restoredIds = new Set<string>();
-  for (const [id, record] of priorResults ?? []) {
-    if (record.status !== "ok") continue;
-    passAResultById.set(id, record.unit);
-    restoredIds.add(id);
-    const what = record.unit.semantics?.what;
-    if (what) knownOneLiners.set(record.unit.qualname, what);
-  }
-
-  let failedCount = 0;
   let passADone = 0;
   const passATotal = processingOrder.length;
   await runInDependencyOrder(processingOrder, PASS_A_CONCURRENCY, (id) => calleeIdsById.get(id) ?? [], async (id) => {
     const unit = snapshotUnitById.get(id)!;
-    if (restoredIds.has(id)) {
-      passADone += 1;
-      reportProgress("pass A", passADone, passATotal, unit.qualname);
-      return;
-    }
     const symbolUnit = graphById.get(unit.id);
     if (!symbolUnit) {
       passAResultById.set(id, unit);
@@ -314,17 +274,13 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
     } catch (err) {
       console.error(`pass A: ${unit.qualname ?? unit.id}: skipped — ${err instanceof Error ? err.message : String(err)}`);
       passAResultById.set(id, unit);
-      failedCount += 1;
-      // Recorded as `failed` so the next run retries it, rather than reading back a
-      // semantics-less unit and treating it as already analyzed.
-      onUnitComplete?.(id, unit, "failed");
       passADone += 1;
       reportProgress("pass A", passADone, passATotal, symbolUnit.qualname);
       return;
     }
 
     if (result.semantics.what) knownOneLiners.set(symbolUnit.qualname, result.semantics.what);
-    const analyzed: Unit = {
+    passAResultById.set(id, {
       ...unit,
       semantics: result.semantics,
       cost: result.cost,
@@ -332,9 +288,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
       signature: result.signature,
       hash: { ...unit.hash, semantic: hashSemantics(result.semantics) },
       provenance: { source: "llm", pass: "A", provider: provider.name, model: provider.model },
-    };
-    passAResultById.set(id, analyzed);
-    onUnitComplete?.(id, analyzed, "ok");
+    });
     passADone += 1;
     reportProgress("pass A", passADone, passATotal, symbolUnit.qualname);
   });
@@ -445,7 +399,7 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
     return { ...unit, children: [...unit.children, ...childIds] };
   });
 
-  return { units: unitsWithBlockChildren, blockUnits, blockEdges, attemptedAll, failedCount };
+  return { units: unitsWithBlockChildren, blockUnits, blockEdges };
 }
 
 // ---------------------------------------------------------------------------------------------

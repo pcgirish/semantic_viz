@@ -6,12 +6,6 @@ export interface ProviderContext {
    * so a stale cache entry can't survive a dependency change the prompt text itself doesn't show.
    */
   cacheKeyExtra?: string;
-  /**
-   * Caller's usability check on the response text. CachedProvider refuses to cache a response
-   * that fails it, and evicts a cached row that fails it, so a malformed reply cannot be frozen
-   * in and served back to every later retry. Not sent to the model.
-   */
-  validate?: (text: string) => boolean;
   /** Call-site identity for per-call logging (docs/llm-call-observability.md). Not sent to the model. */
   callMeta?: {
     pass: "A" | "B" | "C" | "D" | "Docs";

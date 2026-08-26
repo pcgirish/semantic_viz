@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { extractRepo } from "@scv/extractor";
-import type { Snapshot, Unit } from "@scv/schema";
+import type { Snapshot } from "@scv/schema";
 import {
   CachedProvider,
   ContentCache,
@@ -16,7 +16,6 @@ import {
 import { dependencyClosure, ensureArtifact, loadPreviousLayers, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { discoverDocs } from "./discover-docs.js";
-import { inScope } from "./merge-semantics.js";
 import { headRev } from "./rev.js";
 import { toSnapshot } from "./snapshot.js";
 
@@ -39,9 +38,6 @@ export interface RunAnalyzeOptions {
   /** Merge from cache only — never call a provider; artifacts with no fresh cache entry are
    *  assembled from their empty default instead of being computed. */
   noLlm?: boolean;
-  /** Restrict Pass A to matching units — `all`, `changed`, or globs over dotted unit ids
-   *  (e.g. `u:src.handlers.**`). Lets a large repo be analyzed in slices. */
-  scope?: string[];
 }
 
 export interface RunAnalyzeResult {
@@ -102,28 +98,6 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   const cache = new ContentCache(path.join(scvDir, "cache.sqlite"));
   const provider = new CachedProvider(baseProvider, cache, promptRev);
 
-  // Pass A resume: reload every unit already completed for this exact source, and persist each
-  // new one the moment it resolves, so an interrupt costs at most the units still in flight.
-  // A unit with no structural hash cannot be invalidated by its own source changing, so it is
-  // left out of the store entirely rather than keyed on a placeholder.
-  const structHashByUnitId = new Map(
-    structural.units.flatMap((u) => (u.hash.struct ? [[u.id, u.hash.struct] as [string, string]] : [])),
-  );
-  const passAUnitsKey = { sha: rev.sha, promptRev, provider: baseProvider.name, model: baseProvider.model };
-  const passAStore = {
-    prior: cache.getPassAUnits(passAUnitsKey, structHashByUnitId),
-    record: (id: string, unit: Unit, status: "ok" | "failed"): void => {
-      const structHash = structHashByUnitId.get(id);
-      if (!structHash) return;
-      cache.setPassAUnit(passAUnitsKey, { unitId: id, structHash, unit, status });
-    },
-  };
-
-  const scopeIsAll = !options.scope || options.scope.length === 0 || options.scope.includes("all");
-  const scopedLeafIds = scopeIsAll
-    ? undefined
-    : new Set(structural.units.filter((u) => inScope(u, options.scope, options.root)).map((u) => u.id));
-
   const runStart = performance.now();
   let snapshot: Snapshot;
   let outPath: string;
@@ -143,9 +117,6 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
       force: options.force && options.artifact ? new Set([options.artifact]) : new Set(),
       previousLayers: loadPreviousLayers(scvDir, options.root, promptRev),
       noLlm: options.noLlm ?? false,
-      scopedLeafIds,
-      scopeKey: scopeIsAll ? "all" : [...options.scope!].sort().join(","),
-      passAStore,
     };
 
     if (options.noLlm) {

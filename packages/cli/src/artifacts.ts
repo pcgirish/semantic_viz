@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { SymbolGraph } from "@scv/extractor";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
@@ -15,7 +15,6 @@ import {
   layerIdFor,
   type DocExtract,
   type Layer,
-  type PassAUnitRecord,
   type Provider,
 } from "@scv/interpreter";
 import type { DiscoveredDoc } from "./discover-docs.js";
@@ -95,21 +94,7 @@ export interface ArtifactDataMap {
 
 interface StoredArtifact<T> {
   inputHash: string;
-  /** True when this file was flushed mid-pass, or by a scoped/failed run. A partial artifact is
-   *  readable but never fresh — the next run recomputes, which the per-unit store makes cheap. */
-  partial?: boolean;
   data: T;
-}
-
-/**
- * Pass A persistence, owned by the CLI so the interpreter stays free of the cache DB. Supplied
- * by `analyze.ts`; absent for callers that don't resume (tests, `--no-llm` without a cache).
- */
-export interface PassAStore {
-  /** Completed units from an earlier run, keyed by unit id, already matched on struct hash. */
-  prior: Map<string, PassAUnitRecord>;
-  /** Durably record one unit's outcome the moment it resolves. */
-  record: (id: string, unit: Unit, status: "ok" | "failed") => void;
 }
 
 export interface ArtifactContext {
@@ -133,13 +118,6 @@ export interface ArtifactContext {
   /** True for a `--no-llm` run. Informational only — actual no-provider gating happens via
    *  `EnsureArtifactOptions.allowProvider`, computed by the caller from this flag. */
   noLlm?: boolean;
-  /** Unit ids Pass A is restricted to (`--scope`). Absent means the whole repo. */
-  scopedLeafIds?: ReadonlySet<string>;
-  /** Stable text identifying the scope, folded into the `functions` input hash so a scoped run
-   *  and a full run never read each other's artifact as fresh. */
-  scopeKey?: string;
-  /** Per-unit Pass A persistence, enabling resume across interrupted runs. */
-  passAStore?: PassAStore;
 }
 
 function artifactFile(ctx: ArtifactContext, name: ArtifactName): string {
@@ -156,15 +134,10 @@ export function readArtifact<T>(ctx: ArtifactContext, name: ArtifactName): Store
   }
 }
 
-/** Writes via a sibling temp file + rename, so a kill mid-write leaves the previous file intact
- *  rather than a truncated one — the incremental Pass A flush depends on that. */
-function writeArtifact<T>(ctx: ArtifactContext, name: ArtifactName, inputHash: string, data: T, partial = false): void {
+function writeArtifact<T>(ctx: ArtifactContext, name: ArtifactName, inputHash: string, data: T): void {
   const file = artifactFile(ctx, name);
   mkdirSync(path.dirname(file), { recursive: true });
-  const stored: StoredArtifact<T> = partial ? { inputHash, partial: true, data } : { inputHash, data };
-  const temp = `${file}.${process.pid}.tmp`;
-  writeFileSync(temp, JSON.stringify(stored));
-  renameSync(temp, file);
+  writeFileSync(file, JSON.stringify({ inputHash, data } satisfies StoredArtifact<T>));
 }
 
 function hashOf(...parts: string[]): string {
@@ -184,8 +157,7 @@ export async function computeInputHash(name: ArtifactName, ctx: ArtifactContext,
       // Static, not LLM-derived — no promptRev dependency.
       return graphHash(ctx.graph);
     case "functions":
-      // Scope is in the key so a slice's artifact is never mistaken for a whole-repo one.
-      return hashOf(graphHash(ctx.graph), ctx.promptRev, ctx.scopeKey ?? "all");
+      return hashOf(graphHash(ctx.graph), ctx.promptRev);
     case "docs":
       return hashOf(ctx.docs.map((d) => `${d.path}:${d.content}`).join("\n"), ctx.promptRev);
     case "clusters": {
@@ -231,66 +203,26 @@ export async function computeInputHash(name: ArtifactName, ctx: ArtifactContext,
   }
 }
 
-/** Units completed between flushes before `functions.json` is rewritten. The artifact is large,
- *  so flushing per unit would dominate the pass; anything newer than the last flush is still
- *  recoverable from `pass_a_units`. */
-const PASS_A_FLUSH_EVERY = 10;
-
-/** Computed data, plus whether it may be recorded as a complete (fresh-able) artifact. */
-interface ComputedArtifact {
-  data: ArtifactDataMap[ArtifactName];
-  partial: boolean;
-}
-
-async function computeArtifact(name: ArtifactName, ctx: ArtifactContext, deps: Partial<ArtifactDataMap>, inputHash: string): Promise<ComputedArtifact> {
+async function computeArtifact(name: ArtifactName, ctx: ArtifactContext, deps: Partial<ArtifactDataMap>): Promise<ArtifactDataMap[ArtifactName]> {
   switch (name) {
     case "extraction":
-      return { data: ctx.graph, partial: false };
-    case "functions": {
-      const store = ctx.passAStore;
-      // Rebuilt on each flush from the units resolved so far, so an interrupted run still leaves
-      // a readable `functions.json` carrying the work already paid for.
-      const completed = new Map<string, Unit>();
-      let sinceFlush = 0;
-      const flush = (): void => {
-        const units = ctx.snapshot.units.map((u) => completed.get(u.id) ?? u);
-        writeArtifact(ctx, "functions", inputHash, { units, blockUnits: [], blockEdges: [] } satisfies FunctionsData, true);
-      };
-
-      const result = await runFunctionsPass({
+      return ctx.graph;
+    case "functions":
+      return runFunctionsPass({
         snapshot: ctx.snapshot,
         graph: ctx.graph,
         provider: ctx.provider,
         promptRev: ctx.promptRev,
         readSource: ctx.readSource,
         reportProgress: ctx.reportProgress,
-        scopedLeafIds: ctx.scopedLeafIds,
-        priorResults: store?.prior,
-        onUnitComplete: (id, unit, status) => {
-          store?.record(id, unit, status);
-          if (status === "ok") completed.set(id, unit);
-          if (++sinceFlush >= PASS_A_FLUSH_EVERY) {
-            sinceFlush = 0;
-            flush();
-          }
-        },
       });
-
-      const { units, blockUnits, blockEdges, attemptedAll, failedCount } = result;
-      // Only a run that attempted every unit and failed none may be recorded as complete;
-      // anything else stays partial so the next run picks up where this one stopped.
-      return { data: { units, blockUnits, blockEdges }, partial: !attemptedAll || failedCount > 0 };
-    }
     case "docs":
-      return {
-        data: await runDocsPass({
-          docs: ctx.docs,
-          provider: ctx.provider,
-          promptRev: ctx.promptRev,
-          reportProgress: ctx.reportProgress,
-        }),
-        partial: false,
-      };
+      return runDocsPass({
+        docs: ctx.docs,
+        provider: ctx.provider,
+        promptRev: ctx.promptRev,
+        reportProgress: ctx.reportProgress,
+      });
     case "clusters": {
       const functions = deps.functions as FunctionsData;
       const docExtracts = deps.docs as DocExtract[];
@@ -308,7 +240,7 @@ async function computeArtifact(name: ArtifactName, ctx: ArtifactContext, deps: P
         directoryModularity: result.directoryModularity,
         clusteringVersion: CLUSTERING_VERSION,
       };
-      return { data: clustersData, partial: false };
+      return clustersData;
     }
     case "layers": {
       const clusters = deps.clusters as ClustersData;
@@ -340,7 +272,7 @@ async function computeArtifact(name: ArtifactName, ctx: ArtifactContext, deps: P
         clusteringVersion: CLUSTERING_VERSION,
         promptRev: ctx.promptRev,
       };
-      return { data: layersData, partial: false };
+      return layersData;
     }
     case "groups": {
       const layers = deps.layers as LayersData;
@@ -360,21 +292,18 @@ async function computeArtifact(name: ArtifactName, ctx: ArtifactContext, deps: P
         reportProgress: ctx.reportProgress,
       });
       const groupsData: GroupsData = { groupUnits: grouped.groupUnits, layerParent: [...grouped.layerParent] };
-      return { data: groupsData, partial: false };
+      return groupsData;
     }
     case "flows": {
       const functions = deps.functions as FunctionsData;
-      return {
-        data: await runFlowsPass({
-          snapshot: ctx.snapshot,
-          graph: ctx.graph,
-          units: functions.units,
-          provider: ctx.provider,
-          promptRev: ctx.promptRev,
-          reportProgress: ctx.reportProgress,
-        }),
-        partial: false,
-      };
+      return runFlowsPass({
+        snapshot: ctx.snapshot,
+        graph: ctx.graph,
+        units: functions.units,
+        provider: ctx.provider,
+        promptRev: ctx.promptRev,
+        reportProgress: ctx.reportProgress,
+      });
     }
   }
 }
@@ -483,40 +412,6 @@ export function loadPreviousLayers(scvDir: string, root: string, promptRev: stri
   return new Map();
 }
 
-/**
- * What a `--no-llm` run reads when the artifact is not fresh. For `functions` a partial artifact
- * is usable but not authoritative: debouncing means units can be complete in `pass_a_units` yet
- * absent from the last flush, so the durable store is overlaid on top of it. Other artifacts have
- * no per-unit store and fall back to the structural default.
- */
-function noLlmFallback<N extends ArtifactName>(
-  name: N,
-  ctx: ArtifactContext,
-  stored: StoredArtifact<ArtifactDataMap[N]> | undefined,
-): ArtifactDataMap[N] {
-  if (name !== "functions") return emptyArtifactDefault(name, ctx);
-
-  const base = (stored?.data ?? emptyArtifactDefault("functions", ctx)) as FunctionsData;
-  const byId = new Map(base.units.map((u) => [u.id, u]));
-  for (const [id, record] of ctx.passAStore?.prior ?? []) {
-    if (record.status !== "ok") continue;
-    // Only the analysis is taken from the store. A stored record predates block linkage — Pass A
-    // reports each unit before block children are appended — so adopting it wholesale would drop
-    // the `children` entries that `base.blockUnits` still points at, and the snapshot would fail
-    // its parent/child invariant.
-    const structural = byId.get(id) ?? ctx.snapshot.units.find((u) => u.id === id);
-    if (!structural) continue;
-    const { semantics, cost, tags, hash, provenance, signature } = record.unit;
-    byId.set(id, { ...structural, semantics, cost, tags, hash, provenance, signature });
-  }
-  const merged: FunctionsData = {
-    units: ctx.snapshot.units.map((u) => byId.get(u.id) ?? u),
-    blockUnits: base.blockUnits,
-    blockEdges: base.blockEdges,
-  };
-  return merged as ArtifactDataMap[N];
-}
-
 export async function ensureArtifact<N extends ArtifactName>(
   name: N,
   ctx: ArtifactContext,
@@ -532,22 +427,20 @@ export async function ensureArtifact<N extends ArtifactName>(
 
   const inputHash = await computeInputHash(name, ctx, deps);
   const stored = readArtifact<ArtifactDataMap[N]>(ctx, name);
-  // A partial artifact is readable but never fresh: it is missing units by construction, and the
-  // per-unit store makes recomputing it cheap.
-  const fresh = stored && stored.inputHash === inputHash && !stored.partial && !ctx.force.has(name);
+  const fresh = stored && stored.inputHash === inputHash && !ctx.force.has(name);
   // `extraction` never calls a provider to begin with — always compute it for real, regardless
   // of `allowProvider`; it can never be empty-defaulted.
   const mayCallProvider = name === "extraction" || !opts?.allowProvider || opts.allowProvider.has(name);
 
   if (!fresh && !mayCallProvider) {
     defaultedArtifacts.add(name);
-    return { data: noLlmFallback(name, ctx, stored), defaultedArtifacts };
+    return { data: emptyArtifactDefault(name, ctx), defaultedArtifacts };
   }
   if (fresh) return { data: stored.data, defaultedArtifacts };
 
-  const computed = await computeArtifact(name, ctx, deps, inputHash);
-  writeArtifact(ctx, name, inputHash, computed.data, computed.partial);
-  return { data: computed.data as ArtifactDataMap[N], defaultedArtifacts };
+  const data = (await computeArtifact(name, ctx, deps)) as ArtifactDataMap[N];
+  writeArtifact(ctx, name, inputHash, data);
+  return { data, defaultedArtifacts };
 }
 
 /** Thin wrapper for call sites that only need the data, not the `defaultedArtifacts` set. */
