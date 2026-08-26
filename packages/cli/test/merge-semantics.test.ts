@@ -850,3 +850,90 @@ describe("inScope with --scope changed", () => {
     expect(inScope(unit("u:src.auth.verify", "src/auth.py"), ["all"], changed)).toBe(true);
   });
 });
+
+/** Block units are pure AST structure, so a zero-LLM merge must still produce them — the
+ *  Flowchart view is otherwise silently empty on every agent-authored path. */
+describe("mergeSemantics block units", () => {
+  let scvDir: string;
+  let sha: string;
+  let ctx: ArtifactContext;
+  let graph: Awaited<ReturnType<typeof extractRepo>>;
+
+  beforeEach(async () => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-merge-blocks-"));
+    graph = await extractRepo(orderlyRoot);
+    sha = "fixed-sha";
+    const snapshot = toSnapshot(graph, {
+      root: orderlyRoot,
+      rev: { sha, kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" },
+    });
+    ctx = {
+      scvDir,
+      sha,
+      snapshot,
+      graph,
+      provider: {
+        interpret: () => {
+          throw new Error("merge-semantics must never call the provider");
+        },
+      } as never,
+      promptRev: "test-prompt-rev",
+      readSource: () => "",
+      docs: [],
+      reportProgress: () => {},
+      force: new Set(),
+    };
+  });
+
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function writeEmptyPending(): string {
+    const file = path.join(scvDir, "pending", sha, "semantics.json");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ units: {} }));
+    return file;
+  }
+
+  function storedFunctions(): { units: Unit[]; blockUnits: Unit[]; blockEdges: { id: string }[] } {
+    const file = path.join(scvDir, "artifacts", sha, "functions.json");
+    return JSON.parse(readFileSync(file, "utf-8")).data;
+  }
+
+  it("writes populated block units and control_flow edges", async () => {
+    const expectedBlocks = Object.values(graph.blockGraph).reduce((n, bg) => n + bg.blocks.length, 0);
+    const expectedEdges = Object.values(graph.blockGraph).reduce((n, bg) => n + bg.edges.length, 0);
+    expect(expectedBlocks, "fixture must have block data for this test to mean anything").toBeGreaterThan(0);
+
+    await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
+
+    const data = storedFunctions();
+    expect(data.blockUnits).toHaveLength(expectedBlocks);
+    expect(data.blockEdges).toHaveLength(expectedEdges);
+  });
+
+  it("parents blocks under their function without duplicating any id", async () => {
+    await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
+
+    const data = storedFunctions();
+    const unitIds = new Set(data.units.map((u) => u.id));
+    for (const block of data.blockUnits) {
+      expect(unitIds.has(block.parent as string)).toBe(true);
+    }
+    const allIds = [...data.units.map((u) => u.id), ...data.blockUnits.map((u) => u.id)];
+    expect(new Set(allIds).size).toBe(allIds.length);
+    expect(new Set(data.blockEdges.map((e) => e.id)).size).toBe(data.blockEdges.length);
+  });
+
+  it("keeps the functions inputHash matching a follow-up ensureArtifact", async () => {
+    await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
+
+    const file = path.join(scvDir, "artifacts", sha, "functions.json");
+    const stored = JSON.parse(readFileSync(file, "utf-8"));
+    expect(stored.inputHash).toBe(await computeInputHash("functions", ctx, {}));
+
+    const reused = (await ensureArtifact("functions", ctx)).data;
+    expect(reused.blockUnits.length).toBeGreaterThan(0);
+  });
+});
