@@ -681,9 +681,31 @@ export interface RunFlowsPassOptions {
   reportProgress: ReportProgress;
 }
 
-/** Traces API-entry-point call chains (Pass C flows), producing narrated `api_flow` units. */
-export async function runFlowsPass(options: RunFlowsPassOptions): Promise<Unit[]> {
-  const { snapshot, graph, units, provider, promptRev, reportProgress } = options;
+export interface FlowTracingContext {
+  /** `calls` edges with branch labels, DI edges excluded — the input `traceFlow` walks. */
+  callEdges: CallEdge[];
+  /** Handler unit id -> its DI dependency unit ids, spliced in as a linear prefix. */
+  diDependenciesByHandler: Map<string, string[]>;
+  /** Non-test leaf units eligible to be flow steps/entry points. */
+  flowUnitSummaries: FlowUnitSummary[];
+  /** Structural route hints restricted to eligible flow units. */
+  routeHints: SymbolGraph["routes"];
+  unitById: Map<string, Unit>;
+}
+
+/**
+ * Builds everything flow tracing needs from a live extraction: branch-labeled call edges, the
+ * DI-dependency map, eligible flow units and route hints.
+ *
+ * Shared by `runFlowsPass` and the CLI's agent-authored flow merge so both trace identical
+ * `steps`/`stepsBranching` — a merged flow whose DI prefix or branch labels diverged from the
+ * real pipeline's would be a different artifact, not the same one under manual provenance.
+ *
+ * Requires a live `SymbolGraph`: DI edges live on `graph.edges[].via` and branch labels on
+ * `graph.blockGraph`, neither of which survives snapshot persistence.
+ */
+export function buildFlowTracingContext(options: { snapshot: Snapshot; graph: SymbolGraph; units: Unit[] }): FlowTracingContext {
+  const { snapshot, graph, units } = options;
 
   const functionsWithBlocks: { unit: Unit; symbolUnit: SymbolUnit; bg: SymbolBlockGraph }[] = [];
   const graphById = new Map(graph.units.map((u) => [u.id, u]));
@@ -748,6 +770,89 @@ export async function runFlowsPass(options: RunFlowsPassOptions): Promise<Unit[]
   const flowUnitIds = new Set(flowUnitSummaries.map((u) => u.id));
   const routeHints = graph.routes.filter((r) => flowUnitIds.has(r.unit));
 
+  return { callEdges, diDependenciesByHandler, flowUnitSummaries, routeHints, unitById };
+}
+
+export interface TracedFlow {
+  /** DI dependencies as a linear prefix, then the traced body chain. */
+  steps: string[];
+  stepsBranching: StepBranch | undefined;
+  stepUnits: Unit[];
+}
+
+/**
+ * Traces one entry point's call chain, splicing its DI dependencies in as a linear prefix.
+ * Returns `null` for an entry whose body trace is too short to be a flow (fewer than two steps),
+ * matching what `runFlowsPass` skips. Deterministic — no provider involved.
+ */
+export function traceFlowSteps(entryUnitId: string, knownUnitIds: Set<string>, tracing: FlowTracingContext): TracedFlow | null {
+  const bodySteps = traceFlow(entryUnitId, knownUnitIds, tracing.callEdges);
+  if (!bodySteps || bodySteps.length < 2) return null;
+  const bodyBranching = traceFlowBranching(entryUnitId, knownUnitIds, tracing.callEdges) ?? undefined;
+
+  const diSteps = (tracing.diDependenciesByHandler.get(entryUnitId) ?? []).filter((id) => knownUnitIds.has(id));
+  const steps = [...diSteps, ...bodySteps];
+  const stepsBranching = diSteps.reduceRight<StepBranch | undefined>(
+    (child, unit) => ({ unit, children: child ? [child] : [] }),
+    bodyBranching,
+  );
+
+  const stepUnits = steps.map((id) => tracing.unitById.get(id)).filter((u): u is Unit => Boolean(u));
+  return { steps, stepsBranching, stepUnits };
+}
+
+/** Assembles an `api_flow` unit from a traced chain plus narration, whatever produced that
+ *  narration — a real `narrateFlow()` call or an agent-authored pending entry. */
+export function buildFlowUnit(options: {
+  name: string;
+  route: string;
+  traced: TracedFlow;
+  semantics: Unit["semantics"];
+  tags: string[];
+  provenance: Unit["provenance"];
+}): Unit {
+  const { name, route, traced, semantics, tags, provenance } = options;
+  const { steps, stepsBranching, stepUnits } = traced;
+  const sloc = stepUnits.reduce((sum, u) => sum + u.loc.sloc, 0);
+
+  // Hash the traced steps, not the route/name text — two distinct entry points can get the same
+  // route label (e.g. two similarly-shaped handlers both read as "POST /orders"), and an id keyed
+  // on that label alone would collide and silently drop one.
+  const flowId = `u:flow:${createHash("sha1").update(`${route}\n${steps.join("\n")}`).digest("hex").slice(0, 8)}`;
+  return {
+    id: flowId,
+    kind: "api_flow",
+    name,
+    qualname: route,
+    lang: undefined,
+    parent: null,
+    children: [],
+    route,
+    steps,
+    stepsBranching,
+    loc: {
+      files: [...new Set(stepUnits.flatMap((u) => u.loc.files))],
+      start: null,
+      end: null,
+      sloc,
+    },
+    semantics,
+    cost: null,
+    tags,
+    metrics: { hops: steps.length, sloc },
+    authors: undefined,
+    hash: { struct: createHash("sha1").update(steps.join("")).digest("hex"), text: null, semantic: null },
+    provenance,
+  };
+}
+
+/** Traces API-entry-point call chains (Pass C flows), producing narrated `api_flow` units. */
+export async function runFlowsPass(options: RunFlowsPassOptions): Promise<Unit[]> {
+  const { snapshot, graph, units, provider, promptRev, reportProgress } = options;
+
+  const tracing = buildFlowTracingContext({ snapshot, graph, units });
+  const { callEdges, flowUnitSummaries, routeHints } = tracing;
+
   const newUnits: Unit[] = [];
   if (flowUnitSummaries.length > 0) {
     reportProgress("pass C flows: entry points", 0, 1, "proposing entry points");
@@ -769,66 +874,38 @@ export async function runFlowsPass(options: RunFlowsPassOptions): Promise<Unit[]
     let flowNarrationDone = 0;
     const flowNarrationTotal = entryPoints.length;
     for (const entry of entryPoints) {
-      const bodySteps = traceFlow(entry.unit, knownUnitIds, callEdges);
-      if (!bodySteps || bodySteps.length < 2) continue;
-      const bodyBranching = traceFlowBranching(entry.unit, knownUnitIds, callEdges) ?? undefined;
+      const traced = traceFlowSteps(entry.unit, knownUnitIds, tracing);
+      if (!traced) continue;
 
-      const diSteps = (diDependenciesByHandler.get(entry.unit) ?? []).filter((id) => knownUnitIds.has(id));
-      const steps = [...diSteps, ...bodySteps];
-      const stepsBranching = diSteps.reduceRight<StepBranch | undefined>(
-        (child, unit) => ({ unit, children: child ? [child] : [] }),
-        bodyBranching,
-      );
-
-      const stepUnits = steps.map((id) => unitById.get(id)).filter((u): u is Unit => Boolean(u));
       reportProgress("pass C flows: narration", flowNarrationDone, flowNarrationTotal, entry.route);
       const narration = await narrateFlow({
         route: entry.route,
         name: entry.name,
-        steps: stepUnits.map((u) => ({ qualname: u.qualname, what: u.semantics?.what ?? "" })),
+        steps: traced.stepUnits.map((u) => ({ qualname: u.qualname, what: u.semantics?.what ?? "" })),
         provider,
         promptRev,
       });
       flowNarrationDone += 1;
       reportProgress("pass C flows: narration", flowNarrationDone, flowNarrationTotal, entry.route);
 
-      // Hash the traced steps, not the LLM's route/name text — two distinct entry points can
-      // get the same route label from the LLM (e.g. two similarly-shaped handlers both read as
-      // "POST /orders"), and an id keyed on that label alone would collide and silently drop one.
-      const flowId = `u:flow:${createHash("sha1").update(`${entry.route}\n${steps.join("\n")}`).digest("hex").slice(0, 8)}`;
-      newUnits.push({
-        id: flowId,
-        kind: "api_flow",
-        name: entry.name,
-        qualname: entry.route,
-        lang: undefined,
-        parent: null,
-        children: [],
-        route: entry.route,
-        steps,
-        stepsBranching,
-        loc: {
-          files: [...new Set(stepUnits.flatMap((u) => u.loc.files))],
-          start: null,
-          end: null,
-          sloc: stepUnits.reduce((sum, u) => sum + u.loc.sloc, 0),
-        },
-        semantics: {
-          what: narration.what,
-          how: narration.how,
-          when: narration.when,
-          where: narration.where,
-          why: narration.why,
-          confidence: narration.confidence,
-          source: "llm",
-        },
-        cost: null,
-        tags: narration.tags,
-        metrics: { hops: steps.length, sloc: stepUnits.reduce((sum, u) => sum + u.loc.sloc, 0) },
-        authors: undefined,
-        hash: { struct: createHash("sha1").update(steps.join("")).digest("hex"), text: null, semantic: null },
-        provenance: { source: "llm", pass: "C", provider: provider.name, model: provider.model },
-      });
+      newUnits.push(
+        buildFlowUnit({
+          name: entry.name,
+          route: entry.route,
+          traced,
+          semantics: {
+            what: narration.what,
+            how: narration.how,
+            when: narration.when,
+            where: narration.where,
+            why: narration.why,
+            confidence: narration.confidence,
+            source: "llm",
+          },
+          tags: narration.tags,
+          provenance: { source: "llm", pass: "C", provider: provider.name, model: provider.model },
+        }),
+      );
     }
   }
 

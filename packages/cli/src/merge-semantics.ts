@@ -3,8 +3,22 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { extractRepo, isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
 import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type Snapshot, type Unit } from "@scv/schema";
-import { runPassB, layerIdFor, CLUSTERING_VERSION, type DocExtract, type ImportEdge, type Layer, type Provider } from "@scv/interpreter";
-import { computeInputHash, type ArtifactContext, type ArtifactName } from "./artifacts.js";
+import {
+  runPassB,
+  layerIdFor,
+  buildGroupUnits,
+  buildFlowTracingContext,
+  buildFlowUnit,
+  traceFlowSteps,
+  systemIdFor,
+  UNGROUPED_ID,
+  CLUSTERING_VERSION,
+  type DocExtract,
+  type ImportEdge,
+  type Layer,
+  type Provider,
+} from "@scv/interpreter";
+import { computeInputHash, ensureArtifact, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { discoverDocs } from "./discover-docs.js";
 import { changedFiles, headRev } from "./rev.js";
@@ -48,6 +62,12 @@ export interface MergeSemanticsOptions {
   root: string;
   scope?: string[];
   withClustering?: boolean;
+  withGroups?: boolean;
+  withFlows?: boolean;
+  /** True when `ctx.graph` was rebuilt by `graphFromSnapshot` rather than a live `extractRepo`
+   *  call. Such a graph has no `via: "di"` edges and an empty `blockGraph`, so flow merging must
+   *  refuse rather than emit a silently degraded flow. */
+  fromPersistedSnapshot?: boolean;
 }
 
 export interface MergeSemanticsResult {
@@ -117,6 +137,8 @@ export interface RunMergeSemanticsOptions {
   scvDir?: string;
   scope?: string[];
   withClustering?: boolean;
+  withGroups?: boolean;
+  withFlows?: boolean;
   sha?: string;
 }
 
@@ -192,12 +214,17 @@ function loadPersistedSnapshot(scvDir: string, sha: string): Snapshot | undefine
  *  a persisted `.scv/snapshots/<sha>.json` (e.g. from a prior `--no-llm` run), merges against
  *  that structural snapshot instead of the current worktree — extraction has no historical-sha
  *  capability, so this is the only way to merge against a non-HEAD revision. Falls back to live
- *  extraction of the current worktree when no such snapshot exists. */
+ *  extraction of the current worktree when no such snapshot exists, and without `--sha` always
+ *  extracts live, ignoring any snapshot a previous run left at HEAD's sha. */
 export async function runMergeSemantics(options: RunMergeSemanticsOptions): Promise<RunMergeSemanticsResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
   const rev = options.sha ? { sha: options.sha, kind: "commit" as const, ts: "", author: "", author_kind: "human" as const } : headRev(options.root);
 
-  const persisted = loadPersistedSnapshot(scvDir, rev.sha);
+  // Only for an explicit `--sha`. At HEAD the worktree is authoritative and a snapshot file is
+  // just a leftover from a prior run — reloading it would rebuild the graph via
+  // `graphFromSnapshot`, whose `extraction` input hash differs from the live one, marking every
+  // artifact below it stale and breaking follow-up `--with-groups` / `--with-flows` merges.
+  const persisted = options.sha ? loadPersistedSnapshot(scvDir, rev.sha) : undefined;
   const graph = persisted ? graphFromSnapshot(persisted) : extractRepo(options.root, path.join(scvDir, "artifacts", "extraction-files"));
   const snapshot = persisted ?? toSnapshot(graph, { root: options.root, rev });
 
@@ -215,14 +242,23 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
     noLlm: true,
   };
 
-  const mergeResult = await mergeSemantics({ pendingFile: options.pendingFile, ctx, root: options.root, scope: options.scope, withClustering: options.withClustering });
+  const mergeResult = await mergeSemantics({
+    pendingFile: options.pendingFile,
+    ctx,
+    root: options.root,
+    scope: options.scope,
+    withClustering: options.withClustering,
+    withGroups: options.withGroups,
+    withFlows: options.withFlows,
+    fromPersistedSnapshot: persisted !== undefined,
+  });
   const assembled = await assembleSnapshotFromCache({ ctx, rev, scvDir });
 
   return { ...mergeResult, snapshot: assembled.snapshot, path: assembled.path, emptyArtifacts: assembled.emptyArtifacts };
 }
 
 export async function mergeSemantics(options: MergeSemanticsOptions): Promise<MergeSemanticsResult> {
-  const { pendingFile, ctx, root, scope, withClustering } = options;
+  const { pendingFile, ctx, root, scope, withClustering, withGroups, withFlows, fromPersistedSnapshot } = options;
   const warnings: string[] = [];
 
   const raw = JSON.parse(readFileSync(pendingFile, "utf-8"));
@@ -286,6 +322,18 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
     skipped += clusterResult.skipped;
   }
 
+  if (withGroups) {
+    const groupResult = await mergeGroups(ctx, pending.groups, warnings);
+    merged += groupResult.merged;
+    skipped += groupResult.skipped;
+  }
+
+  if (withFlows) {
+    const flowResult = await mergeFlows(ctx, pending.flows, Boolean(fromPersistedSnapshot), warnings);
+    merged += flowResult.merged;
+    skipped += flowResult.skipped;
+  }
+
   return { merged, skipped, warnings };
 }
 
@@ -335,6 +383,16 @@ async function mergeLayerClustering(
     pendingByRealId.set(realId, entry);
   }
 
+  // An agent may narrate only a subset of clusters per run. Any cluster this pending file
+  // doesn't mention must keep whatever name/narration/provenance it already has in the cached
+  // layers artifact (from a prior merge or a real Pass C) rather than being reset to a
+  // placeholder — that reset is what made partial narration destructive.
+  const cachedLayerById = new Map<string, Layer>();
+  for (const layer of readArtifact<LayersData>(ctx, "layers")?.data.layers ?? []) {
+    if (layer.source === "static") continue;
+    cachedLayerById.set(layerIdFor(layer.files), layer);
+  }
+
   let merged = 0;
   const skipped = Object.keys(pendingLayers).length - pendingByRealId.size;
   const layers: Layer[] = [];
@@ -356,7 +414,7 @@ async function mergeLayerClustering(
           confidence: entry.confidence,
           source: "manual",
         }
-      : {
+      : (cachedLayerById.get(realId) ?? {
           name: realId,
           files: realFiles,
           what: "(no summary)",
@@ -366,7 +424,7 @@ async function mergeLayerClustering(
           why: "(no summary)",
           confidence: 0,
           source: "static",
-        };
+        });
     layers.push(layer);
     layerIdByName.push([layer.name, realId]);
     for (const file of realFiles) {
@@ -396,7 +454,15 @@ async function mergeLayerClustering(
       metrics: { sloc: memberUnits.reduce((sum, u) => sum + u.loc.sloc, 0), modules: memberIds.length },
       authors: undefined,
       hash: { struct: createHash("sha1").update([...memberIds].sort().join("")).digest("hex"), text: null, semantic: null },
-      provenance: entry ? { source: "manual", pass: "C" } : { source: "static" },
+      // Derived from where the layer's data actually came from, not from whether *this run's*
+      // pending file happened to mention the cluster — otherwise carrying a previously-narrated
+      // layer forward would preserve its text but stamp it `static`.
+      provenance:
+        layer.source === "manual"
+          ? { source: "manual", pass: "C" }
+          : layer.source === "llm"
+            ? { source: "llm", pass: "C", provider: layer.provider, model: layer.model }
+            : { source: "static" },
     });
     if (entry) merged++;
   }
@@ -448,4 +514,218 @@ async function mergeLayerClustering(
   writeArtifact(ctx, "layers", layersInputHash, layersData);
 
   return { merged, skipped };
+}
+
+/** Never lets a stale artifact trigger a provider call — everything stale is empty-defaulted, and
+ *  the caller decides what to do about it via `defaultedArtifacts`. */
+const NO_PROVIDER = { allowProvider: new Set<ArtifactName>() };
+
+/**
+ * Merges agent-authored group narration into the `groups` artifact.
+ *
+ * Every failure mode here is per-entry: unlike Pass C — one LLM response, fail the batch —
+ * one agent typo must not discard every other correctly-specified group. `buildGroupUnits` itself
+ * throws on unknown members, double ownership and empty groups, so each of those is screened out
+ * here (with a warning) *before* it can abort the whole call.
+ */
+async function mergeGroups(
+  ctx: ArtifactContext,
+  pendingGroups: Record<string, { name: string; layers: string[]; what: string; how: string; when: string; where: string; why: string; confidence: number }>,
+  warnings: string[],
+): Promise<{ merged: number; skipped: number }> {
+  // Checked transitively: `ensureArtifact` resolves each dependency through its own recursive
+  // call before hashing, so `clusters`/`functions`/`extraction` staleness propagates up into this
+  // one set. A shallow "does layers.json's stored hash match a fresh computeInputHash" check would
+  // pass even with a stale `functions` on disk, since both sides read the same stale file.
+  const layersEnsured = await ensureArtifact("layers", ctx, NO_PROVIDER);
+  if (layersEnsured.defaultedArtifacts.has("layers")) {
+    throw new Error("layers artifact is missing or stale — run `scv analyze <root> layers` first, then merge with --with-groups");
+  }
+  const layersData = layersEnsured.data;
+  const layerUnits = layersData.layerUnits;
+
+  const idsByName = new Map<string, string[]>();
+  for (const layer of layerUnits) {
+    (idsByName.get(layer.name) ?? idsByName.set(layer.name, []).get(layer.name)!).push(layer.id);
+  }
+
+  interface ResolvedEntry {
+    key: string;
+    name: string;
+    memberIds: string[];
+    entry: (typeof pendingGroups)[string];
+  }
+
+  const resolved: ResolvedEntry[] = [];
+  for (const [key, entry] of Object.entries(pendingGroups)) {
+    const seen = new Set<string>();
+    let bad = false;
+    const memberIds: string[] = [];
+    for (const layerName of entry.layers) {
+      if (seen.has(layerName)) {
+        warnings.push(`group "${key}" lists layer "${layerName}" more than once — skipped`);
+        bad = true;
+        break;
+      }
+      seen.add(layerName);
+      const ids = idsByName.get(layerName) ?? [];
+      if (ids.length !== 1) {
+        warnings.push(`group "${key}" references unknown/ambiguous layer "${layerName}" — skipped`);
+        bad = true;
+        break;
+      }
+      memberIds.push(ids[0]!);
+    }
+    if (!bad) resolved.push({ key, name: entry.name, memberIds, entry });
+  }
+
+  // Overlap and name collisions both abort `buildGroupUnits` (or silently drop an entry, since the
+  // object it takes is keyed by name), so screen them out here instead.
+  const claimedBy = new Map<string, string>();
+  const nonOverlapping: ResolvedEntry[] = [];
+  for (const candidate of resolved) {
+    const conflict = candidate.memberIds.find((id) => claimedBy.has(id));
+    if (conflict !== undefined) {
+      warnings.push(`group "${candidate.key}" claims layer '${conflict}', already claimed by "${claimedBy.get(conflict)}" — skipped`);
+      continue;
+    }
+    for (const id of candidate.memberIds) claimedBy.set(id, candidate.key);
+    nonOverlapping.push(candidate);
+  }
+
+  const keysByName = new Map<string, string[]>();
+  for (const candidate of nonOverlapping) {
+    (keysByName.get(candidate.name) ?? keysByName.set(candidate.name, []).get(candidate.name)!).push(candidate.key);
+  }
+  const surviving = nonOverlapping.filter((candidate) => {
+    const keys = keysByName.get(candidate.name)!;
+    if (keys.length === 1) return true;
+    if (keys[0] === candidate.key) {
+      warnings.push(`group name "${candidate.name}" is used by more than one pending entry (${keys.join(", ")}) — skipped`);
+    }
+    return false;
+  });
+
+  const groupsByName: Record<string, string[]> = {};
+  for (const candidate of surviving) groupsByName[candidate.name] = candidate.memberIds;
+
+  const built = buildGroupUnits({
+    layerUnits,
+    groups: groupsByName,
+    systemId: systemIdFor(ctx.snapshot),
+    provider: noopProvider,
+  });
+
+  // Matched by member-id set, not by `groupUnit.id` — that id is a hash of the sorted member ids,
+  // which a pending file cannot predict, and not by name either, since the group unit's name is
+  // exactly what the pending entry is free to change.
+  const entryByMembers = new Map(surviving.map((candidate) => [[...candidate.memberIds].sort().join("\n"), candidate]));
+  let merged = 0;
+  const groupUnits = built.groupUnits.map((groupUnit) => {
+    if (groupUnit.id === UNGROUPED_ID) return groupUnit;
+    const candidate = entryByMembers.get([...groupUnit.children].sort().join("\n"));
+    if (!candidate) return groupUnit;
+    const { what, how, when, where, why, confidence } = candidate.entry;
+    const semantics = { what, how, when, where, why, confidence, source: "manual" as const };
+    merged++;
+    return {
+      ...groupUnit,
+      semantics,
+      // Recomputed because the built unit hashed `semantics: null`; leaving it would make the
+      // hash lie about what it covers and hide this narration from any later diff.
+      hash: { ...groupUnit.hash, semantic: createHash("sha1").update(semanticHashInput(groupUnit.name, semantics)).digest("hex") },
+      provenance: { source: "manual" as const, pass: "C" as const },
+    };
+  });
+
+  const groupsInputHash = await computeInputHash("groups", ctx, { layers: layersData });
+  writeArtifact(ctx, "groups", groupsInputHash, { groupUnits, layerParent: [...built.layerParent] });
+
+  return { merged, skipped: Object.keys(pendingGroups).length - merged };
+}
+
+/**
+ * Merges agent-authored flow narration into the `flows` artifact.
+ *
+ * The trace itself is fully deterministic: it reuses `buildFlowTracingContext`/`traceFlowSteps`/
+ * `buildFlowUnit` — the exact helpers `runFlowsPass` calls — so a merged flow's steps, DI prefix
+ * and branch labels are identical to what the real pipeline would produce. Only the narration and
+ * provenance differ.
+ */
+export async function mergeFlows(
+  ctx: ArtifactContext,
+  pendingFlows: Record<string, { name: string; route: string; entryUnit: string; tags: string[]; what: string; how: string; when: string; where: string; why: string; confidence: number }>,
+  fromPersistedSnapshot: boolean,
+  warnings: string[],
+): Promise<{ merged: number; skipped: number }> {
+  if (fromPersistedSnapshot) {
+    // A persisted snapshot carries neither `via: "di"` edges nor a block graph (see
+    // `graphFromSnapshot`), so every flow merged from one would have an empty DI prefix and no
+    // branch labels — silently different from the real pipeline's output, not merely approximate.
+    throw new Error("flow merging requires live extraction; historical --sha merges are not supported (no DI/block-graph data is persisted)");
+  }
+
+  // A never-persisted `functions` artifact is a legitimate zero-LLM state (a plain `--no-llm` run
+  // defaults rather than writes), so fall back to the snapshot. A *present but stale* one is not:
+  // tracing against outdated units is worse than tracing against the live structure.
+  let functionUnits: Unit[];
+  if (readArtifact<FunctionsData>(ctx, "functions")) {
+    const ensured = await ensureArtifact("functions", ctx, NO_PROVIDER);
+    if (ensured.defaultedArtifacts.has("functions")) {
+      throw new Error("functions artifact is stale — run `scv analyze <root> functions` first, then merge with --with-flows");
+    }
+    functionUnits = ensured.data.units;
+  } else {
+    functionUnits = ctx.snapshot.units;
+  }
+
+  const tracing = buildFlowTracingContext({ snapshot: ctx.snapshot, graph: ctx.graph, units: functionUnits });
+  const eligibleIds = new Set(tracing.flowUnitSummaries.map((u) => u.id));
+  const knownUnitIds = new Set(functionUnits.map((u) => u.id));
+
+  const flowUnits: Unit[] = [];
+  const flowIds = new Set<string>();
+  let merged = 0;
+
+  for (const [key, entry] of Object.entries(pendingFlows)) {
+    if (!eligibleIds.has(entry.entryUnit)) {
+      warnings.push(`flow "${key}" entryUnit '${entry.entryUnit}' is not an eligible function unit — skipped`);
+      continue;
+    }
+    const traced = traceFlowSteps(entry.entryUnit, knownUnitIds, tracing);
+    if (!traced) {
+      warnings.push(`flow "${key}" entryUnit '${entry.entryUnit}' traces fewer than two steps — skipped`);
+      continue;
+    }
+    const flowUnit = buildFlowUnit({
+      name: entry.name,
+      route: entry.route,
+      traced,
+      semantics: {
+        what: entry.what,
+        how: entry.how,
+        when: entry.when,
+        where: entry.where,
+        why: entry.why,
+        confidence: entry.confidence,
+        source: "manual",
+      },
+      tags: entry.tags,
+      provenance: { source: "manual", pass: "C" },
+    });
+    if (flowIds.has(flowUnit.id)) {
+      warnings.push(`flow "${key}" resolves to the same route and traced steps as an earlier entry — skipped`);
+      continue;
+    }
+    flowIds.add(flowUnit.id);
+    flowUnits.push(flowUnit);
+    merged++;
+  }
+
+  const flowsInputHash = await computeInputHash("flows", ctx, {
+    functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
+  });
+  writeArtifact(ctx, "flows", flowsInputHash, flowUnits);
+
+  return { merged, skipped: Object.keys(pendingFlows).length - merged };
 }

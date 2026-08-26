@@ -48,11 +48,32 @@ export const PendingLayerSchema = PendingSemanticsFieldsSchema.extend({
   files: z.array(z.string()).min(1),
 });
 
+/**
+ * A pending group's key is an arbitrary agent-chosen label, not the real group id — that is
+ * derived from a hash of the resolved member layer ids and cannot be known before membership
+ * resolves. `layers` holds layer *names*, resolved to ids at merge time.
+ *
+ * Unlike the real Pass C pipeline (which ships groups with `semantics: null` until a real
+ * group-narration pass lands), the agent-authored path carries narration fields.
+ */
+export const PendingGroupSchema = PendingSemanticsFieldsSchema.extend({
+  name: z.string().min(1).max(40),
+  layers: z.array(z.string()).min(1),
+});
+
+/** `entryUnit` is the unit id of the entry-point function; tracing from it is deterministic. */
+export const PendingFlowSchema = PendingSemanticsFieldsSchema.extend({
+  name: z.string().min(1),
+  route: z.string().min(1),
+  entryUnit: z.string().min(1),
+  tags: z.array(z.string()).default([]),
+});
+
 export const PendingSemanticsSchema = z.object({
   meta: z
     .object({
       createdAt: z.string().optional(),
-      // Self-identify the authoring agent here, e.g. "agent-write-pass-a-semantics" — merged
+      // Self-identify the authoring agent here, e.g. "agent-analyze-functions" — merged
       // units get provenance.source: "manual", not "llm", since no provider call produced them.
       agent: z.string().optional(),
       scope: z.string().optional(),
@@ -60,8 +81,12 @@ export const PendingSemanticsSchema = z.object({
     .optional(),
   units: z.record(z.string(), PendingUnitSchema).default({}),
   layers: z.record(z.string(), PendingLayerSchema).default({}),
+  groups: z.record(z.string(), PendingGroupSchema).default({}),
+  flows: z.record(z.string(), PendingFlowSchema).default({}),
 });
 
 export type PendingUnit = z.infer<typeof PendingUnitSchema>;
 export type PendingLayer = z.infer<typeof PendingLayerSchema>;
+export type PendingGroup = z.infer<typeof PendingGroupSchema>;
+export type PendingFlow = z.infer<typeof PendingFlowSchema>;
 export type PendingSemantics = z.infer<typeof PendingSemanticsSchema>;

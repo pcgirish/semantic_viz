@@ -70,6 +70,10 @@ its description:
 | `project-review` | Reviewing a branch/PR before merge |
 | `project-testing` | Writing or reviewing tests |
 | `feature-scaffold` | Adding a new feature end-to-end |
+| `agent-analyze-functions` | Authoring per-function/class semantics without an LLM pass |
+| `agent-analyze-layers` | Authoring layer/cluster narration without an LLM pass |
+| `agent-analyze-groups` | Authoring group narration over real layers without an LLM pass |
+| `agent-analyze-flows` | Authoring API flow narration without an LLM pass |
 
 - **Claude Code:** skills in `.claude/skills/` activate automatically when relevant,
   or ask for one by name ("use the project-security skill").

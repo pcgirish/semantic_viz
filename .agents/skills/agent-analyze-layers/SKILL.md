@@ -1,5 +1,5 @@
 ---
-name: agent-narrate-layers
+name: agent-analyze-layers
 description: Author Pass-C-shaped narration (what/how/when/where/why + name) for architectural layers/clusters you already understand, and inject it into scv's artifact cache with zero LLM/provider calls. Use when asked to name/describe a repo's layers without running scv's real LLM narration pass.
 ---
 
@@ -49,17 +49,12 @@ artifact cache as if a real Pass C had produced it.
    the pipeline uses internally), not by your chosen key. A `files` set
    that doesn't match any real cluster is skipped with a warning. Write all
    entries into a single path: `.scv/pending/<sha>/semantics-layers.json` —
-   a file separate from Phase 1's `semantics-functions.json`, never split
-   narration across several files.
-3. If `agent-write-pass-a-semantics` (Phase 1) is also being run for this
-   scope, run its `scv merge-semantics` **first** and let it finish writing
-   `.scv/artifacts/<sha>/functions.json` before continuing. This is not
-   just artifact freshness: real Pass C's own LLM prompt is built from each
-   file's per-unit `semantics.what` one-liners (falling back to
-   `"(no summary)"` when a file has none) — so a layer's narration, whether
-   you write it yourself or a real Pass C generates it later, is only as
-   good as the Phase 1 coverage already merged for that layer's files at
-   the time it runs. Then run:
+   a file separate from `agent-analyze-functions`'s
+   `semantics-functions.json`, never split narration across several files.
+   That path is a **convention, not a requirement**: `merge-semantics`
+   accepts any file path and never checks that the name or directory
+   matches the sha it is merging against.
+3. Run:
 
    ```sh
    scv merge-semantics <pending-file> [root] --with-clustering [--sha <sha>]
@@ -76,5 +71,15 @@ artifact cache as if a real Pass C had produced it.
 - Getting a cluster's exact file set right matters: if you're unsure what
   the real clusters look like, run a real `scv analyze <root>` once first
   and read `.scv/snapshots/<sha>.json`'s layer units for their `files`.
+- Merging narration for only *some* clusters is safe: any real cluster your
+  pending file doesn't mention keeps whatever name/narration/provenance it
+  already has in the cached `layers` artifact, rather than being reset to a
+  placeholder. Only clusters never narrated at all get `"(no summary)"`.
+- Running `agent-analyze-functions` first is optional, not required — the
+  manual layer-merge path does not read per-unit function semantics when
+  building layer units, so it does not affect `--with-clustering` output.
+  It is still worth doing when a *real* Pass C may narrate remaining layers
+  later, since that LLM prompt is built from per-unit `semantics.what`.
 - To also narrate individual functions/classes, use the
-  `agent-write-pass-a-semantics` skill.
+  `agent-analyze-functions` skill; for layer groupings and API flows, see
+  `agent-analyze-groups` and `agent-analyze-flows`.

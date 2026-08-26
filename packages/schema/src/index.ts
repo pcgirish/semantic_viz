@@ -393,7 +393,11 @@ export {
   PendingSemanticsSchema,
   PendingUnitSchema,
   PendingLayerSchema,
+  PendingGroupSchema,
+  PendingFlowSchema,
   type PendingSemantics,
   type PendingUnit,
   type PendingLayer,
+  type PendingGroup,
+  type PendingFlow,
 } from "./pending-semantics.js";
