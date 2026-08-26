@@ -984,6 +984,19 @@ function buildContainerUnit(options: {
 export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
   const { snapshot, provider, promptRev, systemName, units, blockUnits, blockEdges, layerUnits, parentOverride, groupUnits, layerParent, flowUnits } = options;
 
+  // Block units are appended from `blockUnits` below, so `units` must not already contain them.
+  // A `functions` artifact merged from a persisted snapshot carries its blocks inside `units`;
+  // passing those through both channels would duplicate every one of them silently.
+  if (blockUnits.length > 0) {
+    const blockIds = new Set(blockUnits.map((u) => u.id));
+    const carried = units.find((u) => blockIds.has(u.id));
+    if (carried) {
+      throw new Error(
+        `finalizeSnapshot: block units passed twice — ${carried.id} is in both \`units\` and \`blockUnits\`. Strip blocks from \`units\` or pass \`blockUnits: []\`.`,
+      );
+    }
+  }
+
   const sysId = systemIdFor(snapshot, systemName);
 
   // `clusterFiles` partitions every file it is given, so a module it saw always has a layer. A

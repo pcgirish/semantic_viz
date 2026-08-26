@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { extractRepo, isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
-import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type Snapshot, type Unit } from "@scv/schema";
+import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type PendingBlockLabel, type Snapshot, type Unit } from "@scv/schema";
 import {
   runPassB,
   layerIdFor,
@@ -15,6 +15,7 @@ import {
   systemIdFor,
   UNGROUPED_ID,
   CLUSTERING_VERSION,
+  type BlockLabelWithProvenance,
   type DocExtract,
   type ImportEdge,
   type Layer,
@@ -289,11 +290,12 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   // path. Labels already earned by a cached artifact are recovered and carried through, so a
   // semantics-only merge never resets a labeled block to its structural fallback.
   const recoveredLabels = recoverBlockLabels(functionsData.blockUnits, functionsData.blockEdges);
+  const blockLabelResult = mergeBlockLabels(ctx, pending.blockLabels, recoveredLabels, warnings);
 
   const unitById = new Map(functionsData.units.map((u) => [u.id, u]));
 
-  let merged = 0;
-  let skipped = 0;
+  let merged = blockLabelResult.merged;
+  let skipped = blockLabelResult.skipped;
 
   // Resolved once, not per unit — see `inScope`.
   const changed = scope?.includes("changed") ? resolveChangedFiles(root) : new Set<string>();
@@ -337,6 +339,9 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   // any block units it already carries are left exactly as they are rather than rebuilt.
   if (fromPersistedSnapshot) {
     functionsData.units = [...unitById.values()];
+    if (blockLabelResult.merged > 0) {
+      warnings.push(`merging from a persisted snapshot: ${blockLabelResult.merged} authored block label(s) ignored — there is no block graph to rebuild against`);
+    }
     if (functionsData.blockUnits.length > 0) {
       warnings.push("merging from a persisted snapshot: existing block units are carried through unchanged and block labels cannot be updated");
     }
@@ -350,7 +355,7 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
       .filter((u) => u.kind !== "block")
       .map((u) => (u.children.some((c) => blockIds.has(c)) ? { ...u, children: u.children.filter((c) => !blockIds.has(c)) } : u));
 
-    const built = buildBlockUnits(base, ctx.graph, recoveredLabels);
+    const built = buildBlockUnits(base, ctx.graph, blockLabelResult.labels);
     functionsData.units = built.unitsWithBlockChildren;
     functionsData.blockUnits = built.blockUnits;
     functionsData.blockEdges = built.blockEdges;
@@ -564,6 +569,51 @@ async function mergeLayerClustering(
 /** Never lets a stale artifact trigger a provider call — everything stale is empty-defaulted, and
  *  the caller decides what to do about it via `defaultedArtifacts`. */
 const NO_PROVIDER = { allowProvider: new Set<ArtifactName>() };
+
+/**
+ * Overlays agent-authored block labels onto the labels recovered from a cached artifact.
+ *
+ * Pending labels are keyed by the block's `u:block:<hash>` unit id, the only block identity that
+ * reaches `extraction.json` — the extractor's readable `blockId` ("decision:0") is internal and
+ * never persisted. `buildBlockUnits` wants them grouped by owning function, so the owner is
+ * resolved from the live block graph here; an id that no function owns is an authoring typo and
+ * is warned + skipped rather than aborting the merge, matching every other merge path in this file.
+ */
+function mergeBlockLabels(
+  ctx: ArtifactContext,
+  pendingBlockLabels: Record<string, PendingBlockLabel>,
+  recovered: Map<string, Map<string, BlockLabelWithProvenance>>,
+  warnings: string[],
+): { labels: Map<string, Map<string, BlockLabelWithProvenance>>; merged: number; skipped: number } {
+  const entries = Object.entries(pendingBlockLabels);
+  if (entries.length === 0) return { labels: recovered, merged: 0, skipped: 0 };
+
+  // Block id -> the function unit id that owns it, straight off the live block graph.
+  const ownerByBlockId = new Map<string, string>();
+  const unitIdByQualname = new Map(ctx.graph.units.map((u) => [u.qualname, u.id]));
+  for (const [qualname, bg] of Object.entries(ctx.graph.blockGraph)) {
+    const owner = unitIdByQualname.get(qualname);
+    if (!owner) continue;
+    for (const block of bg.blocks) ownerByBlockId.set(block.id, owner);
+  }
+
+  const labels = new Map([...recovered].map(([fn, m]) => [fn, new Map(m)]));
+  let merged = 0;
+  let skipped = 0;
+  for (const [blockId, pendingLabel] of entries) {
+    const owner = ownerByBlockId.get(blockId);
+    if (!owner) {
+      warnings.push(`block label ${blockId}: no such block in the current extraction — skipped`);
+      skipped++;
+      continue;
+    }
+    const forFunction = labels.get(owner) ?? new Map<string, BlockLabelWithProvenance>();
+    forFunction.set(blockId, { label: pendingLabel, provenance: { source: "manual", pass: "A" } });
+    labels.set(owner, forFunction);
+    merged++;
+  }
+  return { labels, merged, skipped };
+}
 
 /**
  * Merges agent-authored group narration into the `groups` artifact.

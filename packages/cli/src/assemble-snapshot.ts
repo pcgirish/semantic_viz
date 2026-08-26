@@ -36,12 +36,21 @@ export async function assembleSnapshotFromCache(options: AssembleSnapshotOptions
     for (const d of r.defaultedArtifacts) emptyArtifacts.add(d);
   }
 
+  // A `functions` artifact written by `merge-semantics --sha` carries its block units inside
+  // `units` as well as in `blockUnits`. `finalizeSnapshot` appends `blockUnits` itself and
+  // rejects the double-carry, so the duplicates are stripped from `units` here and re-supplied
+  // through the one channel that owns them. When `blockUnits` is empty there is nothing to
+  // re-supply, so blocks living only in `units` are left where they are.
+  const blockIds = new Set(functionsResult.data.blockUnits.map((u) => u.id));
+  const functionUnits =
+    blockIds.size > 0 ? functionsResult.data.units.filter((u) => !blockIds.has(u.id)) : functionsResult.data.units;
+
   const snapshot = finalizeSnapshot({
     snapshot: ctx.snapshot,
     provider: ctx.provider,
     promptRev: ctx.promptRev,
     systemName: undefined,
-    units: functionsResult.data.units,
+    units: functionUnits,
     blockUnits: functionsResult.data.blockUnits,
     blockEdges: functionsResult.data.blockEdges,
     layerUnits: layersResult.data.layerUnits,

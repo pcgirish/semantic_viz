@@ -396,6 +396,8 @@ export {
   PendingLayerSchema,
   PendingGroupSchema,
   PendingFlowSchema,
+  PendingBlockLabelSchema,
+  type PendingBlockLabel,
   type PendingSemantics,
   type PendingUnit,
   type PendingLayer,

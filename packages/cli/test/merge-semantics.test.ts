@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractRepo } from "@scv/extractor";
-import { buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
+import { buildBlockUnits, buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
 import { semanticHashInput, type Unit } from "@scv/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
@@ -952,5 +952,52 @@ describe("mergeSemantics block units", () => {
 
     const reused = (await ensureArtifact("functions", ctx)).data;
     expect(reused.blockUnits.length).toBeGreaterThan(0);
+  });
+
+  function writePendingWithLabels(blockLabels: Record<string, unknown>): string {
+    const file = path.join(scvDir, "pending", sha, "semantics.json");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ units: {}, blockLabels }));
+    return file;
+  }
+
+  /** A real block id from the fixture, minted the same way the builder mints it. */
+  function someBlockId(): string {
+    const built = buildBlockUnits(ctx.snapshot.units, graph);
+    return built.blockUnits[0]!.id;
+  }
+
+  it("applies authored block labels and marks them manual", async () => {
+    const id = someBlockId();
+    await mergeSemantics({ pendingFile: writePendingWithLabels({ [id]: { label: "reject bad input" } }), ctx, root: orderlyRoot });
+
+    const labelled = storedFunctions().blockUnits.find((u) => u.id === id)!;
+    expect(labelled.name).toBe("reject bad input");
+    expect(labelled.provenance.source).toBe("manual");
+  });
+
+  it("warns and skips a block id that does not exist, still merging the rest", async () => {
+    const id = someBlockId();
+    const result = await mergeSemantics({
+      pendingFile: writePendingWithLabels({ "u:block:nosuchblock": { label: "ghost" }, [id]: { label: "real" } }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    expect(result.warnings.join("\n")).toMatch(/u:block:nosuchblock/);
+    expect(storedFunctions().blockUnits.find((u) => u.id === id)!.name).toBe("real");
+  });
+
+  it("carries authored labels through a re-merge rather than reverting to the structural fallback", async () => {
+    const id = someBlockId();
+    const file = writePendingWithLabels({ [id]: { label: "reject bad input" } });
+    await mergeSemantics({ pendingFile: file, ctx, root: orderlyRoot });
+
+    // Second merge has no labels in its pending file — the ones already on the artifact must survive.
+    await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
+
+    const labelled = storedFunctions().blockUnits.find((u) => u.id === id)!;
+    expect(labelled.name).toBe("reject bad input");
+    expect(labelled.provenance.source).toBe("manual");
   });
 });

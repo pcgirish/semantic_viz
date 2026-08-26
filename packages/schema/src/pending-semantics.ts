@@ -69,6 +69,19 @@ export const PendingFlowSchema = PendingSemanticsFieldsSchema.extend({
   tags: z.array(z.string()).default([]),
 });
 
+/**
+ * A readable name for one control-flow block, replacing the structural fallback the builder
+ * derives from `blockType`/`condition`. Keyed by the block's `u:block:<hash>` unit id — the only
+ * block identity that reaches `extraction.json`; the readable `blockId` ("decision:0") is
+ * internal to the extractor and never persisted. `trueLabel`/`falseLabel` name the outgoing
+ * branch edges of a decision block.
+ */
+export const PendingBlockLabelSchema = z.object({
+  label: z.string().min(1),
+  trueLabel: z.string().optional(),
+  falseLabel: z.string().optional(),
+});
+
 export const PendingSemanticsSchema = z.object({
   meta: z
     .object({
@@ -83,8 +96,10 @@ export const PendingSemanticsSchema = z.object({
   layers: z.record(z.string(), PendingLayerSchema).default({}),
   groups: z.record(z.string(), PendingGroupSchema).default({}),
   flows: z.record(z.string(), PendingFlowSchema).default({}),
+  blockLabels: z.record(z.string(), PendingBlockLabelSchema).default({}),
 });
 
+export type PendingBlockLabel = z.infer<typeof PendingBlockLabelSchema>;
 export type PendingUnit = z.infer<typeof PendingUnitSchema>;
 export type PendingLayer = z.infer<typeof PendingLayerSchema>;
 export type PendingGroup = z.infer<typeof PendingGroupSchema>;
