@@ -1,48 +1,109 @@
 ---
 name: project-review
-description: semantic_viz code-review skill — review order, red-flag list, PR/branch review procedure, and an APPROVED/BLOCKED verdict format. Use before merging a branch or PR in this repo.
+description: Staff-level semantic_viz code review. Use before merging or whenever asked to review code.
 ---
 
 # Review Skill
 
-Use before merging a branch or PR, or whenever asked to review code.
+Review the requested scope against its intent, repository contracts, and production risks. Passing automation is necessary, not sufficient.
 
-## Review Order (check in this sequence)
-1. Security — auth, input validation, secrets, injection
-2. Correctness — does it do what the spec says?
-3. Error handling — what happens when things go wrong?
-4. Tests — are the right cases covered?
-5. Style — linter-clean, readable, consistent with codebase
+## Review modes
 
-## Red Flags (block the PR if any are present)
-- Secret or credential in code or comment
-- Missing auth check on non-PUBLIC endpoint
-- Raw SQL / query string with user input
-- Password hash returned in response
-- Migration file hand-edited
-- Hard DELETE instead of soft delete
+- **Project review:** assess the current repository as a whole: architecture, contracts, security, reliability, performance, tests, operations, and maintainability. No PR is required.
+- **Change review:** assess the current branch or supplied diff against its target branch.
+- **PR review:** perform change review and post results only when explicitly requested or authorized.
 
-## Review Procedure
-1. Run `gh pr diff` (or `git diff main...HEAD` if no PR yet) to see all changes
-2. Verify no secrets or hardcoded values anywhere
-3. Run `npm test` — report any failures
-4. Run `npm run lint` — report any lint errors
-5. Summarise: what changed, risk level, what is missing tests
+## Review sequence
 
-## Output Format
-- APPROVED / BLOCKED / NEEDS CHANGES verdict
-- List of blocking issues (if any)
-- List of suggestions (non-blocking)
-- Confirmation that `npm test` and `npm run lint` pass
+### 1. Scope and evidence
 
-## Posting to GitHub
-If there is an open PR for the branch, post the verdict there — a review that only exists in chat is invisible to anyone else looking at the PR.
+- For project review, inspect the repository structure, implementation, configuration, dependencies, tests, fixtures, docs, and runtime surfaces.
+- For change/PR review, identify PR, branch, merge base, and target; inspect the full diff, changed files, context, conflicts, generated files, accidental deletions, unrelated changes, and missing files.
+- Read relevant mission, design, roadmap, API, schema, and migration docs.
+- State intended behavior and acceptance criteria before judging the implementation.
 
-**This repo's PRs are always self-authored by the same `gh` identity that reviews them, so `gh pr review --approve`/`--request-changes` always fails server-side ("Can not approve your own pull request"). Do not attempt it — go straight to `gh pr comment`.**
+### 2. Contracts and architecture
 
-- **APPROVED**: `gh pr comment <n> --body "<verdict: APPROVED><2-4 sentence summary: what changed, what was checked, any non-blocking suggestions>"`
-- **NEEDS CHANGES**: `gh pr comment <n> --body "<verdict: NEEDS CHANGES><summary>"`, then one more `gh pr comment <n> --body "..."` (or inline via `gh api`) per blocking issue, specific enough to act on (file, line, what's wrong).
-- **BLOCKED**: same as NEEDS CHANGES, and call out explicitly that this is a red-flag block, not a style nit.
-Keep the summary comment brief; put detail in issue-specific comments, not a wall of text on one comment.
+- Verify module boundaries, dependency direction, and design decisions.
+- Check public API, CLI, file format, schema, fixture, and exit-code compatibility.
+- For `scv/1` and `scv-delta/1`, check all producers, parsers, consumers, fixtures, and versioning.
+- Check cache keys, artifact provenance, determinism, replay stability, and invalidation.
+- Ensure migrations are forward-compatible, atomic, reversible where required, and safe for existing data.
 
-**Verify the post landed.** Confirm with `gh pr view <n> --json comments` that the comment actually appears. Never end a review by only reporting the verdict in chat; the GitHub-visible record is the deliverable, not the chat message.
+### 3. Correctness and integrity
+
+- Check normal, empty, malformed, large, duplicate, and boundary inputs.
+- Verify invariants, state transitions, ordering, identity, lineage, callers, signatures, return values, errors, and defaults.
+- Review transactions, atomic writes, partial failure, retries, idempotency, concurrency, and races.
+- Check numeric values, dates, paths, encodings, and nullable fields at boundaries.
+
+### 4. Security and trust boundaries
+
+- Validate every external boundary with Zod or another approved validator.
+- Block missing authentication on any non-`PUBLIC` endpoint; check authorization, ownership, IDOR, and privilege boundaries.
+- Check command/SQL injection, path traversal, SSRF, unsafe deserialization, XSS, CSRF, CORS, and denial of service.
+- Treat repository and fixture contents, commit metadata, and LLM input as untrusted.
+- Check prompt/data exfiltration, provider selection, secret redaction, logging, and serialization.
+- Ensure secrets, tokens, credentials, password hashes, personal data, and sensitive paths are not exposed.
+- Review dependency, lockfile, install-script, and license changes.
+- Block raw SQL/query strings with user input, hand-edited migration files, and hard deletes.
+
+### 5. Reliability and operations
+
+- Check timeouts, cancellation, retries/backoff, cleanup, child processes, SQLite lifecycle, and failures from providers, files, git, parsers, databases, and networks.
+- Ensure errors are actionable without leaking secrets or internals.
+- Check logging, diagnostics, reproducibility, health signals, recovery after interruption, and deterministic output where required.
+
+### 6. Performance and cost
+
+- Look for quadratic work, repeated parsing, unbounded memory, oversized payloads, N+1 queries, and large-repository/history failures.
+- Review cache effectiveness/invalidation, LLM token/latency/retry/provider-cost impact, and known hot paths; require benchmarks or limits when appropriate.
+
+### 7. Tests and maintainability
+
+- Require regression tests for behavior changes and bug fixes.
+- Check happy, invalid, failure, authorization, ownership, boundary, and persistence cases as applicable.
+- Ensure tests assert behavior, remain isolated and deterministic, clean up, and avoid flakiness; verify unit/integration boundaries and fixture validity.
+- Remove dead code, needless abstractions, duplication, and misleading comments.
+- Document changed public behavior, configuration, schemas, migrations, and operations.
+
+## Blocking findings
+
+Block/request changes for:
+
+- Security vulnerability or secret exposure.
+- Data loss, corruption, inconsistent state, or unsafe migration.
+- Broken public contract or incompatible schema without versioning.
+- Incorrect required-path behavior or unhandled critical failure.
+- Missing regression coverage for material behavior.
+- Unbounded supported-workload resource, performance, or cost risk.
+- Change-caused test, typecheck, build, or lint failure.
+- Unreviewable scope, unresolved conflicts, or unreproducible generated artifacts.
+
+Style, naming, refactoring preference, and optional documentation are non-blocking unless they create correctness, security, or maintainability risk.
+
+## Verification
+
+1. Determine review mode. For change/PR review, determine PR and target branch.
+2. For change/PR review, run `git diff --check`.
+3. For change/PR review, inspect the full diff with `gh pr diff` or `git diff <target>...HEAD`; for project review, inspect the current implementation and runtime surfaces.
+4. Run `npm test`, `npm run lint`, and `npm run build`.
+5. Run focused tests for changed packages and integration paths.
+6. Inspect dependency/lockfile changes and confirm no secrets or sensitive artifacts.
+7. Report findings by severity with file/line references.
+
+Do not claim a check passed unless run. Report unavailable checks with the exact blocker and impact.
+
+## Verdict
+
+Return exactly one:
+
+- `APPROVED`: no blockers; checks and residual risks recorded.
+- `NEEDS CHANGES`: actionable non-critical blockers exist.
+- `BLOCKED`: a critical red flag exists, or required evidence, access, or environment is unavailable.
+
+Include the verdict, severity-ordered blockers, non-blocking suggestions, file/line references, commands/results, residual risk, and missing evidence.
+
+## GitHub
+
+For every PR review, post the verdict and issue-specific findings to GitHub before completing the review. Self-authored PRs make `gh pr review --approve`/`--request-changes` fail server-side; use `gh pr comment`, then verify with `gh pr view <n> --json comments`. Do not post for project reviews without a PR. Keep the summary brief; make each blocking comment actionable.
