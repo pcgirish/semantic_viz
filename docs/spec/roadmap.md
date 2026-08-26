@@ -78,8 +78,10 @@ merged" in `README.md`.
   (non-LLM) snapshot data
 - Group-narration pass — groups currently ship with `semantics: null`
   and no cross-commit name carry-over, so an LLM-chosen group name can
-  drift between commits even when membership is unchanged (deferred in
-  `docs/plans/hierarchy-correctness-and-clustering-redesign.md`)
+  drift between commits even when membership is unchanged. The
+  agent-authored `--with-groups` path (PR #144) makes narrated groups
+  reachable by hand, but the automated pass is still unbuilt — tracked in
+  `docs/backlog/group-narration-pass.md`
 
 ## Validation baseline
 

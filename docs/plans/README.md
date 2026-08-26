@@ -44,12 +44,12 @@ shipped, others explicitly deferred (see the plan's own verification/branching s
 | `wave-5-skin-contract.md` | Implemented | Wave 5: a swappable `Skin` contract — `packages/skin-contract`, 2D and 3D hosts routed through it, `tiles3d` wired, `cityscape` (walk/fly + minimap) built, three-way toolbar switch. |
 | `wave-5-checkpoint-2-wayfinding.md` | Implemented | Checkpoint 2 findings from driving the street-level camera on `fixtures/orderly`: hue massing works, rank does not survive entering the scene, plus four defects no unit test covered. |
 | `remediation-security-clustering-canvas-docs.md` | Implemented | Remediation wave across security, clustering, canvas, and docs drift. |
-| `hierarchy-correctness-and-clustering-redesign.md` | Implemented | Root policy with a `test_suite` container, upward tree reciprocity, `validateTreeInvariants` with a reachability assertion, `group` promoted from a string to real snapshot units, then the deterministic-clustering project. All five phases merged (#124–#128). Its deferred group-narration item was later closed by `agent-analyze-groups-flows.md`. |
+| `hierarchy-correctness-and-clustering-redesign.md` | Implemented | Root policy with a `test_suite` container, upward tree reciprocity, `validateTreeInvariants` with a reachability assertion, `group` promoted from a string to real snapshot units, then the deterministic-clustering project. All five phases merged (#124–#128). Its deferred group-narration item is only partly closed — see `docs/backlog/group-narration-pass.md`. |
 | `deterministic-partition-4c.md` | Implemented | Phase 4c: replaces Pass B's directory-bucket merges with deterministic single-linkage agglomerative clustering, sticky cluster names keyed on a stable membership id, and clustering provenance. |
 | `clusters-artifact-split.md` | Implemented | Split the layers/clusters artifact so cached stages can be reused independently. |
 | `no-llm-merge-and-provenance.md` | Implemented | `--no-llm` merge-from-cache and per-unit provenance. |
 | `agent-authored-semantics.md` | Implemented | `scv merge-semantics`: agent-authored Pass-A semantics injected into the artifact cache at zero LLM cost. Backs the `agent-analyze-functions` skill. |
-| `agent-analyze-groups-flows.md` | Implemented | Agent-authored group and flow narration (`--with-groups` / `--with-flows`). Backs the `agent-analyze-groups` and `agent-analyze-flows` skills; closed the roadmap's deferred group-narration item. |
+| `agent-analyze-groups-flows.md` | Implemented | Agent-authored group and flow narration (`--with-groups` / `--with-flows`). Backs the `agent-analyze-groups` and `agent-analyze-flows` skills. This covers the agent-authored path only — a plain `scv analyze` still ships groups with `semantics: null` (`packages/interpreter/src/groups.ts`), so the automated group-narration pass remains open in `docs/backlog/group-narration-pass.md`. |
 
 ## Archive
 
