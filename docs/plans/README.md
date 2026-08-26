@@ -17,6 +17,7 @@ shipped, others explicitly deferred (see the plan's own verification/branching s
 
 | Plan | Status | Summary |
 |---|---|---|
+| `resumable-pass-a-and-analyze-scope.md` | **Not started** | Pass A is not resumable: an interrupted `scv analyze` re-analyzes every completed unit on restart (measured 14 units / 349s of 1901s wasted on `../eq_to_word_problem`). Cause is circular — Pass A's cache key folds in `calleeSemanticsDigest`, built from callees' `hash.semantic`, which only exists once `functions.json` is written at the *end* of the pass. Plan adds a per-unit result store, a debounced partial `functions.json` flush (so an interrupted run still renders), `--scope` on `analyze` (reusing `merge-semantics`'s globs), and stops caching unvalidated LLM responses (1 poisoned row confirmed in the live cache). |
 | `cityscape-navigation-and-scale.md` | **Partial** | 3D-skin navigation and scale gaps. Phases 1–6 done and browser-verified (fly-drag rotation, compass, focus render order + `depthWrite`, continuous-zoom drill/ascend, sloc height rescale, always-visible legend tray, controls help). **Phase 7 root fix — the Interpreter `MAX_TOP_LAYERS` cap (5–9 top layers, smallest clusters merged into synthetic parent groups) — is not started**, deliberately scoped to its own branch off `main`. Phase 7's UI mitigation (search-to-focus, default-collapse past the 6th layer) did ship. Also raised, out of scope: the `ring`/`heat` risk channel has no producer, so beacons and minimap risk markers are unreachable end to end. |
 
 ## Implemented
