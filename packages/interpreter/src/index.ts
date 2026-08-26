@@ -39,12 +39,30 @@ export type {
   FlowNarration,
   NarrateFlowOptions,
 } from "./pass-c.js";
-export { checkAndRepairClusters, directoryClusters, modularity, traceFlow } from "./checker.js";
-export type { ClusterProposal, CheckedClusters, ImportEdge, CallEdge } from "./checker.js";
+export { checkAndRepairClusters, directoryClusters, modularity, traceFlow, traceFlowBranching } from "./checker.js";
+export type { ClusterProposal, CheckedClusters, ImportEdge, CallEdge, StepBranch } from "./checker.js";
+export { UNGROUPED_ID, buildGroupUnits, resolveGroupMembership } from "./groups.js";
+export type { BuildGroupUnitsInput, BuildGroupUnitsResult } from "./groups.js";
 export type { FlowUnitSummary, FlowStepSummary } from "./prompts/pass-c-flows.js";
 export { parseJsonResponse, stripCodeFence } from "./json-response.js";
-export { runInterpreter, fmtElapsed, runFunctionsPass, runDocsPass, runClustersPass, runNarrationPass, runGroupsPass, runFlowsPass, finalizeSnapshot, systemIdFor } from "./orchestrate.js";
+export {
+  runInterpreter,
+  fmtElapsed,
+  runFunctionsPass,
+  runDocsPass,
+  runClustersPass,
+  runNarrationPass,
+  runGroupsPass,
+  runFlowsPass,
+  buildFlowTracingContext,
+  traceFlowSteps,
+  buildFlowUnit,
+  finalizeSnapshot,
+  systemIdFor,
+} from "./orchestrate.js";
 export type {
+  FlowTracingContext,
+  TracedFlow,
   RunInterpreterOptions,
   ReportProgress,
   RunFunctionsPassOptions,

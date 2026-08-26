@@ -76,16 +76,20 @@ program
     "restrict merge to: all pending entries (default/'all'), files changed vs HEAD~1 ('changed'), or unit-id globs",
   )
   .option("--with-clustering", "also run Pass B clustering (deterministic, no LLM) and merge pending layer narration")
+  .option("--with-groups", "also merge pending group narration into the groups artifact (requires a fresh layers artifact)")
+  .option("--with-flows", "also merge pending flow narration into the flows artifact (requires live extraction; not supported with a historical --sha)")
   .option(
     "--sha <sha>",
     "sha to merge against; defaults to HEAD. Merges against the persisted .scv/snapshots/<sha>.json when present, otherwise extracts the current worktree.",
   )
-  .action(async (pendingFile: string, root: string, opts: { scope?: string[]; withClustering?: boolean; sha?: string }) => {
+  .action(async (pendingFile: string, root: string, opts: { scope?: string[]; withClustering?: boolean; withGroups?: boolean; withFlows?: boolean; sha?: string }) => {
     const result = await runMergeSemantics({
       root,
       pendingFile,
       scope: opts.scope,
       withClustering: opts.withClustering,
+      withGroups: opts.withGroups,
+      withFlows: opts.withFlows,
       sha: opts.sha,
     });
     console.log(`merged ${result.merged}, skipped ${result.skipped}`);

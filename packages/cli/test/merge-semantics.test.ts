@@ -1,12 +1,16 @@
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractRepo } from "@scv/extractor";
+import { buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
+import { semanticHashInput, type Unit } from "@scv/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
-import { mergeSemantics, runMergeSemantics } from "../src/merge-semantics.js";
+import { mergeFlows, mergeSemantics, runMergeSemantics } from "../src/merge-semantics.js";
+import { headRev } from "../src/rev.js";
 import { toSnapshot } from "../src/snapshot.js";
 
 interface StoredLayers {
@@ -414,6 +418,320 @@ describe("mergeSemantics", () => {
     }
   });
 
+  /** Groups merge against real layers, so every group test first builds a fresh `layers` artifact
+   *  the deterministic way: a `--with-clustering` merge with no pending narration. */
+  async function seedLayers(): Promise<{ name: string; files: string[] }[]> {
+    const emptyPendingFile = writePending({ units: {}, layers: {} });
+    await mergeSemantics({ pendingFile: emptyPendingFile, ctx, root: orderlyRoot, withClustering: true });
+    const stored = JSON.parse(readFileSync(path.join(scvDir, "artifacts", sha, "layers.json"), "utf-8")) as StoredLayers;
+    return stored.data.layers;
+  }
+
+  const narration = { what: "w", how: "h", when: "n", where: "e", why: "y", confidence: 0.7 };
+
+  function readGroups(): { groupUnits: Unit[]; layerParent: [string, string][] } {
+    return (JSON.parse(readFileSync(path.join(scvDir, "artifacts", sha, "groups.json"), "utf-8")) as { data: { groupUnits: Unit[]; layerParent: [string, string][] } }).data;
+  }
+
+  it("with --with-groups, merges a pending group with resolved children, manual provenance and a recomputed semantic hash", async () => {
+    const layers = await seedLayers();
+    expect(layers.length).toBeGreaterThan(1);
+    const target = layers[0]!;
+
+    const pendingFile = writePending({
+      units: {},
+      groups: { g1: { name: "Core", layers: [target.name], ...narration } },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true });
+    expect(result.merged).toBe(1);
+    expect(result.skipped).toBe(0);
+
+    const data = readGroups();
+    const core = data.groupUnits.find((g) => g.name === "Core");
+    expect(core).toBeDefined();
+    expect(core!.semantics).toEqual({ ...narration, source: "manual" });
+    expect(core!.provenance).toEqual({ source: "manual", pass: "C" });
+    expect(core!.children.length).toBe(1);
+
+    // Recomputed against the merged narration, not the `semantics: null` the unit was built with.
+    const stale = createHash("sha1").update(semanticHashInput("Core", null)).digest("hex");
+    expect(core!.hash.semantic).not.toBe(stale);
+    expect(core!.hash.semantic).toBe(createHash("sha1").update(semanticHashInput("Core", core!.semantics)).digest("hex"));
+
+    // Unclaimed layers land in the automatic bucket, still unnarrated.
+    const ungrouped = data.groupUnits.find((g) => g.name === "Ungrouped");
+    expect(ungrouped).toBeDefined();
+    expect(ungrouped!.semantics).toBeNull();
+    expect(data.layerParent.length).toBe(layers.length);
+  });
+
+  it("with --with-groups, matches by resolved member-id set so a renamed group still merges", async () => {
+    const layers = await seedLayers();
+    const target = layers[0]!;
+
+    const pendingFile = writePending({
+      units: {},
+      groups: { g1: { name: "Totally Different Name", layers: [target.name], ...narration } },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true });
+    expect(result.merged).toBe(1);
+    expect(readGroups().groupUnits.find((g) => g.name === "Totally Different Name")?.semantics?.what).toBe("w");
+  });
+
+  it("with --with-groups, an entry naming an unknown layer is skipped without discarding valid entries", async () => {
+    const layers = await seedLayers();
+
+    const pendingFile = writePending({
+      units: {},
+      groups: {
+        bad: { name: "Bad", layers: ["no-such-layer"], ...narration },
+        good: { name: "Good", layers: [layers[0]!.name], ...narration },
+      },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true });
+    expect(result.merged).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.warnings.some((w) => w.includes('group "bad" references unknown/ambiguous layer "no-such-layer"'))).toBe(true);
+
+    const names = readGroups().groupUnits.map((g) => g.name);
+    expect(names).toContain("Good");
+    expect(names).not.toContain("Bad");
+  });
+
+  it("with --with-groups, a second group claiming an already-claimed layer is skipped, the first still merges", async () => {
+    const layers = await seedLayers();
+    const shared = layers[0]!.name;
+
+    const pendingFile = writePending({
+      units: {},
+      groups: {
+        first: { name: "First", layers: [shared], ...narration },
+        second: { name: "Second", layers: [shared], ...narration },
+      },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true });
+    expect(result.merged).toBe(1);
+    expect(result.warnings.some((w) => w.includes('group "second" claims layer'))).toBe(true);
+
+    const names = readGroups().groupUnits.map((g) => g.name);
+    expect(names).toContain("First");
+    expect(names).not.toContain("Second");
+  });
+
+  it("with --with-groups, two entries sharing one name are both skipped rather than silently overwriting", async () => {
+    const layers = await seedLayers();
+    expect(layers.length).toBeGreaterThan(2);
+
+    const pendingFile = writePending({
+      units: {},
+      groups: {
+        a: { name: "X", layers: [layers[0]!.name], ...narration },
+        b: { name: "X", layers: [layers[1]!.name], ...narration },
+        c: { name: "Fine", layers: [layers[2]!.name], ...narration },
+      },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true });
+    expect(result.merged).toBe(1);
+    expect(result.skipped).toBe(2);
+    expect(result.warnings.some((w) => w.includes('group name "X" is used by more than one pending entry'))).toBe(true);
+
+    const names = readGroups().groupUnits.map((g) => g.name);
+    expect(names).not.toContain("X");
+    expect(names).toContain("Fine");
+  });
+
+  it("with --with-groups, an entry listing the same layer twice is skipped without aborting the whole merge", async () => {
+    const layers = await seedLayers();
+
+    const pendingFile = writePending({
+      units: {},
+      groups: {
+        dup: { name: "Dup", layers: [layers[0]!.name, layers[0]!.name], ...narration },
+        ok: { name: "Ok", layers: [layers[1]!.name], ...narration },
+      },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true });
+    expect(result.merged).toBe(1);
+    expect(result.warnings.some((w) => w.includes('group "dup" lists layer'))).toBe(true);
+    expect(readGroups().groupUnits.map((g) => g.name)).toContain("Ok");
+  });
+
+  it("with --with-groups, errors instead of grouping against a missing layers artifact", async () => {
+    const pendingFile = writePending({ units: {}, groups: {} });
+    await expect(mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true })).rejects.toThrow(/layers artifact is missing or stale/);
+  });
+
+  it("with --with-groups, groups inputHash is stable across identical re-runs", async () => {
+    await seedLayers();
+    const layers = await seedLayers();
+    const pendingFile = writePending({ units: {}, groups: { g1: { name: "Core", layers: [layers[0]!.name], ...narration } } });
+
+    const groupsFile = path.join(scvDir, "artifacts", sha, "groups.json");
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true });
+    const first = (JSON.parse(readFileSync(groupsFile, "utf-8")) as { inputHash: string }).inputHash;
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withGroups: true });
+    expect((JSON.parse(readFileSync(groupsFile, "utf-8")) as { inputHash: string }).inputHash).toBe(first);
+  });
+
+  const flowEntryUnit = "u:src.orders.create_order.create_order";
+
+  function readFlows(): Unit[] {
+    return (JSON.parse(readFileSync(path.join(scvDir, "artifacts", sha, "flows.json"), "utf-8")) as { data: Unit[] }).data;
+  }
+
+  it("with --with-flows, merges a pending flow whose trace matches what runFlowsPass would produce", async () => {
+    const pendingFile = writePending({
+      units: {},
+      flows: { f1: { name: "Create order", route: "POST /orders", entryUnit: flowEntryUnit, tags: ["api"], ...narration } },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
+    expect(result.merged).toBe(1);
+    expect(result.skipped).toBe(0);
+
+    const flows = readFlows();
+    expect(flows.length).toBe(1);
+    const flow = flows[0]!;
+    expect(flow.kind).toBe("api_flow");
+    expect(flow.semantics).toEqual({ ...narration, source: "manual" });
+    expect(flow.provenance).toEqual({ source: "manual", pass: "C" });
+    expect(flow.hash.semantic).toBeNull();
+    expect(flow.tags).toEqual(["api"]);
+
+    // Parity with the real pipeline: same helpers, so same DI prefix and same branching shape.
+    const tracing = buildFlowTracingContext({ snapshot: ctx.snapshot, graph: ctx.graph, units: ctx.snapshot.units });
+    const expected = traceFlowSteps(flowEntryUnit, new Set(ctx.snapshot.units.map((u) => u.id)), tracing)!;
+    expect(expected).not.toBeNull();
+    expect(flow.steps).toEqual(expected.steps);
+    expect(flow.stepsBranching).toEqual(expected.stepsBranching);
+    // The DI dependencies really are spliced in ahead of the handler, not merely traced from it.
+    expect(expected.steps.indexOf("u:src.auth.verify_token")).toBeLessThan(expected.steps.indexOf(flowEntryUnit));
+  });
+
+  it("with --with-flows, warns and skips an entryUnit that is not an eligible entry point", async () => {
+    const pendingFile = writePending({
+      units: {},
+      flows: { f1: { name: "Nope", route: "GET /nope", entryUnit: "u:does.not.exist", tags: [], ...narration } },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
+    expect(result.merged).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.warnings.some((w) => w.includes("is not an eligible entry point"))).toBe(true);
+    expect(readFlows()).toEqual([]);
+  });
+
+  it("with --with-flows, accepts exactly the entry points the real flows pass proposes from", async () => {
+    // The zero-LLM merge path exists to produce what Pass C would produce, minus the narration
+    // call. `runFlowsPass` proposes entry points from `buildFlowTracingContext`'s
+    // `flowUnitSummaries` (non-test `function` *and* `class` units), so `mergeFlows` must accept
+    // that same set. Narrowing eligibility to `function` here would make a class-rooted flow
+    // reachable via `analyze` but not via `merge-semantics` — class-based route handlers
+    // (Django CBVs, Flask MethodView, DRF APIView) are ordinary entry points.
+    const tracing = buildFlowTracingContext({ snapshot: ctx.snapshot, graph: ctx.graph, units: ctx.snapshot.units });
+    const eligible = new Set(tracing.flowUnitSummaries.map((u) => u.id));
+    const unitById = new Map(ctx.snapshot.units.map((u) => [u.id, u]));
+
+    expect([...eligible].every((id) => ["function", "class"].includes(unitById.get(id)!.kind))).toBe(true);
+    expect(eligible.has(flowEntryUnit)).toBe(true);
+
+    // A module is a real unit but never an entry point, so eligibility is genuinely a filter.
+    const moduleUnit = ctx.snapshot.units.find((u) => u.kind === "module")!;
+    expect(eligible.has(moduleUnit.id)).toBe(false);
+
+    const pendingFile = writePending({
+      units: {},
+      flows: { f1: { name: "Nope", route: "GET /nope", entryUnit: moduleUnit.id, tags: [], ...narration } },
+    });
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
+    expect(result.merged).toBe(0);
+    expect(result.warnings.some((w) => w.includes("is not an eligible entry point"))).toBe(true);
+  });
+
+  it("with --with-flows, keeps the first of two entries colliding on the same flow id", async () => {
+    const pendingFile = writePending({
+      units: {},
+      flows: {
+        a: { name: "First", route: "POST /orders", entryUnit: flowEntryUnit, tags: [], ...narration },
+        b: { name: "Second", route: "POST /orders", entryUnit: flowEntryUnit, tags: [], ...narration },
+      },
+    });
+
+    const result = await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
+    expect(result.merged).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.warnings.some((w) => w.includes("same route and traced steps"))).toBe(true);
+    expect(readFlows().map((f) => f.name)).toEqual(["First"]);
+  });
+
+  it("with --with-flows, falls back to snapshot units when no functions artifact was ever persisted", async () => {
+    // `mergeSemantics` always writes `functions` before flows, so exercise mergeFlows' own
+    // snapshot fallback directly, against a scvDir where nothing has been persisted yet.
+    expect(existsSync(path.join(scvDir, "artifacts", sha, "functions.json"))).toBe(false);
+
+    const result = await mergeFlows(
+      ctx,
+      { f1: { name: "Create order", route: "POST /orders", entryUnit: flowEntryUnit, tags: [], ...narration } },
+      false,
+      [],
+    );
+    expect(result.merged).toBe(1);
+    expect(readFlows().length).toBe(1);
+  });
+
+  it("with --with-flows, errors rather than tracing against a stale persisted functions artifact", async () => {
+    const pendingFile = writePending({
+      units: {},
+      flows: { f1: { name: "Create order", route: "POST /orders", entryUnit: flowEntryUnit, tags: [], ...narration } },
+    });
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
+
+    // `functions` hashes over the extraction graph, so a ctx whose graph has drifted since that
+    // artifact was written is exactly the "persisted but stale" case. Driven through `mergeFlows`
+    // directly because `mergeSemantics` always rewrites `functions` fresh before reaching flows.
+    const drifted: ArtifactContext = { ...ctx, graph: { ...ctx.graph, units: ctx.graph.units.slice(1) } };
+
+    await expect(mergeFlows(drifted, {}, false, [])).rejects.toThrow(/functions artifact is stale/);
+  });
+
+  it("with --with-flows, refuses a graph rebuilt from a persisted snapshot", async () => {
+    const historicalSha = "historical-flows-sha";
+    const historicalSnapshot = toSnapshot(await extractRepo(orderlyRoot), {
+      root: orderlyRoot,
+      rev: { sha: historicalSha, kind: "commit", ts: "2019-01-01T00:00:00Z", author: "test", author_kind: "human" },
+    });
+    const snapshotFile = path.join(scvDir, "snapshots", `${historicalSha}.json`);
+    mkdirSync(path.dirname(snapshotFile), { recursive: true });
+    writeFileSync(snapshotFile, JSON.stringify(historicalSnapshot));
+
+    const pendingFile = path.join(scvDir, "pending", historicalSha, "semantics.json");
+    mkdirSync(path.dirname(pendingFile), { recursive: true });
+    writeFileSync(pendingFile, JSON.stringify({ units: {}, flows: {} }));
+
+    await expect(runMergeSemantics({ root: orderlyRoot, pendingFile, scvDir, sha: historicalSha, withFlows: true })).rejects.toThrow(
+      /flow merging requires live extraction/,
+    );
+  });
+
+  it("with --with-flows, flows inputHash is stable across identical re-runs", async () => {
+    const pendingFile = writePending({
+      units: {},
+      flows: { f1: { name: "Create order", route: "POST /orders", entryUnit: flowEntryUnit, tags: [], ...narration } },
+    });
+    const flowsFile = path.join(scvDir, "artifacts", sha, "flows.json");
+
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
+    const first = (JSON.parse(readFileSync(flowsFile, "utf-8")) as { inputHash: string }).inputHash;
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withFlows: true });
+    expect((JSON.parse(readFileSync(flowsFile, "utf-8")) as { inputHash: string }).inputHash).toBe(first);
+  });
+
   it("--sha with a persisted .scv/snapshots/<sha>.json merges against that snapshot, not the current worktree", async () => {
     const historicalSha = "historical-sha";
     const historicalSnapshot = toSnapshot(await extractRepo(orderlyRoot), {
@@ -451,6 +769,45 @@ describe("mergeSemantics", () => {
     expect(result.path).toBe(path.join(scvDir, "snapshots", `${historicalSha}.json`));
     expect(existsSync(result.path)).toBe(true);
     expect(result.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "groups", "layers"]);
+  });
+
+  it("without --sha, extracts the worktree live even when a snapshot for HEAD already exists", async () => {
+    // A previous merge (or `analyze --no-llm`) leaves `.scv/snapshots/<head>.json` behind.
+    // Reloading it would rebuild the graph via `graphFromSnapshot`, whose `extraction` input hash
+    // differs from the live one — invalidating every artifact below it and making a follow-up
+    // `--with-groups` merge fail as "stale". HEAD must always come from live extraction.
+    const headSha = headRev(orderlyRoot).sha;
+    const snapshotFile = path.join(scvDir, "snapshots", `${headSha}.json`);
+    mkdirSync(path.dirname(snapshotFile), { recursive: true });
+    writeFileSync(
+      snapshotFile,
+      JSON.stringify(toSnapshot(await extractRepo(orderlyRoot), {
+        root: orderlyRoot,
+        rev: { sha: headSha, kind: "commit", ts: "2019-01-01T00:00:00Z", author: "test", author_kind: "human" },
+      })),
+    );
+
+    const emptyPending = path.join(scvDir, "pending", headSha, "empty.json");
+    mkdirSync(path.dirname(emptyPending), { recursive: true });
+    writeFileSync(emptyPending, JSON.stringify({ units: {}, layers: {} }));
+    await runMergeSemantics({ root: orderlyRoot, pendingFile: emptyPending, scvDir, withClustering: true });
+
+    const layerNames = (
+      JSON.parse(readFileSync(path.join(scvDir, "artifacts", headSha, "layers.json"), "utf-8")) as StoredLayers
+    ).data.layers.map((l) => l.name);
+
+    const groupsPending = path.join(scvDir, "pending", headSha, "groups.json");
+    writeFileSync(
+      groupsPending,
+      JSON.stringify({
+        units: {},
+        layers: {},
+        groups: { core: { name: "Core", layers: layerNames.slice(0, 2), ...narration } },
+      }),
+    );
+
+    const result = await runMergeSemantics({ root: orderlyRoot, pendingFile: groupsPending, scvDir, withGroups: true });
+    expect(result.merged).toBe(1);
   });
 
 });

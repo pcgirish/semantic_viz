@@ -1,5 +1,5 @@
 ---
-name: agent-write-pass-a-semantics
+name: agent-analyze-functions
 description: Author Pass-A-shaped semantics (what/how/when/where/why) for functions/classes you already have context on, and inject them into scv's artifact cache with zero LLM/provider calls. Use when asked to semantically annotate code without running scv's real LLM interpreter pass.
 ---
 
@@ -22,11 +22,14 @@ injects it into the artifact cache as if a real Pass A had produced it.
    `tests?/`/`__tests__/` directory, or filename matches
    `test_*.py`/`*_test.py`/`*.test.ts(x)`/`*.spec.ts(x)`) or a generated
    path (under a `generated/`/`__generated__/` directory, or filename ends
-   `_pb2.py`/`_pb.py`/`.pb.ts`/`.generated.ts`/`.g.dart`) — real Pass A
-   excludes exactly these same units from narration/clustering, so this
-   check is derived from the snapshot's own unit data, not a separate
-   guess. Only units passing that check get an entry, keyed by their exact
-   `id` from the snapshot, in the pending-semantics file:
+   `_pb2.py`/`_pb.py`/`.pb.ts`/`.generated.ts`/`.g.dart`). This is
+   authoring guidance, not an enforced invariant: `merge-semantics`'s
+   function-merge path only validates that a unit exists and that its
+   `kind` matches — it does **not** filter test/generated paths itself, so
+   a test-path entry you submit will be merged. Skipping them keeps the
+   merged artifact consistent with what real Pass A narrates. Only units
+   passing that check get an entry, keyed by their exact `id` from the
+   snapshot, in the pending-semantics file:
 
    ```json
    {
@@ -55,9 +58,12 @@ injects it into the artifact cache as if a real Pass A had produced it.
    semantics untouched while still setting `cost`/`tags`.
 
 3. Save the file to a single path: `.scv/pending/<sha>/semantics-functions.json`
-   (this phase's file; layer narration from `agent-narrate-layers` goes in
+   (this phase's file; layer narration from `agent-analyze-layers` goes in
    a separate `semantics-layers.json` — the two are merged independently
-   and in sequence, see that skill's Notes for why this is safe). Even when
+   and in sequence, see that skill's Notes for why this is safe). That path
+   is a **convention, not a requirement**: `merge-semantics` accepts any
+   file path and never checks that the name or directory matches the sha
+   it is merging against, so a misnamed file is not caught for you. Even when
    authoring is parallelized, all `units` entries must land in this one
    file — never split output across several per-module files
    (`semantics_backend.json`, `semantics_frontend.json`, etc.). A split
@@ -119,4 +125,5 @@ injects it into the artifact cache as if a real Pass A had produced it.
 - Re-running `merge-semantics` with an updated pending file overwrites
   previously merged entries.
 - To also narrate architectural layers instead of individual units, use the
-  `agent-narrate-layers` skill.
+  `agent-analyze-layers` skill. For architectural groups (layer groupings)
+  and API flows, see `agent-analyze-groups` and `agent-analyze-flows`.

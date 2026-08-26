@@ -124,7 +124,7 @@ function artifactFile(ctx: ArtifactContext, name: ArtifactName): string {
   return path.join(ctx.scvDir, "artifacts", ctx.sha, `${name}.json`);
 }
 
-function readArtifact<T>(ctx: ArtifactContext, name: ArtifactName): StoredArtifact<T> | undefined {
+export function readArtifact<T>(ctx: ArtifactContext, name: ArtifactName): StoredArtifact<T> | undefined {
   const file = artifactFile(ctx, name);
   if (!existsSync(file)) return undefined;
   try {
