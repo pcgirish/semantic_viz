@@ -1,61 +1,64 @@
 # semantic_viz
 
+## General Rules
+- Clearly articulate the idea and intent; be terse and omit needless words
+- No narration, filler, or detailed thinking output
+- Report only actual steps: decisions, implementation, key tool calls (file, command)
+
 **Stack:** TypeScript · Fastify · SQLite
 
 **Structure:** npm-workspace monorepo — `/packages/*` (each with its own `src/` and `test/`) · `/docs` · `/fixtures`
 
-## Commands (always use the run prefix — never bare executables)
+## Commands (always use npm commands - never bare executables)
 ```
 npm run dev
-npm test
+npm run build
+npm run test
 npm run lint
 ```
 **Deps:** `npm install <pkg>` / `npm install --save-dev <pkg>` · `npm install` to restore
 
 ## Critical Rules
-- TDD RED-GREEN-Refactor — no implementation before a failing test
-- Never write secrets/keys/passwords in code or comments
-- Never read/write .env directly; use .env.example for shape
-- Input validation via Zod / class-validator only — never trust raw request data
-
-- Clearly articulate the idea and intent 
-- Be Terse; Omit needless words
-- No narration, filler, or detailed thinking output
-- Report only actual steps: decisions, implementation, key tool calls (file, command)
-
+- TDD RED-GREEN-REFACTOR is mandatory for behavior changes; exempt non-behavioral work when appropriate.
+- Never hardcode secrets, keys, passwords, or credential-like placeholders in code or comments; generate test values or inject them at runtime.
+- Never inspect, edit, or commit `.env`; use `.env.example` for shape.
+- Never trust raw request data: validate with Zod; DB constraints and domain checks may add validation.
 
 ## Code guidelines
-- Write production-quality code.
-- Prioritize in order:  Correctness . Simplicity . Readability . Consistency . Small diffs
-- Avoid unnecessary abstractions.
-- Keep functions focused.
-- Use names that mean intent.
-- Handle errors.
-- Remove dead code.
-- Don't optimize prematurely.
-- Ask if requirements are unclear.
-- Before finishing, ensure the solution is the simplest maintainable implementation you would approve in a production code review.
+- Prioritize correctness > simplicity > readability > consistency > small diffs.
+- Avoid unrelated changes; preserve existing user changes.
+- Keep functions focused; use abstractions only when necessary.
+- Use names that express intent.
+- Handle expected error paths explicitly.
+- Always remove dead code within the touched scope; do not expand scope for cleanup.
+- Do not optimize prematurely.
+- Ask when ambiguity could materially change the implementation.
+- Before finishing, ensure the change is maintainable and production-ready.
 
 ## Git Workflow
-**Flow:** always branch → implement → verify → review → push → open PR → merge PR. Never commit or push directly to main.
+**Plan Flow:** branch -> plan -> (review -> fix) loop until approved -> merge PR.
+**Code Flow:** always branch → implement → verify → review → push → open PR → (review PR -> fix)loop until approved -> merge PR.
+** Never commit or push directly to main.
 
 **Branches:**
 - `feature/<name>` — new feature or refactor
 - `fix/<short-name>` — bug fix (related fixes may share one branch; unrelated fixes get separate branches)
 - `refactor/<name>` — non-functional code change
-- Small single-spot fix (<10 lines): ask the user "review, or merge directly?" before doing a full review pass
+- Small single-spot fix (<10 lines): ask whether to do a lightweight review or skip the full review loop; never commit directly to main.
 
 ## Agent Roles
 ### Implementer
 Writes code, runs the test and lint commands above before considering the task done.
 
 ### Reviewer
-Reviews as a staff engineer would: use `project-review` skill below in a fresh sub-session/subagent with no knowledge of the implementation to run review. 
-Returns one of APPROVED / NEEDS CHANGES / BLOCKED, with explicit reasons. 
+Reviews as a staff engineer using `project-review` in a fresh sub-session/subagent for the initial review.
+Return APPROVED, NEEDS CHANGES, or BLOCKED, with explicit reasons.
+Assign one independent reviewer per PR. Persist status and findings across fix iterations until APPROVED.
+NEEDS CHANGES and BLOCKED findings require fixes and re-review.
+After fixes, re-review the changed scope and affected behavior.
 
 ### Security Auditor
-Runs the `project-security` skill before any auth-related change merges. Focuses on:
-auth checks, input validation, secrets exposure, injection attacks.
+Runs `project-security` before merging any change that touches authentication, authorization, secrets, untrusted input, file-system or process execution, database access, or other security boundaries. Reports findings and required fixes.
 
 ## Skills
 This project ships skills under `.agents/skills/` (the open, cross-tool
@@ -70,15 +73,18 @@ its description:
 | `project-review` | Reviewing a branch/PR before merge |
 | `project-testing` | Writing or reviewing tests |
 | `feature-scaffold` | Adding a new feature end-to-end |
+
+These skills are byproducts of this project. They analyze any codebase and create the data for visualization.
+
+| Skill | Use when |
+|---|---|
 | `agent-analyze-functions` | Authoring per-function/class semantics without an LLM pass |
 | `agent-analyze-layers` | Authoring layer/cluster narration without an LLM pass |
 | `agent-analyze-groups` | Authoring group narration over real layers without an LLM pass |
 | `agent-analyze-flows` | Authoring API flow narration without an LLM pass |
 
-- **Claude Code:** skills in `.claude/skills/` activate automatically when relevant,
-  or ask for one by name ("use the project-security skill").
-- **Codex CLI:** skills in `.agents/skills/` activate automatically, or force one
-  with `$project-security` etc.
+- **Claude Code:** skills in `.claude/skills/` activate automatically when relevant, or ask for one by name ("use the project-security skill").
+- **Codex CLI:** skills in `.agents/skills/` activate automatically, or force one with `$project-security` etc.
 - **Other SKILL.md-aware agents:** point them at `.agents/skills/<name>/SKILL.md`.
 
 ## Agent-Specific Notes
