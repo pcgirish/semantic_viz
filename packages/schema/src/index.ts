@@ -397,6 +397,8 @@ export {
   PendingGroupSchema,
   PendingFlowSchema,
   PendingBlockLabelSchema,
+  PendingDocSchema,
+  type PendingDoc,
   type PendingBlockLabel,
   type PendingSemantics,
   type PendingUnit,

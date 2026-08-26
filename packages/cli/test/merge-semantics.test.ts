@@ -9,6 +9,7 @@ import { buildBlockUnits, buildFlowTracingContext, traceFlowSteps } from "@scv/i
 import { semanticHashInput, type Unit } from "@scv/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
+import { discoverDocs } from "../src/discover-docs.js";
 import { inScope, mergeFlows, mergeSemantics, runMergeSemantics } from "../src/merge-semantics.js";
 import { headRev } from "../src/rev.js";
 import { toSnapshot } from "../src/snapshot.js";
@@ -999,5 +1000,121 @@ describe("mergeSemantics block units", () => {
     const labelled = storedFunctions().blockUnits.find((u) => u.id === id)!;
     expect(labelled.name).toBe("reject bad input");
     expect(labelled.provenance.source).toBe("manual");
+  });
+});
+
+describe("mergeSemantics docs", () => {
+  let scvDir: string;
+  let sha: string;
+  let ctx: ArtifactContext;
+
+  beforeEach(async () => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-merge-docs-"));
+    const graph = await extractRepo(orderlyRoot);
+    sha = "fixed-sha";
+    ctx = {
+      scvDir,
+      sha,
+      snapshot: toSnapshot(graph, {
+        root: orderlyRoot,
+        rev: { sha, kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" },
+      }),
+      graph,
+      provider: {
+        interpret: () => {
+          throw new Error("merge-semantics must never call the provider");
+        },
+      } as never,
+      promptRev: "test-prompt-rev",
+      readSource: () => "",
+      docs: discoverDocs(orderlyRoot),
+      reportProgress: () => {},
+      force: new Set(),
+    };
+  });
+
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function writePending(docs: Record<string, unknown>): string {
+    const file = path.join(scvDir, "pending", sha, "semantics-docs.json");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ units: {}, docs }));
+    return file;
+  }
+
+  function storedDocs(): { path: string; purpose: string; modules: unknown[]; architecture_notes: string[] }[] {
+    return JSON.parse(readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8")).data;
+  }
+
+  it("merges an authored doc and matches a follow-up ensureArtifact inputHash", async () => {
+    const realPath = ctx.docs[0]!.path;
+    await mergeSemantics({
+      pendingFile: writePending({
+        [realPath]: {
+          path: realPath,
+          purpose: "explains the ordering service",
+          modules: [{ name: "orders", description: "order lifecycle", paths: ["src/orders.py"] }],
+          architecture_notes: ["layered"],
+        },
+      }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+
+    const data = storedDocs();
+    expect(data).toHaveLength(1);
+    expect(data[0]!.purpose).toBe("explains the ordering service");
+    expect(data[0]!.modules).toHaveLength(1);
+
+    const stored = JSON.parse(readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8"));
+    expect(stored.inputHash).toBe(await computeInputHash("docs", ctx, {}));
+    expect((await ensureArtifact("docs", ctx)).data).toHaveLength(1);
+  });
+
+  it("warns and skips a path that was never discovered, still merging the rest", async () => {
+    const realPath = ctx.docs[0]!.path;
+    const result = await mergeSemantics({
+      pendingFile: writePending({
+        ghost: { path: "docs/nope.md", purpose: "x", modules: [], architecture_notes: [] },
+        real: { path: realPath, purpose: "kept", modules: [], architecture_notes: [] },
+      }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+
+    expect(result.warnings.join("\n")).toMatch(/docs\/nope\.md/);
+    expect(storedDocs().map((d) => d.purpose)).toEqual(["kept"]);
+  });
+
+  it("keeps the first of two entries claiming the same path and warns", async () => {
+    const realPath = ctx.docs[0]!.path;
+    const result = await mergeSemantics({
+      pendingFile: writePending({
+        a: { path: realPath, purpose: "first", modules: [], architecture_notes: [] },
+        b: { path: realPath, purpose: "second", modules: [], architecture_notes: [] },
+      }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+
+    expect(result.warnings.join("\n")).toMatch(new RegExp(realPath.replace(/[.\\/]/g, "\\$&")));
+    expect(storedDocs().map((d) => d.purpose)).toEqual(["first"]);
+  });
+
+  it("writes docs deterministically across repeated merges", async () => {
+    const realPath = ctx.docs[0]!.path;
+    const pendingFile = writePending({
+      [realPath]: { path: realPath, purpose: "stable", modules: [], architecture_notes: [] },
+    });
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withDocs: true });
+    const first = readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8");
+
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withDocs: true });
+    expect(readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8")).toBe(first);
   });
 });

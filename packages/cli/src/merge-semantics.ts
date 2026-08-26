@@ -67,6 +67,7 @@ export interface MergeSemanticsOptions {
   withClustering?: boolean;
   withGroups?: boolean;
   withFlows?: boolean;
+  withDocs?: boolean;
   /** True when `ctx.graph` was rebuilt by `graphFromSnapshot` rather than a live `extractRepo`
    *  call. Such a graph has no `via: "di"` edges and an empty `blockGraph`, so flow merging must
    *  refuse rather than emit a silently degraded flow. */
@@ -153,6 +154,7 @@ export interface RunMergeSemanticsOptions {
   withClustering?: boolean;
   withGroups?: boolean;
   withFlows?: boolean;
+  withDocs?: boolean;
   sha?: string;
 }
 
@@ -263,6 +265,7 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
     scope: options.scope,
     withClustering: options.withClustering,
     withGroups: options.withGroups,
+    withDocs: options.withDocs,
     withFlows: options.withFlows,
     fromPersistedSnapshot: persisted !== undefined,
   });
@@ -272,7 +275,7 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
 }
 
 export async function mergeSemantics(options: MergeSemanticsOptions): Promise<MergeSemanticsResult> {
-  const { pendingFile, ctx, root, scope, withClustering, withGroups, withFlows, fromPersistedSnapshot } = options;
+  const { pendingFile, ctx, root, scope, withClustering, withGroups, withFlows, withDocs, fromPersistedSnapshot } = options;
   const warnings: string[] = [];
 
   const raw = JSON.parse(readFileSync(pendingFile, "utf-8"));
@@ -363,6 +366,14 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
 
   const functionsInputHash = await computeInputHash("functions", ctx, {});
   writeArtifact(ctx, "functions", functionsInputHash, functionsData);
+
+  // Before clustering, not after: Pass B consumes the `docs` artifact, so docs authored in the
+  // same pending file must already be on disk when `mergeLayerClustering` reads them.
+  if (withDocs) {
+    const docsResult = await mergeDocs(ctx, pending.docs, warnings);
+    merged += docsResult.merged;
+    skipped += docsResult.skipped;
+  }
 
   if (withClustering) {
     const clusterResult = await mergeLayerClustering(ctx, pending.layers, functionsData.units, warnings);
@@ -569,6 +580,54 @@ async function mergeLayerClustering(
 /** Never lets a stale artifact trigger a provider call — everything stale is empty-defaulted, and
  *  the caller decides what to do about it via `defaultedArtifacts`. */
 const NO_PROVIDER = { allowProvider: new Set<ArtifactName>() };
+
+/**
+ * Merges agent-authored doc extracts into the `docs` artifact — the zero-LLM stand-in for Pass
+ * Docs, which otherwise makes one provider call per README/docs file.
+ *
+ * `path` must name a doc `discoverDocs` actually found, since `computeInputHash("docs")` hashes
+ * the discovered set: an entry for a file the pipeline never saw would be silently dropped on the
+ * next analyze anyway. Failure modes are per-entry (warn + skip), so one bad path does not
+ * discard the rest. Output is ordered by discovery order, not by pending-file key order, so two
+ * merges of the same content write byte-identical artifacts.
+ */
+async function mergeDocs(
+  ctx: ArtifactContext,
+  pendingDocs: Record<string, { path: string; purpose: string; modules: { name: string; description: string; paths: string[] }[]; architecture_notes: string[] }>,
+  warnings: string[],
+): Promise<{ merged: number; skipped: number }> {
+  const discovered = new Set(ctx.docs.map((d) => d.path));
+  const byPath = new Map<string, DocExtract>();
+  let merged = 0;
+  let skipped = 0;
+
+  for (const [key, entry] of Object.entries(pendingDocs)) {
+    if (!discovered.has(entry.path)) {
+      warnings.push(`doc ${key}: path ${entry.path} was not discovered in this repo — skipped`);
+      skipped++;
+      continue;
+    }
+    if (byPath.has(entry.path)) {
+      warnings.push(`doc ${key}: ${entry.path} is already claimed by an earlier entry — skipped`);
+      skipped++;
+      continue;
+    }
+    byPath.set(entry.path, {
+      path: entry.path,
+      purpose: entry.purpose,
+      modules: entry.modules,
+      architecture_notes: entry.architecture_notes,
+    });
+    merged++;
+  }
+
+  const docs = ctx.docs.flatMap((d) => {
+    const extract = byPath.get(d.path);
+    return extract ? [extract] : [];
+  });
+  writeArtifact(ctx, "docs", await computeInputHash("docs", ctx, {}), docs);
+  return { merged, skipped };
+}
 
 /**
  * Overlays agent-authored block labels onto the labels recovered from a cached artifact.

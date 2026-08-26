@@ -69,6 +69,17 @@ export const PendingFlowSchema = PendingSemanticsFieldsSchema.extend({
   tags: z.array(z.string()).default([]),
 });
 
+/** One agent-authored doc extract, mirroring the interpreter's `DocExtract` exactly. `path` must
+ *  name a doc the CLI actually discovered — see `mergeDocs`. */
+export const PendingDocSchema = z.object({
+  path: z.string().min(1),
+  purpose: z.string(),
+  modules: z
+    .array(z.object({ name: z.string(), description: z.string(), paths: z.array(z.string()).default([]) }))
+    .default([]),
+  architecture_notes: z.array(z.string()).default([]),
+});
+
 /**
  * A readable name for one control-flow block, replacing the structural fallback the builder
  * derives from `blockType`/`condition`. Keyed by the block's `u:block:<hash>` unit id — the only
@@ -97,8 +108,10 @@ export const PendingSemanticsSchema = z.object({
   groups: z.record(z.string(), PendingGroupSchema).default({}),
   flows: z.record(z.string(), PendingFlowSchema).default({}),
   blockLabels: z.record(z.string(), PendingBlockLabelSchema).default({}),
+  docs: z.record(z.string(), PendingDocSchema).default({}),
 });
 
+export type PendingDoc = z.infer<typeof PendingDocSchema>;
 export type PendingBlockLabel = z.infer<typeof PendingBlockLabelSchema>;
 export type PendingUnit = z.infer<typeof PendingUnitSchema>;
 export type PendingLayer = z.infer<typeof PendingLayerSchema>;
