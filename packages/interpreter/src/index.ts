@@ -27,6 +27,9 @@ export {
   resolveLayerNames,
 } from "./cluster.js";
 export type { ClusterGroups } from "./cluster.js";
+export { buildBlockUnits, recoverBlockLabels } from "./blocks.js";
+export type { BlockLabelWithProvenance, BuildBlockUnitsResult } from "./blocks.js";
+export type { BlockLabel } from "./pass-a-blocks.js";
 export { runPassDocs } from "./pass-docs.js";
 export type { DocInput, DocExtract, RunPassDocsOptions } from "./pass-docs.js";
 export { runPassC, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";

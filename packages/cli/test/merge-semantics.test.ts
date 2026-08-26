@@ -926,6 +926,23 @@ describe("mergeSemantics block units", () => {
     expect(new Set(data.blockEdges.map((e) => e.id)).size).toBe(data.blockEdges.length);
   });
 
+  it("is idempotent across repeated merges", async () => {
+    const pendingFile = writeEmptyPending();
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot });
+    const first = JSON.stringify(storedFunctions());
+
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot });
+    const second = storedFunctions();
+
+    // A re-merge reads back the artifact it just wrote, whose units already carry block ids in
+    // `children` — appending again would silently double them on every run.
+    expect(JSON.stringify(second)).toBe(first);
+    for (const fn of second.units) {
+      expect(new Set(fn.children).size).toBe(fn.children.length);
+    }
+    expect(second.units.some((u) => u.kind === "block")).toBe(false);
+  });
+
   it("keeps the functions inputHash matching a follow-up ensureArtifact", async () => {
     await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
 

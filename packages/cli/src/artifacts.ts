@@ -4,6 +4,7 @@ import path from "node:path";
 import type { SymbolGraph } from "@scv/extractor";
 import type { Edge, Snapshot, Unit } from "@scv/schema";
 import {
+  buildBlockUnits,
   runClustersPass,
   runDocsPass,
   runFlowsPass,
@@ -252,9 +253,24 @@ async function computeArtifact(name: ArtifactName, ctx: ArtifactContext, deps: P
       // a readable `functions.json` carrying the work already paid for.
       const completed = new Map<string, Unit>();
       let sinceFlush = 0;
+      // Blocks are pure AST structure and label-independent, so they are built once up front and
+      // reused by every flush — an interrupted run must still leave a flowchart-capable artifact,
+      // and this is the path most likely to be hit on a large repo.
+      const flushBlocks = buildBlockUnits(ctx.snapshot.units, ctx.graph);
       const flush = (): void => {
-        const units = ctx.snapshot.units.map((u) => completed.get(u.id) ?? u);
-        writeArtifact(ctx, "functions", inputHash, { units, blockUnits: [], blockEdges: [] } satisfies FunctionsData, true);
+        const merged = ctx.snapshot.units.map((u) => completed.get(u.id) ?? u);
+        const byId = new Map(merged.map((u) => [u.id, u]));
+        const units = flushBlocks.unitsWithBlockChildren.map((u) => {
+          const resolved = byId.get(u.id);
+          return resolved ? { ...resolved, children: u.children } : u;
+        });
+        writeArtifact(
+          ctx,
+          "functions",
+          inputHash,
+          { units, blockUnits: flushBlocks.blockUnits, blockEdges: flushBlocks.blockEdges } satisfies FunctionsData,
+          true,
+        );
       };
 
       const result = await runFunctionsPass({
@@ -391,9 +407,18 @@ function unitsByFileFrom(units: Unit[]): Map<string, Unit[]> {
 }
 
 function emptyArtifactDefault<N extends ArtifactName>(name: N, ctx: ArtifactContext): ArtifactDataMap[N] {
+  // Handled ahead of the `defaults` literal, which is evaluated in full on every call: even an
+  // empty-defaulted functions artifact carries real blocks (they need no LLM, and leaving them
+  // out is what blanks the Flowchart view on the zero-LLM paths), but walking the block graph
+  // is wasted work for every other artifact name.
+  if (name === "functions") {
+    const built = buildBlockUnits(ctx.snapshot.units, ctx.graph);
+    return { units: built.unitsWithBlockChildren, blockUnits: built.blockUnits, blockEdges: built.blockEdges } as ArtifactDataMap[N];
+  }
+
   const defaults: ArtifactDataMap = {
     extraction: ctx.graph,
-    functions: { units: ctx.snapshot.units, blockUnits: [], blockEdges: [] },
+    functions: { units: ctx.snapshot.units, blockUnits: [], blockEdges: [] }, // unreachable — see above
     docs: [],
     clusters: {
       groups: [],

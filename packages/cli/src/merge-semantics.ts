@@ -7,8 +7,10 @@ import {
   runPassB,
   layerIdFor,
   buildGroupUnits,
+  buildBlockUnits,
   buildFlowTracingContext,
   buildFlowUnit,
+  recoverBlockLabels,
   traceFlowSteps,
   systemIdFor,
   UNGROUPED_ID,
@@ -27,7 +29,7 @@ import { toSnapshot } from "./snapshot.js";
 interface FunctionsData {
   units: Unit[];
   blockUnits: Unit[];
-  blockEdges: unknown[];
+  blockEdges: Edge[];
 }
 
 interface ClustersData {
@@ -282,6 +284,12 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
     blockEdges: [],
   };
 
+  // Block units are pure AST structure, so they cost nothing to rebuild here and must not be
+  // left empty — without them the Flowchart view is silently blank on every agent-authored
+  // path. Labels already earned by a cached artifact are recovered and carried through, so a
+  // semantics-only merge never resets a labeled block to its structural fallback.
+  const recoveredLabels = recoverBlockLabels(functionsData.blockUnits, functionsData.blockEdges);
+
   const unitById = new Map(functionsData.units.map((u) => [u.id, u]));
 
   let merged = 0;
@@ -325,7 +333,28 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
     merged++;
   }
 
-  functionsData.units = [...unitById.values()];
+  // A persisted snapshot has no blockGraph to walk (`graphFromSnapshot` hardcodes it empty), so
+  // any block units it already carries are left exactly as they are rather than rebuilt.
+  if (fromPersistedSnapshot) {
+    functionsData.units = [...unitById.values()];
+    if (functionsData.blockUnits.length > 0) {
+      warnings.push("merging from a persisted snapshot: existing block units are carried through unchanged and block labels cannot be updated");
+    }
+  } else {
+    // `blockUnits` is the only channel for block data — the base `units` array must never also
+    // carry it, or a re-merge double-counts. A cached artifact's units already hold block ids in
+    // their `children` and (historically) block units inline, so strip both back to a clean base
+    // before rebuilding. On a first merge these filters are no-ops.
+    const blockIds = new Set(functionsData.blockUnits.map((u) => u.id));
+    const base = [...unitById.values()]
+      .filter((u) => u.kind !== "block")
+      .map((u) => (u.children.some((c) => blockIds.has(c)) ? { ...u, children: u.children.filter((c) => !blockIds.has(c)) } : u));
+
+    const built = buildBlockUnits(base, ctx.graph, recoveredLabels);
+    functionsData.units = built.unitsWithBlockChildren;
+    functionsData.blockUnits = built.blockUnits;
+    functionsData.blockEdges = built.blockEdges;
+  }
 
   const functionsInputHash = await computeInputHash("functions", ctx, {});
   writeArtifact(ctx, "functions", functionsInputHash, functionsData);
@@ -515,6 +544,8 @@ async function mergeLayerClustering(
     docsStored = { inputHash: docsInputHash, data: [] };
     warnings.push("cached an empty docs artifact: doc files were discovered but no docs narration was available to merge — docs will show no summary until `scv analyze docs --force` is run with an LLM provider");
   }
+  // computeInputHash reads only `functions.units` for clusters/layers/flows — the block fields
+  // are structurally required by FunctionsData but never hashed, so they stay empty here.
   const clustersInputHash = await computeInputHash("clusters", ctx, {
     functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
     docs: docsStored?.data ?? [],
