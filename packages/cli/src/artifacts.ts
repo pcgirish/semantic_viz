@@ -493,13 +493,24 @@ function noLlmFallback<N extends ArtifactName>(
   name: N,
   ctx: ArtifactContext,
   stored: StoredArtifact<ArtifactDataMap[N]> | undefined,
+  inputHash: string,
 ): ArtifactDataMap[N] {
   if (name !== "functions") return emptyArtifactDefault(name, ctx);
 
-  const base = (stored?.data ?? emptyArtifactDefault("functions", ctx)) as FunctionsData;
+  // Only this run's own artifact may serve as the base. `stored` reaches here precisely because
+  // it was not fresh, so it can be a *different* run's output — a prior unscoped run, an older
+  // prompt rev, or pre-edit sources — and adopting its units would surface semantics that do not
+  // belong to the current inputs (out-of-scope units under `--scope`, stale text otherwise).
+  // A partial artifact is usable only when its hash matches: that is this run, interrupted.
+  const usable = stored && stored.inputHash === inputHash ? (stored.data as FunctionsData) : undefined;
+  const base = usable ?? (emptyArtifactDefault("functions", ctx) as FunctionsData);
   const byId = new Map(base.units.map((u) => [u.id, u]));
   for (const [id, record] of ctx.passAStore?.prior ?? []) {
     if (record.status !== "ok") continue;
+    // Scope is part of this artifact's identity (it is folded into the input hash), so a scoped
+    // merge reports only in-scope units. The store keeps every unit an earlier run completed;
+    // replaying all of them here would ignore the scope the caller asked for.
+    if (ctx.scopedLeafIds && !ctx.scopedLeafIds.has(id)) continue;
     // Only the analysis is taken from the store. A stored record predates block linkage — Pass A
     // reports each unit before block children are appended — so adopting it wholesale would drop
     // the `children` entries that `base.blockUnits` still points at, and the snapshot would fail
@@ -541,7 +552,7 @@ export async function ensureArtifact<N extends ArtifactName>(
 
   if (!fresh && !mayCallProvider) {
     defaultedArtifacts.add(name);
-    return { data: noLlmFallback(name, ctx, stored), defaultedArtifacts };
+    return { data: noLlmFallback(name, ctx, stored, inputHash), defaultedArtifacts };
   }
   if (fresh) return { data: stored.data, defaultedArtifacts };
 

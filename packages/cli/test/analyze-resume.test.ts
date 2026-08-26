@@ -191,6 +191,46 @@ describe("analyze resume and scope", () => {
     expect(analyzed.length).toBeGreaterThanOrEqual(15);
   });
 
+  it("--no-llm does not surface a prior full artifact's semantics for out-of-scope units", async () => {
+    // A complete, non-partial artifact for the whole repo.
+    const first = await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "functions" });
+    const full = readArtifact(scvDir, first.snapshot.rev.sha, "functions");
+    expect(full.partial).toBeFalsy();
+
+    // Scope narrows the input hash, so that artifact is no longer this run's. Its units must not
+    // be adopted as a base — otherwise out-of-scope semantics reappear under a scope that
+    // excluded them.
+    const scoped = await runAnalyze({
+      root: orderlyRoot,
+      scvDir,
+      provider: fakeProvider(),
+      noLlm: true,
+      scope: ["u:src.auth.**"],
+    });
+
+    const outOfScope = scoped.snapshot.units.filter(
+      (u) => u.kind === "function" && u.semantics && !u.id.startsWith("u:src.auth."),
+    );
+    expect(outOfScope.map((u) => u.id)).toEqual([]);
+  });
+
+  it("--no-llm does not surface a stale artifact's semantics after the prompt rev changes", async () => {
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "functions", promptRev: "pX" });
+
+    // A different prompt rev is different inputs; the stored artifact describes the old ones.
+    // Its per-unit store rows are keyed by prompt rev too, so nothing legitimately carries over.
+    const merged = await runAnalyze({
+      root: orderlyRoot,
+      scvDir,
+      provider: fakeProvider(),
+      noLlm: true,
+      promptRev: "pY",
+    });
+
+    const analyzed = merged.snapshot.units.filter((u) => u.kind === "function" && u.semantics);
+    expect(analyzed.map((u) => u.id)).toEqual([]);
+  });
+
   // Test 8 — a unit that failed outright must not be recorded as done.
   it("keeps the artifact partial when a unit fails, so the next run retries only it", async () => {
     let failing = true;
