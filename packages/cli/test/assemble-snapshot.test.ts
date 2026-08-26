@@ -88,7 +88,8 @@ describe("assembleSnapshotFromCache", () => {
     const result = await assembleSnapshotFromCache({ ctx, rev, scvDir });
 
     expect(provider.interpret).not.toHaveBeenCalled();
-    expect(result.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "functions", "groups", "layers"]);
+    // `clusters` is deterministic: computed for real even with no provider, so never empty-defaulted.
+    expect(result.emptyArtifacts.sort()).toEqual(["docs", "flows", "functions", "groups", "layers"]);
     expect(result.snapshot.units.every((u) => u.semantics === null)).toBe(true);
     expect(existsSyncPath(result.path)).toBe(true);
   });
@@ -103,7 +104,8 @@ describe("assembleSnapshotFromCache", () => {
     const result = await assembleSnapshotFromCache({ ctx, rev, scvDir });
 
     expect(provider.interpret).not.toHaveBeenCalled();
-    expect(result.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "groups", "layers"]);
+    // `clusters` is deterministic: computed for real even with no provider, so never empty-defaulted.
+    expect(result.emptyArtifacts.sort()).toEqual(["docs", "flows", "groups", "layers"]);
     expect(result.snapshot.units.some((u) => u.kind === "function")).toBe(true);
     expect(result.snapshot.units.some((u) => u.kind === "layer")).toBe(false);
   });

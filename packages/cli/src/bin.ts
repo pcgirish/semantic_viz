@@ -21,7 +21,10 @@ program
   .option("--model <name>", "interpreter model; persisted to .scv/config.yaml")
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
   .option("--log-level <level>", "llm call logging: info; persisted to .scv/config.yaml")
-  .option("--no-llm", "merge from cache only — never call a provider; artifacts with no cache use an empty default")
+  .option(
+    "--no-llm",
+    "never call a provider; without [artifact] merges from cache with empty defaults, with [artifact] also computes that stage if it is deterministic (clusters)",
+  )
   .option(
     "--force",
     "recompute the target artifact even if its cached inputs are unchanged; downstream artifacts recompute only if the forced output actually differs; requires [artifact]",

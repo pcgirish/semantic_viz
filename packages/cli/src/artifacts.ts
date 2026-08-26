@@ -47,6 +47,42 @@ export const ARTIFACT_DEPENDENCIES: Record<ArtifactName, ArtifactName[]> = {
   flows: ["functions", "extraction"],
 };
 
+/**
+ * Stages whose own pass never calls a provider. They are always computed for real, regardless of
+ * `allowProvider`, which gates only provider-backed stages. Their provider-backed *dependencies*
+ * are still subject to it — `clusters` is deterministic (`pass-b.ts`, "no longer an LLM pass"),
+ * but it consumes `functions` and `docs`, which are not.
+ */
+const DETERMINISTIC_ARTIFACTS: ReadonlySet<ArtifactName> = new Set<ArtifactName>(["extraction", "clusters"]);
+
+/** The skill that produces each artifact, named in `DefaultedArtifactsError` so the message says
+ *  what to run rather than only what is missing. */
+const PRODUCING_SKILL: Partial<Record<ArtifactName, string>> = {
+  functions: "agent-analyze-functions",
+  docs: "agent-analyze-docs",
+  layers: "agent-analyze-layers",
+  groups: "agent-analyze-groups",
+  flows: "agent-analyze-flows",
+};
+
+/**
+ * Thrown when a deterministic artifact was asked for under `requireFreshDependencies` but one of
+ * its dependencies had to be empty-defaulted. Computing anyway would write a cache-fresh artifact
+ * derived from empty inputs, indistinguishable from a good one and silently reused by the next run.
+ */
+export class DefaultedArtifactsError extends Error {
+  readonly defaultedArtifacts: ArtifactName[];
+
+  constructor(target: ArtifactName, defaultedArtifacts: ArtifactName[]) {
+    const detail = defaultedArtifacts
+      .map((name) => (PRODUCING_SKILL[name] ? `${name} (run ${PRODUCING_SKILL[name]})` : name))
+      .join(", ");
+    super(`cannot compute ${target}: these dependencies are not narrated — ${detail}`);
+    this.name = "DefaultedArtifactsError";
+    this.defaultedArtifacts = defaultedArtifacts;
+  }
+}
+
 interface FunctionsData {
   units: Unit[];
   blockUnits: Unit[];
@@ -448,6 +484,9 @@ export interface EnsureArtifactOptions {
    *  call the provider (today's full-pipeline default). Present and not containing `name` = use
    *  `emptyArtifactDefault` instead of computing. */
   allowProvider?: ReadonlySet<ArtifactName>;
+  /** Throw `DefaultedArtifactsError` instead of computing `name` if any dependency was
+   *  empty-defaulted. Set only on the targeted `--no-llm` path; absent everywhere else. */
+  requireFreshDependencies?: boolean;
 }
 
 export interface EnsuredArtifact<T> {
@@ -561,9 +600,18 @@ export async function ensureArtifact<N extends ArtifactName>(
   const defaultedArtifacts = new Set<ArtifactName>();
   const deps: Partial<ArtifactDataMap> = {};
   for (const dep of ARTIFACT_DEPENDENCIES[name]) {
-    const depResult = await ensureArtifact(dep, ctx, opts);
+    // `requireFreshDependencies` is deliberately not propagated: a dependency is *allowed* to
+    // empty-default here — that is exactly what this call is measuring. Only the target the caller
+    // named refuses to be computed over defaults.
+    const depResult = await ensureArtifact(dep, ctx, { allowProvider: opts?.allowProvider });
     (deps as Record<ArtifactName, unknown>)[dep] = depResult.data;
     for (const d of depResult.defaultedArtifacts) defaultedArtifacts.add(d);
+  }
+
+  // Before the target is computed or written, so a failed precondition leaves no artifact behind:
+  // a clusters.json derived from empty defaults would read as fresh to the next run.
+  if (opts?.requireFreshDependencies && defaultedArtifacts.size > 0) {
+    throw new DefaultedArtifactsError(name, [...defaultedArtifacts]);
   }
 
   const inputHash = await computeInputHash(name, ctx, deps);
@@ -571,9 +619,9 @@ export async function ensureArtifact<N extends ArtifactName>(
   // A partial artifact is readable but never fresh: it is missing units by construction, and the
   // per-unit store makes recomputing it cheap.
   const fresh = stored && stored.inputHash === inputHash && !stored.partial && !ctx.force.has(name);
-  // `extraction` never calls a provider to begin with — always compute it for real, regardless
-  // of `allowProvider`; it can never be empty-defaulted.
-  const mayCallProvider = name === "extraction" || !opts?.allowProvider || opts.allowProvider.has(name);
+  // A deterministic stage never calls a provider to begin with — always compute it for real,
+  // regardless of `allowProvider`; it can never be empty-defaulted.
+  const mayCallProvider = DETERMINISTIC_ARTIFACTS.has(name) || !opts?.allowProvider || opts.allowProvider.has(name);
 
   if (!fresh && !mayCallProvider) {
     defaultedArtifacts.add(name);

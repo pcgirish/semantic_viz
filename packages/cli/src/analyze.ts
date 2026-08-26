@@ -36,8 +36,13 @@ export interface RunAnalyzeOptions {
   artifact?: ArtifactName;
   /** Recompute `artifact` even if its cached inputs are unchanged; requires `artifact` to be set. */
   force?: boolean;
-  /** Merge from cache only — never call a provider; artifacts with no fresh cache entry are
-   *  assembled from their empty default instead of being computed. */
+  /**
+   * Never call a provider. Without `artifact`, merge from cache only: artifacts with no fresh
+   * cache entry are assembled from their empty default instead of being computed. With `artifact`,
+   * that artifact is still ensured — so a deterministic target (`clusters`, `extraction`) really
+   * is computed while provider-backed artifacts empty-default — and a defaulted dependency throws
+   * `DefaultedArtifactsError` rather than warning.
+   */
   noLlm?: boolean;
   /** Restrict Pass A to matching units — `all`, `changed`, or globs over dotted unit ids
    *  (e.g. `u:src.handlers.**`). Lets a large repo be analyzed in slices. */
@@ -67,9 +72,12 @@ function readSource(root: string) {
  * Snapshot to `<scvDir>/snapshots/<sha>.json`, reflecting whatever is currently persisted for
  * every artifact.
  *
- * `noLlm` still runs this full merge/finalize path — it never calls a provider, though: every
- * artifact with no fresh cache entry is assembled from its declared empty default instead of
- * being computed (see `emptyArtifactDefault` in `artifacts.ts`).
+ * `noLlm` still runs this full merge/finalize path, and never calls a provider. Without a target
+ * artifact, every artifact with no fresh cache entry is assembled from its declared empty default
+ * instead of being computed (see `emptyArtifactDefault` in `artifacts.ts`). With one, that target
+ * is ensured under an empty `allowProvider`, so a deterministic stage is genuinely computed while
+ * provider-backed stages still empty-default — and computing it over defaulted dependencies is
+ * refused with `DefaultedArtifactsError` rather than silently producing a poor result.
  */
 export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyzeResult> {
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
@@ -151,17 +159,30 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
       passAStore,
     };
 
-    if (options.noLlm) {
+    if (options.noLlm && !options.artifact) {
       const assembled = await assembleSnapshotFromCache({ ctx, rev, scvDir });
       snapshot = assembled.snapshot;
       outPath = assembled.path;
       emptyArtifacts = assembled.emptyArtifacts;
     } else {
-      const allowProvider = options.artifact ? dependencyClosure(options.artifact) : undefined;
+      // Under `--no-llm` the allow-list is empty, full stop. It is an allow-list, so passing the
+      // dependency closure would *permit* exactly the provider calls the flag exists to block; a
+      // deterministic target still computes because it is exempt from the gate, not because it is
+      // named in the set.
+      const allowProvider = options.noLlm
+        ? new Set<ArtifactName>()
+        : options.artifact
+          ? dependencyClosure(options.artifact)
+          : undefined;
       const emptyArtifactsSet = new Set<ArtifactName>();
 
       const target = options.artifact ?? "flows";
-      const targetResult = await ensureArtifact(target, ctx, { allowProvider });
+      const targetResult = await ensureArtifact(target, ctx, {
+        allowProvider,
+        // Refuse to compute a deterministic target over empty defaults: the result would be
+        // cache-fresh, indistinguishable from a good one, and silently reused.
+        requireFreshDependencies: options.noLlm === true,
+      });
       for (const d of targetResult.defaultedArtifacts) emptyArtifactsSet.add(d);
       // Always ensure groups too when running the default full pipeline — both flows and
       // groups are leaves with nothing depending on them, so "full pipeline" means both.
@@ -178,12 +199,19 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
         for (const d of r.defaultedArtifacts) emptyArtifactsSet.add(d);
       }
 
+      // A `functions` artifact written by `merge-semantics --sha` carries its block units inside
+      // `units` as well as in `blockUnits`; `finalizeSnapshot` appends `blockUnits` itself and
+      // rejects the double-carry. Mirrors `assembleSnapshotFromCache`.
+      const blockIds = new Set(functionsResult.data.blockUnits.map((u) => u.id));
+      const functionUnits =
+        blockIds.size > 0 ? functionsResult.data.units.filter((u) => !blockIds.has(u.id)) : functionsResult.data.units;
+
       snapshot = finalizeSnapshot({
         snapshot: structural,
         provider,
         promptRev,
         systemName: undefined,
-        units: functionsResult.data.units,
+        units: functionUnits,
         blockUnits: functionsResult.data.blockUnits,
         blockEdges: functionsResult.data.blockEdges,
         layerUnits: layersResult.data.layerUnits,

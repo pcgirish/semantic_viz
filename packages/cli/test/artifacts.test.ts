@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -9,7 +9,15 @@ import type { Layer, Provider, ProviderResult } from "@scv/interpreter";
 import { CLUSTERING_VERSION, layerIdFor } from "@scv/interpreter";
 import { toSnapshot } from "../src/snapshot.js";
 import { ancestorShas } from "../src/rev.js";
-import { ARTIFACT_SCHEMA_VERSION, ensureArtifact, loadPreviousLayers, type ArtifactContext, type LayersData } from "../src/artifacts.js";
+import {
+  ARTIFACT_SCHEMA_VERSION,
+  DefaultedArtifactsError,
+  ensureArtifact,
+  loadPreviousLayers,
+  type ArtifactContext,
+  type ArtifactName,
+  type LayersData,
+} from "../src/artifacts.js";
 
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));
 
@@ -268,7 +276,9 @@ describe("ensureArtifact", () => {
     const result = await ensureArtifact("layers", ctx, { allowProvider: new Set() });
 
     expect(provider.interpret).not.toHaveBeenCalled();
-    expect(result.defaultedArtifacts).toEqual(new Set(["functions", "docs", "clusters", "layers"]));
+    // `clusters` is deterministic, so it computes for real even here — only provider-backed
+    // stages empty-default under the empty allow-list.
+    expect(result.defaultedArtifacts).toEqual(new Set(["functions", "docs", "layers"]));
     expect(result.data.layerUnits).toEqual([]);
     expect(result.data.layers).toEqual([]);
   });
@@ -300,7 +310,8 @@ describe("ensureArtifact", () => {
 
     expect(provider2.interpret).not.toHaveBeenCalled();
     expect(result.defaultedArtifacts.has("docs")).toBe(true);
-    expect(result.defaultedArtifacts.has("clusters")).toBe(true);
+    // Deterministic: computed for real over the defaulted docs, so never itself defaulted.
+    expect(result.defaultedArtifacts.has("clusters")).toBe(false);
     expect(result.defaultedArtifacts.has("layers")).toBe(true);
     expect(result.defaultedArtifacts.has("functions")).toBe(false);
   });
@@ -529,5 +540,131 @@ describe("layers artifact — carry-over across analyses", () => {
 
     expect(loadPreviousLayers(scvDir, orderlyRoot, "p3").size).toBe(0);
     expect(loadPreviousLayers(scvDir, orderlyRoot, "p2").size).toBe(1);
+  });
+});
+
+/**
+ * A provider that fails the test on any call, so "never reaches a provider" is enforced rather
+ * than asserted after the fact.
+ */
+function throwingProvider(): Provider {
+  return {
+    name: "throwing",
+    model: "throwing-model",
+    interpret: vi.fn(async (): Promise<ProviderResult> => {
+      throw new Error("provider must not be called under --no-llm");
+    }),
+  };
+}
+
+describe("deterministic artifacts under an empty allowProvider", () => {
+  let scvDir: string;
+
+  beforeEach(() => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-deterministic-"));
+  });
+
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function makeCtx(provider: Provider, docs: { path: string; content: string }[] = []): ArtifactContext {
+    const graph = extractRepo(orderlyRoot);
+    const snapshot = toSnapshot(graph, { root: orderlyRoot, rev: { sha: "fixed-sha", kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" } });
+    return {
+      scvDir,
+      sha: "fixed-sha",
+      snapshot,
+      graph,
+      provider,
+      promptRev: "p2",
+      readSource: readSource(orderlyRoot),
+      docs,
+      reportProgress: () => {},
+      force: new Set(),
+    };
+  }
+
+  it("computes clusters for real while docs still empty-defaults", async () => {
+    const provider = throwingProvider();
+    const ctx = makeCtx(provider);
+    const allowProvider = new Set<ArtifactName>();
+
+    const clusters = await ensureArtifact("clusters", ctx, { allowProvider });
+    expect(clusters.data.groups.length).toBeGreaterThan(0);
+    expect(clusters.defaultedArtifacts.has("clusters")).toBe(false);
+
+    const docs = await ensureArtifact("docs", ctx, { allowProvider });
+    expect(docs.data).toEqual([]);
+    expect(docs.defaultedArtifacts.has("docs")).toBe(true);
+
+    expect(provider.interpret).not.toHaveBeenCalled();
+  });
+
+  it("still computes extraction for real, unchanged by the generalization", async () => {
+    const provider = throwingProvider();
+    const ctx = makeCtx(provider);
+    const result = await ensureArtifact("extraction", ctx, { allowProvider: new Set() });
+    expect(result.data.units.length).toBeGreaterThan(0);
+    expect(result.defaultedArtifacts.size).toBe(0);
+  });
+
+  it("throws DefaultedArtifactsError before writing when a dependency was defaulted", async () => {
+    const provider = throwingProvider();
+    const ctx = makeCtx(provider);
+
+    await expect(
+      ensureArtifact("clusters", ctx, { allowProvider: new Set(), requireFreshDependencies: true }),
+    ).rejects.toThrow(DefaultedArtifactsError);
+
+    expect(provider.interpret).not.toHaveBeenCalled();
+  });
+
+  it("names every defaulted dependency on the thrown error", async () => {
+    const ctx = makeCtx(throwingProvider());
+    const err = await ensureArtifact("clusters", ctx, { allowProvider: new Set(), requireFreshDependencies: true }).then(
+      () => undefined,
+      (e: unknown) => e as DefaultedArtifactsError,
+    );
+    expect(err).toBeInstanceOf(DefaultedArtifactsError);
+    expect(err!.defaultedArtifacts.sort()).toEqual(["docs", "functions"]);
+  });
+
+  // A clusters.json derived from empty defaults reads as fresh to the next run and is silently
+  // reused, so a failed precondition must leave nothing usable behind.
+  it("leaves no clusters artifact behind when the precondition fails", async () => {
+    const ctx = makeCtx(throwingProvider());
+    await expect(
+      ensureArtifact("clusters", ctx, { allowProvider: new Set(), requireFreshDependencies: true }),
+    ).rejects.toThrow(DefaultedArtifactsError);
+
+    expect(existsSync(path.join(scvDir, "artifacts", "fixed-sha", "clusters.json"))).toBe(false);
+  });
+
+  it("computes clusters once the dependencies are narrated, with the provider never called", async () => {
+    const docs = [{ path: "README.md", content: "# orderly readme content, long enough" }];
+    // Narrate functions and docs with a working provider first.
+    await ensureArtifact("functions", makeCtx(fakeProvider(), docs));
+    await ensureArtifact("docs", makeCtx(fakeProvider(), docs));
+
+    const provider = throwingProvider();
+    const ctx = makeCtx(provider, docs);
+    const result = await ensureArtifact("clusters", ctx, { allowProvider: new Set(), requireFreshDependencies: true });
+
+    expect(result.defaultedArtifacts.size).toBe(0);
+    expect(result.data.groups.length).toBeGreaterThan(0);
+    expect(provider.interpret).not.toHaveBeenCalled();
+
+    const stored = JSON.parse(readFileSync(path.join(scvDir, "artifacts", "fixed-sha", "clusters.json"), "utf-8")) as {
+      inputHash: string;
+      data: { groups: [string, string[]][] };
+    };
+    expect(stored.data.groups.length).toBeGreaterThan(0);
+  });
+
+  it("does not throw without requireFreshDependencies, even with defaulted dependencies", async () => {
+    const ctx = makeCtx(throwingProvider());
+    const result = await ensureArtifact("clusters", ctx, { allowProvider: new Set() });
+    expect(result.defaultedArtifacts.size).toBeGreaterThan(0);
   });
 });

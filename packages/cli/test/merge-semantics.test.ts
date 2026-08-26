@@ -769,7 +769,8 @@ describe("mergeSemantics", () => {
 
     expect(result.path).toBe(path.join(scvDir, "snapshots", `${historicalSha}.json`));
     expect(existsSync(result.path)).toBe(true);
-    expect(result.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "groups", "layers"]);
+    // `clusters` is deterministic: computed for real even with no provider, so never empty-defaulted.
+    expect(result.emptyArtifacts.sort()).toEqual(["docs", "flows", "groups", "layers"]);
   });
 
   it("without --sha, extracts the worktree live even when a snapshot for HEAD already exists", async () => {

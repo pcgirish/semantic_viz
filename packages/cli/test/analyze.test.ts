@@ -1,10 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Provider, ProviderResult } from "@scv/interpreter";
 import { runAnalyze } from "../src/analyze.js";
+import { DefaultedArtifactsError } from "../src/artifacts.js";
 
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));
 
@@ -194,7 +195,9 @@ describe("runAnalyze", () => {
 
     expect(provider.interpret).not.toHaveBeenCalled();
     expect(written.snapshot.units.length).toBeGreaterThan(0);
-    expect(written.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "functions", "groups", "layers"]);
+    // `clusters` is absent: it is deterministic, so it is computed for real even here (over
+    // defaulted inputs) rather than empty-defaulted like the provider-backed stages.
+    expect(written.emptyArtifacts.sort()).toEqual(["docs", "flows", "functions", "groups", "layers"]);
   });
 
   it("computing just 'functions' then 'layers' reuses the persisted functions artifact without recalling Pass A", async () => {
@@ -270,5 +273,120 @@ describe("runAnalyze", () => {
 
     expect(existsSync(path.join(scvDir, "artifacts", sha, "clusters.json"))).toBe(true);
     expect(statSync(layersFile).mtimeMs).toBe(layersBefore);
+  });
+});
+
+/** Fails the test on any provider call, so the zero-call guarantee is enforced, not asserted. */
+function throwingProvider(): Provider {
+  return {
+    name: "throwing",
+    model: "throwing-model",
+    interpret: vi.fn(async (): Promise<ProviderResult> => {
+      throw new Error("provider must not be called under --no-llm");
+    }),
+  };
+}
+
+describe("runAnalyze targeted --no-llm", () => {
+  let scvDir: string;
+
+  beforeEach(() => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-analyze-nollm-"));
+  });
+
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function clustersFile(sha: string): string {
+    return path.join(scvDir, "artifacts", sha, "clusters.json");
+  }
+
+  it("rejects with DefaultedArtifactsError over stale dependencies, never calling the provider", async () => {
+    const provider = throwingProvider();
+    const err = await runAnalyze({ root: orderlyRoot, scvDir, provider, artifact: "clusters", noLlm: true }).then(
+      () => undefined,
+      (e: unknown) => e as DefaultedArtifactsError,
+    );
+
+    expect(err).toBeInstanceOf(DefaultedArtifactsError);
+    expect(err!.defaultedArtifacts.sort()).toEqual(["docs", "functions"]);
+    expect(provider.interpret).not.toHaveBeenCalled();
+  });
+
+  it("leaves no clusters artifact behind on failure, and a corrected run recovers cleanly", async () => {
+    await expect(
+      runAnalyze({ root: orderlyRoot, scvDir, provider: throwingProvider(), artifact: "clusters", noLlm: true }),
+    ).rejects.toThrow(DefaultedArtifactsError);
+
+    // Nothing was written: the precondition fires before the target is computed.
+    const shas = readdirSync(path.join(scvDir, "artifacts"), { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name !== "extraction-files")
+      .map((e) => e.name);
+    expect(shas.every((sha) => !existsSync(clustersFile(sha)))).toBe(true);
+
+    // Narrate the dependencies, then re-run the exact command that failed.
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "functions" });
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "docs" });
+
+    const provider = throwingProvider();
+    const result = await runAnalyze({ root: orderlyRoot, scvDir, provider, artifact: "clusters", noLlm: true });
+    expect(provider.interpret).not.toHaveBeenCalled();
+    // The target succeeded; the downstream stages the merge still assembles (layers/groups/flows)
+    // legitimately default under --no-llm — what matters is that neither the target nor either
+    // dependency it was blocked on is among them.
+    expect(result.emptyArtifacts).not.toContain("clusters");
+    expect(result.emptyArtifacts).not.toContain("functions");
+    expect(result.emptyArtifacts).not.toContain("docs");
+
+    const stored = JSON.parse(readFileSync(clustersFile(result.snapshot.rev.sha), "utf-8")) as {
+      data: { groups: [string, string[]][] };
+    };
+    // A real Pass B result, not an empty default — the distinction DETERMINISTIC_ARTIFACTS exists for.
+    expect(stored.data.groups.length).toBeGreaterThan(0);
+  });
+
+  // The empty allow-list is asserted by its observable consequence rather than by spying on the
+  // options object: `dependencyClosure("clusters")` is {clusters, docs, extraction, functions},
+  // so passing that wrong-but-plausible set would permit exactly the two provider calls --no-llm
+  // exists to block. A throwing provider plus *stale* dependencies distinguishes them — under the
+  // correct empty set the run throws DefaultedArtifactsError with the provider untouched; under
+  // the closure it would call out and surface the provider's own error instead.
+  it("blocks provider calls a dependency closure would have permitted", async () => {
+    // Narrate under one prompt rev, then analyze under another so both dependencies are stale.
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "functions", promptRev: "pX" });
+    await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "docs", promptRev: "pX" });
+
+    const provider = throwingProvider();
+    const err = await runAnalyze({
+      root: orderlyRoot,
+      scvDir,
+      provider,
+      artifact: "clusters",
+      noLlm: true,
+      promptRev: "pY",
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(DefaultedArtifactsError);
+    expect(provider.interpret).not.toHaveBeenCalled();
+  });
+
+  it("a targeted run without --no-llm still narrates its dependency closure", async () => {
+    const provider = fakeProvider();
+    await runAnalyze({ root: orderlyRoot, scvDir, provider, artifact: "clusters" });
+    // functions and docs are in the closure, so both really call out rather than empty-defaulting.
+    expect(countPassACalls(provider)).toBeGreaterThan(0);
+  });
+
+  it("untargeted --no-llm is unregressed: still assembles from cache and exits without throwing", async () => {
+    const provider = throwingProvider();
+    const written = await runAnalyze({ root: orderlyRoot, scvDir, provider, noLlm: true });
+
+    expect(provider.interpret).not.toHaveBeenCalled();
+    expect(written.snapshot.units.length).toBeGreaterThan(0);
+    expect(written.emptyArtifacts.length).toBeGreaterThan(0);
   });
 });
