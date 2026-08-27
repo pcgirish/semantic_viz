@@ -1,3 +1,4 @@
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { extractRepo } from "@scv/extractor";
@@ -19,6 +20,12 @@ describe("toSnapshot", () => {
     expect(snapshot.repo.root).toBe("orderly");
     expect(snapshot.repo.vcs).toBe("git");
     expect(snapshot.rev).toEqual(rev);
+  });
+
+  it("names the repo after the resolved directory when analyzing a relative root", () => {
+    // `path.basename(".")` is "."; analyzing the cwd must still yield the directory's real name.
+    const relative = toSnapshot(graph, { root: ".", rev });
+    expect(relative.repo.root).toBe(path.basename(process.cwd()));
   });
 
   it("maps every SymbolUnit to a Unit with semantics/signature/cost null (not yet lifted)", () => {

@@ -65,7 +65,8 @@ function toExternal(external: SymbolExternal): External {
 
 /** Maps a deterministic SymbolGraph onto the scv/1 Snapshot contract; semantics/signature/cost stay null until an Interpreter pass lifts them. */
 export function toSnapshot(graph: SymbolGraph, options: ToSnapshotOptions): Snapshot {
-  const repoName = options.repoName ?? path.basename(options.root);
+  // Resolve first: `path.basename(".")` is "." and would name the repo after the flag, not the directory.
+  const repoName = options.repoName ?? path.basename(path.resolve(options.root));
   const rev = options.rev;
   const snapshotId = createHash("sha1").update(`${repoName}:${rev.sha}`).digest("hex");
 

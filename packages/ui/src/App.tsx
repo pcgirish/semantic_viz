@@ -223,6 +223,14 @@ function descendantIds(root: Unit, unitsById: Map<string, Unit>): Set<string> {
   return ids;
 }
 
+/** Snapshots captured before the CLI resolved a relative root recorded "." (or nothing) as the
+ *  repo name; rendered literally that leaves the toolbar's far-left end looking empty. */
+function repoLabel(root: string): string {
+  const trimmed = root.trim().replace(/\/+$/, "");
+  if (trimmed === "" || trimmed === "." || trimmed === "..") return "repository";
+  return trimmed.slice(trimmed.lastIndexOf("/") + 1);
+}
+
 const MODE_LABEL: Record<string, string> = {
   current: "Current",
   delta: "Delta",
@@ -418,7 +426,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         left={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
             <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>
-              {state.snapshot.repo.root}
+              {repoLabel(state.snapshot.repo.root)}
             </span>
             <span style={{ color: "var(--text-dim)", font: "var(--weight-regular) var(--text-sm) var(--font-core)" }}>
               {shortSha(sha)} · {MODE_LABEL[mode]} mode

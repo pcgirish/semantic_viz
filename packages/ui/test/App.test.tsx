@@ -453,6 +453,24 @@ describe("App", () => {
     expect(screen.queryByText("orderly")).toBeNull();
   });
 
+  it("falls back to a readable label when an older snapshot recorded the repo root as '.'", async () => {
+    // Snapshots captured before the CLI resolved a relative root stored "." — rendering that
+    // literally leaves the toolbar's far-left end looking empty.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ ...makeSnapshot(), repo: { root: ".", vcs: "git" } }),
+      }),
+    );
+
+    render(<App snapshotUrl="/api/snapshot/latest" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("repository")).toBeInTheDocument();
+    });
+  });
+
   it("swaps the 2D canvas for the 3D host when the skin toggle is switched, keeping selection", async () => {
     vi.stubGlobal(
       "fetch",
