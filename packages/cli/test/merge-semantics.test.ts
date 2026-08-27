@@ -730,6 +730,39 @@ describe("mergeSemantics", () => {
     expect(data.units.some((u) => u.kind === "block")).toBe(false);
   });
 
+  it("partitions inline blocks out of a cached functions artifact written by an older build", async () => {
+    // Same invariant, other input: a `functions.json` from a build that stored blocks inline in
+    // `data.units` with both collections empty. Assembly strips every block unit from the base
+    // unconditionally, so anything still inline here is dropped and the flowchart is lost.
+    const historicalSha = "legacy-artifact-sha";
+    const rev = { sha: historicalSha, kind: "commit" as const, ts: "2019-01-01T00:00:00Z", author: "test", author_kind: "human" as const };
+    const baseCtx: ArtifactContext = { ...ctx, sha: historicalSha };
+    const assembled = await assembleSnapshotFromCache({ ctx: baseCtx, rev, scvDir });
+    expect(assembled.snapshot.units.some((u) => u.kind === "block")).toBe(true);
+
+    // Write the artifact in the legacy shape: blocks inline in `units`, both collections empty.
+    // The inputHash must match what this ctx computes, or the merge treats it as stale and
+    // reseeds from the snapshot instead — which would exercise the other path, not this one.
+    const artifactFile = path.join(scvDir, "artifacts", historicalSha, "functions.json");
+    mkdirSync(path.dirname(artifactFile), { recursive: true });
+    const legacyCtx: ArtifactContext = { ...ctx, sha: historicalSha, snapshot: assembled.snapshot };
+    writeFileSync(
+      artifactFile,
+      JSON.stringify({
+        inputHash: await computeInputHash("functions", legacyCtx, {}),
+        data: { units: assembled.snapshot.units, blockUnits: [], blockEdges: [] },
+      }),
+    );
+
+    const pendingFile = writePending({ units: {} });
+    await mergeSemantics({ pendingFile, ctx: legacyCtx, root: orderlyRoot, fromPersistedSnapshot: true });
+
+    const data = JSON.parse(readFileSync(artifactFile, "utf-8")).data as { units: Unit[]; blockUnits: Unit[]; blockEdges: unknown[] };
+    expect(data.blockUnits.length).toBeGreaterThan(0);
+    expect(data.blockEdges.length).toBeGreaterThan(0);
+    expect(data.units.some((u) => u.kind === "block")).toBe(false);
+  });
+
   it("with --with-flows, refuses a graph rebuilt from a persisted snapshot", async () => {
     const historicalSha = "historical-flows-sha";
     const historicalSnapshot = toSnapshot(await extractRepo(orderlyRoot), {
@@ -1052,13 +1085,13 @@ describe("mergeSemantics block units", () => {
   });
 
   it("keeps a branch label on a block that really owns that branch edge", async () => {
-    const entry = Object.entries(graph.blockGraph).find(([, g]) =>
-      g.blocks.some((b) => g.edges.some((e) => e.from === b.id && e.edgeType === "true")),
-    );
+    const isTrueDecision = (g: (typeof graph)["blockGraph"][string], b: { id: string; blockType: string }) =>
+      b.blockType === "decision" && g.edges.some((e) => e.from === b.id && e.edgeType === "true");
+    const entry = Object.entries(graph.blockGraph).find(([, g]) => g.blocks.some((b) => isTrueDecision(g, b)));
     if (!entry) return;
     const [qualname, bg] = entry;
     const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
-    const branching = bg.blocks.find((b) => bg.edges.some((e) => e.from === b.id && e.edgeType === "true"))!;
+    const branching = bg.blocks.find((b) => isTrueDecision(bg, b))!;
 
     await mergeSemantics({
       pendingFile: writePendingWithLabels(unitId, { [branching.id]: { label: "check it", trueLabel: "yes" } }),
@@ -1068,6 +1101,32 @@ describe("mergeSemantics block units", () => {
 
     const trueEdge = storedFunctions().blockEdges.find((e) => e.from === branching.id && e.flowType === "true")!;
     expect(trueEdge.edgeLabel).toBe("yes");
+  });
+
+  it("drops a branch label on a sequential block even where the graph gives it a true edge", async () => {
+    // The type rule is the authoring contract and is stricter than the edge rule: a `sequential`
+    // block sitting on a branch does own a "true" edge, but it is not a decision or loop, so a
+    // hand-authored trueLabel there is an authoring error rather than an edge caption.
+    const entry = Object.entries(graph.blockGraph).find(([, g]) =>
+      g.blocks.some((b) => b.blockType === "sequential" && g.edges.some((e) => e.from === b.id && e.edgeType === "true")),
+    );
+    if (!entry) return;
+    const [qualname, bg] = entry;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    const seq = bg.blocks.find(
+      (b) => b.blockType === "sequential" && bg.edges.some((e) => e.from === b.id && e.edgeType === "true"),
+    )!;
+
+    const result = await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, { [seq.id]: { label: "plain step", trueLabel: "yes" } }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    expect(storedFunctions().blockUnits.find((u) => u.id === seq.id)!.name).toBe("plain step");
+    const trueEdge = storedFunctions().blockEdges.find((e) => e.from === seq.id && e.flowType === "true");
+    expect(trueEdge?.edgeLabel ?? null).toBeNull();
+    expect(result.warnings.some((w) => w.includes("not a decision or loop"))).toBe(true);
   });
 
   it("rejects an empty branch label rather than storing a blank edge caption", async () => {

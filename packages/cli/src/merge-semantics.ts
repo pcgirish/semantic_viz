@@ -282,17 +282,34 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   const pending = PendingSemanticsSchema.parse(raw);
 
   const functionsStored = readArtifact<FunctionsData>(ctx, "functions");
-  // With no cached artifact the base is the snapshot itself. A *persisted* snapshot already holds
-  // block units inline in `units`, plus their `control_flow` edges — and `blockUnits`/`blockEdges`
-  // are the only collections that own block data downstream. Seeding them empty would leave the
-  // blocks stranded in `units`, where `assembleSnapshotFromCache` cannot strip them (it keys off a
-  // non-empty `blockUnits`) and `finalizeSnapshot` never re-supplies them. So partition on the way
-  // in: blocks to their own collections, everything else stays the base.
-  const functionsData: FunctionsData = functionsStored?.data ?? {
-    units: ctx.snapshot.units.filter((u) => u.kind !== "block"),
-    blockUnits: ctx.snapshot.units.filter((u) => u.kind === "block"),
-    blockEdges: ctx.snapshot.edges.filter((e) => e.kind === "control_flow"),
+
+  /**
+   * Enforces the single-owner invariant on the way in: block units live in `blockUnits` and their
+   * control-flow edges in `blockEdges` — never inline in `units`. Downstream, assembly strips
+   * every `kind === "block"` unit from the base and re-supplies blocks solely through those two
+   * collections, so anything left inline is silently dropped.
+   *
+   * Two inputs can violate it. A *persisted* snapshot carries blocks inline in `units` with their
+   * edges in `snapshot.edges`. And a `functions.json` written by an older build can hold blocks
+   * inline in `data.units` with both collections empty — which is why this normalizes the cached
+   * artifact too, not just the snapshot fallback.
+   */
+  const partitionBlocks = (units: Unit[], blockUnits: Unit[], blockEdges: Edge[], edgeSource: Edge[]): FunctionsData => {
+    const inline = units.filter((u) => u.kind === "block");
+    if (inline.length === 0) return { units, blockUnits, blockEdges };
+    const known = new Set(blockUnits.map((u) => u.id));
+    const recoveredEdges =
+      blockEdges.length > 0 ? blockEdges : edgeSource.filter((e) => e.kind === "control_flow");
+    return {
+      units: units.filter((u) => u.kind !== "block"),
+      blockUnits: [...blockUnits, ...inline.filter((u) => !known.has(u.id))],
+      blockEdges: recoveredEdges,
+    };
   };
+
+  const functionsData: FunctionsData = functionsStored
+    ? partitionBlocks(functionsStored.data.units, functionsStored.data.blockUnits, functionsStored.data.blockEdges, ctx.snapshot.edges)
+    : partitionBlocks(ctx.snapshot.units, [], [], ctx.snapshot.edges);
 
   // Block units are pure AST structure, so they cost nothing to rebuild here and must not be
   // left empty — without them the Flowchart view is silently blank on every agent-authored
@@ -688,19 +705,25 @@ function mergeBlockLabels(
       resolvable.set(block.id, block.id);
     }
     resolvableByOwner.set(owner, resolvable);
-    // Which outgoing branch edges each block actually has. `buildBlockUnits` only reads
-    // `trueLabel`/`falseLabel` when it emits a "true"/"false" edge *out of that block*, so a
-    // branch label on a block with no such edge is silently inert — it would be stored in the
-    // artifact and never rendered. Derive this from the real edges rather than from a blockType
-    // allow-list: on `fixtures/orderly` it is `decision` blocks that own both branches, but a
-    // `sequential` block sitting on a branch owns a "true" edge too, while a `loop` owns neither
-    // (it loops back via "loop-back"). A type list would be wrong in both directions.
+    // A branch label survives only on a block that is *both* a branching type and the real source
+    // of that edge. The two gates catch different things and neither subsumes the other:
+    //
+    //   - Type gate (`decision`/`loop`): the authoring contract. Only these two read as branching
+    //     to someone writing labels by hand, so a `trueLabel` on anything else is an authoring
+    //     error, even where the graph happens to hang a "true" edge off a `sequential` block that
+    //     sits on a branch (2 such blocks in `fixtures/orderly`). Labeling those would caption an
+    //     edge the author never meant to name.
+    //   - Edge gate: what actually renders. `buildBlockUnits` emits `edgeLabel` only for a
+    //     "true"/"false" edge leaving that block, so a label on a block with no such edge is
+    //     stored and never drawn. `loop` is the live case — it is branching by contract but exits
+    //     via "loop-back", owning neither branch edge in this fixture.
     const branches = new Map<string, Set<string>>();
+    for (const block of bg.blocks) {
+      if (block.blockType === "decision" || block.blockType === "loop") branches.set(block.id, new Set());
+    }
     for (const edge of bg.edges) {
       if (edge.edgeType !== "true" && edge.edgeType !== "false") continue;
-      const set = branches.get(edge.from) ?? new Set<string>();
-      set.add(edge.edgeType);
-      branches.set(edge.from, set);
+      branches.get(edge.from)?.add(edge.edgeType);
     }
     branchesByOwner.set(owner, branches);
   }
@@ -722,14 +745,19 @@ function mergeBlockLabels(
         skipped++;
         continue;
       }
-      // Drop a branch label the block has no edge for, keeping its node label: the merge is not
+      // Drop a branch label the block cannot carry, keeping its node label: the merge is not
       // wrong, just over-specified, and silently storing an unrenderable field would leave the
       // author believing it took effect.
+      const branching = branchesByOwner.get(unitId)?.has(resolved) ?? false;
       const owned = branchesByOwner.get(unitId)?.get(resolved) ?? new Set<string>();
       const label = { ...pendingLabel };
       for (const branch of ["true", "false"] as const) {
         const field = branch === "true" ? "trueLabel" : "falseLabel";
-        if (label[field] !== undefined && !owned.has(branch)) {
+        if (label[field] === undefined) continue;
+        if (!branching) {
+          warnings.push(`unit ${unitId}: block ${blockId} is not a decision or loop — ${field} dropped, node label kept`);
+          delete label[field];
+        } else if (!owned.has(branch)) {
           warnings.push(`unit ${unitId}: block ${blockId} has no "${branch}" branch — ${field} dropped, node label kept`);
           delete label[field];
         }

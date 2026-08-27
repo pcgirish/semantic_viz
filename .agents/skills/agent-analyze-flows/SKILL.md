@@ -64,7 +64,7 @@ against.
    scv merge-semantics <pending-file> [root] --with-flows
    ```
 
-4. A subsequent `scv analyze <root>` reuses the merged `flows` artifact — no
+4. A subsequent `scv analyze <root> flows --no-llm` reuses the merged `flows` artifact — no
    provider call for the narrated flows.
 
 ## Constraints and failure behavior

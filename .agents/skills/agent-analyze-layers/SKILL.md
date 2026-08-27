@@ -60,7 +60,7 @@ artifact cache as if a real Pass C had produced it.
    scv merge-semantics <pending-file> [root] --with-clustering [--sha <sha>]
    ```
 
-4. A subsequent `scv analyze <root>` reuses the merged `layers` artifact
+4. A subsequent `scv analyze <root> layers --no-llm` reuses the merged `layers` artifact
    (its `inputHash` already matches) — no provider call happens for the
    narrated layers. `groups`/`flows` compute normally on top.
 

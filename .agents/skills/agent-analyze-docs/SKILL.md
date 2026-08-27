@@ -77,12 +77,11 @@ the same content produces a byte-identical artifact.
 
 ## Verify
 
-Deliberately **without** `--no-llm` — this run is the zero-call check itself, and
-the flag would mask a provider call rather than prove none happens:
-
 ```sh
-scv analyze <root>
+scv analyze <root> docs --no-llm
 ```
 
-Confirm the progress log reports `usage: calls=0` and no Pass Docs calls. Then continue with
+Confirm the progress log reports no Pass Docs calls. The suite-wide zero-call
+check — a bare `scv analyze <root>` over every stage — belongs to
+`agent-analyze-repo`'s final step, not here. Then continue with
 `agent-analyze-clusters`, which depends on this artifact.
