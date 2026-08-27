@@ -557,6 +557,25 @@ accent), **not** re-anchoring connectors to row positions — that is the coordi
 Also confirm the anchor-tile brightness asymmetry noted in §4 is acceptable, and that the tray
 does not collide with the elided-edges badge when both are visible.
 
+## Residual risks to close during implementation
+
+Plan approved by external review (PR #160) after three rounds. Review carried three residual
+risks forward — none blocking the plan, all requiring evidence before the *implementation* PR
+merges. Each maps to a check specified above; listed together so they are not lost:
+
+1. **Connector attribution with overlapping rows.** Are the stubs attributable to the selected
+   row when several rows touch the same tiles? The Verification "Association (browser)" check
+   covers exactly this, on the `Unclustered` / `Backend Packaging` pair that lights the same
+   three tiles in the same colour. Fallback if it fails is a row-side cue, not re-anchoring
+   connectors (§4a).
+2. **Sticky tray across scroll, zoom, resize, collapse.** Specified in §3 (direct child of
+   `.canvas-scroll`, outside `.canvas-extent`) and §7 (collapse behaviour, pin survives
+   collapse, bounded scrolling, badge stacking). Needs browser evidence, not just tests.
+3. **`ConnectorLayer` hover-kind opacity change must not alter tile hover.** The §4b change
+   touches shared design-system code on a path the existing tile-hover highlight also uses.
+   Verification already requires a test that non-hover muted edges still dim and that the
+   tile-hover path is unchanged; treat a regression here as blocking.
+
 ## Out of scope
 
 Breadcrumb / sideways navigation from a tray row (deferred; see Decisions). The 3D skins,
