@@ -20,11 +20,12 @@ describe("place", () => {
     expect(big.w / small.w).toBeCloseTo(4, 1);
   });
 
-  it("stacks rows vertically without overlap", () => {
+  it("stacks rows vertically without overlap, last rank on top", () => {
+    // Rows arrive in rank order; the highest rank (most foundational) renders at the top.
     const boxes = place([["a"], ["b"]], new Map([["a", 100], ["b", 100]]));
     const a = boxes.get("a")!;
     const b = boxes.get("b")!;
-    expect(b.y).toBeGreaterThanOrEqual(a.y + a.h);
+    expect(a.y).toBeGreaterThanOrEqual(b.y + b.h);
   });
 
   it("does not overlap siblings within a row", () => {

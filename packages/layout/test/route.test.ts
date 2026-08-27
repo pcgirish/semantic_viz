@@ -61,7 +61,25 @@ describe("route", () => {
     expect(Math.max(...xs)).toBeGreaterThan(400);
   });
 
-  it("spreads multiple out-edges across a node's bottom border instead of converging on its centre", () => {
+  it("runs a multi-rank chain monotonically upward, from the dependent's top to the dependency's bottom", () => {
+    // Foundations render at the top, so the dependency (`d`) sits above its dependent (`a`)
+    // and the chain must climb through the waypoint without cutting back through a box.
+    const stacked = new Map<string, Box>([
+      ["d", { x: 0, y: 0, w: 40, h: 40 }],
+      ["~dummy~a|d|1", { x: 20, y: 136, w: 6, h: 40 }],
+      ["a", { x: 0, y: 272, w: 40, h: 40 }],
+    ]);
+    const links = route([chain("a", "d", ["e1"], ["a", "~dummy~a|d|1", "d"])], stacked);
+    const path = links[0]!.path;
+
+    expect(path[0]!.y).toBe(272); // a's top border (out-port)
+    expect(path[path.length - 1]!.y).toBe(40); // d's bottom border (in-port)
+    for (let i = 1; i < path.length; i += 1) {
+      expect(path[i]!.y).toBeLessThan(path[i - 1]!.y);
+    }
+  });
+
+  it("spreads multiple out-edges across a node's top border instead of converging on its centre", () => {
     const fan = new Map<string, Box>([
       ["hub", { x: 0, y: 0, w: 200, h: 40 }],
       ["left", { x: -100, y: 100, w: 40, h: 40 }],

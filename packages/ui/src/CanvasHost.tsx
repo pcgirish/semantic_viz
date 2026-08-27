@@ -108,7 +108,10 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
       // Flowchart.tsx (ortho-v) rather than a bezier — a curve's approach bends sideways
       // right up to the node face, so even though its tangent lands exactly vertical at
       // the endpoint, the arrowhead reads as misaligned with the visibly diagonal line
-      // feeding into it.
+      // feeding into it. Both branches key off y alone, so they are agnostic to which face
+      // is the out-port: dependency edges now leave a node's top and arrive at the
+      // dependency's bottom (place.ts puts foundations on top), and the same code serves
+      // the Flowchart view's opposite, downward flow unchanged.
       const sameRank = start.y === end.y;
       segments.push({
         x1: start.x - base.x,

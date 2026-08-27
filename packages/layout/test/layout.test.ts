@@ -43,14 +43,35 @@ describe("buildScene", () => {
     expect(scene.links[0]!.to).toBe("b");
   });
 
-  it("ranks callers above callees (lower y = higher rank)", () => {
-    const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
-    const edges = [makeEdge({ id: "e1", from: "a", to: "b" })];
+  it("draws the dependency above its dependent (foundations at top)", () => {
+    const units = [makeUnit({ id: "caller" }), makeUnit({ id: "callee" })];
+    const edges = [makeEdge({ id: "e1", from: "caller", to: "callee" })];
 
     const scene = buildScene(units, edges);
-    const a = scene.nodes.find((n) => n.id === "a")!;
-    const b = scene.nodes.find((n) => n.id === "b")!;
-    expect(a.y).toBeLessThan(b.y);
+    const caller = scene.nodes.find((n) => n.id === "caller")!;
+    const callee = scene.nodes.find((n) => n.id === "callee")!;
+    expect(callee.y).toBeLessThan(caller.y);
+  });
+
+  it("routes a dependency edge from the dependent's top border to the dependency's bottom border", () => {
+    const units = [makeUnit({ id: "caller" }), makeUnit({ id: "callee" })];
+    const edges = [makeEdge({ id: "e1", from: "caller", to: "callee" })];
+
+    const scene = buildScene(units, edges);
+    const caller = scene.nodes.find((n) => n.id === "caller")!;
+    const callee = scene.nodes.find((n) => n.id === "callee")!;
+    const link = scene.links[0]!;
+
+    // from/to keep their logical meaning (markerEnd stays anchored at the callee) even
+    // though the callee now renders above the caller.
+    expect(link.from).toBe("caller");
+    expect(link.to).toBe("callee");
+
+    const start = link.path[0]!;
+    const end = link.path[link.path.length - 1]!;
+    expect(start.y).toBeCloseTo(caller.y);
+    expect(end.y).toBeCloseTo(callee.y + callee.h);
+    expect(end.y).toBeLessThan(start.y);
   });
 
   it("buckets sides by cyclomatic complexity", () => {
