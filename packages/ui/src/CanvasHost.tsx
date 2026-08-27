@@ -1,11 +1,16 @@
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type BoundaryEdge, type Scene } from "@scv/layout";
 import { codedreamLayerPalette, hashLayerToColor, node as tile, region as regionBox } from "@scv/skin-tiles";
+import type { SiblingSummary } from "./App.js";
+import { ConnectedSiblingsTray } from "./ConnectedSiblingsTray.js";
 import { DEFAULT_EDGE_BUDGET } from "./edge-budget.js";
 import { useAppStore } from "./store.js";
 import { sceneBounds, usePanZoom } from "./usePanZoom.js";
+
+/** Below this canvas width the tray would occlude most of the scene, so it starts collapsed. */
+const NARROW_CANVAS = 640;
 
 export type TileDeltaInfo = { status: string; amount: number; risk: number | null };
 
@@ -14,10 +19,16 @@ export type CanvasHostProps = {
   edges: Edge[];
   /** Present only in delta mode (docs/serve.md#2 — fill saturation = amount, ring = risk≥0.5). */
   deltaByUnit?: Map<string, TileDeltaInfo>;
-  /** Edges leaving the focused subtree; each collapses onto a boundary marker on the frame. */
+  /** Edges leaving the focused subtree, resolved to a sibling and to an interior tile. */
   boundaryEdges?: BoundaryEdge[];
-  /** The units those markers stand for, for their display name. */
+  /** The units on the far side of those edges. */
   externalUnits?: Unit[];
+  /** One row per sibling of the focused unit for the connected-siblings tray, including
+   *  siblings with no crossing edges. */
+  siblings?: SiblingSummary[];
+  /** The focused unit's id. Only used to reset tray hover/pin when the frame changes — a pin
+   *  refers to a sibling of the *previous* focus and would otherwise light stale tiles. */
+  focusId?: string | null;
   /** Connectors the edge budget dropped before this scene was built. Shown as an overlay: a
    *  truncated view that does not say so is indistinguishable from a sparse one. */
   elidedEdges?: number;
@@ -36,11 +47,24 @@ export type CanvasHostProps = {
  * so a delta tile's pulse animation (applied via a class set once, independent of hover
  * props) does not replay on hover.
  */
-export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalUnits, elidedEdges = 0 }: CanvasHostProps): JSX.Element {
+export function CanvasHost({
+  units,
+  edges,
+  deltaByUnit,
+  boundaryEdges,
+  externalUnits,
+  siblings = [],
+  focusId = null,
+  elidedEdges = 0,
+}: CanvasHostProps): JSX.Element {
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
   const [hover, setHover] = useState<string | null>(null);
+  // Tray highlight state stays local: the user ruled out any selection, breadcrumb or Inspector
+  // change from the tray, and store state would leak into exactly those.
+  const [rowHover, setRowHover] = useState<string | null>(null);
+  const [rowPinned, setRowPinned] = useState<string | null>(null);
 
   // Last build's Scene, so the next build (e.g. a replay scrub landing on a new rev's
   // units/edges) seeds from it — docs/serve.md#3, "positions are seeded from the previous
@@ -57,6 +81,42 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
 
   const { scrollRef, scale, renderSize, didPan, handlers } = usePanZoom(base);
 
+  // Measured, not guessed: the tray is an overlay, so whether it starts open depends on how much
+  // canvas it would cover. `defaultOpen` only seeds Tray's own state on its first render, so the
+  // measurement has to land before that — hence useLayoutEffect, and hence withholding the tray
+  // until `viewport` is real. Read once per mount: re-seeding on every resize would fight the
+  // user's manual collapse.
+  const [viewport, setViewport] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el) setViewport({ w: el.clientWidth, h: el.clientHeight });
+  }, [scrollRef]);
+
+  // A pin refers to a sibling of the *previous* focus; carrying it across a drill would light
+  // tiles that no longer have anything to do with it.
+  useEffect(() => {
+    setRowHover(null);
+    setRowPinned(null);
+  }, [focusId]);
+
+  const siblingById = useMemo(() => new Map(siblings.map((s) => [s.id, s])), [siblings]);
+
+  /** The tray row currently driving the highlight: a live hover outranks a pin. */
+  const activeRow = useMemo(() => {
+    const id = rowHover ?? rowPinned;
+    return id ? (siblingById.get(id) ?? null) : null;
+  }, [rowHover, rowPinned, siblingById]);
+
+  /**
+   * Canvas focus is tile hover and nothing else.
+   *
+   * A tray row deliberately produces no focus at all. FocusState nominates one anchor node and
+   * highlights what is near *it*, which a row cannot answer honestly: the sibling it addresses is
+   * off-canvas, and the boundary data maps sibling -> interior tile, never interior tile -> tile.
+   * Borrowing the model anyway (by nominating tiles[0]) made ConnectorLayer promote every edge
+   * touching one arbitrarily-chosen tile, so the canvas lit a set of connectors the row had never
+   * asked about and that changed with the sort order. The row's answer is the coupling fill alone.
+   */
   const focus: FocusState = useMemo(() => {
     if (!hover) return { id: null, near: [], far: [] };
     const { near } = neighbours(hover, scene.links, 1);
@@ -129,6 +189,16 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
     return segments;
   });
 
+  // A crossing edge has no second tile to draw to — the sibling it addresses was collapsed into
+  // a tray row, which lives outside the scene entirely (a `.canvas-scroll` child in viewport
+  // space, not inside the scaled `.canvas-scale` box). No scene-space endpoint can reach it, so
+  // a connector could only ever terminate somewhere arbitrary. The coupling is carried by the
+  // tiles themselves instead: each one is filled by the direction its edges to that sibling run.
+  const couplingByTile = useMemo(() => {
+    if (hover || !activeRow) return null;
+    return new Map(activeRow.tiles.map((t) => [t.interior, t.direction]));
+  }, [hover, activeRow]);
+
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (didPan()) return;
     if ((e.target as HTMLElement).dataset?.id) return;
@@ -195,6 +265,31 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
           {elidedEdges} connectors hidden — showing the strongest {DEFAULT_EDGE_BUDGET}
         </div>
       )}
+      {/* Sticky and floated right for the same reason as the badge above, and float order puts
+          it below that badge rather than under it. Deliberately a child of `.canvas-scroll`
+          and not `.canvas-extent`: inside the extent it would be scaled by the zoom transform
+          and scroll away with the scene. */}
+      {viewport && (
+        <ConnectedSiblingsTray
+          siblings={siblings}
+          pinned={rowPinned}
+          // Tile hover suppresses the coupling fill, so the row must go dark with it — a
+          // coloured row over an uncoloured canvas would promise a highlight that is not there.
+          active={hover ? null : (activeRow?.id ?? null)}
+          // The tray sits inside `.canvas-scroll`, so moving the pointer from a tile onto a row
+          // never fires the canvas's own onMouseLeave and the tile hover stays set — and tile
+          // hover outranks the row, so the highlight never appeared. Being over a row is itself
+          // proof the pointer is off the tiles.
+          onHover={(id) => {
+            if (id !== null) setHover(null);
+            setRowHover(id);
+          }}
+          onTogglePin={(id) => setRowPinned((p) => (p === id ? null : id))}
+          defaultOpen={viewport.w === 0 || viewport.w >= NARROW_CANVAS}
+          maxHeight={Math.max(120, viewport.h - 96)}
+          style={{ position: "sticky", top: 0, float: "right", clear: "right", zIndex: 2, margin: 8 }}
+        />
+      )}
       <div className="canvas-extent" style={{ width: renderSize.w, height: renderSize.h, position: "relative" }}>
       <div
         className="canvas-scale"
@@ -229,6 +324,7 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
                 layerColor,
                 origin: base,
                 focus,
+                coupling: couplingByTile?.get(n.id) ?? undefined,
                 onFocusNode: (id: string) => setHover(id),
                 onClick: (e) => {
                   e.stopPropagation();

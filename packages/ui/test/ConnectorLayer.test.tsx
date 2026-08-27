@@ -55,3 +55,20 @@ describe("ConnectorLayer ortho-v elbow", () => {
     expect(Math.abs(up[0]! - 100)).toBeCloseTo(Math.abs(down[0]! - 100));
   });
 });
+
+describe("ConnectorLayer: focus dimming", () => {
+  /** Renders one edge under a focus that puts it outside `near`, so edgeRole calls it "muted". */
+  function opacityOf(kind: string): string | null {
+    const { container } = render(
+      <ConnectorLayer
+        edges={[{ x1: 0, y1: 0, x2: 50, y2: 0, from: "a", to: "b", kind }]}
+        focus={{ id: "z", near: ["z"], far: [] }}
+      />,
+    );
+    return container.querySelector("svg path[stroke]")!.getAttribute("opacity");
+  }
+
+  it("dims an edge outside the focus", () => {
+    expect(opacityOf("import")).toBe("var(--focus-dim-edge)");
+  });
+});

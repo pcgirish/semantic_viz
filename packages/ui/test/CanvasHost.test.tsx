@@ -3,6 +3,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import type { Edge, Unit } from "@scv/schema";
 import { CanvasHost } from "../src/CanvasHost.js";
 import { useAppStore } from "../src/store.js";
+import type { SiblingSummary } from "../src/App.js";
 import { tempHex } from "@scv/design-system";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
@@ -487,5 +488,232 @@ describe("CanvasHost — unresolved edges", () => {
     render(<CanvasHost units={units} edges={[edge({})]} />);
 
     expect(screen.queryByTestId("edges-elided")).toBeNull();
+  });
+});
+
+describe("CanvasHost: connected-siblings tray", () => {
+  /** jsdom reports 0 for every layout dimension; the tray's default open state reads clientWidth. */
+  function withViewport(w: number, h: number): () => void {
+    const proto = window.HTMLElement.prototype;
+    const width = Object.getOwnPropertyDescriptor(proto, "clientWidth");
+    const height = Object.getOwnPropertyDescriptor(proto, "clientHeight");
+    Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => w });
+    Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => h });
+    return () => {
+      if (width) Object.defineProperty(proto, "clientWidth", width);
+      if (height) Object.defineProperty(proto, "clientHeight", height);
+    };
+  }
+
+  const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+  const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
+
+  const siblings: SiblingSummary[] = [
+    {
+      id: "g2",
+      name: "Billing",
+      tiles: [{ interior: "a", edgeCount: 2, weight: 3, direction: "out" }],
+      inCount: 0,
+      outCount: 2,
+      edgeCount: 2,
+      direction: "out",
+    },
+    { id: "g4", name: "Docs", tiles: [], inCount: 0, outCount: 0, edgeCount: 0, direction: null },
+  ];
+
+  /**
+   * The colours actually painted on a tile's visible polygon. PolyNode lays an absolutely
+   * positioned Facet SVG over the element, so the wrapper's background is not what the user
+   * sees — a solid face reads off the path's fill, a two-tone one off its gradient stops.
+   */
+  function face(container: HTMLElement, id: string): string {
+    const tile = container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement;
+    const path = tile.querySelector("svg path") as SVGPathElement;
+    const fill = path.getAttribute("fill") ?? "";
+    const gid = /^url\(#(.+)\)$/.exec(fill)?.[1];
+    const stops = gid
+      ? [...tile.querySelectorAll(`#${gid} stop`)].map((s) => s.getAttribute("stop-color") ?? "")
+      : [];
+    return [fill, ...stops].join(" ");
+  }
+
+  /** Connector strokes, so the tile/region rects and the marker arrowheads are filtered out. */
+  const STROKES = ["var(--connector)", "var(--connector-active)", "var(--cool-azure)", "var(--temp-4)"];
+  function connectors(container: HTMLElement) {
+    return [...container.querySelectorAll("svg path")].filter((p) => STROKES.includes(p.getAttribute("stroke") || ""));
+  }
+
+
+  // A wide viewport for the whole block, so `defaultOpen` resolves to open and the rows are in
+  // the DOM. Set explicitly rather than relying on jsdom's default: the fit-to-content block
+  // above stubs the same getters and cannot fully restore them (jsdom defines clientWidth on
+  // Element.prototype, so its HTMLElement.prototype lookup finds nothing to put back).
+  let restoreViewport: () => void = () => {};
+
+  beforeEach(() => {
+    useAppStore.setState(useAppStore.getInitialState());
+    restoreViewport = withViewport(1200, 800);
+  });
+  afterEach(() => {
+    restoreViewport();
+    cleanup();
+  });
+
+  it("lights the tiles a hovered row couples to, without touching the app's selection", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    // "a" is the coupled tile and "b" is not, so only "a" takes a face colour. Selection is the
+    // Inspector's business and the tray is a highlight, so the store must be untouched.
+    expect(face(container, "a")).toContain("var(--temp-4)");
+    expect(face(container, "b")).not.toContain("var(--temp-4)");
+    expect(useAppStore.getState().selection).toBeNull();
+  });
+
+  it("leaves the canvas's own focus alone, so a row dims and recolours nothing", () => {
+    // A row cannot name an anchor node honestly: the sibling is off-canvas, and the boundary data
+    // maps sibling -> interior tile, never tile -> tile. Borrowing FocusState anyway made
+    // ConnectorLayer promote every edge touching one arbitrarily-chosen tile.
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+    const strokes = () => connectors(container).map((p) => p.getAttribute("stroke")).sort();
+    const before = strokes();
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    expect(strokes()).toEqual(before);
+    for (const id of ["a", "b"])
+      expect((container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement).style.opacity).toBe("1");
+  });
+
+  it("colours the active row in the direction its coupling runs, by hover or by click", () => {
+    render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+    const row = () => screen.getByTestId("sibling-row-g2");
+    expect(row().style.backgroundImage).toBe("");
+
+    fireEvent.mouseEnter(row());
+    expect(row().style.backgroundImage).toContain("var(--temp-4)");
+
+    // Pinning is the same highlight by a different gesture, so it paints the row the same way.
+    fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
+    fireEvent.click(row());
+    fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
+    expect(row().style.backgroundImage).toContain("var(--temp-4)");
+  });
+
+  it("lights a row hovered straight off a tile, rather than holding the stale tile hover", () => {
+    // The real gesture: the pointer is already over a tile and moves onto a row. The tray is
+    // inside `.canvas-scroll`, so the canvas's own onMouseLeave never fires and the tile hover
+    // would otherwise still be set — and tile hover outranks the row, so nothing lit up.
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    fireEvent.mouseOver(container.querySelector('.tile[data-id="b"]') as HTMLElement);
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    expect(face(container, "a")).toContain("var(--temp-4)");
+  });
+
+  it("fills each coupled tile by the direction its edges to the hovered sibling run", () => {
+    const mixed: SiblingSummary[] = [
+      {
+        ...siblings[0]!,
+        tiles: [
+          { interior: "a", edgeCount: 1, weight: 1, direction: "out" },
+          { interior: "b", edgeCount: 1, weight: 1, direction: "in" },
+        ],
+        direction: "both",
+      },
+    ];
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={mixed} focusId="g1" />);
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    // The sibling itself is a tray row, not a tile, so the coupling has nowhere to be drawn to;
+    // the tiles carry it. Outbound reads orange, inbound azure — the same in/out vocabulary the
+    // tile-hover trace uses for real connectors.
+    expect(face(container, "a")).toContain("var(--temp-4)");
+    expect(face(container, "b")).toContain("var(--cool-azure)");
+  });
+
+  it("splits a tile coupled both ways between the two colours", () => {
+    const both: SiblingSummary[] = [
+      { ...siblings[0]!, tiles: [{ interior: "a", edgeCount: 2, weight: 2, direction: "both" }], direction: "both" },
+    ];
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={both} focusId="g1" />);
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    const painted = face(container, "a");
+    expect(painted).toContain("var(--temp-4)");
+    expect(painted).toContain("var(--cool-azure)");
+  });
+
+  it("adds no connectors for crossing edges, which have no second tile to reach", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+    const before = connectors(container).length;
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    expect(connectors(container).length).toBe(before);
+  });
+
+  it("clears the coupling fill when the pointer leaves the row", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+    expect(face(container, "a")).toContain("var(--temp-4)");
+
+    fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
+    expect(face(container, "a")).not.toContain("var(--temp-4)");
+  });
+
+  it("keeps a pinned row's highlight after the pointer leaves the tray", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    fireEvent.click(screen.getByTestId("sibling-row-g2"));
+    fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
+
+    expect(face(container, "a")).toContain("var(--temp-4)");
+
+    // Clicking the same row again releases it.
+    fireEvent.click(screen.getByTestId("sibling-row-g2"));
+    expect(face(container, "a")).not.toContain("var(--temp-4)");
+  });
+
+  it("lets a tile hover override a pinned row, since the pointer is on the canvas", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    fireEvent.click(screen.getByTestId("sibling-row-g2"));
+    fireEvent.mouseOver(container.querySelector('.tile[data-id="b"]')!);
+
+    // Hovering "b" asks "what touches b", and the canvas answers that instead: the pinned row's
+    // coupling fill drops, and its tray row goes dark with it rather than promising a highlight.
+    expect(face(container, "a")).not.toContain("var(--temp-4)");
+    expect(screen.getByTestId("sibling-row-g2").style.backgroundImage).toBe("");
+  });
+
+  it("drops a pin when the focus changes, so it cannot light tiles of the new frame", () => {
+    const { container, rerender } = render(
+      <CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />,
+    );
+    fireEvent.click(screen.getByTestId("sibling-row-g2"));
+
+    rerender(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g9" />);
+
+    expect((container.querySelector('.tile[data-id="b"]') as HTMLElement).style.opacity).toBe("1");
+  });
+
+  it("starts collapsed on a canvas too narrow to spare the width", () => {
+    const restore = withViewport(480, 600);
+    try {
+      render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+      expect(screen.queryByTestId("sibling-row-g2")).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it("renders no tray when the focused unit has no siblings", () => {
+    render(<CanvasHost units={units} edges={edges} siblings={[]} focusId="g1" />);
+    expect(screen.queryByTestId("connected-siblings-tray")).toBeNull();
   });
 });

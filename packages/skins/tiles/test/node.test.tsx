@@ -142,46 +142,57 @@ describe("node encoding channels", () => {
       expect(el.style.filter).toBe("");
     });
   });
-});
 
-describe("boundary markers", () => {
-  function marker(boundary: NonNullable<SceneNode["boundary"]>) {
-    return tile(node(makeNode({ id: "u:group:other", name: "Billing", boundary })));
-  }
+  describe("coupling: face colour = direction of a hovered sibling's edges", () => {
+    /**
+     * The face, not the element behind it. PolyNode lays an absolutely positioned Facet SVG
+     * over the tile (inset:0) and that path carries its own fill, so asserting the wrapper's
+     * background can pass while the visible polygon shows nothing of the coupling.
+     */
+    function face(el: HTMLElement): { fill: string; stops: string[] } {
+      const path = el.querySelector("svg path") as SVGPathElement;
+      const fill = path.getAttribute("fill") ?? "";
+      const id = /^url\(#(.+)\)$/.exec(fill)?.[1];
+      const stops = id
+        ? [...el.querySelectorAll(`#${id} stop`)].map((s) => s.getAttribute("stop-color") ?? "")
+        : [];
+      return { fill, stops };
+    }
 
-  it("marks the tile as a boundary marker and keeps it drillable by its real unit id", () => {
-    // The marker's id IS the off-screen unit, so double-click-to-drill needs no new path.
-    const el = marker({ edgeCount: 3, weight: 4, direction: "out", inCount: 0, outCount: 3 });
-    expect(el.dataset.boundary).toBe("out");
-    expect(el.dataset.id).toBe("u:group:other");
-  });
+    function render1(ctx: Parameters<typeof node>[1]): HTMLElement {
+      const { container } = render(node(makeNode({ id: "a" }), ctx));
+      return container.querySelector(".tile") as HTMLElement;
+    }
 
-  it("dims the marker, so it never competes with a real tile in the focused subtree", () => {
-    const el = marker({ edgeCount: 1, weight: 1, direction: "in", inCount: 1, outCount: 0 });
-    // Dimming rides on `filter`, leaving `opacity` to PolyNode's hover dimming — otherwise a
-    // marker would brighten whenever some other tile is hovered.
-    expect(el.style.filter).toContain("opacity(0.55)");
-    expect(Number(el.style.opacity)).toBe(1);
-  });
+    it("paints a tile coupled only outbound in the outbound colour, over the layer hue", () => {
+      const { fill, stops } = face(render1({ coupling: "out", layerColor: "#123456" }));
+      const painted = [fill, ...stops].join(" ");
+      expect(painted).toContain("var(--temp-4)");
+      expect(painted).not.toContain("var(--cool-azure)");
+      // Solid rather than an alpha wash, so the layer hue underneath does not dilute it.
+      expect(painted).not.toContain("#123456");
+    });
 
-  it("labels the marker with the external unit's name and its contributing edge count", () => {
-    const el = marker({ edgeCount: 14, weight: 20, direction: "out", inCount: 0, outCount: 14 });
-    expect(el.textContent).toContain("Billing");
-    expect(el.textContent).toContain("14");
-  });
+    it("paints a tile coupled only inbound in the inbound colour", () => {
+      const painted = Object.values(face(render1({ coupling: "in" }))).flat().join(" ");
+      expect(painted).toContain("var(--cool-azure)");
+      expect(painted).not.toContain("var(--temp-4)");
+    });
 
-  it("renders a direction glyph per direction, with 'both' distinct from either one", () => {
-    const glyph = (b: NonNullable<SceneNode["boundary"]>) => marker(b).dataset.boundaryGlyph;
-    const out = glyph({ edgeCount: 1, weight: 1, direction: "out", inCount: 0, outCount: 1 });
-    const inward = glyph({ edgeCount: 1, weight: 1, direction: "in", inCount: 1, outCount: 0 });
-    const both = glyph({ edgeCount: 2, weight: 2, direction: "both", inCount: 1, outCount: 1 });
-    expect(new Set([out, inward, both]).size).toBe(3);
-    for (const g of [out, inward, both]) expect(g).toBeTruthy();
-  });
+    it("splits a both-ways tile across the face, one direction per gradient stop", () => {
+      // The point of the split is that "both" is visibly composed of in and out rather than
+      // being a third thing to learn, so both colours must appear on the polygon itself.
+      const { fill, stops } = face(render1({ coupling: "both" }));
+      expect(fill).toMatch(/^url\(#/);
+      expect(stops).toContain("var(--temp-4)");
+      expect(stops).toContain("var(--cool-azure)");
+    });
 
-  it("leaves an ordinary tile untouched", () => {
-    const el = tile(node(makeNode({ id: "a" })));
-    expect(el.dataset.boundary).toBeUndefined();
-    expect(el.style.filter).toBe("");
+    it("leaves an uncoupled tile's face to the layer hue", () => {
+      const painted = Object.values(face(render1({ layerColor: "#123456" }))).flat().join(" ");
+      expect(painted).toContain("#123456");
+      expect(painted).not.toContain("var(--temp-4)");
+      expect(painted).not.toContain("var(--cool-azure)");
+    });
   });
 });

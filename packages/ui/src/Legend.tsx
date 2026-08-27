@@ -298,6 +298,46 @@ export function Legend({
                   outgoing
                 </span>
               </div>
+              {/* The tray's siblings are not on the canvas, so their coupling cannot be drawn as
+                  a connector. It reuses the same two hover colours as a tile fill instead — and
+                  a tile coupled both ways is split between them rather than given a third
+                  colour, so there is nothing extra to learn. */}
+              <div style={{ ...railLabelStyle, marginTop: 8 }}>Connected siblings</div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  font: "var(--text-xs)",
+                  color: "var(--text-dim)",
+                }}
+              >
+                {(
+                  [
+                    ["var(--temp-4)", "calls out to it"],
+                    ["var(--cool-azure)", "called into by it"],
+                    [
+                      "linear-gradient(135deg, var(--temp-4) 0 50%, var(--cool-azure) 50% 100%)",
+                      "both ways",
+                    ],
+                  ] as const
+                ).map(([swatch, label]) => (
+                  <span key={label}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: 10,
+                        height: 10,
+                        borderRadius: 2,
+                        background: swatch,
+                        verticalAlign: "middle",
+                        marginRight: 6,
+                      }}
+                    />
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
           {showNav && (

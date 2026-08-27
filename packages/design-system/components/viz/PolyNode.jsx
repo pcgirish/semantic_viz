@@ -12,7 +12,7 @@ const SHAPES={hex:"hex",chamfer:"chamfer",diamond:"diamond",square:"square","hex
  */
 export function PolyNode({
   label,sublabel,temp=1,color,shape="chamfer",size=88,height,icon,selected,dim,focus,id,
-  filled,extrude=0,onClick,onFocusNode,style,...rest
+  filled,fillTo,extrude=0,onClick,onFocusNode,style,...rest
 }){
   const c=color||tempHex(temp);
   const role=focusRole(id,focus);
@@ -34,7 +34,7 @@ export function PolyNode({
       )}
       <Facet shape={s} width={size} height={h}
         stroke={solid?"none":isSelected?c:role==="near"?c+"cc":c+"88"}
-        fill={solid?c:c+"3d"} fillTo={solid?c+"66":c+"12"}
+        fill={solid?c:c+"3d"} fillTo={fillTo??(solid?c+"66":c+"12")}
         glow={isSelected?c+"aa":role==="near"?c+"66":undefined}
         style={{position:"absolute",inset:0}}>
         {icon&&<Icon name={icon} size={14} strokeTint={solid?"var(--text-hi)":c}/>}

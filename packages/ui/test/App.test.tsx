@@ -595,11 +595,12 @@ describe("App", () => {
       expect(container.querySelector('.tile[data-id="u:layer:api"]')).not.toBeNull();
       expect(container.querySelector('.tile[data-id="u:layer:auth"]')).not.toBeNull();
     });
-    // Two member layers, plus a boundary marker for the sibling group this group calls out to:
-    // the fixture's api->db edge crosses the focus, and collapsing it onto the sibling is what
-    // keeps cross-group coupling visible from inside a group.
-    expect(container.querySelectorAll(".tile")).toHaveLength(3);
-    expect(container.querySelector('.tile[data-id="u:group:platform"]')).not.toBeNull();
+    // Exactly the two member layers. The sibling group this group calls out to (the fixture's
+    // api->db edge crosses the focus) is a tray row, not a tile — scene space holds only what
+    // is actually inside the focus.
+    expect(container.querySelectorAll(".tile")).toHaveLength(2);
+    expect(container.querySelector('.tile[data-id="u:group:platform"]')).toBeNull();
+    expect(screen.getByTestId("sibling-row-u:group:platform")).toBeTruthy();
 
     fireEvent.doubleClick(screen.getByTestId("canvas-svg"));
 

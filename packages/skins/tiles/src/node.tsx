@@ -41,15 +41,28 @@ function riskStyle(d: DeltaInfo | undefined): CSSProperties {
   return atRisk ? { filter: "drop-shadow(0 0 0 1px var(--temp-6))" } : {};
 }
 
-/**
- * A boundary marker stands for a unit *outside* the focused subtree, so it is deliberately
- * quieter than a real tile: dimmed, and labelled with the external unit's name plus how many
- * concrete edges collapsed into it ("14 calls" rather than an opaque summed weight).
- */
-const BOUNDARY_DIM = "opacity(0.55)";
+/** Which way a tile's edges run to the sibling currently highlighted in the tray. */
+export type Coupling = "in" | "out" | "both";
 
-/** One glyph per direction, so the common render path is a lookup rather than two comparisons. */
-const BOUNDARY_GLYPH = { in: "\u2190", out: "\u2192", both: "\u2194" } as const;
+/** Matches the in/out vocabulary the hover trace already uses for real connectors. */
+const COUPLING_COLOR = { in: "var(--cool-azure)", out: "var(--temp-4)" } as const;
+
+/**
+ * Coupling as the tile's face colour — the tray's crossing edges have no second tile to draw a
+ * connector to, since the sibling they address is a tray row rather than something on the canvas.
+ *
+ * This has to reach the polygon itself. PolyNode lays an absolutely positioned Facet SVG over the
+ * element (inset:0), so a background behind it is covered by that path's own fill; the face is
+ * painted via `color`/`fillTo` instead. A tile coupled both ways takes each direction as one stop
+ * of the face gradient, so it reads as its two colours rather than blending into a third.
+ */
+export function couplingFace(
+  c: Coupling | undefined,
+): { color: string; fillTo?: string } | null {
+  if (!c) return null;
+  if (c === "both") return { color: COUPLING_COLOR.out, fillTo: COUPLING_COLOR.in };
+  return { color: COUPLING_COLOR[c] };
+}
 
 /**
  * The shared RenderContext (delta, layer hue) plus what only a DOM host can supply:
@@ -60,6 +73,8 @@ export type TileContext = RenderContext & {
   /** Scene-space origin the tile's absolute position is measured from. */
   origin?: { x: number; y: number };
   focus?: FocusState;
+  /** Set only on tiles the tray's highlighted sibling couples to. */
+  coupling?: Coupling;
   onFocusNode?: (id: string) => void;
   onClick?: (e: MouseEvent) => void;
   onDoubleClick?: (e: MouseEvent) => void;
@@ -73,20 +88,21 @@ export type TileContext = RenderContext & {
 export function node(n: SceneNode, ctx: TileContext = {}): ReactElement {
   const origin = ctx.origin ?? { x: 0, y: 0 };
   const shape = shapeFor(n);
-  const boundary = n.boundary;
   return (
     <PolyNode
       id={n.id}
       data-id={n.id}
       data-shape={shape}
       data-color={ctx.layerColor}
-      data-boundary={boundary?.direction}
-      data-boundary-glyph={boundary ? BOUNDARY_GLYPH[boundary.direction] : undefined}
       className="tile"
-      label={boundary ? `${BOUNDARY_GLYPH[boundary.direction]} ${n.name} (${boundary.edgeCount})` : n.name}
+      label={n.name}
       shape={shape}
       size={n.w}
-      color={ctx.layerColor}
+      // A coupling highlight wins over the layer hue and renders solid: it answers the question
+      // the pointer is asking right now, and an alpha wash over the hue would not read as either.
+      color={couplingFace(ctx.coupling)?.color ?? ctx.layerColor}
+      fillTo={couplingFace(ctx.coupling)?.fillTo}
+      filled={ctx.coupling !== undefined}
       focus={ctx.focus}
       onFocusNode={ctx.onFocusNode}
       style={
@@ -97,10 +113,6 @@ export function node(n: SceneNode, ctx: TileContext = {}): ReactElement {
           height: n.h,
           ...deltaStyle(ctx.delta),
           ...riskStyle(ctx.delta),
-          // Dimming rides on `filter`, not `opacity`: PolyNode owns `opacity` for hover
-          // dimming and this style object spreads *after* it, so setting opacity here would
-          // make a marker brighten whenever another tile is hovered.
-          ...(boundary ? { filter: [riskStyle(ctx.delta).filter, BOUNDARY_DIM].filter(Boolean).join(" ") } : {}),
         } as CSSProperties
       }
       onClick={ctx.onClick}
