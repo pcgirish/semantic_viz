@@ -57,6 +57,33 @@ injects it into the artifact cache as if a real Pass A had produced it.
    present; omit the whole `semantics` key to leave a unit's existing
    semantics untouched while still setting `cost`/`tags`.
 
+   **Optional — flowchart block labels.** A function with branching also has
+   control-flow blocks, which the Flowchart view renders. Those get readable
+   names for free from the structural fallback (`count == 1`, `sequential`);
+   authoring `blockLabels` on that unit replaces them with intent-revealing
+   text:
+
+   ```json
+   "u:src.orders.create_order.create_order": {
+     "kind": "function",
+     "semantics": { "what": "...", "how": "...", "when": "...", "where": "...", "why": "...", "confidence": 0.85 },
+     "blockLabels": {
+       "decision:0": { "label": "reject malformed payload", "trueLabel": "invalid", "falseLabel": "ok" },
+       "loop:0": { "label": "price each line item" }
+     }
+   }
+   ```
+
+   Keys are the extractor's readable block ids — `<blockType>:<n>`, numbered
+   per type in source order (`decision:0` is the first decision in the
+   function). The opaque `u:block:<hash>` ids from `extraction.json` are
+   accepted too. `label` is capped at 60 characters and
+   `trueLabel`/`falseLabel` at 24, because they render as flowchart node and
+   edge text — an over-long label is rejected rather than silently
+   overflowing its node. A key that isn't in that function's real block graph
+   is warned and skipped; its siblings still merge. Labels are entirely
+   optional: skip them and the structural fallback stands.
+
 3. Save the file to a single path: `.scv/pending/<sha>/semantics-functions.json`
    (this phase's file; layer narration from `agent-analyze-layers` goes in
    a separate `semantics-layers.json` — the two are merged independently

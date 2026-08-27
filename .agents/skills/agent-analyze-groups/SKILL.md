@@ -23,7 +23,7 @@ A **fresh `layers` artifact** must exist before merging — groups are built on
 top of real layers, not proposed ones:
 
 ```sh
-scv analyze <root> layers
+scv analyze <root> layers --no-llm
 ```
 
 Freshness is checked transitively, so a stale `clusters`, `functions` or

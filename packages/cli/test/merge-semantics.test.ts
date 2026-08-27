@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractRepo } from "@scv/extractor";
-import { buildBlockUnits, buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
+import { buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
 import { semanticHashInput, type Unit } from "@scv/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
@@ -956,43 +956,69 @@ describe("mergeSemantics block units", () => {
     expect(reused.blockUnits.length).toBeGreaterThan(0);
   });
 
-  function writePendingWithLabels(blockLabels: Record<string, unknown>): string {
+  /** Labels are authored per owning function unit, keyed by readable or hashed block id. */
+  function writePendingWithLabels(unitId: string, blockLabels: Record<string, unknown>): string {
     const file = path.join(scvDir, "pending", sha, "semantics.json");
     mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ units: {}, blockLabels }));
+    writeFileSync(file, JSON.stringify({ units: { [unitId]: { kind: "function", blockLabels } } }));
     return file;
   }
 
-  /** A real block id from the fixture, minted the same way the builder mints it. */
-  function someBlockId(): string {
-    const built = buildBlockUnits(ctx.snapshot.units, graph);
-    return built.blockUnits[0]!.id;
+  /** A real block from the fixture, with the function unit that owns it. */
+  function someBlock(): { unitId: string; blockId: string } {
+    const [qualname, bg] = Object.entries(graph.blockGraph)[0]!;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    return { unitId, blockId: bg.blocks[0]!.id };
   }
 
   it("applies authored block labels and marks them manual", async () => {
-    const id = someBlockId();
-    await mergeSemantics({ pendingFile: writePendingWithLabels({ [id]: { label: "reject bad input" } }), ctx, root: orderlyRoot });
+    const { unitId, blockId } = someBlock();
+    await mergeSemantics({ pendingFile: writePendingWithLabels(unitId, { [blockId]: { label: "reject bad input" } }), ctx, root: orderlyRoot });
 
-    const labelled = storedFunctions().blockUnits.find((u) => u.id === id)!;
+    const labelled = storedFunctions().blockUnits.find((u) => u.id === blockId)!;
     expect(labelled.name).toBe("reject bad input");
     expect(labelled.provenance.source).toBe("manual");
   });
 
-  it("warns and skips a block id that does not exist, still merging the rest", async () => {
-    const id = someBlockId();
-    const result = await mergeSemantics({
-      pendingFile: writePendingWithLabels({ "u:block:nosuchblock": { label: "ghost" }, [id]: { label: "real" } }),
+  it("accepts the readable blockId the extractor mints, not just the hashed unit id", async () => {
+    // "entry:0" is the first entry block of the function — the id an agent can actually author
+    // by reading the code, since `u:block:<hash>` is opaque.
+    const [qualname, bg] = Object.entries(graph.blockGraph)[0]!;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    const first = bg.blocks[0]!;
+
+    await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, { [`${first.blockType}:0`]: { label: "start here" } }),
       ctx,
       root: orderlyRoot,
     });
 
-    expect(result.warnings.join("\n")).toMatch(/u:block:nosuchblock/);
-    expect(storedFunctions().blockUnits.find((u) => u.id === id)!.name).toBe("real");
+    expect(storedFunctions().blockUnits.find((u) => u.id === first.id)!.name).toBe("start here");
+  });
+
+  it("warns and skips a block id that does not exist, still merging the rest", async () => {
+    const { unitId, blockId } = someBlock();
+    const result = await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, { "decision:99": { label: "ghost" }, [blockId]: { label: "real" } }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    expect(result.warnings.join("\n")).toMatch(/decision:99/);
+    expect(storedFunctions().blockUnits.find((u) => u.id === blockId)!.name).toBe("real");
+  });
+
+  it("rejects an over-long label rather than overflowing the flowchart node", async () => {
+    const { unitId, blockId } = someBlock();
+    await expect(
+      mergeSemantics({ pendingFile: writePendingWithLabels(unitId, { [blockId]: { label: "x".repeat(61) } }), ctx, root: orderlyRoot }),
+    ).rejects.toThrow();
   });
 
   it("carries authored labels through a re-merge rather than reverting to the structural fallback", async () => {
-    const id = someBlockId();
-    const file = writePendingWithLabels({ [id]: { label: "reject bad input" } });
+    const { unitId, blockId } = someBlock();
+    const id = blockId;
+    const file = writePendingWithLabels(unitId, { [blockId]: { label: "reject bad input" } });
     await mergeSemantics({ pendingFile: file, ctx, root: orderlyRoot });
 
     // Second merge has no labels in its pending file — the ones already on the artifact must survive.
@@ -1105,6 +1131,85 @@ describe("mergeSemantics docs", () => {
 
     expect(result.warnings.join("\n")).toMatch(new RegExp(realPath.replace(/[.\\/]/g, "\\$&")));
     expect(storedDocs().map((d) => d.purpose)).toEqual(["first"]);
+  });
+
+  it("preserves cached extracts a later partial merge omits, and sorts the union by path", async () => {
+    // Authoring docs in two passes (or re-merging a file that covers only one doc) must not
+    // discard what an earlier merge already wrote: the artifact is the union, keyed by path,
+    // with the pending entry replacing a cached one for the same path.
+    const twoDocCtx: ArtifactContext = {
+      ...ctx,
+      docs: [
+        { path: "README.md", content: "# Orderly" },
+        { path: "docs/architecture.md", content: "# Architecture" },
+      ],
+    };
+
+    await mergeSemantics({
+      pendingFile: writePending({
+        b: { path: "docs/architecture.md", purpose: "architecture", modules: [], architecture_notes: [] },
+      }),
+      ctx: twoDocCtx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    expect(storedDocs().map((d) => d.path)).toEqual(["docs/architecture.md"]);
+
+    // A second merge naming only the other doc must keep the first one.
+    await mergeSemantics({
+      pendingFile: writePending({
+        a: { path: "README.md", purpose: "readme", modules: [], architecture_notes: [] },
+      }),
+      ctx: twoDocCtx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+
+    expect(storedDocs().map((d) => d.path)).toEqual(["README.md", "docs/architecture.md"]);
+    expect(storedDocs().map((d) => d.purpose)).toEqual(["readme", "architecture"]);
+  });
+
+  it("replaces a cached extract when a later merge re-authors the same path", async () => {
+    const realPath = ctx.docs[0]!.path;
+    await mergeSemantics({
+      pendingFile: writePending({ a: { path: realPath, purpose: "old", modules: [], architecture_notes: [] } }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    await mergeSemantics({
+      pendingFile: writePending({ a: { path: realPath, purpose: "new", modules: [], architecture_notes: [] } }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    expect(storedDocs().map((d) => d.purpose)).toEqual(["new"]);
+  });
+
+  it("drops a cached extract whose path is no longer discovered", async () => {
+    const twoDocCtx: ArtifactContext = {
+      ...ctx,
+      docs: [
+        { path: "README.md", content: "# Orderly" },
+        { path: "docs/gone.md", content: "# Gone" },
+      ],
+    };
+    await mergeSemantics({
+      pendingFile: writePending({ g: { path: "docs/gone.md", purpose: "doomed", modules: [], architecture_notes: [] } }),
+      ctx: twoDocCtx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    expect(storedDocs().map((d) => d.path)).toEqual(["docs/gone.md"]);
+
+    // The doc vanished from the repo; the cached extract must not survive into the new artifact.
+    await mergeSemantics({
+      pendingFile: writePending({ a: { path: "README.md", purpose: "readme", modules: [], architecture_notes: [] } }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    expect(storedDocs().map((d) => d.path)).toEqual(["README.md"]);
   });
 
   it("writes docs deterministically across repeated merges", async () => {

@@ -18,7 +18,7 @@ files can write the same extracts directly.
 Clustering (Pass B) is deterministic but **consumes `docs`**. Merging docs
 before clustering is what makes the resulting layers reflect the repo's own
 vocabulary rather than directory names alone. Author docs before running
-`scv analyze <root> clusters`.
+`scv analyze <root> clusters --no-llm`.
 
 ## Discover the real doc paths
 

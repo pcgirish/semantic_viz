@@ -16,7 +16,7 @@ You therefore choose the *entry point*, not the steps.
 ## Required artifacts
 
 None strictly. `merge-semantics --with-flows` uses the `functions` artifact
-from a prior `scv analyze <root> functions` run when one exists, and falls
+from a prior `scv analyze <root> functions --no-llm` run when one exists, and falls
 back to the live structural snapshot when none has ever been written — a
 plain `--no-llm` state is legitimate, not an error. Running `functions` first
 is still worth it: it gives real unit ids and per-unit semantics to reference.
@@ -26,7 +26,7 @@ against.
 
 ## Procedure
 
-1. Run `scv analyze <root> functions` (or `scv analyze --no-llm <root>`) to
+1. Run `scv analyze <root> functions --no-llm` (or `scv analyze --no-llm <root>`) to
    get real unit ids. Route handlers are the natural entry points; structural
    route hints live on the extraction graph's `routes`.
 2. Write entries into the pending file's `flows` map, keyed by any local id:

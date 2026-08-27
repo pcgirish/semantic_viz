@@ -35,12 +35,34 @@ const PendingCostSchema = z.object({
   confidence: z.number().min(0).max(1).optional(),
 });
 
+/**
+ * A readable name for one control-flow block, replacing the structural fallback the builder
+ * derives from `blockType`/`condition`. `trueLabel`/`falseLabel` name the outgoing branch edges
+ * of a decision block.
+ *
+ * Keys are the extractor's readable `blockId` — "decision:0", "loop:1" — scoped to the owning
+ * function, which is what makes these hand-authorable. That id is not persisted verbatim
+ * (`resolveBlockGraph` hashes it into `u:block:<hash>`), so the merge reconstructs it from the
+ * per-function block order; the hashed `u:block:<hash>` form is accepted too, for callers reading
+ * ids straight out of `extraction.json`.
+ *
+ * Lengths are capped because these render as flowchart node/edge text: a label that overflows its
+ * node is worse than the structural fallback it replaces.
+ */
+export const PendingBlockLabelSchema = z.object({
+  label: z.string().min(1).max(60),
+  trueLabel: z.string().max(24).optional(),
+  falseLabel: z.string().max(24).optional(),
+});
+
 export const PendingUnitSchema = z.object({
   kind: z.enum(["function", "class"]),
   semantics: PendingSemanticsFieldsSchema.optional(),
   cost: PendingCostSchema.optional(),
   tags: z.array(z.string()).optional(),
   signature: PendingSignatureSchema.optional(),
+  /** Control-flow block labels for this function, keyed by readable `blockId` ("decision:0"). */
+  blockLabels: z.record(z.string(), PendingBlockLabelSchema).optional(),
 });
 
 export const PendingLayerSchema = PendingSemanticsFieldsSchema.extend({
@@ -80,18 +102,6 @@ export const PendingDocSchema = z.object({
   architecture_notes: z.array(z.string()).default([]),
 });
 
-/**
- * A readable name for one control-flow block, replacing the structural fallback the builder
- * derives from `blockType`/`condition`. Keyed by the block's `u:block:<hash>` unit id — the only
- * block identity that reaches `extraction.json`; the readable `blockId` ("decision:0") is
- * internal to the extractor and never persisted. `trueLabel`/`falseLabel` name the outgoing
- * branch edges of a decision block.
- */
-export const PendingBlockLabelSchema = z.object({
-  label: z.string().min(1),
-  trueLabel: z.string().optional(),
-  falseLabel: z.string().optional(),
-});
 
 export const PendingSemanticsSchema = z.object({
   meta: z
@@ -107,7 +117,6 @@ export const PendingSemanticsSchema = z.object({
   layers: z.record(z.string(), PendingLayerSchema).default({}),
   groups: z.record(z.string(), PendingGroupSchema).default({}),
   flows: z.record(z.string(), PendingFlowSchema).default({}),
-  blockLabels: z.record(z.string(), PendingBlockLabelSchema).default({}),
   docs: z.record(z.string(), PendingDocSchema).default({}),
 });
 

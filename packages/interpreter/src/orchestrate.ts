@@ -995,6 +995,14 @@ export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
         `finalizeSnapshot: block units passed twice — ${carried.id} is in both \`units\` and \`blockUnits\`. Strip blocks from \`units\` or pass \`blockUnits: []\`.`,
       );
     }
+    // Edges duplicate just as silently as units: a historical base snapshot persists its own
+    // `control_flow` edges, and `blockEdges` is concatenated onto them below.
+    const carriedEdge = snapshot.edges.find((e) => e.kind === "control_flow" && (blockIds.has(e.to) || blockIds.has(e.from)));
+    if (carriedEdge) {
+      throw new Error(
+        `finalizeSnapshot: control-flow edges passed twice — ${carriedEdge.from}->${carriedEdge.to} is in both \`snapshot.edges\` and \`blockEdges\`. Strip persisted block edges from the base snapshot.`,
+      );
+    }
   }
 
   const sysId = systemIdFor(snapshot, systemName);

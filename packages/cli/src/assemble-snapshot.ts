@@ -36,17 +36,30 @@ export async function assembleSnapshotFromCache(options: AssembleSnapshotOptions
     for (const d of r.defaultedArtifacts) emptyArtifacts.add(d);
   }
 
-  // A `functions` artifact written by `merge-semantics --sha` carries its block units inside
-  // `units` as well as in `blockUnits`. `finalizeSnapshot` appends `blockUnits` itself and
-  // rejects the double-carry, so the duplicates are stripped from `units` here and re-supplied
-  // through the one channel that owns them. When `blockUnits` is empty there is nothing to
-  // re-supply, so blocks living only in `units` are left where they are.
+  // `finalizeSnapshot` owns exactly one channel for blocks: it appends `blockUnits`/`blockEdges`
+  // to whatever the base snapshot holds. Two sources can already carry those same blocks:
+  //   - a `functions` artifact written by `merge-semantics --sha`, which repeats its block units
+  //     inside `units`; and
+  //   - a historical base snapshot re-read from `.scv/snapshots/<sha>.json`, which persists both
+  //     the block units and their `control_flow` edges.
+  // Either one passed through unstripped duplicates every block (silently, for edges — the
+  // double-carry guard in `finalizeSnapshot` only inspects units). So strip the persisted copies
+  // here and re-supply them through the channel that owns them. When `blockUnits` is empty there
+  // is nothing to re-supply, so blocks living only in the base snapshot are left where they are.
   const blockIds = new Set(functionsResult.data.blockUnits.map((u) => u.id));
   const functionUnits =
     blockIds.size > 0 ? functionsResult.data.units.filter((u) => !blockIds.has(u.id)) : functionsResult.data.units;
+  const snapshotForAssembly =
+    blockIds.size > 0
+      ? {
+          ...ctx.snapshot,
+          units: ctx.snapshot.units.filter((u) => !blockIds.has(u.id)),
+          edges: ctx.snapshot.edges.filter((e) => !(e.kind === "control_flow" && (blockIds.has(e.to) || blockIds.has(e.from)))),
+        }
+      : ctx.snapshot;
 
   const snapshot = finalizeSnapshot({
-    snapshot: ctx.snapshot,
+    snapshot: snapshotForAssembly,
     provider: ctx.provider,
     promptRev: ctx.promptRev,
     systemName: undefined,

@@ -293,7 +293,7 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   // path. Labels already earned by a cached artifact are recovered and carried through, so a
   // semantics-only merge never resets a labeled block to its structural fallback.
   const recoveredLabels = recoverBlockLabels(functionsData.blockUnits, functionsData.blockEdges);
-  const blockLabelResult = mergeBlockLabels(ctx, pending.blockLabels, recoveredLabels, warnings);
+  const blockLabelResult = mergeBlockLabels(ctx, pending.units, recoveredLabels, warnings);
 
   const unitById = new Map(functionsData.units.map((u) => [u.id, u]));
 
@@ -588,8 +588,12 @@ const NO_PROVIDER = { allowProvider: new Set<ArtifactName>() };
  * `path` must name a doc `discoverDocs` actually found, since `computeInputHash("docs")` hashes
  * the discovered set: an entry for a file the pipeline never saw would be silently dropped on the
  * next analyze anyway. Failure modes are per-entry (warn + skip), so one bad path does not
- * discard the rest. Output is ordered by discovery order, not by pending-file key order, so two
- * merges of the same content write byte-identical artifacts.
+ * discard the rest.
+ *
+ * The write is a union over the cached artifact, not a replacement: extracts a partial pending
+ * file omits are preserved, a pending entry replaces the cached one for the same path, and a
+ * cached path the repo no longer discovers is dropped. Output is sorted by path, so two merges of
+ * the same content write byte-identical artifacts regardless of pending-file key order.
  */
 async function mergeDocs(
   ctx: ArtifactContext,
@@ -597,7 +601,16 @@ async function mergeDocs(
   warnings: string[],
 ): Promise<{ merged: number; skipped: number }> {
   const discovered = new Set(ctx.docs.map((d) => d.path));
+
+  // Seed from whatever a previous merge already wrote, so authoring docs across several passes
+  // (or re-merging a file that covers only one doc) is additive rather than destructive. A
+  // pending entry replaces the cached extract for the same path; a cached path the repo no
+  // longer discovers is dropped, since the `docs` input hash is computed over the discovered set.
   const byPath = new Map<string, DocExtract>();
+  for (const cached of readArtifact<DocExtract[]>(ctx, "docs")?.data ?? []) {
+    if (discovered.has(cached.path)) byPath.set(cached.path, cached);
+  }
+  const claimed = new Set<string>();
   let merged = 0;
   let skipped = 0;
 
@@ -607,11 +620,12 @@ async function mergeDocs(
       skipped++;
       continue;
     }
-    if (byPath.has(entry.path)) {
+    if (claimed.has(entry.path)) {
       warnings.push(`doc ${key}: ${entry.path} is already claimed by an earlier entry — skipped`);
       skipped++;
       continue;
     }
+    claimed.add(entry.path);
     byPath.set(entry.path, {
       path: entry.path,
       purpose: entry.purpose,
@@ -621,10 +635,7 @@ async function mergeDocs(
     merged++;
   }
 
-  const docs = ctx.docs.flatMap((d) => {
-    const extract = byPath.get(d.path);
-    return extract ? [extract] : [];
-  });
+  const docs = [...byPath.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   writeArtifact(ctx, "docs", await computeInputHash("docs", ctx, {}), docs);
   return { merged, skipped };
 }
@@ -632,44 +643,66 @@ async function mergeDocs(
 /**
  * Overlays agent-authored block labels onto the labels recovered from a cached artifact.
  *
- * Pending labels are keyed by the block's `u:block:<hash>` unit id, the only block identity that
- * reaches `extraction.json` — the extractor's readable `blockId` ("decision:0") is internal and
- * never persisted. `buildBlockUnits` wants them grouped by owning function, so the owner is
- * resolved from the live block graph here; an id that no function owns is an authoring typo and
- * is warned + skipped rather than aborting the merge, matching every other merge path in this file.
+ * Labels are authored per function unit (`units[<id>].blockLabels`) and keyed by the extractor's
+ * readable `blockId` — "decision:0", "loop:1". That id is not persisted verbatim:
+ * `resolveBlockGraph` hashes it into `u:block:<hash>`. Since blocks are emitted in stable walker
+ * order, the readable form is reconstructed here from each function's block sequence — counting
+ * per `blockType`, exactly as the walkers mint it. The hashed `u:block:<hash>` form is accepted
+ * too, so a caller reading ids straight out of `extraction.json` still works.
+ *
+ * An id no function owns, or a label on a unit with no block graph, is an authoring typo: warned
+ * and skipped rather than aborting the merge, matching every other merge path in this file.
  */
 function mergeBlockLabels(
   ctx: ArtifactContext,
-  pendingBlockLabels: Record<string, PendingBlockLabel>,
+  pendingUnits: Record<string, { blockLabels?: Record<string, PendingBlockLabel> }>,
   recovered: Map<string, Map<string, BlockLabelWithProvenance>>,
   warnings: string[],
 ): { labels: Map<string, Map<string, BlockLabelWithProvenance>>; merged: number; skipped: number } {
-  const entries = Object.entries(pendingBlockLabels);
-  if (entries.length === 0) return { labels: recovered, merged: 0, skipped: 0 };
+  const withLabels = Object.entries(pendingUnits).filter(([, u]) => u.blockLabels && Object.keys(u.blockLabels).length > 0);
+  if (withLabels.length === 0) return { labels: recovered, merged: 0, skipped: 0 };
 
-  // Block id -> the function unit id that owns it, straight off the live block graph.
-  const ownerByBlockId = new Map<string, string>();
+  // Per owning function unit: readable blockId ("decision:0") and hashed id -> the hashed id the
+  // builder keys labels by. Readable ids are reconstructed in emission order, per blockType,
+  // matching how `walk-python`/`walk-typescript` mint them.
   const unitIdByQualname = new Map(ctx.graph.units.map((u) => [u.qualname, u.id]));
+  const resolvableByOwner = new Map<string, Map<string, string>>();
   for (const [qualname, bg] of Object.entries(ctx.graph.blockGraph)) {
     const owner = unitIdByQualname.get(qualname);
     if (!owner) continue;
-    for (const block of bg.blocks) ownerByBlockId.set(block.id, owner);
+    const resolvable = new Map<string, string>();
+    const seen = new Map<string, number>();
+    for (const block of bg.blocks) {
+      const n = seen.get(block.blockType) ?? 0;
+      seen.set(block.blockType, n + 1);
+      resolvable.set(`${block.blockType}:${n}`, block.id);
+      resolvable.set(block.id, block.id);
+    }
+    resolvableByOwner.set(owner, resolvable);
   }
 
   const labels = new Map([...recovered].map(([fn, m]) => [fn, new Map(m)]));
   let merged = 0;
   let skipped = 0;
-  for (const [blockId, pendingLabel] of entries) {
-    const owner = ownerByBlockId.get(blockId);
-    if (!owner) {
-      warnings.push(`block label ${blockId}: no such block in the current extraction — skipped`);
-      skipped++;
+  for (const [unitId, pendingUnit] of withLabels) {
+    const resolvable = resolvableByOwner.get(unitId);
+    if (!resolvable) {
+      warnings.push(`unit ${unitId}: has blockLabels but no control-flow blocks in the current extraction — skipped`);
+      skipped += Object.keys(pendingUnit.blockLabels!).length;
       continue;
     }
-    const forFunction = labels.get(owner) ?? new Map<string, BlockLabelWithProvenance>();
-    forFunction.set(blockId, { label: pendingLabel, provenance: { source: "manual", pass: "A" } });
-    labels.set(owner, forFunction);
-    merged++;
+    for (const [blockId, pendingLabel] of Object.entries(pendingUnit.blockLabels!)) {
+      const resolved = resolvable.get(blockId);
+      if (!resolved) {
+        warnings.push(`unit ${unitId}: block ${blockId} is not in this function's control-flow graph — skipped`);
+        skipped++;
+        continue;
+      }
+      const forFunction = labels.get(unitId) ?? new Map<string, BlockLabelWithProvenance>();
+      forFunction.set(resolved, { label: pendingLabel, provenance: { source: "manual", pass: "A" } });
+      labels.set(unitId, forFunction);
+      merged++;
+    }
   }
   return { labels, merged, skipped };
 }

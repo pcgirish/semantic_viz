@@ -110,6 +110,40 @@ describe("assembleSnapshotFromCache", () => {
     expect(result.snapshot.units.some((u) => u.kind === "layer")).toBe(false);
   });
 
+  it("does not duplicate blocks when the base snapshot already carries persisted ones", async () => {
+    // A historical snapshot (`--sha`) is re-assembled from `.scv/snapshots/<sha>.json`, which
+    // already persists block units *and* their control_flow edges. `finalizeSnapshot` appends
+    // `blockUnits`/`blockEdges` itself, so assembly must strip the persisted copies from the base
+    // snapshot first — units and edges alike — or every block edge is emitted twice.
+    const providerForCache = fakeProvider();
+    const ctxForCache = makeCtx(providerForCache);
+    await ensureArtifact("functions", ctxForCache);
+
+    const provider = fakeProvider();
+    const ctx = makeCtx(provider);
+    const cached = await ensureArtifact("functions", ctx, { allowProvider: new Set<never>() });
+    expect(cached.data.blockUnits.length).toBeGreaterThan(0);
+    expect(cached.data.blockEdges.length).toBeGreaterThan(0);
+
+    // Simulate the historical-snapshot shape: blocks already inside the base snapshot.
+    ctx.snapshot = {
+      ...ctx.snapshot,
+      units: [...ctx.snapshot.units, ...cached.data.blockUnits],
+      edges: [...ctx.snapshot.edges, ...cached.data.blockEdges],
+    };
+
+    const result = await assembleSnapshotFromCache({ ctx, rev, scvDir });
+
+    const blockUnitIds = result.snapshot.units.filter((u) => u.kind === "block").map((u) => u.id);
+    expect(blockUnitIds.length).toBe(new Set(blockUnitIds).size);
+
+    const flowKeys = result.snapshot.edges
+      .filter((e) => e.kind === "control_flow")
+      .map((e) => `${e.from}->${e.to}:${e.flowType ?? ""}`);
+    expect(flowKeys.length).toBe(new Set(flowKeys).size);
+    expect(flowKeys.length).toBe(cached.data.blockEdges.length);
+  });
+
   it("reparents layers under a real group once groups is cached too", async () => {
     const providerForCache = fakeProvider();
     const ctxForCache = makeCtx(providerForCache);
