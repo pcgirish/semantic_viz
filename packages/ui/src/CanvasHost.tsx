@@ -9,13 +9,6 @@ import { DEFAULT_EDGE_BUDGET } from "./edge-budget.js";
 import { useAppStore } from "./store.js";
 import { sceneBounds, usePanZoom } from "./usePanZoom.js";
 
-/**
- * Scene-space clearance between the right-most tile and the crossing connectors' shared
- * endpoint. `sceneBounds` already pads the extent by 24 beyond the right-most tile, so this
- * puts the endpoint — and the arrowhead beyond it — inside `base`, which GraphCanvas clips to.
- */
-const CROSSING_GUTTER_MARGIN = 4;
-
 /** Below this canvas width the tray would occlude most of the scene, so it starts collapsed. */
 const NARROW_CANVAS = 640;
 
@@ -195,37 +188,15 @@ export function CanvasHost({
     return segments;
   });
 
-  // Crossing edges have no second tile to attach to — their far endpoint was collapsed into a
-  // tray row. Rather than leave the highlight as lit tiles with nothing joining them, draw each
-  // one as a stub running from its tile out to a shared point in the right-hand gutter, which is
-  // where the tray sits. `base.w - MARGIN` keeps the endpoint (and its arrowhead) inside the box
-  // GraphCanvas clips to; `sceneBounds` reserves 24 of padding there for exactly this.
-  const nodeById = useMemo(() => new Map(scene.nodes.map((n) => [n.id, n])), [scene.nodes]);
-  const crossingConnectors = useMemo(() => {
-    if (hover || !activeRow) return [];
-    const gutterX = base.w - CROSSING_GUTTER_MARGIN;
-    return activeRow.tiles.flatMap((t) => {
-      const n = nodeById.get(t.interior);
-      if (!n) return [];
-      const x1 = n.x + n.w - base.x;
-      const y1 = n.y + n.h / 2 - base.y;
-      // "both" draws one stub per direction so the row's mixed coupling is legible as such
-      // rather than collapsing to a single arbitrary colour.
-      const kinds =
-        t.direction === "both" ? (["hover-out", "hover-in"] as const) : ([`hover-${t.direction}`] as const);
-      return kinds.map((kind, i) => ({
-        x1,
-        y1: y1 + (i === 0 ? 0 : 6),
-        x2: gutterX,
-        y2: y1 + (i === 0 ? 0 : 6),
-        from: kind === "hover-out" ? t.interior : activeRow.id,
-        to: kind === "hover-out" ? activeRow.id : t.interior,
-        kind,
-        route: "ortho" as const,
-        heavy: t.weight > 1,
-      }));
-    });
-  }, [hover, activeRow, nodeById, base.x, base.y, base.w]);
+  // A crossing edge has no second tile to draw to — the sibling it addresses was collapsed into
+  // a tray row, which lives outside the scene entirely (a `.canvas-scroll` child in viewport
+  // space, not inside the scaled `.canvas-scale` box). No scene-space endpoint can reach it, so
+  // a connector could only ever terminate somewhere arbitrary. The coupling is carried by the
+  // tiles themselves instead: each one is filled by the direction its edges to that sibling run.
+  const couplingByTile = useMemo(() => {
+    if (hover || !activeRow) return null;
+    return new Map(activeRow.tiles.map((t) => [t.interior, t.direction]));
+  }, [hover, activeRow]);
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (didPan()) return;
@@ -325,7 +296,7 @@ export function CanvasHost({
         {scene.regions.map((r) => (
           <Fragment key={r.id}>{regionBox(r, { origin: base })}</Fragment>
         ))}
-        <ConnectorLayer edges={[...connectorEdges, ...crossingConnectors]} focus={focus} />
+        <ConnectorLayer edges={connectorEdges} focus={focus} />
         {scene.nodes.map((n) => {
           const d = deltaByUnit?.get(n.id);
           // serve.md#2: hue encodes layer (categorical), not `heat` — heat is always 0
@@ -342,6 +313,7 @@ export function CanvasHost({
                 layerColor,
                 origin: base,
                 focus,
+                coupling: couplingByTile?.get(n.id) ?? undefined,
                 onFocusNode: (id: string) => setHover(id),
                 onClick: (e) => {
                   e.stopPropagation();

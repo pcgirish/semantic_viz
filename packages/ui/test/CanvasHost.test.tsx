@@ -527,6 +527,7 @@ describe("CanvasHost: connected-siblings tray", () => {
     return [...container.querySelectorAll("svg path")].filter((p) => STROKES.includes(p.getAttribute("stroke") || ""));
   }
 
+
   // A wide viewport for the whole block, so `defaultOpen` resolves to open and the rows are in
   // the DOM. Set explicitly rather than relying on jsdom's default: the fit-to-content block
   // above stubs the same getters and cannot fully restore them (jsdom defines clientWidth on
@@ -556,48 +557,60 @@ describe("CanvasHost: connected-siblings tray", () => {
     expect(useAppStore.getState().selection).toBeNull();
   });
 
-  it("draws one crossing connector per coupled tile, running out to the right-hand gutter", () => {
+  it("fills each coupled tile by the direction its edges to the hovered sibling run", () => {
+    const mixed: SiblingSummary[] = [
+      {
+        ...siblings[0]!,
+        tiles: [
+          { interior: "a", edgeCount: 1, weight: 1, direction: "out" },
+          { interior: "b", edgeCount: 1, weight: 1, direction: "in" },
+        ],
+        direction: "both",
+      },
+    ];
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={mixed} focusId="g1" />);
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    // The sibling itself is a tray row, not a tile, so the coupling has nowhere to be drawn to;
+    // the tiles carry it. Outbound reads orange, inbound azure — the same in/out vocabulary the
+    // tile-hover trace uses for real connectors.
+    const bg = (id: string) => (container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement).style.background;
+    expect(bg("a")).toContain("var(--temp-4)");
+    expect(bg("b")).toContain("var(--cool-azure)");
+  });
+
+  it("splits a tile coupled both ways between the two colours", () => {
+    const both: SiblingSummary[] = [
+      { ...siblings[0]!, tiles: [{ interior: "a", edgeCount: 2, weight: 2, direction: "both" }], direction: "both" },
+    ];
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={both} focusId="g1" />);
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    const bg = (container.querySelector('.tile[data-id="a"]') as HTMLElement).style.background;
+    expect(bg).toContain("var(--temp-4)");
+    expect(bg).toContain("var(--cool-azure)");
+  });
+
+  it("adds no connectors for crossing edges, which have no second tile to reach", () => {
     const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
     const before = connectors(container).length;
 
     fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
 
-    const after = connectors(container);
-    expect(after.length).toBe(before + 1);
-    // hover-out is orange, and the exemption in ConnectorLayer keeps it at full opacity even
-    // though its far endpoint is a tray row rather than a node in `focus.near`.
-    const crossing = after.find((p) => p.getAttribute("stroke") === "var(--temp-4)")!;
-    expect(crossing.getAttribute("opacity")).toBe("1");
-    // weight 3 > the baseline 1, so the stub inherits the heavy stroke.
-    expect(crossing.getAttribute("stroke-width")).toBe("var(--connector-w-heavy)");
+    expect(connectors(container).length).toBe(before);
   });
 
-  it("colours the crossing connector by the tile's direction", () => {
-    const inbound: SiblingSummary[] = [
-      { ...siblings[0]!, tiles: [{ interior: "a", edgeCount: 1, weight: 1, direction: "in" }], direction: "in" },
-    ];
-    const { container } = render(<CanvasHost units={units} edges={edges} siblings={inbound} focusId="g1" />);
-
-    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
-
-    // Inbound reads azure, matching the tile-hover trace's own in/out vocabulary.
-    expect(connectors(container).some((p) => p.getAttribute("stroke") === "var(--cool-azure)")).toBe(true);
-  });
-
-  it("keeps every crossing connector inside the clipped canvas box", () => {
-    // GraphCanvas clips to base.w x base.h, so an endpoint past base.w would silently vanish.
+  it("clears the coupling fill when the pointer leaves the row", () => {
     const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
-    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+    const bg = () => (container.querySelector('.tile[data-id="a"]') as HTMLElement).style.background;
 
-    const scale = container.querySelector(".canvas-scale") as HTMLElement;
-    const w = parseFloat(scale.style.width);
-    const crossing = connectors(container).find((p) => p.getAttribute("stroke") === "var(--temp-4)")!;
-    const xs = [...(crossing.getAttribute("d") ?? "").matchAll(/-?\d+(\.\d+)?/g)]
-      .map((m) => Number(m[0]))
-      .filter((_, i) => i % 2 === 0);
-    expect(Math.max(...xs)).toBeLessThan(w);
-    // And it is an actual line, not a zero-length nub at the tile's own edge.
-    expect(Math.max(...xs)).toBeGreaterThan(Math.min(...xs));
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+    expect(bg()).toContain("var(--temp-4)");
+
+    fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
+    expect(bg()).toBe("");
   });
 
   it("keeps a pinned row's highlight after the pointer leaves the tray", () => {

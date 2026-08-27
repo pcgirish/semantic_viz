@@ -142,4 +142,36 @@ describe("node encoding channels", () => {
       expect(el.style.filter).toBe("");
     });
   });
+
+  describe("coupling: split fill = direction of a hovered sibling's edges", () => {
+    // A tile is a polygon whose silhouette comes from a clip-path, so the two-tone fill has to
+    // be a gradient on the element itself — a half-width child would spill past the clip.
+    it("fills a tile coupled only outbound with the outbound colour alone", () => {
+      const el = tile(node(makeNode({ id: "a" }), { coupling: "out" }));
+      expect(el.style.background).toContain("var(--temp-4)");
+      expect(el.style.background).not.toContain("var(--cool-azure)");
+    });
+
+    it("fills a tile coupled only inbound with the inbound colour alone", () => {
+      const el = tile(node(makeNode({ id: "a" }), { coupling: "in" }));
+      expect(el.style.background).toContain("var(--cool-azure)");
+      expect(el.style.background).not.toContain("var(--temp-4)");
+    });
+
+    it("splits a both-ways tile between the two colours, with a hard edge", () => {
+      // The point of the split is that "both" is visibly composed of in and out rather than
+      // being a third thing to learn, so both colours must appear...
+      const el = tile(node(makeNode({ id: "a" }), { coupling: "both" }));
+      expect(el.style.background).toContain("var(--temp-4)");
+      expect(el.style.background).toContain("var(--cool-azure)");
+      // ...and meet at a hard stop, not blend into a gradient that reads as a third colour.
+      expect(el.style.background).toContain("50%");
+      expect(el.style.background).toContain("linear-gradient");
+    });
+
+    it("leaves an uncoupled tile's fill to the layer hue", () => {
+      const el = tile(node(makeNode({ id: "a" }), {}));
+      expect(el.style.background).toBe("");
+    });
+  });
 });

@@ -50,8 +50,8 @@ structurally sound navigation hierarchy. Landed so far:
 - Real `group` units built deterministically from layer ids (not
   LLM-chosen names), with rollup edges carrying concrete edge counts
 - Connected-siblings tray — focusing a group still shows its coupling to
-  the rest of the system, as hoverable/pinnable rows that light the tiles
-  involved rather than as tiles in scene space
+  the rest of the system, as hoverable/pinnable rows that fill the tiles
+  involved by edge direction rather than as tiles in scene space
 - Deterministic clustering with an adversarial fixture, algorithm/
   thresholds recorded in snapshot provenance, explicit split/merge lineage
   across revisions

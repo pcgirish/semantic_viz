@@ -32,6 +32,24 @@ describe("Legend", () => {
     cleanup();
   });
 
+  it("explains the connected-siblings tile fills, including the split for both-ways", () => {
+    // The fill is the only thing on the canvas saying which way a tray sibling's edges run —
+    // that sibling has no tile of its own — so it has to be decodable from the legend.
+    const units = [
+      makeUnit({ id: "u:layer:a", kind: "layer", name: "orders" }),
+      makeUnit({ id: "x", parent: "u:layer:a" }),
+    ];
+    const { getByText, container } = render(<Legend units={units} mode="current" />);
+    expect(getByText("Connected siblings")).toBeTruthy();
+    expect(getByText("calls out to it")).toBeTruthy();
+    expect(getByText("called into by it")).toBeTruthy();
+
+    const split = getByText("both ways").querySelector("span") as HTMLElement;
+    expect(split.style.background).toContain("var(--temp-4)");
+    expect(split.style.background).toContain("var(--cool-azure)");
+    expect(container.textContent).toContain("both ways");
+  });
+
   it("renders one chip per distinct layer among the given units", () => {
     const units = [
       makeUnit({ id: "u:layer:a", kind: "layer", name: "orders" }),

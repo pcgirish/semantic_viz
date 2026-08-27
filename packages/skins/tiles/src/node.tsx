@@ -41,6 +41,28 @@ function riskStyle(d: DeltaInfo | undefined): CSSProperties {
   return atRisk ? { filter: "drop-shadow(0 0 0 1px var(--temp-6))" } : {};
 }
 
+/** Which way a tile's edges run to the sibling currently highlighted in the tray. */
+export type Coupling = "in" | "out" | "both";
+
+/** Matches the in/out vocabulary the hover trace already uses for real connectors. */
+const COUPLING_COLOR = { in: "var(--cool-azure)", out: "var(--temp-4)" } as const;
+
+/**
+ * Coupling as a split fill (the tray's crossing edges have no second tile to draw to, since the
+ * sibling they address is a tray row rather than something on the canvas). A tile is a clipped
+ * polygon, so this has to be a gradient on the element itself; a hard stop at 50% keeps "both"
+ * reading as its two halves instead of blending into a third colour.
+ */
+export function couplingStyle(c: Coupling | undefined): CSSProperties {
+  if (!c) return {};
+  if (c === "both") {
+    return {
+      background: `linear-gradient(135deg, ${COUPLING_COLOR.out} 0 50%, ${COUPLING_COLOR.in} 50% 100%)`,
+    };
+  }
+  return { background: COUPLING_COLOR[c] };
+}
+
 /**
  * The shared RenderContext (delta, layer hue) plus what only a DOM host can supply:
  * where the scroll origin is, and the handlers to bind. Extending rather than redeclaring
@@ -50,6 +72,8 @@ export type TileContext = RenderContext & {
   /** Scene-space origin the tile's absolute position is measured from. */
   origin?: { x: number; y: number };
   focus?: FocusState;
+  /** Set only on tiles the tray's highlighted sibling couples to. */
+  coupling?: Coupling;
   onFocusNode?: (id: string) => void;
   onClick?: (e: MouseEvent) => void;
   onDoubleClick?: (e: MouseEvent) => void;
@@ -84,6 +108,9 @@ export function node(n: SceneNode, ctx: TileContext = {}): ReactElement {
           height: n.h,
           ...deltaStyle(ctx.delta),
           ...riskStyle(ctx.delta),
+          // Last, so a coupling highlight wins over the delta fill: it answers the question
+          // the pointer is asking right now.
+          ...couplingStyle(ctx.coupling),
         } as CSSProperties
       }
       onClick={ctx.onClick}
