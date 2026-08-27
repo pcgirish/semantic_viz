@@ -557,6 +557,19 @@ describe("CanvasHost: connected-siblings tray", () => {
     expect(useAppStore.getState().selection).toBeNull();
   });
 
+  it("lights a row hovered straight off a tile, rather than holding the stale tile hover", () => {
+    // The real gesture: the pointer is already over a tile and moves onto a row. The tray is
+    // inside `.canvas-scroll`, so the canvas's own onMouseLeave never fires and the tile hover
+    // would otherwise still be set — and tile hover outranks the row, so nothing lit up.
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    fireEvent.mouseOver(container.querySelector('.tile[data-id="b"]') as HTMLElement);
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    const bg = (container.querySelector('.tile[data-id="a"]') as HTMLElement).style.background;
+    expect(bg).toContain("var(--temp-4)");
+  });
+
   it("fills each coupled tile by the direction its edges to the hovered sibling run", () => {
     const mixed: SiblingSummary[] = [
       {

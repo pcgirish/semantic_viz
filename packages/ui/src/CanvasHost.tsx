@@ -272,7 +272,14 @@ export function CanvasHost({
         <ConnectedSiblingsTray
           siblings={siblings}
           pinned={rowPinned}
-          onHover={setRowHover}
+          // The tray sits inside `.canvas-scroll`, so moving the pointer from a tile onto a row
+          // never fires the canvas's own onMouseLeave and the tile hover stays set — and tile
+          // hover outranks the row, so the highlight never appeared. Being over a row is itself
+          // proof the pointer is off the tiles.
+          onHover={(id) => {
+            if (id !== null) setHover(null);
+            setRowHover(id);
+          }}
           onTogglePin={(id) => setRowPinned((p) => (p === id ? null : id))}
           defaultOpen={viewport.w === 0 || viewport.w >= NARROW_CANVAS}
           maxHeight={Math.max(120, viewport.h - 96)}
