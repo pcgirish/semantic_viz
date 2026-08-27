@@ -5,8 +5,9 @@ implemented. What remains is cost-in-USD assignment and the file-duplication *an
 the trace records `file` per call, but nothing queries it yet. This document tracks both
 the shipped reporting and the follow-up design, prompted by two things found while fixing
 layer semantics: Pass A/B/C calls had no visibility into token cost, and Pass A sends one
-prompt per leaf unit — if several units share a file, that file's source is re-sent once
-per unit with no way to currently detect it.
+prompt per leaf unit — with, it was supposed, a shared file's source re-sent once per unit.
+That second premise has since been **disproved** by the logging this document motivated;
+Pass A slices per-unit spans, not whole files. See the correction below.
 
 **Status verified against code 2026-08-26.** Shipped: `ProviderResult` in/out tokens
 (all three providers), the `llm_calls` table (`packages/interpreter/src/cache.ts:95`,
@@ -14,6 +15,11 @@ columns `pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, durati
 ts`), and per-unit progress via `reportProgress` (`orchestrate.ts:272`). Not built:
 `cost_usd`, any query/report over the recorded `file` column, and any surface beyond the
 `scv analyze` summary — no server route, no UI. See "Surfacing it" below.
+
+**Correction (2026-08-26):** an earlier revision claimed real-run data confirmed the
+per-file source-duplication hypothesis this document opened with. It does not — see
+"The duplication hypothesis, tested against real data" below. The measurable duplication
+is prompt boilerplate, not file source.
 
 ## Goal
 
@@ -110,27 +116,46 @@ Recommendation: **CLI-only first.** It answers the three questions this doc open
 without committing to a persistence model. Surfacing spend per rev over time is worth its
 own plan if it is wanted.
 
-#### Evidence the duplication hypothesis is real
+#### The duplication hypothesis, tested against real data — and corrected
 
-Run against `../eq_to_word_problem`, queried by hand from `llm_calls` (46 Pass A calls,
-20549 in / 19049 out tokens):
+**The original premise was wrong, and the data disproves it.** This document opened by
+supposing that "Pass A sends one prompt per leaf unit — if several units share a file,
+that file's source is re-sent once per unit". An earlier revision of this section claimed
+a run against `../eq_to_word_problem` had *confirmed* that, on the strength of a
+`count(*) GROUP BY file` query showing `auth_service.py` with 10 calls.
 
-| file | calls | in_tokens |
-|---|---|---|
-| `backend/services/auth_service.py` | 10 | 4561 |
-| `backend/services/eval_criteria_service.py` | 8 | 4113 |
-| `backend/routers/auth.py` | 5 | 2228 |
+That query does not show what it was read to show. Grouping calls by file counts **units
+per file**, which is expected and harmless on its own. The per-call token counts settle it:
 
-So the premise that opened this document — one prompt per leaf unit, re-sending a shared
-file's source per unit — is confirmed by real data, not just suspected.
+| file | calls | min in_tokens | max in_tokens |
+|---|---|---|---|
+| `backend/services/eval_service.py` | 13 | 355 | 1363 |
+| `backend/services/auth_service.py` | 10 | 337 | 645 |
+| `backend/services/equation_validator.py` | 7 | 375 | 1207 |
 
-Two caveats on reading these numbers, which any built-in report must respect:
+Input size varies with each *function's* size, not with the file's. If the whole file were
+embedded per call, every row for a given file would be large and roughly equal.
 
-- `count(*)` per file counts *units in that file*, which is expected on its own. Whether
-  it is **waste** depends on how much of each prompt is shared file source versus
-  per-unit graph context. A duplication report has to answer that, not just count rows.
-- `cache_hit` was 0 throughout because this was a cold run; that is not evidence about
-  the hit path (covered by `cached-provider.test.ts`).
+The code agrees: `passAPrompt` is handed
+`readSource(symbolUnit.loc.file, symbolUnit.loc.start, symbolUnit.loc.end)`
+(`orchestrate.ts`), which slices **that unit's span only** — never the enclosing file.
+
+So there is no per-file source duplication to eliminate, and the batching redesign this
+document floated as question (3) has no motivating evidence behind it. Do not reopen it
+on the strength of a file-grouped call count alone.
+
+#### What *is* duplicated: the prompt boilerplate
+
+Measured on the same run (334 Pass A calls, 298562 input tokens, mean 894/call):
+
+Every Pass A prompt ends with an identical ~250-token JSON response schema, and nearly
+every one opens with the identical role sentence — `unit.kind` is `"function"` for the
+overwhelming majority of units, so the framing is stable across long runs of consecutive
+calls. That is on the order of **80K of the 298K input tokens (~30%) re-sent verbatim**,
+and it sits at the *tail* of the prompt where no prefix cache can reach it.
+
+This is the duplication worth chasing, and it is a prompt-ordering problem rather than a
+batching one. Tracked in `docs/backlog/prompt-prefix-ordering.md`.
 
 ### Progress during the run, not just a summary after — **shipped**
 
