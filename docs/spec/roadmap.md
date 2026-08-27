@@ -76,8 +76,10 @@ merged" in `README.md`.
 
 ## Future work (not yet planned in `docs/plans/`)
 
-- `docs/llm-call-observability.md` — per-call token/cost logging,
-  file-duplication detection
+- `docs/llm-call-observability.md` — cost-in-USD assignment and the
+  file-duplication *analysis*. Per-call token logging (`llm_calls` table) and
+  in-run progress logging have shipped; the trace records `file` per call but
+  nothing queries it yet
 - Check-in split: `scv export --structural` for committing deterministic
   (non-LLM) snapshot data
 - Group-narration pass — groups currently ship with `semantics: null`

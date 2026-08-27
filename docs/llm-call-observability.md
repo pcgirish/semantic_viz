@@ -1,11 +1,18 @@
 # LLM call observability
 
-Token direction reporting is implemented for provider calls and `scv analyze` summaries.
-The per-call SQLite trace and file-duplication analysis remain future work. This document
-tracks both the shipped usage reporting and the follow-up design, prompted by two things
-found while fixing layer semantics: Pass A/B/C calls have no visibility into token cost,
-and Pass A sends one prompt per leaf unit — if several units share a file, that file's
-source is re-sent once per unit with no way to currently detect it.
+Token direction reporting, the per-call SQLite trace, and in-run progress logging are all
+implemented. What remains is cost-in-USD assignment and the file-duplication *analysis* —
+the trace records `file` per call, but nothing queries it yet. This document tracks both
+the shipped reporting and the follow-up design, prompted by two things found while fixing
+layer semantics: Pass A/B/C calls had no visibility into token cost, and Pass A sends one
+prompt per leaf unit — if several units share a file, that file's source is re-sent once
+per unit with no way to currently detect it.
+
+**Status verified against code 2026-08-26.** Shipped: `ProviderResult` in/out tokens
+(all three providers), the `llm_calls` table (`packages/interpreter/src/cache.ts:95`,
+columns `pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, duration_ms,
+ts`), and per-unit progress via `reportProgress` (`orchestrate.ts:272`). Not built:
+`cost_usd`, and any query/report over the recorded `file` column.
 
 ## Goal
 
@@ -54,7 +61,7 @@ Only meaningful for paid providers. A small static `$/1K tokens` price table per
 applied to in/out tokens, gives `cost_usd`. Local Ollama rows are `cost_usd: 0` /
 `null` — tokens matter there for latency/throughput, not billing.
 
-### Where it's stored
+### Where it's stored — **shipped**
 
 `.scv/cache.sqlite` (already the interpreter's local store), as a new table — not a
 flat log file, so "group by file, count calls" is a one-line query. `CachedProvider`
@@ -68,7 +75,9 @@ The shipped version prints a summary line at the end of `scv analyze` with total
 tokens, provider-call count, and cache hits. Persisting per-call rows (above) would still
 be needed for file-duplication queries and cost trends across runs.
 
-### Progress during the run, not just a summary after
+### Progress during the run, not just a summary after — **shipped**
+
+(Implemented as `reportProgress` in `orchestrate.ts`; the design discussion below is kept for history.)
 
 A full-repo analyze against a local model takes long enough (minutes, observed on this
 repo's own ~500 units at `PASS_A_CONCURRENCY = 2`) that a silent CLI is a bad
