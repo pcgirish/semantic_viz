@@ -140,7 +140,9 @@ injects it into the artifact cache as if a real Pass A had produced it.
    prints `merged N, skipped M` and warns (to stderr) about any unit id
    that didn't match current extraction or had a `kind` mismatch — those
    entries are skipped, not fatal.
-5. A subsequent `scv analyze <root>` reuses the merged `functions` artifact
+5. A subsequent `scv analyze <root>` — bare, without `--no-llm`, so that a
+   stray provider call would show up rather than being suppressed — reuses the
+   merged `functions` artifact
    as-is (its `inputHash` already matches) — no provider call happens for
    merged units. Units outside scope still compute normally on the next
    real analyze.

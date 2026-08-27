@@ -10,6 +10,7 @@ import { semanticHashInput, type Unit } from "@scv/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
 import { discoverDocs } from "../src/discover-docs.js";
+import { assembleSnapshotFromCache } from "../src/assemble-snapshot.js";
 import { inScope, mergeFlows, mergeSemantics, runMergeSemantics } from "../src/merge-semantics.js";
 import { headRev } from "../src/rev.js";
 import { toSnapshot } from "../src/snapshot.js";
@@ -701,6 +702,34 @@ describe("mergeSemantics", () => {
     await expect(mergeFlows(drifted, {}, false, [])).rejects.toThrow(/functions artifact is stale/);
   });
 
+  it("partitions a persisted snapshot's inline blocks into blockUnits/blockEdges", async () => {
+    // A real `--sha` snapshot carries block units inline in `units` alongside their control_flow
+    // edges. `blockUnits`/`blockEdges` are the only collections that own block data downstream, so
+    // seeding them empty strands the blocks in `units`, where assembly can neither strip nor
+    // re-supply them — the snapshot then loses its flowchart, or duplicates it.
+    const historicalSha = "historical-blocks-sha";
+    const rev = { sha: historicalSha, kind: "commit" as const, ts: "2019-01-01T00:00:00Z", author: "test", author_kind: "human" as const };
+    const baseCtx: ArtifactContext = { ...ctx, sha: historicalSha };
+    const assembled = await assembleSnapshotFromCache({ ctx: baseCtx, rev, scvDir });
+    expect(assembled.snapshot.units.some((u) => u.kind === "block")).toBe(true);
+
+    const snapshotFile = path.join(scvDir, "snapshots", `${historicalSha}.json`);
+    mkdirSync(path.dirname(snapshotFile), { recursive: true });
+    writeFileSync(snapshotFile, JSON.stringify(assembled.snapshot));
+
+    // Merge against that persisted snapshot, with no cached `functions` artifact to seed from.
+    rmSync(path.join(scvDir, "artifacts", historicalSha), { recursive: true, force: true });
+    const persistedCtx: ArtifactContext = { ...ctx, sha: historicalSha, snapshot: assembled.snapshot };
+    const pendingFile = writePending({ units: {} });
+    await mergeSemantics({ pendingFile, ctx: persistedCtx, root: orderlyRoot, fromPersistedSnapshot: true });
+
+    const stored = readFileSync(path.join(scvDir, "artifacts", historicalSha, "functions.json"), "utf-8");
+    const data = JSON.parse(stored).data as { units: Unit[]; blockUnits: Unit[]; blockEdges: { from: string; to: string }[] };
+    expect(data.blockUnits.length).toBeGreaterThan(0);
+    expect(data.blockEdges.length).toBeGreaterThan(0);
+    expect(data.units.some((u) => u.kind === "block")).toBe(false);
+  });
+
   it("with --with-flows, refuses a graph rebuilt from a persisted snapshot", async () => {
     const historicalSha = "historical-flows-sha";
     const historicalSnapshot = toSnapshot(await extractRepo(orderlyRoot), {
@@ -994,6 +1023,62 @@ describe("mergeSemantics block units", () => {
     });
 
     expect(storedFunctions().blockUnits.find((u) => u.id === first.id)!.name).toBe("start here");
+  });
+
+  it("drops a branch label on a block with no such branch edge, keeping the node label", async () => {
+    // `buildBlockUnits` only reads trueLabel/falseLabel when it emits a "true"/"false" edge out of
+    // that block. On a block that owns neither, storing them would be inert-but-invisible.
+    const [qualname, bg] = Object.entries(graph.blockGraph).find(([, g]) =>
+      g.blocks.some((b) => !g.edges.some((e) => e.from === b.id && (e.edgeType === "true" || e.edgeType === "false"))),
+    )!;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    const unbranched = bg.blocks.find(
+      (b) => !bg.edges.some((e) => e.from === b.id && (e.edgeType === "true" || e.edgeType === "false")),
+    )!;
+
+    const result = await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, {
+        [unbranched.id]: { label: "plain step", trueLabel: "yes", falseLabel: "no" },
+      }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    const node = storedFunctions().blockUnits.find((u) => u.id === unbranched.id)!;
+    expect(node.name).toBe("plain step");
+    const outgoing = storedFunctions().blockEdges.filter((e) => e.from === unbranched.id);
+    expect(outgoing.every((e) => e.edgeLabel === undefined || e.edgeLabel === null)).toBe(true);
+    expect(result.warnings.some((w) => w.includes("trueLabel dropped"))).toBe(true);
+  });
+
+  it("keeps a branch label on a block that really owns that branch edge", async () => {
+    const entry = Object.entries(graph.blockGraph).find(([, g]) =>
+      g.blocks.some((b) => g.edges.some((e) => e.from === b.id && e.edgeType === "true")),
+    );
+    if (!entry) return;
+    const [qualname, bg] = entry;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    const branching = bg.blocks.find((b) => bg.edges.some((e) => e.from === b.id && e.edgeType === "true"))!;
+
+    await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, { [branching.id]: { label: "check it", trueLabel: "yes" } }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    const trueEdge = storedFunctions().blockEdges.find((e) => e.from === branching.id && e.flowType === "true")!;
+    expect(trueEdge.edgeLabel).toBe("yes");
+  });
+
+  it("rejects an empty branch label rather than storing a blank edge caption", async () => {
+    const { unitId, blockId } = someBlock();
+    await expect(
+      mergeSemantics({
+        pendingFile: writePendingWithLabels(unitId, { [blockId]: { label: "ok", trueLabel: "" } }),
+        ctx,
+        root: orderlyRoot,
+      }),
+    ).rejects.toThrow();
   });
 
   it("warns and skips a block id that does not exist, still merging the rest", async () => {

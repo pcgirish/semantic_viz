@@ -44,19 +44,20 @@ export async function assembleSnapshotFromCache(options: AssembleSnapshotOptions
   //     the block units and their `control_flow` edges.
   // Either one passed through unstripped duplicates every block (silently, for edges — the
   // double-carry guard in `finalizeSnapshot` only inspects units). So strip the persisted copies
-  // here and re-supply them through the channel that owns them. When `blockUnits` is empty there
-  // is nothing to re-supply, so blocks living only in the base snapshot are left where they are.
-  const blockIds = new Set(functionsResult.data.blockUnits.map((u) => u.id));
-  const functionUnits =
-    blockIds.size > 0 ? functionsResult.data.units.filter((u) => !blockIds.has(u.id)) : functionsResult.data.units;
-  const snapshotForAssembly =
-    blockIds.size > 0
-      ? {
-          ...ctx.snapshot,
-          units: ctx.snapshot.units.filter((u) => !blockIds.has(u.id)),
-          edges: ctx.snapshot.edges.filter((e) => !(e.kind === "control_flow" && (blockIds.has(e.to) || blockIds.has(e.from)))),
-        }
-      : ctx.snapshot;
+  // here and re-supply them through the channel that owns them.
+  //
+  // The strip is unconditional, keyed on `kind`/`kind === "control_flow"` rather than on the ids
+  // in `blockUnits`. Keying off those ids made it a no-op exactly when `blockUnits` was empty —
+  // which is the historical case where the base snapshot is the *only* block carrier, so the
+  // blocks stayed in `units` and violated the single-owner invariant instead of being restored
+  // through it. `mergeSemantics` now partitions persisted blocks into `blockUnits`/`blockEdges`
+  // up front, and this strip holds regardless of which path produced them.
+  const functionUnits = functionsResult.data.units.filter((u) => u.kind !== "block");
+  const snapshotForAssembly = {
+    ...ctx.snapshot,
+    units: ctx.snapshot.units.filter((u) => u.kind !== "block"),
+    edges: ctx.snapshot.edges.filter((e) => e.kind !== "control_flow"),
+  };
 
   const snapshot = finalizeSnapshot({
     snapshot: snapshotForAssembly,

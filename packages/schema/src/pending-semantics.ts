@@ -51,8 +51,8 @@ const PendingCostSchema = z.object({
  */
 export const PendingBlockLabelSchema = z.object({
   label: z.string().min(1).max(60),
-  trueLabel: z.string().max(24).optional(),
-  falseLabel: z.string().max(24).optional(),
+  trueLabel: z.string().min(1).max(24).optional(),
+  falseLabel: z.string().min(1).max(24).optional(),
 });
 
 export const PendingUnitSchema = z.object({

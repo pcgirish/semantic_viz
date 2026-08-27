@@ -282,10 +282,16 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   const pending = PendingSemanticsSchema.parse(raw);
 
   const functionsStored = readArtifact<FunctionsData>(ctx, "functions");
+  // With no cached artifact the base is the snapshot itself. A *persisted* snapshot already holds
+  // block units inline in `units`, plus their `control_flow` edges — and `blockUnits`/`blockEdges`
+  // are the only collections that own block data downstream. Seeding them empty would leave the
+  // blocks stranded in `units`, where `assembleSnapshotFromCache` cannot strip them (it keys off a
+  // non-empty `blockUnits`) and `finalizeSnapshot` never re-supplies them. So partition on the way
+  // in: blocks to their own collections, everything else stays the base.
   const functionsData: FunctionsData = functionsStored?.data ?? {
-    units: ctx.snapshot.units,
-    blockUnits: [],
-    blockEdges: [],
+    units: ctx.snapshot.units.filter((u) => u.kind !== "block"),
+    blockUnits: ctx.snapshot.units.filter((u) => u.kind === "block"),
+    blockEdges: ctx.snapshot.edges.filter((e) => e.kind === "control_flow"),
   };
 
   // Block units are pure AST structure, so they cost nothing to rebuild here and must not be
@@ -651,7 +657,9 @@ async function mergeDocs(
  * too, so a caller reading ids straight out of `extraction.json` still works.
  *
  * An id no function owns, or a label on a unit with no block graph, is an authoring typo: warned
- * and skipped rather than aborting the merge, matching every other merge path in this file.
+ * and skipped rather than aborting the merge, matching every other merge path in this file. A
+ * `trueLabel`/`falseLabel` on a block that has no such outgoing edge is dropped the same way,
+ * keeping the node label — the rest of the entry is still valid.
  */
 function mergeBlockLabels(
   ctx: ArtifactContext,
@@ -667,6 +675,7 @@ function mergeBlockLabels(
   // matching how `walk-python`/`walk-typescript` mint them.
   const unitIdByQualname = new Map(ctx.graph.units.map((u) => [u.qualname, u.id]));
   const resolvableByOwner = new Map<string, Map<string, string>>();
+  const branchesByOwner = new Map<string, Map<string, Set<string>>>();
   for (const [qualname, bg] of Object.entries(ctx.graph.blockGraph)) {
     const owner = unitIdByQualname.get(qualname);
     if (!owner) continue;
@@ -679,6 +688,21 @@ function mergeBlockLabels(
       resolvable.set(block.id, block.id);
     }
     resolvableByOwner.set(owner, resolvable);
+    // Which outgoing branch edges each block actually has. `buildBlockUnits` only reads
+    // `trueLabel`/`falseLabel` when it emits a "true"/"false" edge *out of that block*, so a
+    // branch label on a block with no such edge is silently inert — it would be stored in the
+    // artifact and never rendered. Derive this from the real edges rather than from a blockType
+    // allow-list: on `fixtures/orderly` it is `decision` blocks that own both branches, but a
+    // `sequential` block sitting on a branch owns a "true" edge too, while a `loop` owns neither
+    // (it loops back via "loop-back"). A type list would be wrong in both directions.
+    const branches = new Map<string, Set<string>>();
+    for (const edge of bg.edges) {
+      if (edge.edgeType !== "true" && edge.edgeType !== "false") continue;
+      const set = branches.get(edge.from) ?? new Set<string>();
+      set.add(edge.edgeType);
+      branches.set(edge.from, set);
+    }
+    branchesByOwner.set(owner, branches);
   }
 
   const labels = new Map([...recovered].map(([fn, m]) => [fn, new Map(m)]));
@@ -698,8 +722,21 @@ function mergeBlockLabels(
         skipped++;
         continue;
       }
+      // Drop a branch label the block has no edge for, keeping its node label: the merge is not
+      // wrong, just over-specified, and silently storing an unrenderable field would leave the
+      // author believing it took effect.
+      const owned = branchesByOwner.get(unitId)?.get(resolved) ?? new Set<string>();
+      const label = { ...pendingLabel };
+      for (const branch of ["true", "false"] as const) {
+        const field = branch === "true" ? "trueLabel" : "falseLabel";
+        if (label[field] !== undefined && !owned.has(branch)) {
+          warnings.push(`unit ${unitId}: block ${blockId} has no "${branch}" branch — ${field} dropped, node label kept`);
+          delete label[field];
+        }
+      }
+
       const forFunction = labels.get(unitId) ?? new Map<string, BlockLabelWithProvenance>();
-      forFunction.set(resolved, { label: pendingLabel, provenance: { source: "manual", pass: "A" } });
+      forFunction.set(resolved, { label, provenance: { source: "manual", pass: "A" } });
       labels.set(unitId, forFunction);
       merged++;
     }

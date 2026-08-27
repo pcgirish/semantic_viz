@@ -72,14 +72,17 @@ Failure modes are per-entry, so one bad entry never discards the rest:
 - Two entries claiming the same `path` → the first wins, the second is warned
   and skipped.
 
-Output is written in discovery order, not pending-file key order, so re-merging
+Output is sorted by `path`, not written in pending-file key order, so re-merging
 the same content produces a byte-identical artifact.
 
 ## Verify
+
+Deliberately **without** `--no-llm` — this run is the zero-call check itself, and
+the flag would mask a provider call rather than prove none happens:
 
 ```sh
 scv analyze <root>
 ```
 
-Confirm the progress log reports no Pass Docs calls. Then continue with
+Confirm the progress log reports `usage: calls=0` and no Pass Docs calls. Then continue with
 `agent-analyze-clusters`, which depends on this artifact.
