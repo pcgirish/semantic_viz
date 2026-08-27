@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { Delta, Edge, Snapshot, Unit } from "@scv/schema";
-import { displayName } from "@scv/layout";
+import { displayName, pathLeaf } from "@scv/layout";
 import type { BoundaryEdge } from "@scv/layout";
 import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
@@ -227,10 +227,10 @@ function descendantIds(root: Unit, unitsById: Map<string, Unit>): Set<string> {
 
 /** A repo root recorded as a path shows only its leaf — the toolbar labels the project, not its
  *  location on disk. A placeholder root ("." from an older CLI) is repaired server-side, where the
- *  served directory is actually known. */
+ *  served directory is actually known. Falls back to the raw root so a name that survives no
+ *  leaf extraction (e.g. "/") still labels the toolbar with something. */
 function repoLabel(root: string): string {
-  const trimmed = root.trim().replace(/\/+$/, "");
-  return trimmed.slice(trimmed.lastIndexOf("/") + 1);
+  return pathLeaf(root) || root.trim();
 }
 
 const MODE_LABEL: Record<string, string> = {
