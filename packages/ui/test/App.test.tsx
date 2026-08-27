@@ -453,22 +453,21 @@ describe("App", () => {
     expect(screen.queryByText("orderly")).toBeNull();
   });
 
-  it("falls back to a readable label when an older snapshot recorded the repo root as '.'", async () => {
-    // Snapshots captured before the CLI resolved a relative root stored "." — rendering that
-    // literally leaves the toolbar's far-left end looking empty.
+  it("labels the toolbar with the leaf of a repo root recorded as a path, not the whole path", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ ...makeSnapshot(), repo: { root: ".", vcs: "git" } }),
+        json: () => Promise.resolve({ ...makeSnapshot(), repo: { root: "/Users/ada/projects/orderly", vcs: "git" } }),
       }),
     );
 
     render(<App snapshotUrl="/api/snapshot/latest" />);
 
     await waitFor(() => {
-      expect(screen.getByText("repository")).toBeInTheDocument();
+      expect(screen.getByText("orderly")).toBeInTheDocument();
     });
+    expect(screen.queryByText("/Users/ada/projects/orderly")).toBeNull();
   });
 
   it("swaps the 2D canvas for the 3D host when the skin toggle is switched, keeping selection", async () => {

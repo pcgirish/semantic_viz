@@ -223,11 +223,11 @@ function descendantIds(root: Unit, unitsById: Map<string, Unit>): Set<string> {
   return ids;
 }
 
-/** Snapshots captured before the CLI resolved a relative root recorded "." (or nothing) as the
- *  repo name; rendered literally that leaves the toolbar's far-left end looking empty. */
+/** A repo root recorded as a path shows only its leaf — the toolbar labels the project, not its
+ *  location on disk. A placeholder root ("." from an older CLI) is repaired server-side, where the
+ *  served directory is actually known. */
 function repoLabel(root: string): string {
   const trimmed = root.trim().replace(/\/+$/, "");
-  if (trimmed === "" || trimmed === "." || trimmed === "..") return "repository";
   return trimmed.slice(trimmed.lastIndexOf("/") + 1);
 }
 
