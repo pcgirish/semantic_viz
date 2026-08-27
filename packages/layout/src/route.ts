@@ -20,7 +20,9 @@ function centre(box: Box): { x: number; y: number } {
 
 const PORT_INSET = 14;
 
-/** A node's out-edges fan across its bottom border, in-edges across its top, ordered by
+/** Foundations render above their dependents (see place.ts), so dependency edges flow
+ * upward on screen: a node's out-edges fan across its top border, in-edges across its
+ * bottom, ordered by
  * the other end's x — otherwise every edge into/out of a node lands on the same pixel and
  * the last stretch of many edges draws on top of each other (implement-serve.md fix #3). */
 function spreadPorts(
@@ -65,8 +67,8 @@ function spreadPorts(
     return port;
   }
 
-  const outPortByIndex = assign(outByNode, (box) => box.y + box.h);
-  const inPortByIndex = assign(inByNode, (box) => box.y);
+  const outPortByIndex = assign(outByNode, (box) => box.y);
+  const inPortByIndex = assign(inByNode, (box) => box.y + box.h);
 
   const outPort = new Map<string, { x: number; y: number }>();
   const inPort = new Map<string, { x: number; y: number }>();

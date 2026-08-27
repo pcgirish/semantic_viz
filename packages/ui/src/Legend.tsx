@@ -251,6 +251,16 @@ export function Legend({
                   imports
                 </span>
               </div>
+              <div
+                style={{
+                  font: "var(--text-xs)",
+                  color: "var(--text-dim)",
+                  lineHeight: 1.6,
+                  marginTop: 4,
+                }}
+              >
+                A → B: A depends on B (B renders above A)
+              </div>
               <div style={{ ...railLabelStyle, marginTop: 8 }}>On hover</div>
               <div
                 style={{

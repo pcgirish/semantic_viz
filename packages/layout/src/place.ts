@@ -6,7 +6,7 @@ const MIN_DIM = 96; // large enough to hold a name label + metadata line (docs/m
 const MAX_DIM = 1200; // cap tile size so a lone/huge node never stretches full-canvas
 const AREA_SCALE = 4; // px^2 per sloc unit before sqrt
 const GAP = 16;
-const ROW_GAP = 96; // room for the ortho-v elbow to read clearly as a vertical drop + jog + vertical drop, not a diagonal
+const ROW_GAP = 96; // room for the ortho-v elbow to read clearly as a vertical run + jog + vertical run, not a diagonal
 const DUMMY_DIM = 6; // small fixed-width pass-through marker for an expanded edge's midpoint
 const MAX_ROW_TILES = 6; // wrap threshold for a flat (single-rank) row — a grid reads better than one long strip
 
@@ -33,8 +33,13 @@ export function place(rows: string[][], sloc: Map<string, number>): Map<string, 
   // by order.ts's crossing-minimization (rows.length > 1) are left alone.
   const effectiveRows = rows.length === 1 ? wrapRow(rows[0]!) : rows;
 
+  // Rows arrive in rank order (rank 0 = entry points, highest rank = most foundational).
+  // They are stacked bottom-up on screen so foundations land at the top and their
+  // dependents flow downward — the flowchart convention readers expect.
+  const orderedRows = [...effectiveRows].reverse();
+
   let y = 0;
-  for (const row of effectiveRows) {
+  for (const row of orderedRows) {
     const dims = row.map((id) => ({ id, size: dimFor(id) }));
     const rowWidth = dims.reduce((acc, d) => acc + d.size, 0) + GAP * Math.max(0, dims.length - 1);
     const rowHeight = dims.length > 0 ? Math.max(...dims.map((d) => d.size)) : 0;

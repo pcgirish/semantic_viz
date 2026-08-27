@@ -34,9 +34,11 @@ function orthoPath(x1,y1,x2,y2,radius=10,stub=14){
 }
 
 /**
- * Manhattan path for fixed vertical ports (bottom-of-source to top-of-target, route.ts's
- * spreadPorts model): always leaves straight down and arrives straight down, elbowing
- * sideways only at the shared mid-height `clearY`. Mirrors the mock's orthoPathBottomToTop —
+ * Manhattan path for fixed vertical ports (route.ts's spreadPorts model: top-of-source to
+ * bottom-of-target for dependency graphs, where foundations render above their dependents;
+ * bottom-to-top for the Flowchart view's downward control flow): always leaves and arrives
+ * straight along y, elbowing sideways only at the shared mid-height `clearY`. Geometry is
+ * direction-agnostic — it takes explicit endpoints. Mirrors the mock's orthoPathBottomToTop —
  * orthoPath's dx-vs-dy branch selection is wrong here since a wide horizontal gap between
  * vertically-ported nodes would otherwise arrive sideways into the target's face.
  */

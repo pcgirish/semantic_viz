@@ -92,7 +92,9 @@ zoom (anchored at the cursor) and drag to pan — real repos lay out wide and
 flat, so zoom is how you read it. Click a tile to select it and open the
 inspector tray; double-click to drill into it (double-click empty canvas to
 ascend back out); hover to highlight what it depends on vs. what depends on
-it.
+it. Connectors read as **A → B: A depends on B**, and dependencies are drawn
+*above* their dependents — foundational modules (config, constants) sit at the
+top of the canvas and the code that builds on them flows downward.
 
 The top bar switches between four views:
 
@@ -327,6 +329,20 @@ cutting off. The Depends-on rail is titled "Dependencies" (the "entry points"
 label belongs to the API Flow view), and Delta mode on a revision with nothing to
 compare now says so on the canvas rather than rendering an ordinary graph beside
 a "no delta" notice.
+
+The dependency graph's vertical orientation has been flipped. It used to place
+entry points at the top and stack foundations at the bottom, so arrows converged
+downward into `config`/`constants` and read as though those modules depended on
+everything — the reverse of the truth. Ranks now render bottom-up: the
+dependency is drawn above its dependent, matching the flowchart convention, and
+the legend spells the convention out. The edge data is untouched — `from` is
+still the importer and the arrowhead still lands on the imported module, so the
+inspector's "Depends on"/"Used by" mean exactly what they did before; only the
+screen orientation and which box face each port sits on changed. This applies to
+the 2D canvas, the 3D/cityscape skin, and drill-down thumbnails alike, since all
+three build from the same scene. The Flowchart view is unaffected — it lays out
+control flow through its own pipeline and still runs top-down from the entry
+block.
 
 The 3D views have had a navigability pass, closing the gaps that made the
 cityscape hard to move around in. Fly-mode drag is now delta-based, so

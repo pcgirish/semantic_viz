@@ -46,7 +46,7 @@ describe("nestedScene", () => {
     }
   });
 
-  it("is a faithful thumbnail: preserves rank order (a above b, c) and sibling order (b left of c)", () => {
+  it("is a faithful thumbnail: preserves rank order (dependencies b, c above a) and sibling order (b left of c)", () => {
     const children = [makeUnit({ id: "a" }), makeUnit({ id: "b" }), makeUnit({ id: "c" })];
     const edges: Edge[] = [
       { id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 },
@@ -54,7 +54,7 @@ describe("nestedScene", () => {
     ];
     const result = nestedScene(children, edges, { x: 0, y: 0, w: 560, h: 340 });
     const byId = new Map(result!.nodes.map((n) => [n.id, n]));
-    expect(byId.get("a")!.y).toBeLessThan(byId.get("b")!.y);
+    expect(byId.get("b")!.y).toBeLessThan(byId.get("a")!.y);
     expect(byId.get("b")!.x).toBeLessThan(byId.get("c")!.x);
   });
 });
