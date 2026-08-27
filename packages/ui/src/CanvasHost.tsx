@@ -1,11 +1,23 @@
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Edge, Unit } from "@scv/schema";
 import { ConnectorLayer, GraphCanvas, neighbours, type FocusState } from "@scv/design-system";
 import { buildScene, type BoundaryEdge, type Scene } from "@scv/layout";
 import { codedreamLayerPalette, hashLayerToColor, node as tile, region as regionBox } from "@scv/skin-tiles";
+import type { SiblingSummary } from "./App.js";
+import { ConnectedSiblingsTray } from "./ConnectedSiblingsTray.js";
 import { DEFAULT_EDGE_BUDGET } from "./edge-budget.js";
 import { useAppStore } from "./store.js";
 import { sceneBounds, usePanZoom } from "./usePanZoom.js";
+
+/**
+ * Scene-space clearance between the right-most tile and the crossing connectors' shared
+ * endpoint. `sceneBounds` already pads the extent by 24 beyond the right-most tile, so this
+ * puts the endpoint — and the arrowhead beyond it — inside `base`, which GraphCanvas clips to.
+ */
+const CROSSING_GUTTER_MARGIN = 4;
+
+/** Below this canvas width the tray would occlude most of the scene, so it starts collapsed. */
+const NARROW_CANVAS = 640;
 
 export type TileDeltaInfo = { status: string; amount: number; risk: number | null };
 
@@ -14,10 +26,16 @@ export type CanvasHostProps = {
   edges: Edge[];
   /** Present only in delta mode (docs/serve.md#2 — fill saturation = amount, ring = risk≥0.5). */
   deltaByUnit?: Map<string, TileDeltaInfo>;
-  /** Edges leaving the focused subtree; each collapses onto a boundary marker on the frame. */
+  /** Edges leaving the focused subtree, resolved to a sibling and to an interior tile. */
   boundaryEdges?: BoundaryEdge[];
-  /** The units those markers stand for, for their display name. */
+  /** The units on the far side of those edges. */
   externalUnits?: Unit[];
+  /** One row per sibling of the focused unit for the connected-siblings tray, including
+   *  siblings with no crossing edges. */
+  siblings?: SiblingSummary[];
+  /** The focused unit's id. Only used to reset tray hover/pin when the frame changes — a pin
+   *  refers to a sibling of the *previous* focus and would otherwise light stale tiles. */
+  focusId?: string | null;
   /** Connectors the edge budget dropped before this scene was built. Shown as an overlay: a
    *  truncated view that does not say so is indistinguishable from a sparse one. */
   elidedEdges?: number;
@@ -36,11 +54,24 @@ export type CanvasHostProps = {
  * so a delta tile's pulse animation (applied via a class set once, independent of hover
  * props) does not replay on hover.
  */
-export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalUnits, elidedEdges = 0 }: CanvasHostProps): JSX.Element {
+export function CanvasHost({
+  units,
+  edges,
+  deltaByUnit,
+  boundaryEdges,
+  externalUnits,
+  siblings = [],
+  focusId = null,
+  elidedEdges = 0,
+}: CanvasHostProps): JSX.Element {
   const select = useAppStore((s) => s.select);
   const drill = useAppStore((s) => s.drill);
   const ascend = useAppStore((s) => s.ascend);
   const [hover, setHover] = useState<string | null>(null);
+  // Tray highlight state stays local: the user ruled out any selection, breadcrumb or Inspector
+  // change from the tray, and store state would leak into exactly those.
+  const [rowHover, setRowHover] = useState<string | null>(null);
+  const [rowPinned, setRowPinned] = useState<string | null>(null);
 
   // Last build's Scene, so the next build (e.g. a replay scrub landing on a new rev's
   // units/edges) seeds from it — docs/serve.md#3, "positions are seeded from the previous
@@ -57,11 +88,46 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
 
   const { scrollRef, scale, renderSize, didPan, handlers } = usePanZoom(base);
 
+  // Measured, not guessed: the tray is an overlay, so whether it starts open depends on how much
+  // canvas it would cover. `defaultOpen` only seeds Tray's own state on its first render, so the
+  // measurement has to land before that — hence useLayoutEffect, and hence withholding the tray
+  // until `viewport` is real. Read once per mount: re-seeding on every resize would fight the
+  // user's manual collapse.
+  const [viewport, setViewport] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el) setViewport({ w: el.clientWidth, h: el.clientHeight });
+  }, [scrollRef]);
+
+  // A pin refers to a sibling of the *previous* focus; carrying it across a drill would light
+  // tiles that no longer have anything to do with it.
+  useEffect(() => {
+    setRowHover(null);
+    setRowPinned(null);
+  }, [focusId]);
+
+  const siblingById = useMemo(() => new Map(siblings.map((s) => [s.id, s])), [siblings]);
+
+  /** The tray row currently driving the highlight: a live hover outranks a pin. */
+  const activeRow = useMemo(() => {
+    const id = rowHover ?? rowPinned;
+    return id ? (siblingById.get(id) ?? null) : null;
+  }, [rowHover, rowPinned, siblingById]);
+
   const focus: FocusState = useMemo(() => {
-    if (!hover) return { id: null, near: [], far: [] };
-    const { near } = neighbours(hover, scene.links, 1);
-    return { id: hover, near, far: [] };
-  }, [hover, scene.links]);
+    // Tile hover wins: the pointer is on the canvas, and answering "what touches this tile"
+    // is the more immediate question.
+    if (hover) {
+      const { near } = neighbours(hover, scene.links, 1);
+      return { id: hover, near, far: [] };
+    }
+    if (!activeRow || activeRow.tiles.length === 0) return { id: null, near: [], far: [] };
+    // focusRole returns "none" for every node when `focus.id` is null, so the row highlight
+    // cannot be expressed as "no focused node, these neighbours" — it has to nominate one
+    // anchor. tiles[0] is the most-connected tile, and the sort is stable.
+    const ids = activeRow.tiles.map((t) => t.interior);
+    return { id: ids[0]!, near: ids, far: [], sticky: rowPinned === activeRow.id };
+  }, [hover, scene.links, activeRow, rowPinned]);
 
   const connectorEdges = scene.links.flatMap((l) => {
     // route.ts's spreadPorts already fans each node's in/out edges across its border
@@ -129,6 +195,38 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
     return segments;
   });
 
+  // Crossing edges have no second tile to attach to — their far endpoint was collapsed into a
+  // tray row. Rather than leave the highlight as lit tiles with nothing joining them, draw each
+  // one as a stub running from its tile out to a shared point in the right-hand gutter, which is
+  // where the tray sits. `base.w - MARGIN` keeps the endpoint (and its arrowhead) inside the box
+  // GraphCanvas clips to; `sceneBounds` reserves 24 of padding there for exactly this.
+  const nodeById = useMemo(() => new Map(scene.nodes.map((n) => [n.id, n])), [scene.nodes]);
+  const crossingConnectors = useMemo(() => {
+    if (hover || !activeRow) return [];
+    const gutterX = base.w - CROSSING_GUTTER_MARGIN;
+    return activeRow.tiles.flatMap((t) => {
+      const n = nodeById.get(t.interior);
+      if (!n) return [];
+      const x1 = n.x + n.w - base.x;
+      const y1 = n.y + n.h / 2 - base.y;
+      // "both" draws one stub per direction so the row's mixed coupling is legible as such
+      // rather than collapsing to a single arbitrary colour.
+      const kinds =
+        t.direction === "both" ? (["hover-out", "hover-in"] as const) : ([`hover-${t.direction}`] as const);
+      return kinds.map((kind, i) => ({
+        x1,
+        y1: y1 + (i === 0 ? 0 : 6),
+        x2: gutterX,
+        y2: y1 + (i === 0 ? 0 : 6),
+        from: kind === "hover-out" ? t.interior : activeRow.id,
+        to: kind === "hover-out" ? activeRow.id : t.interior,
+        kind,
+        route: "ortho" as const,
+        heavy: t.weight > 1,
+      }));
+    });
+  }, [hover, activeRow, nodeById, base.x, base.y, base.w]);
+
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (didPan()) return;
     if ((e.target as HTMLElement).dataset?.id) return;
@@ -195,6 +293,21 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
           {elidedEdges} connectors hidden — showing the strongest {DEFAULT_EDGE_BUDGET}
         </div>
       )}
+      {/* Sticky and floated right for the same reason as the badge above, and float order puts
+          it below that badge rather than under it. Deliberately a child of `.canvas-scroll`
+          and not `.canvas-extent`: inside the extent it would be scaled by the zoom transform
+          and scroll away with the scene. */}
+      {viewport && (
+        <ConnectedSiblingsTray
+          siblings={siblings}
+          pinned={rowPinned}
+          onHover={setRowHover}
+          onTogglePin={(id) => setRowPinned((p) => (p === id ? null : id))}
+          defaultOpen={viewport.w === 0 || viewport.w >= NARROW_CANVAS}
+          maxHeight={Math.max(120, viewport.h - 96)}
+          style={{ position: "sticky", top: 0, float: "right", clear: "right", zIndex: 2, margin: 8 }}
+        />
+      )}
       <div className="canvas-extent" style={{ width: renderSize.w, height: renderSize.h, position: "relative" }}>
       <div
         className="canvas-scale"
@@ -212,7 +325,7 @@ export function CanvasHost({ units, edges, deltaByUnit, boundaryEdges, externalU
         {scene.regions.map((r) => (
           <Fragment key={r.id}>{regionBox(r, { origin: base })}</Fragment>
         ))}
-        <ConnectorLayer edges={connectorEdges} focus={focus} />
+        <ConnectorLayer edges={[...connectorEdges, ...crossingConnectors]} focus={focus} />
         {scene.nodes.map((n) => {
           const d = deltaByUnit?.get(n.id);
           // serve.md#2: hue encodes layer (categorical), not `heat` — heat is always 0

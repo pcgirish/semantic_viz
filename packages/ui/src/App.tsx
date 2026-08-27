@@ -98,17 +98,116 @@ export function collectBoundaryEdges(input: {
 
     // A crossing edge whose inside endpoint has no visible tile has nothing to draw from.
     const insideEndpoint = fromInside ? e.from : e.to;
-    if (!toVisible.get(insideEndpoint)) continue;
+    const interior = toVisible.get(insideEndpoint);
+    if (!interior) continue;
 
     const external = toSibling.get(fromInside ? e.to : e.from);
     const externalUnit = external ? unitsById.get(external) : undefined;
     if (!externalUnit) continue; // outside the focus but under no sibling — nothing to collapse onto
 
     externalUnits.set(externalUnit.id, externalUnit);
-    boundaryEdges.push({ edge: e, external: externalUnit.id, direction: fromInside ? "out" : "in" });
+    // `interior` is the tile the edge actually attaches to on screen. Keeping it (rather than
+    // using it as a filter and discarding it) is what lets the tray say *which* tiles a sibling
+    // couples to — the external endpoint is deliberately not a visible unit, so nothing
+    // downstream could re-derive it.
+    boundaryEdges.push({ edge: e, external: externalUnit.id, interior, direction: fromInside ? "out" : "in" });
   }
 
   return { boundaryEdges, externalUnits: [...externalUnits.values()] };
+}
+
+/** One participating interior tile within a tray row: how strongly, and which way, it couples. */
+export type SiblingTileLink = {
+  /** Visible interior tile id. */
+  interior: string;
+  /** Crossing edges between this tile and this sibling. */
+  edgeCount: number;
+  /** Summed `edge.weight` across those edges, for connector stroke weight. */
+  weight: number;
+  /** This tile's own direction — independent of the row's: a row can be "both" while each of
+   *  its tiles is purely "in" or purely "out". */
+  direction: "in" | "out" | "both";
+};
+
+/** One row of the connected-siblings tray: a sibling of the focused unit, and what it touches. */
+export type SiblingSummary = {
+  /** Sibling unit id. Not necessarily a `layer` — siblings are whatever kind the focused unit
+   *  is, so this is deliberately kind-agnostic. */
+  id: string;
+  name: string;
+  /** One entry per participating interior tile, sorted by `edgeCount` descending. Empty for a
+   *  sibling with no crossing edges. */
+  tiles: SiblingTileLink[];
+  inCount: number;
+  outCount: number;
+  /** Total crossing *edges* — `sum(tiles[].edgeCount)`, not `tiles.length`. */
+  edgeCount: number;
+  /** `null` for a zero-link sibling: it has no direction, and must not be defaulted to one. */
+  direction: "in" | "out" | "both" | null;
+};
+
+function mergeDirection(current: "in" | "out" | "both" | null, next: "in" | "out"): "in" | "out" | "both" {
+  if (current === null) return next;
+  return current === next ? current : "both";
+}
+
+/**
+ * Aggregates the crossing edges into one row per sibling of the focused unit, for the
+ * connected-siblings tray.
+ *
+ * Every sibling gets a row, including those with no crossing edges: "not coupled" and "not
+ * shown" are different answers, and the boundary-marker column this replaced could only say the
+ * latter. Kept separate from `externalUnits` deliberately — that feeds `buildScene`, and the
+ * tray is a DOM overlay, not scene geometry.
+ */
+export function summariseSiblings(input: {
+  focusedUnit: Unit;
+  boundaryEdges: BoundaryEdge[];
+  unitsById: Map<string, Unit>;
+}): SiblingSummary[] {
+  const { focusedUnit, boundaryEdges, unitsById } = input;
+  const parent = focusedUnit.parent ? unitsById.get(focusedUnit.parent) : undefined;
+  const siblingIds = (parent?.children ?? []).filter((id) => id !== focusedUnit.id && unitsById.has(id));
+  if (siblingIds.length === 0) return [];
+
+  type TileAcc = { edgeCount: number; weight: number; direction: "in" | "out" | "both" };
+  const byExternal = new Map<string, Map<string, TileAcc>>();
+  const counts = new Map<string, { inCount: number; outCount: number }>();
+  for (const { edge, external, interior, direction } of boundaryEdges) {
+    const tiles = byExternal.get(external) ?? new Map<string, TileAcc>();
+    const acc = tiles.get(interior) ?? { edgeCount: 0, weight: 0, direction };
+    acc.edgeCount += 1;
+    acc.weight += edge.weight ?? 1;
+    acc.direction = mergeDirection(acc.direction, direction);
+    tiles.set(interior, acc);
+    byExternal.set(external, tiles);
+
+    const c = counts.get(external) ?? { inCount: 0, outCount: 0 };
+    if (direction === "in") c.inCount += 1;
+    else c.outCount += 1;
+    counts.set(external, c);
+  }
+
+  const rows = siblingIds.map((id): SiblingSummary => {
+    const unit = unitsById.get(id)!;
+    const { inCount, outCount } = counts.get(id) ?? { inCount: 0, outCount: 0 };
+    const tiles = [...(byExternal.get(id) ?? new Map<string, TileAcc>())]
+      .map(([interior, acc]): SiblingTileLink => ({ interior, ...acc }))
+      // Descending by edgeCount, then by id so the order is stable across renders — the
+      // highlight's anchor tile is tiles[0], so an unstable sort would flicker it.
+      .sort((a, b) => b.edgeCount - a.edgeCount || a.interior.localeCompare(b.interior));
+    return {
+      id,
+      name: unit.name,
+      tiles,
+      inCount,
+      outCount,
+      edgeCount: inCount + outCount,
+      direction: inCount > 0 && outCount > 0 ? "both" : inCount > 0 ? "in" : outCount > 0 ? "out" : null,
+    };
+  });
+
+  return rows.sort((a, b) => b.edgeCount - a.edgeCount || a.name.localeCompare(b.name));
 }
 
 /** The focused unit plus everything beneath it, by `children` — the same ownership rule as above. */
@@ -218,7 +317,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
   // actually change the visible scene (e.g. selecting a tile) — otherwise every such
   // render hands CanvasHost new array/Map instances, which re-triggers its build effect
   // and replays each delta tile's pulse animation just from being selected.
-  const { visibleUnits, visibleEdges, elidedEdges, deltaByUnit, boundaryEdges, externalUnits } = useMemo(() => {
+  const { visibleUnits, visibleEdges, elidedEdges, deltaByUnit, boundaryEdges, externalUnits, siblings } = useMemo(() => {
     if (!snapshot)
       return {
         visibleUnits: [],
@@ -227,6 +326,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         deltaByUnit: new Map<string, TileDeltaInfo>(),
         boundaryEdges: [] as BoundaryEdge[],
         externalUnits: [] as Unit[],
+        siblings: [] as SiblingSummary[],
       };
     const { units, edges } = snapshot;
 
@@ -273,12 +373,17 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
       }),
     );
     // Edges with exactly one endpoint inside the focus were dropped by the loop above (their
-    // outside endpoint has no visible tile). They come back as boundary markers on the frame.
+    // outside endpoint has no visible tile). They come back as rows in the connected-siblings
+    // tray, which is the only record the scene graph keeps of them.
     const { boundaryEdges, externalUnits } = focusedUnit
       ? collectBoundaryEdges({ focusedUnit, visibleUnits, edges, unitsById })
       : { boundaryEdges: [], externalUnits: [] };
+    // Folded into this memo rather than a second one on purpose: an unstable prop identity
+    // re-triggers CanvasHost's build effect and replays every delta tile's pulse animation, so
+    // a mere tray hover must not produce a new array.
+    const siblings = focusedUnit ? summariseSiblings({ focusedUnit, boundaryEdges, unitsById }) : [];
 
-    return { visibleUnits, visibleEdges, elidedEdges, deltaByUnit, boundaryEdges, externalUnits };
+    return { visibleUnits, visibleEdges, elidedEdges, deltaByUnit, boundaryEdges, externalUnits, siblings };
   }, [snapshot, focus, delta]);
 
   if (state.status === "loading") return <div>Loading…</div>;
@@ -433,6 +538,8 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
               deltaByUnit={mode === "delta" ? deltaByUnit : undefined}
               boundaryEdges={boundaryEdges}
               externalUnits={externalUnits}
+              siblings={siblings}
+              focusId={focus}
               elidedEdges={elidedEdges}
             />
           )

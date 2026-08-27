@@ -42,16 +42,6 @@ function riskStyle(d: DeltaInfo | undefined): CSSProperties {
 }
 
 /**
- * A boundary marker stands for a unit *outside* the focused subtree, so it is deliberately
- * quieter than a real tile: dimmed, and labelled with the external unit's name plus how many
- * concrete edges collapsed into it ("14 calls" rather than an opaque summed weight).
- */
-const BOUNDARY_DIM = "opacity(0.55)";
-
-/** One glyph per direction, so the common render path is a lookup rather than two comparisons. */
-const BOUNDARY_GLYPH = { in: "\u2190", out: "\u2192", both: "\u2194" } as const;
-
-/**
  * The shared RenderContext (delta, layer hue) plus what only a DOM host can supply:
  * where the scroll origin is, and the handlers to bind. Extending rather than redeclaring
  * means `tilesSkin.node` can pass a plain RenderContext straight through, uncast.
@@ -73,17 +63,14 @@ export type TileContext = RenderContext & {
 export function node(n: SceneNode, ctx: TileContext = {}): ReactElement {
   const origin = ctx.origin ?? { x: 0, y: 0 };
   const shape = shapeFor(n);
-  const boundary = n.boundary;
   return (
     <PolyNode
       id={n.id}
       data-id={n.id}
       data-shape={shape}
       data-color={ctx.layerColor}
-      data-boundary={boundary?.direction}
-      data-boundary-glyph={boundary ? BOUNDARY_GLYPH[boundary.direction] : undefined}
       className="tile"
-      label={boundary ? `${BOUNDARY_GLYPH[boundary.direction]} ${n.name} (${boundary.edgeCount})` : n.name}
+      label={n.name}
       shape={shape}
       size={n.w}
       color={ctx.layerColor}
@@ -97,10 +84,6 @@ export function node(n: SceneNode, ctx: TileContext = {}): ReactElement {
           height: n.h,
           ...deltaStyle(ctx.delta),
           ...riskStyle(ctx.delta),
-          // Dimming rides on `filter`, not `opacity`: PolyNode owns `opacity` for hover
-          // dimming and this style object spreads *after* it, so setting opacity here would
-          // make a marker brighten whenever another tile is hovered.
-          ...(boundary ? { filter: [riskStyle(ctx.delta).filter, BOUNDARY_DIM].filter(Boolean).join(" ") } : {}),
         } as CSSProperties
       }
       onClick={ctx.onClick}

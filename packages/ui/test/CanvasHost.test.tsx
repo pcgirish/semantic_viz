@@ -3,6 +3,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import type { Edge, Unit } from "@scv/schema";
 import { CanvasHost } from "../src/CanvasHost.js";
 import { useAppStore } from "../src/store.js";
+import type { SiblingSummary } from "../src/App.js";
 import { tempHex } from "@scv/design-system";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
@@ -487,5 +488,165 @@ describe("CanvasHost — unresolved edges", () => {
     render(<CanvasHost units={units} edges={[edge({})]} />);
 
     expect(screen.queryByTestId("edges-elided")).toBeNull();
+  });
+});
+
+describe("CanvasHost: connected-siblings tray", () => {
+  /** jsdom reports 0 for every layout dimension; the tray's default open state reads clientWidth. */
+  function withViewport(w: number, h: number): () => void {
+    const proto = window.HTMLElement.prototype;
+    const width = Object.getOwnPropertyDescriptor(proto, "clientWidth");
+    const height = Object.getOwnPropertyDescriptor(proto, "clientHeight");
+    Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => w });
+    Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => h });
+    return () => {
+      if (width) Object.defineProperty(proto, "clientWidth", width);
+      if (height) Object.defineProperty(proto, "clientHeight", height);
+    };
+  }
+
+  const units = [makeUnit({ id: "a" }), makeUnit({ id: "b" })];
+  const edges: Edge[] = [{ id: "e1", from: "a", to: "b", kind: "calls", weight: 1, source: "static", confidence: 1 }];
+
+  const siblings: SiblingSummary[] = [
+    {
+      id: "g2",
+      name: "Billing",
+      tiles: [{ interior: "a", edgeCount: 2, weight: 3, direction: "out" }],
+      inCount: 0,
+      outCount: 2,
+      edgeCount: 2,
+      direction: "out",
+    },
+    { id: "g4", name: "Docs", tiles: [], inCount: 0, outCount: 0, edgeCount: 0, direction: null },
+  ];
+
+  /** Connector strokes, so the tile/region rects and the marker arrowheads are filtered out. */
+  const STROKES = ["var(--connector)", "var(--connector-active)", "var(--cool-azure)", "var(--temp-4)"];
+  function connectors(container: HTMLElement) {
+    return [...container.querySelectorAll("svg path")].filter((p) => STROKES.includes(p.getAttribute("stroke") || ""));
+  }
+
+  // A wide viewport for the whole block, so `defaultOpen` resolves to open and the rows are in
+  // the DOM. Set explicitly rather than relying on jsdom's default: the fit-to-content block
+  // above stubs the same getters and cannot fully restore them (jsdom defines clientWidth on
+  // Element.prototype, so its HTMLElement.prototype lookup finds nothing to put back).
+  let restoreViewport: () => void = () => {};
+
+  beforeEach(() => {
+    useAppStore.setState(useAppStore.getInitialState());
+    restoreViewport = withViewport(1200, 800);
+  });
+  afterEach(() => {
+    restoreViewport();
+    cleanup();
+  });
+
+  it("lights the tiles a hovered row couples to, without touching the app's selection", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    // "a" is the coupled tile; "b" is not, so it dims. Selection is the Inspector's business
+    // and the tray is a highlight, so the store must be untouched.
+    const dim = (id: string) =>
+      (container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement).style.opacity !== "1";
+    expect(dim("a")).toBe(false);
+    expect(dim("b")).toBe(true);
+    expect(useAppStore.getState().selection).toBeNull();
+  });
+
+  it("draws one crossing connector per coupled tile, running out to the right-hand gutter", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+    const before = connectors(container).length;
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    const after = connectors(container);
+    expect(after.length).toBe(before + 1);
+    // hover-out is orange, and the exemption in ConnectorLayer keeps it at full opacity even
+    // though its far endpoint is a tray row rather than a node in `focus.near`.
+    const crossing = after.find((p) => p.getAttribute("stroke") === "var(--temp-4)")!;
+    expect(crossing.getAttribute("opacity")).toBe("1");
+    // weight 3 > the baseline 1, so the stub inherits the heavy stroke.
+    expect(crossing.getAttribute("stroke-width")).toBe("var(--connector-w-heavy)");
+  });
+
+  it("colours the crossing connector by the tile's direction", () => {
+    const inbound: SiblingSummary[] = [
+      { ...siblings[0]!, tiles: [{ interior: "a", edgeCount: 1, weight: 1, direction: "in" }], direction: "in" },
+    ];
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={inbound} focusId="g1" />);
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    // Inbound reads azure, matching the tile-hover trace's own in/out vocabulary.
+    expect(connectors(container).some((p) => p.getAttribute("stroke") === "var(--cool-azure)")).toBe(true);
+  });
+
+  it("keeps every crossing connector inside the clipped canvas box", () => {
+    // GraphCanvas clips to base.w x base.h, so an endpoint past base.w would silently vanish.
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    const scale = container.querySelector(".canvas-scale") as HTMLElement;
+    const w = parseFloat(scale.style.width);
+    const crossing = connectors(container).find((p) => p.getAttribute("stroke") === "var(--temp-4)")!;
+    const xs = [...(crossing.getAttribute("d") ?? "").matchAll(/-?\d+(\.\d+)?/g)]
+      .map((m) => Number(m[0]))
+      .filter((_, i) => i % 2 === 0);
+    expect(Math.max(...xs)).toBeLessThan(w);
+    // And it is an actual line, not a zero-length nub at the tile's own edge.
+    expect(Math.max(...xs)).toBeGreaterThan(Math.min(...xs));
+  });
+
+  it("keeps a pinned row's highlight after the pointer leaves the tray", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    fireEvent.click(screen.getByTestId("sibling-row-g2"));
+    fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
+
+    expect((container.querySelector('.tile[data-id="b"]') as HTMLElement).style.opacity).not.toBe("1");
+
+    // Clicking the same row again releases it.
+    fireEvent.click(screen.getByTestId("sibling-row-g2"));
+    expect((container.querySelector('.tile[data-id="b"]') as HTMLElement).style.opacity).toBe("1");
+  });
+
+  it("lets a tile hover override a pinned row, since the pointer is on the canvas", () => {
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    fireEvent.click(screen.getByTestId("sibling-row-g2"));
+    fireEvent.mouseOver(container.querySelector('.tile[data-id="b"]')!);
+
+    // Hovering "b" answers "what touches b" — a->b — so "a" stays lit but the crossing stub
+    // for the pinned row is gone.
+    expect(connectors(container).some((p) => p.getAttribute("stroke") === "var(--temp-4)")).toBe(false);
+  });
+
+  it("drops a pin when the focus changes, so it cannot light tiles of the new frame", () => {
+    const { container, rerender } = render(
+      <CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />,
+    );
+    fireEvent.click(screen.getByTestId("sibling-row-g2"));
+
+    rerender(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g9" />);
+
+    expect((container.querySelector('.tile[data-id="b"]') as HTMLElement).style.opacity).toBe("1");
+  });
+
+  it("starts collapsed on a canvas too narrow to spare the width", () => {
+    const restore = withViewport(480, 600);
+    try {
+      render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+      expect(screen.queryByTestId("sibling-row-g2")).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it("renders no tray when the focused unit has no siblings", () => {
+    render(<CanvasHost units={units} edges={edges} siblings={[]} focusId="g1" />);
+    expect(screen.queryByTestId("connected-siblings-tray")).toBeNull();
   });
 });

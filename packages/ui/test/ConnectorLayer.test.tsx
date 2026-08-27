@@ -55,3 +55,28 @@ describe("ConnectorLayer ortho-v elbow", () => {
     expect(Math.abs(up[0]! - 100)).toBeCloseTo(Math.abs(down[0]! - 100));
   });
 });
+
+describe("ConnectorLayer: hover-kind opacity", () => {
+  /** Renders one edge under a focus that puts it outside `near`, so edgeRole calls it "muted". */
+  function opacityOf(kind: string): string | null {
+    const { container } = render(
+      <ConnectorLayer
+        edges={[{ x1: 0, y1: 0, x2: 50, y2: 0, from: "a", to: "b", kind }]}
+        focus={{ id: "z", near: ["z"], far: [] }}
+      />,
+    );
+    return container.querySelector("svg path[stroke]")!.getAttribute("opacity");
+  }
+
+  it("never dims a hover-kind edge, even when neither endpoint is in focus", () => {
+    // The synthesised crossing connectors end at a tray row, which is not a node and so can
+    // never be in `focus.near`. Without the exemption every one of them would draw as
+    // background — the exact opposite of the highlight they exist to be.
+    expect(opacityOf("hover-out")).toBe("1");
+    expect(opacityOf("hover-in")).toBe("1");
+  });
+
+  it("still dims an ordinary edge outside the focus", () => {
+    expect(opacityOf("import")).toBe("var(--focus-dim-edge)");
+  });
+});

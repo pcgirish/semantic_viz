@@ -18,23 +18,6 @@ export type SceneNode = {
   layer: string; // nearest ancestor unit's stable id with kind "layer", or "" if none
   groupId: string; // nearest layer ancestor's group unit id, or "" if none
   complexity: number; // raw cyclomatic complexity, or 0 if unavailable
-  /**
-   * Present only on collapsed external endpoints — "boundary markers". Such a node stands for a
-   * unit *outside* the focused subtree, so `Scene.nodes` is the one place units outside the focus
-   * appear; a consumer that assumes otherwise must filter on `boundary === undefined`.
-   *
-   * `id` is the off-screen unit's own id, not a synthetic one, so drill, hover, search and
-   * `data-id` all work with no new code. `direction` is `"both"` iff both counts are non-zero —
-   * redundant with them by construction, so the common render path is a switch, not two
-   * comparisons.
-   */
-  boundary?: {
-    edgeCount: number; // total contributing edges, in + out
-    weight: number; // summed contributor weight, in + out
-    direction: "in" | "out" | "both";
-    inCount: number; // contributing edges pointing into the focused subtree
-    outCount: number; // ...and out of it; inCount + outCount === edgeCount
-  };
   // block units only (buildFlowchartScene) — blockType drives shape (decision/loop render
   // as a diamond regardless of `sides`); condition is the diamond's label text.
   blockType?: "entry" | "sequential" | "decision" | "loop" | "try" | "catch" | "exit" | "merge";

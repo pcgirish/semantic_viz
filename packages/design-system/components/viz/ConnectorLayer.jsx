@@ -76,6 +76,10 @@ export function ConnectorLayer({edges=[],width="100%",height="100%",arrows=true,
         const role=edgeRole(e.from,e.to,focus);
         const isHoverKind=e.kind==="hover-in"||e.kind==="hover-out";
         const k=KIND[role==="near"&&!isHoverKind?"call":e.kind]||KIND[e.kind]||KIND.import;
+        // A hover-kind edge is the thing being pointed at, so it is never dimmed. Without this
+        // exemption a synthesised crossing connector — whose far endpoint is a tray row and so
+        // is not in `focus.near` — would be muted by edgeRole and drawn as background.
+        const dimmed=!isHoverKind&&(e.dim||role==="muted");
         const mx=(e.x1+e.x2)/2;
         const my=(e.y1+e.y2)/2;
         const routeMode=e.route||route;
@@ -96,9 +100,9 @@ export function ConnectorLayer({edges=[],width="100%",height="100%",arrows=true,
               strokeDasharray={k.dash||undefined} strokeLinecap="round"
               markerEnd={arrows&&e.directed!==false?`url(#${markerId(k.stroke)})`:undefined}
               style={k.flow?{animation:"cd-flow 1400ms linear infinite"}:undefined}
-              opacity={e.dim||role==="muted"?"var(--focus-dim-edge)":1}/>
+              opacity={dimmed?"var(--focus-dim-edge)":1}/>
             {k.dots&&Array.from({length:k.dots.count}).map((_,j)=>(
-              <circle key={j} r={k.dots.r} fill={k.dots.fill} opacity={e.dim||role==="muted"?"var(--focus-dim-edge)":1}>
+              <circle key={j} r={k.dots.r} fill={k.dots.fill} opacity={dimmed?"var(--focus-dim-edge)":1}>
                 <animateMotion dur={`${k.dots.dur}s`} begin={`${(j*k.dots.dur)/k.dots.count}s`} repeatCount="indefinite">
                   <mpath href={`#${pid}`}/>
                 </animateMotion>

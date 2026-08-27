@@ -372,9 +372,11 @@ disk load and serve; and real `group` units built deterministically from layer
 ids rather than from LLM-chosen names, with rollup edges now carrying the
 concrete edges they stand for, so a group-to-group edge reads as "14 calls"
 instead of an opaque summed weight. Focusing a group no longer hides its coupling
-to the rest of the system: an edge with one endpoint outside the focus renders to
-a boundary marker on the frame, labelled with the sibling it addresses, the
-direction, and how many edges collapsed into it. The synthetic client-side
+to the rest of the system: an edge with one endpoint outside the focus becomes a
+row in a connected-siblings tray, labelled with the sibling it addresses, the
+direction, and how many edges collapsed into it. Hovering or pinning a row lights
+the tiles inside the focus that sibling actually couples to and draws a connector
+out to it, so the coupling is something you can trace rather than a count to read. The synthetic client-side
 domain tier those group units replace is now gone, and with it the layer `group`
 name string: regions, the legend, and the breadcrumb key on a group unit's id, so
 renaming a group no longer reads as one group vanishing and another appearing,
