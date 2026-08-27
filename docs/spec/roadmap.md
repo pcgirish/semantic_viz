@@ -76,8 +76,13 @@ merged" in `README.md`.
 
 ## Future work (not yet planned in `docs/plans/`)
 
-- `docs/llm-call-observability.md` — per-call token/cost logging,
-  file-duplication detection
+- `docs/llm-call-observability.md` — cost-in-USD assignment, the
+  file-duplication *analysis*, and any surface for the trace. Per-call token
+  logging (`llm_calls` table) and in-run progress logging have shipped, but
+  nothing reads those rows beyond the `scv analyze` summary: the cache DB is
+  CLI-local, the server never opens it, and no UI shows tokens or cost (the
+  UI's `cost` field is the Interpreter's complexity estimate, not LLM spend).
+  CLI-only `scv usage` recommended before any UI/schema commitment
 - Check-in split: `scv export --structural` for committing deterministic
   (non-LLM) snapshot data
 - Group-narration pass — groups currently ship with `semantics: null`

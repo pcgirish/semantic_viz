@@ -1,11 +1,19 @@
 # LLM call observability
 
-Token direction reporting is implemented for provider calls and `scv analyze` summaries.
-The per-call SQLite trace and file-duplication analysis remain future work. This document
-tracks both the shipped usage reporting and the follow-up design, prompted by two things
-found while fixing layer semantics: Pass A/B/C calls have no visibility into token cost,
-and Pass A sends one prompt per leaf unit — if several units share a file, that file's
-source is re-sent once per unit with no way to currently detect it.
+Token direction reporting, the per-call SQLite trace, and in-run progress logging are all
+implemented. What remains is cost-in-USD assignment and the file-duplication *analysis* —
+the trace records `file` per call, but nothing queries it yet. This document tracks both
+the shipped reporting and the follow-up design, prompted by two things found while fixing
+layer semantics: Pass A/B/C calls had no visibility into token cost, and Pass A sends one
+prompt per leaf unit — if several units share a file, that file's source is re-sent once
+per unit with no way to currently detect it.
+
+**Status verified against code 2026-08-26.** Shipped: `ProviderResult` in/out tokens
+(all three providers), the `llm_calls` table (`packages/interpreter/src/cache.ts:95`,
+columns `pass, unit_id, qualname, file, in_tokens, out_tokens, cache_hit, duration_ms,
+ts`), and per-unit progress via `reportProgress` (`orchestrate.ts:272`). Not built:
+`cost_usd`, any query/report over the recorded `file` column, and any surface beyond the
+`scv analyze` summary — no server route, no UI. See "Surfacing it" below.
 
 ## Goal
 
@@ -54,7 +62,7 @@ Only meaningful for paid providers. A small static `$/1K tokens` price table per
 applied to in/out tokens, gives `cost_usd`. Local Ollama rows are `cost_usd: 0` /
 `null` — tokens matter there for latency/throughput, not billing.
 
-### Where it's stored
+### Where it's stored — **shipped**
 
 `.scv/cache.sqlite` (already the interpreter's local store), as a new table — not a
 flat log file, so "group by file, count calls" is a one-line query. `CachedProvider`
@@ -65,10 +73,68 @@ since every `interpret()` call already funnels through it. A cache hit should re
 ### Surfacing it
 
 The shipped version prints a summary line at the end of `scv analyze` with total in/out
-tokens, provider-call count, and cache hits. Persisting per-call rows (above) would still
-be needed for file-duplication queries and cost trends across runs.
+tokens, provider-call count, and cache hits, and persists per-call rows to `llm_calls`.
+Beyond that summary, **nothing reads those rows** — the trace is queryable only by opening
+`.scv/cache.sqlite` by hand.
 
-### Progress during the run, not just a summary after
+#### The data stops at the CLI boundary
+
+```
+llm_calls (SQLite)  ->  listCalls()  ->  scv analyze summary (stdout)
+                                      |
+                                [ nothing ]
+                                      |
+                      server /api/*  ->  UI
+```
+
+`.scv/cache.sqlite` is a CLI-local store. The server reads only snapshots
+(`packages/server/src/store.ts`); it never opens the cache DB, and there is no
+usage-style route. The UI's `cost` fields (`Inspector.tsx:203-207`, `Flows.tsx:213`)
+are `unit.cost` — the Interpreter's semantic complexity/IO estimate. That is a **name
+collision, not LLM spend**; no UI surface shows tokens or cost.
+
+#### Two shapes, not yet decided
+
+The trace is per-run, per-machine and cache-local. It is not snapshot data, so it does
+not belong to a rev the way units and edges do — which is exactly what makes surfacing
+it a design question rather than plumbing:
+
+- **CLI-only** — an `scv usage` command (or flags on `analyze`) that runs the queries
+  and prints. Cheap, matches where the data lives, no schema or API change.
+- **UI-surfaced** — requires deciding whether usage becomes snapshot-attached (survives
+  with a rev, diffable across commits) or stays a live sidecar the server reads from the
+  cache DB. The former is a schema change; the latter couples the server to a CLI-local
+  store it currently knows nothing about.
+
+Recommendation: **CLI-only first.** It answers the three questions this doc opened with
+without committing to a persistence model. Surfacing spend per rev over time is worth its
+own plan if it is wanted.
+
+#### Evidence the duplication hypothesis is real
+
+Run against `../eq_to_word_problem`, queried by hand from `llm_calls` (46 Pass A calls,
+20549 in / 19049 out tokens):
+
+| file | calls | in_tokens |
+|---|---|---|
+| `backend/services/auth_service.py` | 10 | 4561 |
+| `backend/services/eval_criteria_service.py` | 8 | 4113 |
+| `backend/routers/auth.py` | 5 | 2228 |
+
+So the premise that opened this document — one prompt per leaf unit, re-sending a shared
+file's source per unit — is confirmed by real data, not just suspected.
+
+Two caveats on reading these numbers, which any built-in report must respect:
+
+- `count(*)` per file counts *units in that file*, which is expected on its own. Whether
+  it is **waste** depends on how much of each prompt is shared file source versus
+  per-unit graph context. A duplication report has to answer that, not just count rows.
+- `cache_hit` was 0 throughout because this was a cold run; that is not evidence about
+  the hit path (covered by `cached-provider.test.ts`).
+
+### Progress during the run, not just a summary after — **shipped**
+
+(Implemented as `reportProgress` in `orchestrate.ts`; the design discussion below is kept for history.)
 
 A full-repo analyze against a local model takes long enough (minutes, observed on this
 repo's own ~500 units at `PASS_A_CONCURRENCY = 2`) that a silent CLI is a bad
