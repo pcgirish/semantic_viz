@@ -120,11 +120,18 @@ too wide for an in-canvas overlay, so pass a narrower width.
 Rows read `↔ Word Problem Core · 10 links`; zero-link rows read `Backend Constants · no
 links` in `--text-faint` and are non-interactive.
 
-**Positioning:** `position: sticky` inside `.canvas-scroll`, mirroring the existing
-elided-edges badge in `CanvasHost.tsx`. Sticky pins to the scroll container, which *is*
-"inside the canvas, right edge"; `fixed` would pin to the window, escape the canvas and
-overlap the Inspector. The badge already proves sticky works in this container — stack the
-two in one right-floated column so they do not collide.
+**Positioning:** `position: sticky`, mirroring the existing elided-edges badge in
+`CanvasHost.tsx`. Sticky pins to the scroll container, which *is* "inside the canvas, right
+edge"; `fixed` would pin to the window, escape the canvas and overlap the Inspector.
+
+The tray must be a **direct child of `.canvas-scroll`**, as a sibling of the elided-edges
+badge and *outside* `.canvas-extent`. This is load-bearing, not incidental: `.canvas-scale`
+carries a `transform: scale()`, and a transformed ancestor establishes a new containing block
+for positioned descendants — a tray nested inside it would scroll and scale with the scene
+instead of pinning, which is the behaviour being removed. The existing comment above the
+badge already documents the sticky-not-absolute reasoning.
+
+Stack the two in one right-floated column so they do not collide when both are visible.
 
 The tray needs `pointerEvents: "auto"` (the badge sets `none`), and its mouse handlers must
 `stopPropagation` so hovering a row does not reach `.canvas-scroll`'s `onMouseLeave` (which
@@ -157,9 +164,37 @@ it in `focusRole` (test `near` membership before the `id` equality test) or via 
 `role` override — **not** by nulling `focus.id`, which silently disables the whole highlight.
 
 Interior-to-interior edges between two participating tiles come back `"far"` and stay
-full-opacity hairline, which is correct. Crossing edges land `"muted"` and are rescued by an
-explicit connector `kind` override, which `ConnectorLayer` applies ahead of `role`; confirm
-that override also wins over the `opacity` dim, and clear the `dim` flag explicitly if not.
+full-opacity hairline, which is correct. Crossing edges land `"muted"`, and rescuing them
+takes **two** changes, not one — confirmed by review against `ConnectorLayer.jsx`:
+
+- **Colour.** An explicit connector `kind` (`hover-in`/`hover-out`) is applied ahead of
+  `role` when selecting the stroke, so the direction colour lands correctly.
+- **Opacity.** `kind` does *not* govern opacity. `ConnectorLayer` sets it unconditionally
+  from `e.dim` and `role`:
+
+  ```js
+  opacity={e.dim||role==="muted"?"var(--focus-dim-edge)":1}
+  ```
+
+  A `"muted"` role therefore dims the edge **regardless of its kind**. Left alone, the
+  highlight would recolour exactly the edges the feature exists to reveal and then dim them
+  — a silent failure of the whole feature.
+
+Fix by exempting hover kinds from the dim, in `ConnectorLayer.jsx`, applied to both the
+`<path>` and the animated `<circle>` dots so they stay consistent:
+
+```js
+const lit = e.kind === "hover-in" || e.kind === "hover-out";
+opacity={!lit && (e.dim || role === "muted") ? "var(--focus-dim-edge)" : 1}
+```
+
+This is a design-system edit, so it must hold for the existing tile-hover path too. It does,
+and it is arguably a latent bug fix there: an explicit hover kind means "this edge is the
+answer to the user's hover", which should never be dimmed. Verify the tile-hover highlight is
+unchanged when making this edit.
+
+Prefer this over passing `dim: false` from `CanvasHost`, which would push focus policy into
+the product layer and contradict the "design system owns the LOOK" contract.
 
 **Direction rule**, matching the existing tile-hover encoding so both highlight paths read
 identically: an edge whose `from` is in the participating set is outgoing → `hover-out`
@@ -193,7 +228,8 @@ animations.
 | `packages/skins/tiles/src/node.tsx` | Remove boundary branch, glyph map, dim filter |
 | `packages/ui/src/App.tsx` | Extend `collectBoundaryEdges` to emit `SiblingSummary[]`; fold into the existing `useMemo`; pass to `CanvasHost` |
 | `packages/ui/src/SiblingLayersTray.tsx` | **New** — rows, sorting, glyphs, hover/pin callbacks |
-| `packages/ui/src/CanvasHost.tsx` | Render tray as sticky overlay; add `rowHover`/`rowPinned`; extend focus derivation and connector `kind` |
+| `packages/ui/src/CanvasHost.tsx` | Render tray as sticky overlay (direct child of `.canvas-scroll`); add `rowHover`/`rowPinned`; extend focus derivation and connector `kind` |
+| `packages/design-system/components/viz/ConnectorLayer.jsx` | Exempt `hover-in`/`hover-out` kinds from the `role === "muted"` opacity dim, on both path and dots — without this the highlight recolours the crossing edges and then dims them |
 
 ## Verification
 
@@ -209,7 +245,12 @@ never bare executables). TDD red-green-refactor is mandatory for the behaviour c
 assertions stay valid unchanged. Add cases for: `interior` resolving to the visible ancestor
 rather than the deep leaf, zero-link siblings present with `direction: null`, and sort order.
 
-**New tests:** `SiblingLayersTray` rendering (one row per sibling, glyph per direction, `no
+**New tests:** a `ConnectorLayer` case asserting that an edge with kind `hover-in`/`hover-out`
+renders at full opacity even when its `edgeRole` is `"muted"`, plus one confirming
+non-hover muted edges still dim — this guards the design-system change that makes the whole
+highlight visible, and the existing tile-hover path must be shown unchanged by it.
+
+Then `SiblingLayersTray` rendering (one row per sibling, glyph per direction, `no
 links` row greyed, sort order, click toggles pin) and `CanvasHost` behaviour (row hover
 populates `focus.near`; pin survives mouse-out; tile hover takes priority over a pinned row;
 crossing connectors recolour by direction). Include a regression test that tray interaction
