@@ -9,6 +9,8 @@ import { buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
 import { semanticHashInput, type Unit } from "@scv/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
+import { discoverDocs } from "../src/discover-docs.js";
+import { assembleSnapshotFromCache } from "../src/assemble-snapshot.js";
 import { inScope, mergeFlows, mergeSemantics, runMergeSemantics } from "../src/merge-semantics.js";
 import { headRev } from "../src/rev.js";
 import { toSnapshot } from "../src/snapshot.js";
@@ -700,6 +702,67 @@ describe("mergeSemantics", () => {
     await expect(mergeFlows(drifted, {}, false, [])).rejects.toThrow(/functions artifact is stale/);
   });
 
+  it("partitions a persisted snapshot's inline blocks into blockUnits/blockEdges", async () => {
+    // A real `--sha` snapshot carries block units inline in `units` alongside their control_flow
+    // edges. `blockUnits`/`blockEdges` are the only collections that own block data downstream, so
+    // seeding them empty strands the blocks in `units`, where assembly can neither strip nor
+    // re-supply them — the snapshot then loses its flowchart, or duplicates it.
+    const historicalSha = "historical-blocks-sha";
+    const rev = { sha: historicalSha, kind: "commit" as const, ts: "2019-01-01T00:00:00Z", author: "test", author_kind: "human" as const };
+    const baseCtx: ArtifactContext = { ...ctx, sha: historicalSha };
+    const assembled = await assembleSnapshotFromCache({ ctx: baseCtx, rev, scvDir });
+    expect(assembled.snapshot.units.some((u) => u.kind === "block")).toBe(true);
+
+    const snapshotFile = path.join(scvDir, "snapshots", `${historicalSha}.json`);
+    mkdirSync(path.dirname(snapshotFile), { recursive: true });
+    writeFileSync(snapshotFile, JSON.stringify(assembled.snapshot));
+
+    // Merge against that persisted snapshot, with no cached `functions` artifact to seed from.
+    rmSync(path.join(scvDir, "artifacts", historicalSha), { recursive: true, force: true });
+    const persistedCtx: ArtifactContext = { ...ctx, sha: historicalSha, snapshot: assembled.snapshot };
+    const pendingFile = writePending({ units: {} });
+    await mergeSemantics({ pendingFile, ctx: persistedCtx, root: orderlyRoot, fromPersistedSnapshot: true });
+
+    const stored = readFileSync(path.join(scvDir, "artifacts", historicalSha, "functions.json"), "utf-8");
+    const data = JSON.parse(stored).data as { units: Unit[]; blockUnits: Unit[]; blockEdges: { from: string; to: string }[] };
+    expect(data.blockUnits.length).toBeGreaterThan(0);
+    expect(data.blockEdges.length).toBeGreaterThan(0);
+    expect(data.units.some((u) => u.kind === "block")).toBe(false);
+  });
+
+  it("partitions inline blocks out of a cached functions artifact written by an older build", async () => {
+    // Same invariant, other input: a `functions.json` from a build that stored blocks inline in
+    // `data.units` with both collections empty. Assembly strips every block unit from the base
+    // unconditionally, so anything still inline here is dropped and the flowchart is lost.
+    const historicalSha = "legacy-artifact-sha";
+    const rev = { sha: historicalSha, kind: "commit" as const, ts: "2019-01-01T00:00:00Z", author: "test", author_kind: "human" as const };
+    const baseCtx: ArtifactContext = { ...ctx, sha: historicalSha };
+    const assembled = await assembleSnapshotFromCache({ ctx: baseCtx, rev, scvDir });
+    expect(assembled.snapshot.units.some((u) => u.kind === "block")).toBe(true);
+
+    // Write the artifact in the legacy shape: blocks inline in `units`, both collections empty.
+    // The inputHash must match what this ctx computes, or the merge treats it as stale and
+    // reseeds from the snapshot instead — which would exercise the other path, not this one.
+    const artifactFile = path.join(scvDir, "artifacts", historicalSha, "functions.json");
+    mkdirSync(path.dirname(artifactFile), { recursive: true });
+    const legacyCtx: ArtifactContext = { ...ctx, sha: historicalSha, snapshot: assembled.snapshot };
+    writeFileSync(
+      artifactFile,
+      JSON.stringify({
+        inputHash: await computeInputHash("functions", legacyCtx, {}),
+        data: { units: assembled.snapshot.units, blockUnits: [], blockEdges: [] },
+      }),
+    );
+
+    const pendingFile = writePending({ units: {} });
+    await mergeSemantics({ pendingFile, ctx: legacyCtx, root: orderlyRoot, fromPersistedSnapshot: true });
+
+    const data = JSON.parse(readFileSync(artifactFile, "utf-8")).data as { units: Unit[]; blockUnits: Unit[]; blockEdges: unknown[] };
+    expect(data.blockUnits.length).toBeGreaterThan(0);
+    expect(data.blockEdges.length).toBeGreaterThan(0);
+    expect(data.units.some((u) => u.kind === "block")).toBe(false);
+  });
+
   it("with --with-flows, refuses a graph rebuilt from a persisted snapshot", async () => {
     const historicalSha = "historical-flows-sha";
     const historicalSnapshot = toSnapshot(await extractRepo(orderlyRoot), {
@@ -768,7 +831,8 @@ describe("mergeSemantics", () => {
 
     expect(result.path).toBe(path.join(scvDir, "snapshots", `${historicalSha}.json`));
     expect(existsSync(result.path)).toBe(true);
-    expect(result.emptyArtifacts.sort()).toEqual(["clusters", "docs", "flows", "groups", "layers"]);
+    // `clusters` is deterministic: computed for real even with no provider, so never empty-defaulted.
+    expect(result.emptyArtifacts.sort()).toEqual(["docs", "flows", "groups", "layers"]);
   });
 
   it("without --sha, extracts the worktree live even when a snapshot for HEAD already exists", async () => {
@@ -848,5 +912,459 @@ describe("inScope with --scope changed", () => {
     const changed = new Set(["src/orders.py"]);
     expect(inScope(unit("u:src.auth.verify", "src/auth.py"), ["changed", "u:src.auth.**"], changed)).toBe(true);
     expect(inScope(unit("u:src.auth.verify", "src/auth.py"), ["all"], changed)).toBe(true);
+  });
+});
+
+/** Block units are pure AST structure, so a zero-LLM merge must still produce them — the
+ *  Flowchart view is otherwise silently empty on every agent-authored path. */
+describe("mergeSemantics block units", () => {
+  let scvDir: string;
+  let sha: string;
+  let ctx: ArtifactContext;
+  let graph: Awaited<ReturnType<typeof extractRepo>>;
+
+  beforeEach(async () => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-merge-blocks-"));
+    graph = await extractRepo(orderlyRoot);
+    sha = "fixed-sha";
+    const snapshot = toSnapshot(graph, {
+      root: orderlyRoot,
+      rev: { sha, kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" },
+    });
+    ctx = {
+      scvDir,
+      sha,
+      snapshot,
+      graph,
+      provider: {
+        interpret: () => {
+          throw new Error("merge-semantics must never call the provider");
+        },
+      } as never,
+      promptRev: "test-prompt-rev",
+      readSource: () => "",
+      docs: [],
+      reportProgress: () => {},
+      force: new Set(),
+    };
+  });
+
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function writeEmptyPending(): string {
+    const file = path.join(scvDir, "pending", sha, "semantics.json");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ units: {} }));
+    return file;
+  }
+
+  function storedFunctions(): { units: Unit[]; blockUnits: Unit[]; blockEdges: { id: string }[] } {
+    const file = path.join(scvDir, "artifacts", sha, "functions.json");
+    return JSON.parse(readFileSync(file, "utf-8")).data;
+  }
+
+  it("writes populated block units and control_flow edges", async () => {
+    const expectedBlocks = Object.values(graph.blockGraph).reduce((n, bg) => n + bg.blocks.length, 0);
+    const expectedEdges = Object.values(graph.blockGraph).reduce((n, bg) => n + bg.edges.length, 0);
+    expect(expectedBlocks, "fixture must have block data for this test to mean anything").toBeGreaterThan(0);
+
+    await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
+
+    const data = storedFunctions();
+    expect(data.blockUnits).toHaveLength(expectedBlocks);
+    expect(data.blockEdges).toHaveLength(expectedEdges);
+  });
+
+  it("parents blocks under their function without duplicating any id", async () => {
+    await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
+
+    const data = storedFunctions();
+    const unitIds = new Set(data.units.map((u) => u.id));
+    for (const block of data.blockUnits) {
+      expect(unitIds.has(block.parent as string)).toBe(true);
+    }
+    const allIds = [...data.units.map((u) => u.id), ...data.blockUnits.map((u) => u.id)];
+    expect(new Set(allIds).size).toBe(allIds.length);
+    expect(new Set(data.blockEdges.map((e) => e.id)).size).toBe(data.blockEdges.length);
+  });
+
+  it("is idempotent across repeated merges", async () => {
+    const pendingFile = writeEmptyPending();
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot });
+    const first = JSON.stringify(storedFunctions());
+
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot });
+    const second = storedFunctions();
+
+    // A re-merge reads back the artifact it just wrote, whose units already carry block ids in
+    // `children` — appending again would silently double them on every run.
+    expect(JSON.stringify(second)).toBe(first);
+    for (const fn of second.units) {
+      expect(new Set(fn.children).size).toBe(fn.children.length);
+    }
+    expect(second.units.some((u) => u.kind === "block")).toBe(false);
+  });
+
+  it("keeps the functions inputHash matching a follow-up ensureArtifact", async () => {
+    await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
+
+    const file = path.join(scvDir, "artifacts", sha, "functions.json");
+    const stored = JSON.parse(readFileSync(file, "utf-8"));
+    expect(stored.inputHash).toBe(await computeInputHash("functions", ctx, {}));
+
+    const reused = (await ensureArtifact("functions", ctx)).data;
+    expect(reused.blockUnits.length).toBeGreaterThan(0);
+  });
+
+  /** Labels are authored per owning function unit, keyed by readable or hashed block id. */
+  function writePendingWithLabels(unitId: string, blockLabels: Record<string, unknown>): string {
+    const file = path.join(scvDir, "pending", sha, "semantics.json");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ units: { [unitId]: { kind: "function", blockLabels } } }));
+    return file;
+  }
+
+  /** A real block from the fixture, with the function unit that owns it. */
+  function someBlock(): { unitId: string; blockId: string } {
+    const [qualname, bg] = Object.entries(graph.blockGraph)[0]!;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    return { unitId, blockId: bg.blocks[0]!.id };
+  }
+
+  it("applies authored block labels and marks them manual", async () => {
+    const { unitId, blockId } = someBlock();
+    await mergeSemantics({ pendingFile: writePendingWithLabels(unitId, { [blockId]: { label: "reject bad input" } }), ctx, root: orderlyRoot });
+
+    const labelled = storedFunctions().blockUnits.find((u) => u.id === blockId)!;
+    expect(labelled.name).toBe("reject bad input");
+    expect(labelled.provenance.source).toBe("manual");
+  });
+
+  it("accepts the readable blockId the extractor mints, not just the hashed unit id", async () => {
+    // "entry:0" is the first entry block of the function — the id an agent can actually author
+    // by reading the code, since `u:block:<hash>` is opaque.
+    const [qualname, bg] = Object.entries(graph.blockGraph)[0]!;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    const first = bg.blocks[0]!;
+
+    await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, { [`${first.blockType}:0`]: { label: "start here" } }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    expect(storedFunctions().blockUnits.find((u) => u.id === first.id)!.name).toBe("start here");
+  });
+
+  it("drops a branch label on a block with no such branch edge, keeping the node label", async () => {
+    // `buildBlockUnits` only reads trueLabel/falseLabel when it emits a "true"/"false" edge out of
+    // that block. On a block that owns neither, storing them would be inert-but-invisible.
+    const [qualname, bg] = Object.entries(graph.blockGraph).find(([, g]) =>
+      g.blocks.some((b) => !g.edges.some((e) => e.from === b.id && (e.edgeType === "true" || e.edgeType === "false"))),
+    )!;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    const unbranched = bg.blocks.find(
+      (b) => !bg.edges.some((e) => e.from === b.id && (e.edgeType === "true" || e.edgeType === "false")),
+    )!;
+
+    const result = await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, {
+        [unbranched.id]: { label: "plain step", trueLabel: "yes", falseLabel: "no" },
+      }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    const node = storedFunctions().blockUnits.find((u) => u.id === unbranched.id)!;
+    expect(node.name).toBe("plain step");
+    const outgoing = storedFunctions().blockEdges.filter((e) => e.from === unbranched.id);
+    expect(outgoing.every((e) => e.edgeLabel === undefined || e.edgeLabel === null)).toBe(true);
+    expect(result.warnings.some((w) => w.includes("trueLabel dropped"))).toBe(true);
+  });
+
+  it("keeps a branch label on a block that really owns that branch edge", async () => {
+    const isTrueDecision = (g: (typeof graph)["blockGraph"][string], b: { id: string; blockType: string }) =>
+      b.blockType === "decision" && g.edges.some((e) => e.from === b.id && e.edgeType === "true");
+    const entry = Object.entries(graph.blockGraph).find(([, g]) => g.blocks.some((b) => isTrueDecision(g, b)));
+    if (!entry) return;
+    const [qualname, bg] = entry;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    const branching = bg.blocks.find((b) => isTrueDecision(bg, b))!;
+
+    await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, { [branching.id]: { label: "check it", trueLabel: "yes" } }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    const trueEdge = storedFunctions().blockEdges.find((e) => e.from === branching.id && e.flowType === "true")!;
+    expect(trueEdge.edgeLabel).toBe("yes");
+  });
+
+  it("drops a branch label on a sequential block even where the graph gives it a true edge", async () => {
+    // The type rule is the authoring contract and is stricter than the edge rule: a `sequential`
+    // block sitting on a branch does own a "true" edge, but it is not a decision or loop, so a
+    // hand-authored trueLabel there is an authoring error rather than an edge caption.
+    const entry = Object.entries(graph.blockGraph).find(([, g]) =>
+      g.blocks.some((b) => b.blockType === "sequential" && g.edges.some((e) => e.from === b.id && e.edgeType === "true")),
+    );
+    if (!entry) return;
+    const [qualname, bg] = entry;
+    const unitId = graph.units.find((u) => u.qualname === qualname)!.id;
+    const seq = bg.blocks.find(
+      (b) => b.blockType === "sequential" && bg.edges.some((e) => e.from === b.id && e.edgeType === "true"),
+    )!;
+
+    const result = await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, { [seq.id]: { label: "plain step", trueLabel: "yes" } }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    expect(storedFunctions().blockUnits.find((u) => u.id === seq.id)!.name).toBe("plain step");
+    const trueEdge = storedFunctions().blockEdges.find((e) => e.from === seq.id && e.flowType === "true");
+    expect(trueEdge?.edgeLabel ?? null).toBeNull();
+    expect(result.warnings.some((w) => w.includes("not a decision or loop"))).toBe(true);
+  });
+
+  it("rejects an empty branch label rather than storing a blank edge caption", async () => {
+    const { unitId, blockId } = someBlock();
+    await expect(
+      mergeSemantics({
+        pendingFile: writePendingWithLabels(unitId, { [blockId]: { label: "ok", trueLabel: "" } }),
+        ctx,
+        root: orderlyRoot,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("warns and skips a block id that does not exist, still merging the rest", async () => {
+    const { unitId, blockId } = someBlock();
+    const result = await mergeSemantics({
+      pendingFile: writePendingWithLabels(unitId, { "decision:99": { label: "ghost" }, [blockId]: { label: "real" } }),
+      ctx,
+      root: orderlyRoot,
+    });
+
+    expect(result.warnings.join("\n")).toMatch(/decision:99/);
+    expect(storedFunctions().blockUnits.find((u) => u.id === blockId)!.name).toBe("real");
+  });
+
+  it("rejects an over-long label rather than overflowing the flowchart node", async () => {
+    const { unitId, blockId } = someBlock();
+    await expect(
+      mergeSemantics({ pendingFile: writePendingWithLabels(unitId, { [blockId]: { label: "x".repeat(61) } }), ctx, root: orderlyRoot }),
+    ).rejects.toThrow();
+  });
+
+  it("carries authored labels through a re-merge rather than reverting to the structural fallback", async () => {
+    const { unitId, blockId } = someBlock();
+    const id = blockId;
+    const file = writePendingWithLabels(unitId, { [blockId]: { label: "reject bad input" } });
+    await mergeSemantics({ pendingFile: file, ctx, root: orderlyRoot });
+
+    // Second merge has no labels in its pending file — the ones already on the artifact must survive.
+    await mergeSemantics({ pendingFile: writeEmptyPending(), ctx, root: orderlyRoot });
+
+    const labelled = storedFunctions().blockUnits.find((u) => u.id === id)!;
+    expect(labelled.name).toBe("reject bad input");
+    expect(labelled.provenance.source).toBe("manual");
+  });
+});
+
+describe("mergeSemantics docs", () => {
+  let scvDir: string;
+  let sha: string;
+  let ctx: ArtifactContext;
+
+  beforeEach(async () => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-merge-docs-"));
+    const graph = await extractRepo(orderlyRoot);
+    sha = "fixed-sha";
+    ctx = {
+      scvDir,
+      sha,
+      snapshot: toSnapshot(graph, {
+        root: orderlyRoot,
+        rev: { sha, kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" },
+      }),
+      graph,
+      provider: {
+        interpret: () => {
+          throw new Error("merge-semantics must never call the provider");
+        },
+      } as never,
+      promptRev: "test-prompt-rev",
+      readSource: () => "",
+      docs: discoverDocs(orderlyRoot),
+      reportProgress: () => {},
+      force: new Set(),
+    };
+  });
+
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function writePending(docs: Record<string, unknown>): string {
+    const file = path.join(scvDir, "pending", sha, "semantics-docs.json");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ units: {}, docs }));
+    return file;
+  }
+
+  function storedDocs(): { path: string; purpose: string; modules: unknown[]; architecture_notes: string[] }[] {
+    return JSON.parse(readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8")).data;
+  }
+
+  it("merges an authored doc and matches a follow-up ensureArtifact inputHash", async () => {
+    const realPath = ctx.docs[0]!.path;
+    await mergeSemantics({
+      pendingFile: writePending({
+        [realPath]: {
+          path: realPath,
+          purpose: "explains the ordering service",
+          modules: [{ name: "orders", description: "order lifecycle", paths: ["src/orders.py"] }],
+          architecture_notes: ["layered"],
+        },
+      }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+
+    const data = storedDocs();
+    expect(data).toHaveLength(1);
+    expect(data[0]!.purpose).toBe("explains the ordering service");
+    expect(data[0]!.modules).toHaveLength(1);
+
+    const stored = JSON.parse(readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8"));
+    expect(stored.inputHash).toBe(await computeInputHash("docs", ctx, {}));
+    expect((await ensureArtifact("docs", ctx)).data).toHaveLength(1);
+  });
+
+  it("warns and skips a path that was never discovered, still merging the rest", async () => {
+    const realPath = ctx.docs[0]!.path;
+    const result = await mergeSemantics({
+      pendingFile: writePending({
+        ghost: { path: "docs/nope.md", purpose: "x", modules: [], architecture_notes: [] },
+        real: { path: realPath, purpose: "kept", modules: [], architecture_notes: [] },
+      }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+
+    expect(result.warnings.join("\n")).toMatch(/docs\/nope\.md/);
+    expect(storedDocs().map((d) => d.purpose)).toEqual(["kept"]);
+  });
+
+  it("keeps the first of two entries claiming the same path and warns", async () => {
+    const realPath = ctx.docs[0]!.path;
+    const result = await mergeSemantics({
+      pendingFile: writePending({
+        a: { path: realPath, purpose: "first", modules: [], architecture_notes: [] },
+        b: { path: realPath, purpose: "second", modules: [], architecture_notes: [] },
+      }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+
+    expect(result.warnings.join("\n")).toMatch(new RegExp(realPath.replace(/[.\\/]/g, "\\$&")));
+    expect(storedDocs().map((d) => d.purpose)).toEqual(["first"]);
+  });
+
+  it("preserves cached extracts a later partial merge omits, and sorts the union by path", async () => {
+    // Authoring docs in two passes (or re-merging a file that covers only one doc) must not
+    // discard what an earlier merge already wrote: the artifact is the union, keyed by path,
+    // with the pending entry replacing a cached one for the same path.
+    const twoDocCtx: ArtifactContext = {
+      ...ctx,
+      docs: [
+        { path: "README.md", content: "# Orderly" },
+        { path: "docs/architecture.md", content: "# Architecture" },
+      ],
+    };
+
+    await mergeSemantics({
+      pendingFile: writePending({
+        b: { path: "docs/architecture.md", purpose: "architecture", modules: [], architecture_notes: [] },
+      }),
+      ctx: twoDocCtx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    expect(storedDocs().map((d) => d.path)).toEqual(["docs/architecture.md"]);
+
+    // A second merge naming only the other doc must keep the first one.
+    await mergeSemantics({
+      pendingFile: writePending({
+        a: { path: "README.md", purpose: "readme", modules: [], architecture_notes: [] },
+      }),
+      ctx: twoDocCtx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+
+    expect(storedDocs().map((d) => d.path)).toEqual(["README.md", "docs/architecture.md"]);
+    expect(storedDocs().map((d) => d.purpose)).toEqual(["readme", "architecture"]);
+  });
+
+  it("replaces a cached extract when a later merge re-authors the same path", async () => {
+    const realPath = ctx.docs[0]!.path;
+    await mergeSemantics({
+      pendingFile: writePending({ a: { path: realPath, purpose: "old", modules: [], architecture_notes: [] } }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    await mergeSemantics({
+      pendingFile: writePending({ a: { path: realPath, purpose: "new", modules: [], architecture_notes: [] } }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    expect(storedDocs().map((d) => d.purpose)).toEqual(["new"]);
+  });
+
+  it("drops a cached extract whose path is no longer discovered", async () => {
+    const twoDocCtx: ArtifactContext = {
+      ...ctx,
+      docs: [
+        { path: "README.md", content: "# Orderly" },
+        { path: "docs/gone.md", content: "# Gone" },
+      ],
+    };
+    await mergeSemantics({
+      pendingFile: writePending({ g: { path: "docs/gone.md", purpose: "doomed", modules: [], architecture_notes: [] } }),
+      ctx: twoDocCtx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    expect(storedDocs().map((d) => d.path)).toEqual(["docs/gone.md"]);
+
+    // The doc vanished from the repo; the cached extract must not survive into the new artifact.
+    await mergeSemantics({
+      pendingFile: writePending({ a: { path: "README.md", purpose: "readme", modules: [], architecture_notes: [] } }),
+      ctx,
+      root: orderlyRoot,
+      withDocs: true,
+    });
+    expect(storedDocs().map((d) => d.path)).toEqual(["README.md"]);
+  });
+
+  it("writes docs deterministically across repeated merges", async () => {
+    const realPath = ctx.docs[0]!.path;
+    const pendingFile = writePending({
+      [realPath]: { path: realPath, purpose: "stable", modules: [], architecture_notes: [] },
+    });
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withDocs: true });
+    const first = readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8");
+
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withDocs: true });
+    expect(readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8")).toBe(first);
   });
 });

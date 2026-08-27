@@ -23,7 +23,7 @@ A **fresh `layers` artifact** must exist before merging — groups are built on
 top of real layers, not proposed ones:
 
 ```sh
-scv analyze <root> layers
+scv analyze <root> layers --no-llm
 ```
 
 Freshness is checked transitively, so a stale `clusters`, `functions` or
@@ -65,7 +65,7 @@ via the zero-LLM path, run `agent-analyze-layers` first.
    scv merge-semantics <pending-file> [root] --with-groups
    ```
 
-4. A subsequent `scv analyze <root>` reuses the merged `groups` artifact — no
+4. A subsequent `scv analyze <root> groups --no-llm` reuses the merged `groups` artifact — no
    provider call for the narrated groups.
 
 ## Constraints and failure behavior

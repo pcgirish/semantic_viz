@@ -52,6 +52,7 @@ shipped, others explicitly deferred (see the plan's own verification/branching s
 | `no-llm-merge-and-provenance.md` | Implemented | `--no-llm` merge-from-cache and per-unit provenance. |
 | `agent-authored-semantics.md` | Implemented | `scv merge-semantics`: agent-authored Pass-A semantics injected into the artifact cache at zero LLM cost. Backs the `agent-analyze-functions` skill. |
 | `agent-analyze-groups-flows.md` | Implemented | Agent-authored group and flow narration (`--with-groups` / `--with-flows`). Backs the `agent-analyze-groups` and `agent-analyze-flows` skills. This covers the agent-authored path only — a plain `scv analyze` still ships groups with `semantics: null` (`packages/interpreter/src/groups.ts`), so the automated group-narration pass remains open in `docs/backlog/group-narration-pass.md`. |
+| `agent-analyze-suite-and-flowchart-blocks.md` | Implemented | Completes the agent-analyze skill suite — one skill per `scv analyze` stage, plus the `agent-analyze-repo` umbrella — and fixes the flowchart regression by extracting a deterministic block builder that every zero-LLM path calls. Also makes deterministic stages (`clusters`) genuinely compute under `--no-llm` while refusing to compute over empty-defaulted dependencies. |
 
 ## Archive
 

@@ -2,17 +2,20 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { extractRepo, isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
-import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type Snapshot, type Unit } from "@scv/schema";
+import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type PendingBlockLabel, type Snapshot, type Unit } from "@scv/schema";
 import {
   runPassB,
   layerIdFor,
   buildGroupUnits,
+  buildBlockUnits,
   buildFlowTracingContext,
   buildFlowUnit,
+  recoverBlockLabels,
   traceFlowSteps,
   systemIdFor,
   UNGROUPED_ID,
   CLUSTERING_VERSION,
+  type BlockLabelWithProvenance,
   type DocExtract,
   type ImportEdge,
   type Layer,
@@ -27,7 +30,7 @@ import { toSnapshot } from "./snapshot.js";
 interface FunctionsData {
   units: Unit[];
   blockUnits: Unit[];
-  blockEdges: unknown[];
+  blockEdges: Edge[];
 }
 
 interface ClustersData {
@@ -64,6 +67,7 @@ export interface MergeSemanticsOptions {
   withClustering?: boolean;
   withGroups?: boolean;
   withFlows?: boolean;
+  withDocs?: boolean;
   /** True when `ctx.graph` was rebuilt by `graphFromSnapshot` rather than a live `extractRepo`
    *  call. Such a graph has no `via: "di"` edges and an empty `blockGraph`, so flow merging must
    *  refuse rather than emit a silently degraded flow. */
@@ -150,6 +154,7 @@ export interface RunMergeSemanticsOptions {
   withClustering?: boolean;
   withGroups?: boolean;
   withFlows?: boolean;
+  withDocs?: boolean;
   sha?: string;
 }
 
@@ -260,6 +265,7 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
     scope: options.scope,
     withClustering: options.withClustering,
     withGroups: options.withGroups,
+    withDocs: options.withDocs,
     withFlows: options.withFlows,
     fromPersistedSnapshot: persisted !== undefined,
   });
@@ -269,23 +275,53 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
 }
 
 export async function mergeSemantics(options: MergeSemanticsOptions): Promise<MergeSemanticsResult> {
-  const { pendingFile, ctx, root, scope, withClustering, withGroups, withFlows, fromPersistedSnapshot } = options;
+  const { pendingFile, ctx, root, scope, withClustering, withGroups, withFlows, withDocs, fromPersistedSnapshot } = options;
   const warnings: string[] = [];
 
   const raw = JSON.parse(readFileSync(pendingFile, "utf-8"));
   const pending = PendingSemanticsSchema.parse(raw);
 
   const functionsStored = readArtifact<FunctionsData>(ctx, "functions");
-  const functionsData: FunctionsData = functionsStored?.data ?? {
-    units: ctx.snapshot.units,
-    blockUnits: [],
-    blockEdges: [],
+
+  /**
+   * Enforces the single-owner invariant on the way in: block units live in `blockUnits` and their
+   * control-flow edges in `blockEdges` — never inline in `units`. Downstream, assembly strips
+   * every `kind === "block"` unit from the base and re-supplies blocks solely through those two
+   * collections, so anything left inline is silently dropped.
+   *
+   * Two inputs can violate it. A *persisted* snapshot carries blocks inline in `units` with their
+   * edges in `snapshot.edges`. And a `functions.json` written by an older build can hold blocks
+   * inline in `data.units` with both collections empty — which is why this normalizes the cached
+   * artifact too, not just the snapshot fallback.
+   */
+  const partitionBlocks = (units: Unit[], blockUnits: Unit[], blockEdges: Edge[], edgeSource: Edge[]): FunctionsData => {
+    const inline = units.filter((u) => u.kind === "block");
+    if (inline.length === 0) return { units, blockUnits, blockEdges };
+    const known = new Set(blockUnits.map((u) => u.id));
+    const recoveredEdges =
+      blockEdges.length > 0 ? blockEdges : edgeSource.filter((e) => e.kind === "control_flow");
+    return {
+      units: units.filter((u) => u.kind !== "block"),
+      blockUnits: [...blockUnits, ...inline.filter((u) => !known.has(u.id))],
+      blockEdges: recoveredEdges,
+    };
   };
+
+  const functionsData: FunctionsData = functionsStored
+    ? partitionBlocks(functionsStored.data.units, functionsStored.data.blockUnits, functionsStored.data.blockEdges, ctx.snapshot.edges)
+    : partitionBlocks(ctx.snapshot.units, [], [], ctx.snapshot.edges);
+
+  // Block units are pure AST structure, so they cost nothing to rebuild here and must not be
+  // left empty — without them the Flowchart view is silently blank on every agent-authored
+  // path. Labels already earned by a cached artifact are recovered and carried through, so a
+  // semantics-only merge never resets a labeled block to its structural fallback.
+  const recoveredLabels = recoverBlockLabels(functionsData.blockUnits, functionsData.blockEdges);
+  const blockLabelResult = mergeBlockLabels(ctx, pending.units, recoveredLabels, warnings);
 
   const unitById = new Map(functionsData.units.map((u) => [u.id, u]));
 
-  let merged = 0;
-  let skipped = 0;
+  let merged = blockLabelResult.merged;
+  let skipped = blockLabelResult.skipped;
 
   // Resolved once, not per unit — see `inScope`.
   const changed = scope?.includes("changed") ? resolveChangedFiles(root) : new Set<string>();
@@ -325,10 +361,42 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
     merged++;
   }
 
-  functionsData.units = [...unitById.values()];
+  // A persisted snapshot has no blockGraph to walk (`graphFromSnapshot` hardcodes it empty), so
+  // any block units it already carries are left exactly as they are rather than rebuilt.
+  if (fromPersistedSnapshot) {
+    functionsData.units = [...unitById.values()];
+    if (blockLabelResult.merged > 0) {
+      warnings.push(`merging from a persisted snapshot: ${blockLabelResult.merged} authored block label(s) ignored — there is no block graph to rebuild against`);
+    }
+    if (functionsData.blockUnits.length > 0) {
+      warnings.push("merging from a persisted snapshot: existing block units are carried through unchanged and block labels cannot be updated");
+    }
+  } else {
+    // `blockUnits` is the only channel for block data — the base `units` array must never also
+    // carry it, or a re-merge double-counts. A cached artifact's units already hold block ids in
+    // their `children` and (historically) block units inline, so strip both back to a clean base
+    // before rebuilding. On a first merge these filters are no-ops.
+    const blockIds = new Set(functionsData.blockUnits.map((u) => u.id));
+    const base = [...unitById.values()]
+      .filter((u) => u.kind !== "block")
+      .map((u) => (u.children.some((c) => blockIds.has(c)) ? { ...u, children: u.children.filter((c) => !blockIds.has(c)) } : u));
+
+    const built = buildBlockUnits(base, ctx.graph, blockLabelResult.labels);
+    functionsData.units = built.unitsWithBlockChildren;
+    functionsData.blockUnits = built.blockUnits;
+    functionsData.blockEdges = built.blockEdges;
+  }
 
   const functionsInputHash = await computeInputHash("functions", ctx, {});
   writeArtifact(ctx, "functions", functionsInputHash, functionsData);
+
+  // Before clustering, not after: Pass B consumes the `docs` artifact, so docs authored in the
+  // same pending file must already be on disk when `mergeLayerClustering` reads them.
+  if (withDocs) {
+    const docsResult = await mergeDocs(ctx, pending.docs, warnings);
+    merged += docsResult.merged;
+    skipped += docsResult.skipped;
+  }
 
   if (withClustering) {
     const clusterResult = await mergeLayerClustering(ctx, pending.layers, functionsData.units, warnings);
@@ -515,6 +583,8 @@ async function mergeLayerClustering(
     docsStored = { inputHash: docsInputHash, data: [] };
     warnings.push("cached an empty docs artifact: doc files were discovered but no docs narration was available to merge — docs will show no summary until `scv analyze docs --force` is run with an LLM provider");
   }
+  // computeInputHash reads only `functions.units` for clusters/layers/flows — the block fields
+  // are structurally required by FunctionsData but never hashed, so they stay empty here.
   const clustersInputHash = await computeInputHash("clusters", ctx, {
     functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
     docs: docsStored?.data ?? [],
@@ -533,6 +603,174 @@ async function mergeLayerClustering(
 /** Never lets a stale artifact trigger a provider call — everything stale is empty-defaulted, and
  *  the caller decides what to do about it via `defaultedArtifacts`. */
 const NO_PROVIDER = { allowProvider: new Set<ArtifactName>() };
+
+/**
+ * Merges agent-authored doc extracts into the `docs` artifact — the zero-LLM stand-in for Pass
+ * Docs, which otherwise makes one provider call per README/docs file.
+ *
+ * `path` must name a doc `discoverDocs` actually found, since `computeInputHash("docs")` hashes
+ * the discovered set: an entry for a file the pipeline never saw would be silently dropped on the
+ * next analyze anyway. Failure modes are per-entry (warn + skip), so one bad path does not
+ * discard the rest.
+ *
+ * The write is a union over the cached artifact, not a replacement: extracts a partial pending
+ * file omits are preserved, a pending entry replaces the cached one for the same path, and a
+ * cached path the repo no longer discovers is dropped. Output is sorted by path, so two merges of
+ * the same content write byte-identical artifacts regardless of pending-file key order.
+ */
+async function mergeDocs(
+  ctx: ArtifactContext,
+  pendingDocs: Record<string, { path: string; purpose: string; modules: { name: string; description: string; paths: string[] }[]; architecture_notes: string[] }>,
+  warnings: string[],
+): Promise<{ merged: number; skipped: number }> {
+  const discovered = new Set(ctx.docs.map((d) => d.path));
+
+  // Seed from whatever a previous merge already wrote, so authoring docs across several passes
+  // (or re-merging a file that covers only one doc) is additive rather than destructive. A
+  // pending entry replaces the cached extract for the same path; a cached path the repo no
+  // longer discovers is dropped, since the `docs` input hash is computed over the discovered set.
+  const byPath = new Map<string, DocExtract>();
+  for (const cached of readArtifact<DocExtract[]>(ctx, "docs")?.data ?? []) {
+    if (discovered.has(cached.path)) byPath.set(cached.path, cached);
+  }
+  const claimed = new Set<string>();
+  let merged = 0;
+  let skipped = 0;
+
+  for (const [key, entry] of Object.entries(pendingDocs)) {
+    if (!discovered.has(entry.path)) {
+      warnings.push(`doc ${key}: path ${entry.path} was not discovered in this repo — skipped`);
+      skipped++;
+      continue;
+    }
+    if (claimed.has(entry.path)) {
+      warnings.push(`doc ${key}: ${entry.path} is already claimed by an earlier entry — skipped`);
+      skipped++;
+      continue;
+    }
+    claimed.add(entry.path);
+    byPath.set(entry.path, {
+      path: entry.path,
+      purpose: entry.purpose,
+      modules: entry.modules,
+      architecture_notes: entry.architecture_notes,
+    });
+    merged++;
+  }
+
+  const docs = [...byPath.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  writeArtifact(ctx, "docs", await computeInputHash("docs", ctx, {}), docs);
+  return { merged, skipped };
+}
+
+/**
+ * Overlays agent-authored block labels onto the labels recovered from a cached artifact.
+ *
+ * Labels are authored per function unit (`units[<id>].blockLabels`) and keyed by the extractor's
+ * readable `blockId` — "decision:0", "loop:1". That id is not persisted verbatim:
+ * `resolveBlockGraph` hashes it into `u:block:<hash>`. Since blocks are emitted in stable walker
+ * order, the readable form is reconstructed here from each function's block sequence — counting
+ * per `blockType`, exactly as the walkers mint it. The hashed `u:block:<hash>` form is accepted
+ * too, so a caller reading ids straight out of `extraction.json` still works.
+ *
+ * An id no function owns, or a label on a unit with no block graph, is an authoring typo: warned
+ * and skipped rather than aborting the merge, matching every other merge path in this file. A
+ * `trueLabel`/`falseLabel` on a block that has no such outgoing edge is dropped the same way,
+ * keeping the node label — the rest of the entry is still valid.
+ */
+function mergeBlockLabels(
+  ctx: ArtifactContext,
+  pendingUnits: Record<string, { blockLabels?: Record<string, PendingBlockLabel> }>,
+  recovered: Map<string, Map<string, BlockLabelWithProvenance>>,
+  warnings: string[],
+): { labels: Map<string, Map<string, BlockLabelWithProvenance>>; merged: number; skipped: number } {
+  const withLabels = Object.entries(pendingUnits).filter(([, u]) => u.blockLabels && Object.keys(u.blockLabels).length > 0);
+  if (withLabels.length === 0) return { labels: recovered, merged: 0, skipped: 0 };
+
+  // Per owning function unit: readable blockId ("decision:0") and hashed id -> the hashed id the
+  // builder keys labels by. Readable ids are reconstructed in emission order, per blockType,
+  // matching how `walk-python`/`walk-typescript` mint them.
+  const unitIdByQualname = new Map(ctx.graph.units.map((u) => [u.qualname, u.id]));
+  const resolvableByOwner = new Map<string, Map<string, string>>();
+  const branchesByOwner = new Map<string, Map<string, Set<string>>>();
+  for (const [qualname, bg] of Object.entries(ctx.graph.blockGraph)) {
+    const owner = unitIdByQualname.get(qualname);
+    if (!owner) continue;
+    const resolvable = new Map<string, string>();
+    const seen = new Map<string, number>();
+    for (const block of bg.blocks) {
+      const n = seen.get(block.blockType) ?? 0;
+      seen.set(block.blockType, n + 1);
+      resolvable.set(`${block.blockType}:${n}`, block.id);
+      resolvable.set(block.id, block.id);
+    }
+    resolvableByOwner.set(owner, resolvable);
+    // A branch label survives only on a block that is *both* a branching type and the real source
+    // of that edge. The two gates catch different things and neither subsumes the other:
+    //
+    //   - Type gate (`decision`/`loop`): the authoring contract. Only these two read as branching
+    //     to someone writing labels by hand, so a `trueLabel` on anything else is an authoring
+    //     error, even where the graph happens to hang a "true" edge off a `sequential` block that
+    //     sits on a branch (2 such blocks in `fixtures/orderly`). Labeling those would caption an
+    //     edge the author never meant to name.
+    //   - Edge gate: what actually renders. `buildBlockUnits` emits `edgeLabel` only for a
+    //     "true"/"false" edge leaving that block, so a label on a block with no such edge is
+    //     stored and never drawn. `loop` is the live case — it is branching by contract but exits
+    //     via "loop-back", owning neither branch edge in this fixture.
+    const branches = new Map<string, Set<string>>();
+    for (const block of bg.blocks) {
+      if (block.blockType === "decision" || block.blockType === "loop") branches.set(block.id, new Set());
+    }
+    for (const edge of bg.edges) {
+      if (edge.edgeType !== "true" && edge.edgeType !== "false") continue;
+      branches.get(edge.from)?.add(edge.edgeType);
+    }
+    branchesByOwner.set(owner, branches);
+  }
+
+  const labels = new Map([...recovered].map(([fn, m]) => [fn, new Map(m)]));
+  let merged = 0;
+  let skipped = 0;
+  for (const [unitId, pendingUnit] of withLabels) {
+    const resolvable = resolvableByOwner.get(unitId);
+    if (!resolvable) {
+      warnings.push(`unit ${unitId}: has blockLabels but no control-flow blocks in the current extraction — skipped`);
+      skipped += Object.keys(pendingUnit.blockLabels!).length;
+      continue;
+    }
+    for (const [blockId, pendingLabel] of Object.entries(pendingUnit.blockLabels!)) {
+      const resolved = resolvable.get(blockId);
+      if (!resolved) {
+        warnings.push(`unit ${unitId}: block ${blockId} is not in this function's control-flow graph — skipped`);
+        skipped++;
+        continue;
+      }
+      // Drop a branch label the block cannot carry, keeping its node label: the merge is not
+      // wrong, just over-specified, and silently storing an unrenderable field would leave the
+      // author believing it took effect.
+      const branching = branchesByOwner.get(unitId)?.has(resolved) ?? false;
+      const owned = branchesByOwner.get(unitId)?.get(resolved) ?? new Set<string>();
+      const label = { ...pendingLabel };
+      for (const branch of ["true", "false"] as const) {
+        const field = branch === "true" ? "trueLabel" : "falseLabel";
+        if (label[field] === undefined) continue;
+        if (!branching) {
+          warnings.push(`unit ${unitId}: block ${blockId} is not a decision or loop — ${field} dropped, node label kept`);
+          delete label[field];
+        } else if (!owned.has(branch)) {
+          warnings.push(`unit ${unitId}: block ${blockId} has no "${branch}" branch — ${field} dropped, node label kept`);
+          delete label[field];
+        }
+      }
+
+      const forFunction = labels.get(unitId) ?? new Map<string, BlockLabelWithProvenance>();
+      forFunction.set(resolved, { label, provenance: { source: "manual", pass: "A" } });
+      labels.set(unitId, forFunction);
+      merged++;
+    }
+  }
+  return { labels, merged, skipped };
+}
 
 /**
  * Merges agent-authored group narration into the `groups` artifact.

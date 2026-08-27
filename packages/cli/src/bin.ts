@@ -21,7 +21,10 @@ program
   .option("--model <name>", "interpreter model; persisted to .scv/config.yaml")
   .option("--effort <level>", "interpreter effort: low | medium | high | xhigh | max; persisted to .scv/config.yaml")
   .option("--log-level <level>", "llm call logging: info; persisted to .scv/config.yaml")
-  .option("--no-llm", "merge from cache only — never call a provider; artifacts with no cache use an empty default")
+  .option(
+    "--no-llm",
+    "never call a provider; without [artifact] merges from cache with empty defaults, with [artifact] also computes that stage if it is deterministic (clusters)",
+  )
   .option(
     "--force",
     "recompute the target artifact even if its cached inputs are unchanged; downstream artifacts recompute only if the forced output actually differs; requires [artifact]",
@@ -82,12 +85,13 @@ program
   )
   .option("--with-clustering", "also run Pass B clustering (deterministic, no LLM) and merge pending layer narration")
   .option("--with-groups", "also merge pending group narration into the groups artifact (requires a fresh layers artifact)")
+  .option("--with-docs", "also merge pending doc extracts into the docs artifact (the zero-LLM stand-in for Pass Docs; merged before clustering, which consumes it)")
   .option("--with-flows", "also merge pending flow narration into the flows artifact (requires live extraction; not supported with a historical --sha)")
   .option(
     "--sha <sha>",
     "sha to merge against; defaults to HEAD. Merges against the persisted .scv/snapshots/<sha>.json when present, otherwise extracts the current worktree.",
   )
-  .action(async (pendingFile: string, root: string, opts: { scope?: string[]; withClustering?: boolean; withGroups?: boolean; withFlows?: boolean; sha?: string }) => {
+  .action(async (pendingFile: string, root: string, opts: { scope?: string[]; withClustering?: boolean; withGroups?: boolean; withFlows?: boolean; withDocs?: boolean; sha?: string }) => {
     const result = await runMergeSemantics({
       root,
       pendingFile,
@@ -95,6 +99,7 @@ program
       withClustering: opts.withClustering,
       withGroups: opts.withGroups,
       withFlows: opts.withFlows,
+      withDocs: opts.withDocs,
       sha: opts.sha,
     });
     console.log(`merged ${result.merged}, skipped ${result.skipped}`);

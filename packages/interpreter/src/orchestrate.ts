@@ -7,6 +7,7 @@ import type { Provider } from "./provider.js";
 import type { PassAUnitRecord } from "./cache.js";
 import { runPassA } from "./pass-a.js";
 import { runPassABlocks, type BlockLabel } from "./pass-a-blocks.js";
+import { buildBlockUnits, type BlockLabelWithProvenance } from "./blocks.js";
 import { runPassB } from "./pass-b.js";
 import { runPassC, runPassCGroups, proposeFlowEntryPoints, narrateFlow } from "./pass-c.js";
 import type { Layer } from "./pass-c.js";
@@ -116,14 +117,6 @@ export function fmtElapsed(ms: number): string {
 }
 
 const LEAF_KINDS = new Set(["function", "class"]);
-
-/** Presentable fallback block names, keyed by BlockType, for when Pass A-blocks omits a
- *  label — raw blockType strings like "merge" read as internal debug output on a flowchart. */
-const BLOCK_TYPE_FALLBACK_NAME: Record<string, string> = {
-  merge: "continue",
-  entry: "start",
-  exit: "end",
-};
 
 /** Test code gets no LLM-generated summary/grouping/flow narration — only its structural
  *  fields (name, loc, hash) are kept in the snapshot (docs/plans/test-folder-flat-module-no-analysis.md). */
@@ -346,9 +339,6 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
   // of Pass B/C. Every function unit's SymbolGraph.blockGraph entry becomes block Units
   // parented under that function (so blocks show up in its `children`, same as any other
   // nesting in the schema) plus `control_flow` Edges carrying `flowType`.
-  const blockUnits: Unit[] = [];
-  const blockEdges: Edge[] = [];
-  const blockChildrenByFunction = new Map<string, string[]>();
   const functionsWithBlocks: { unit: Unit; symbolUnit: SymbolUnit; bg: SymbolBlockGraph }[] = [];
   for (const unit of units) {
     if (unit.kind !== "function") continue;
@@ -392,58 +382,21 @@ export async function runFunctionsPass(options: RunFunctionsPassOptions): Promis
     },
   );
 
-  for (const { unit, bg } of functionsWithBlocks) {
-    const labels = blockLabelsByFunction.get(unit.id);
-    const childIds: string[] = [];
-    for (const block of bg.blocks) {
-      childIds.push(block.id);
-      const label = labels?.get(block.id);
-      blockUnits.push({
-        id: block.id,
-        kind: "block",
-        name: label?.label ?? block.condition ?? BLOCK_TYPE_FALLBACK_NAME[block.blockType] ?? block.blockType,
-        qualname: block.id,
-        lang: undefined,
-        parent: unit.id,
-        children: [],
-        loc: { files: unit.loc.files, start: block.startLine, end: block.endLine, sloc: block.endLine - block.startLine + 1 },
-        signature: null,
-        semantics: null,
-        cost: null,
-        tags: [],
-        metrics: {},
-        authors: undefined,
-        hash: { struct: null, text: null, semantic: null },
-        provenance: label
-          ? { source: "llm", pass: "A", provider: provider.name, model: provider.model }
-          : { source: "static" },
+  // This is the only place that knows the provider, so Pass A-blocks' labels are stamped
+  // with their provenance here; `buildBlockUnits` writes it through verbatim.
+  const labelsWithProvenance = new Map<string, Map<string, BlockLabelWithProvenance>>();
+  for (const [unitId, labels] of blockLabelsByFunction) {
+    const forFunction = new Map<string, BlockLabelWithProvenance>();
+    for (const [blockId, label] of labels) {
+      forFunction.set(blockId, {
+        label,
+        provenance: { source: "llm", pass: "A", provider: provider.name, model: provider.model },
       });
     }
-    blockChildrenByFunction.set(unit.id, childIds);
-
-    for (const edge of bg.edges) {
-      const fromLabel = labels?.get(edge.from);
-      const edgeLabel = edge.edgeType === "true" ? fromLabel?.trueLabel : edge.edgeType === "false" ? fromLabel?.falseLabel : undefined;
-      blockEdges.push({
-        id: `e:cf:${createHash("sha1").update(`${edge.from}${edge.to}${edge.edgeType}`).digest("hex").slice(0, 10)}`,
-        from: edge.from,
-        to: edge.to,
-        kind: "control_flow",
-        weight: 1,
-        evidence: [],
-        source: "static",
-        confidence: 1,
-        flowType: edge.edgeType,
-        edgeLabel,
-        ...(edge.raises ? { raises: true } : {}),
-      });
-    }
+    labelsWithProvenance.set(unitId, forFunction);
   }
-  const unitsWithBlockChildren = units.map((unit) => {
-    const childIds = blockChildrenByFunction.get(unit.id);
-    if (!childIds) return unit;
-    return { ...unit, children: [...unit.children, ...childIds] };
-  });
+
+  const { unitsWithBlockChildren, blockUnits, blockEdges } = buildBlockUnits(units, graph, labelsWithProvenance);
 
   return { units: unitsWithBlockChildren, blockUnits, blockEdges, attemptedAll, failedCount };
 }
@@ -1030,6 +983,27 @@ function buildContainerUnit(options: {
  *  modules under their layer, rolls up layer-to-layer edges, and adds a root system unit. */
 export function finalizeSnapshot(options: FinalizeSnapshotOptions): Snapshot {
   const { snapshot, provider, promptRev, systemName, units, blockUnits, blockEdges, layerUnits, parentOverride, groupUnits, layerParent, flowUnits } = options;
+
+  // Block units are appended from `blockUnits` below, so `units` must not already contain them.
+  // A `functions` artifact merged from a persisted snapshot carries its blocks inside `units`;
+  // passing those through both channels would duplicate every one of them silently.
+  if (blockUnits.length > 0) {
+    const blockIds = new Set(blockUnits.map((u) => u.id));
+    const carried = units.find((u) => blockIds.has(u.id));
+    if (carried) {
+      throw new Error(
+        `finalizeSnapshot: block units passed twice — ${carried.id} is in both \`units\` and \`blockUnits\`. Strip blocks from \`units\` or pass \`blockUnits: []\`.`,
+      );
+    }
+    // Edges duplicate just as silently as units: a historical base snapshot persists its own
+    // `control_flow` edges, and `blockEdges` is concatenated onto them below.
+    const carriedEdge = snapshot.edges.find((e) => e.kind === "control_flow" && (blockIds.has(e.to) || blockIds.has(e.from)));
+    if (carriedEdge) {
+      throw new Error(
+        `finalizeSnapshot: control-flow edges passed twice — ${carriedEdge.from}->${carriedEdge.to} is in both \`snapshot.edges\` and \`blockEdges\`. Strip persisted block edges from the base snapshot.`,
+      );
+    }
+  }
 
   const sysId = systemIdFor(snapshot, systemName);
 

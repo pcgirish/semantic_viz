@@ -1821,6 +1821,33 @@ describe("finalizeSnapshot — invariant enforcement", () => {
     ).toThrow(/invariant/i);
   });
 
+  it("throws when block units arrive both inside `units` and in `blockUnits`", () => {
+    const graph = makeGraph();
+    const snapshot = makeSnapshot(graph);
+    const modules = snapshot.units.filter((u) => u.kind === "module").map((u) => ({ ...u, children: [], parent: null }));
+
+    // A `functions` artifact merged from a persisted snapshot carries its block units inside
+    // `units`; passing them again as `blockUnits` would silently duplicate every one of them.
+    const block: Unit = { ...modules[0]!, id: "u:block:dupe", kind: "block", name: "dupe", qualname: "dupe", children: [] };
+
+    expect(() =>
+      finalizeSnapshot({
+        snapshot,
+        provider: fakeProvider({}),
+        promptRev: "p1",
+        systemName: undefined,
+        units: [...modules, block],
+        blockUnits: [block],
+        blockEdges: [],
+        layerUnits: [],
+        parentOverride: new Map(),
+        groupUnits: [],
+        layerParent: new Map(),
+        flowUnits: [],
+      }),
+    ).toThrow(/block units/i);
+  });
+
   it("builds a snapshot that passes its own invariants on a normal run", async () => {
     const graph = makeGraph();
     const result = await runInterpreter({

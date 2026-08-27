@@ -246,6 +246,7 @@ export const SnapshotSchema = z.object({
 
 export type Snapshot = z.infer<typeof SnapshotSchema>;
 export type Unit = z.infer<typeof UnitSchema>;
+export type UnitProvenance = z.infer<typeof UnitProvenanceSchema>;
 export type Edge = z.infer<typeof EdgeSchema>;
 export type External = z.infer<typeof ExternalSchema>;
 
@@ -395,6 +396,10 @@ export {
   PendingLayerSchema,
   PendingGroupSchema,
   PendingFlowSchema,
+  PendingBlockLabelSchema,
+  PendingDocSchema,
+  type PendingDoc,
+  type PendingBlockLabel,
   type PendingSemantics,
   type PendingUnit,
   type PendingLayer,

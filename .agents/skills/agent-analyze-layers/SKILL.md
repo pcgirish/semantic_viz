@@ -17,7 +17,7 @@ artifact cache as if a real Pass C had produced it.
 
 1. Run `scv analyze --no-llm <root>` (or reuse an existing run) so file
    paths are real. To see the real clustering first, run
-   `scv analyze <root> clusters` (free, no LLM call) and read
+   `scv analyze <root> clusters --no-llm` (free, no LLM call) and read
    `.scv/artifacts/<sha>/clusters.json` for real `files` sets per group,
    before writing narration.
 2. For each cluster you want to narrate, write an entry into the pending
@@ -60,7 +60,7 @@ artifact cache as if a real Pass C had produced it.
    scv merge-semantics <pending-file> [root] --with-clustering [--sha <sha>]
    ```
 
-4. A subsequent `scv analyze <root>` reuses the merged `layers` artifact
+4. A subsequent `scv analyze <root> layers --no-llm` reuses the merged `layers` artifact
    (its `inputHash` already matches) — no provider call happens for the
    narrated layers. `groups`/`flows` compute normally on top.
 
@@ -69,7 +69,7 @@ artifact cache as if a real Pass C had produced it.
 - Pass B clustering itself never calls an LLM, with or without this skill —
   only the narration text is agent-authored here.
 - Getting a cluster's exact file set right matters: if you're unsure what
-  the real clusters look like, run a real `scv analyze <root>` once first
+  the real clusters look like, run a real `scv analyze <root> --no-llm` once first
   and read `.scv/snapshots/<sha>.json`'s layer units for their `files`.
 - Merging narration for only *some* clusters is safe: any real cluster your
   pending file doesn't mention keeps whatever name/narration/provenance it

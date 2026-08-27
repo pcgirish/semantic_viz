@@ -1,6 +1,6 @@
 # Roadmap
 
-Status as of 2026-08-24. Source of truth for granular history: `docs/plans/`
+Status as of 2026-08-26. Source of truth for granular history: `docs/plans/`
 (implemented, chronological) and `docs/backlog/` (deferred/closed items).
 
 ## Done — core pipeline (all packages "Implemented")
@@ -20,7 +20,14 @@ Status as of 2026-08-24. Source of truth for granular history: `docs/plans/`
   `modified`/`risk_changed` (rename/move detection deliberately
   unsupported)
 - **CLI** — `scv analyze` / `scv diff` / `scv serve` / `scv ui`, incremental
-  and artifact-aware (per-stage caching under `.scv/artifacts/<sha>/`)
+  and artifact-aware (per-stage caching under `.scv/artifacts/<sha>/`);
+  `scv merge-semantics` injects agent-authored semantics into that cache
+- **Agent-analyze skill suite** (`.agents/skills/agent-analyze-*`) — one
+  skill per `analyze` stage plus an `agent-analyze-repo` umbrella, producing
+  a complete snapshot with zero provider calls. Deterministic stages
+  (extraction, blocks, clustering) really compute under `--no-llm`; a
+  deterministic stage refuses to compute over empty-defaulted dependencies
+  rather than writing a cache-fresh artifact derived from nothing
 - **Server** — Fastify API (`/api/revs`, `/api/snapshot/:sha`,
   `/api/search`, `/api/delta/:from/:to`)
 - **Layout** — pure Sugiyama-style layered engine (rank/order/place/route)
@@ -66,9 +73,6 @@ merged" in `README.md`.
 - Light skin's canvas background vignette is hardcoded for the dark skin
   (`GraphCanvas` radial-gradient) — tracked as a followup, not part of any
   active plan
-- Pass A against a large repo (hundreds of units) on a local `ollama`
-  daemon can exceed concurrent-connection limits (`fetch failed`) —
-  workaround is analyzing a subtree or switching to a hosted provider
 
 ## Future work (not yet planned in `docs/plans/`)
 
