@@ -278,13 +278,39 @@ The connector's far endpoint is **not** anchored to the tray row's DOM position.
 at a fixed point in scene space:
 
 ```
-x = base.x + base.w + GUTTER     // GUTTER: a small constant, ~24 scene units
+x = base.x + base.w - MARGIN     // inside the drawable area, not beyond it
 y = the interior tile's own port y
 ```
 
 That is, every connector for an active row runs horizontally from its tile to a common
 right-edge gutter, at the tile's own height — a short flat stub, not a line aimed at a row.
-Consequences, which are the point of choosing it:
+
+**The endpoint must stay inside `base`.** An earlier draft of this rule put it at
+`base.x + base.w + GUTTER`, outside the scene box; external review was right that this clips,
+and the reasoning is worth keeping because it is not obvious:
+
+- `GraphCanvas` (`packages/design-system/components/viz/GraphCanvas.jsx:6`) sets
+  `overflow: "hidden"`. `CanvasHost` renders it with `position: absolute, inset: 0` inside
+  `.canvas-scale`, which is exactly `base.w × base.h`. `ConnectorLayer`'s own
+  `overflow: "visible"` cannot escape a clipping ancestor, so anything drawn past `base.w` —
+  the endpoint, the stroke, and the arrowhead, which extends further still — is cut off.
+- The trap is that **this does not reproduce before the marker deletion.** `sceneBounds`
+  (`packages/ui/src/usePanZoom.ts:12-19`) takes the extent of `scene.nodes`, and today the
+  marker nodes *are* nodes sitting at the right of the scene, so they inflate `base.w`. Once
+  §2 deletes them, `base.w` collapses back to the interior tiles plus `PAD`, and an endpoint
+  that appeared to fit starts clipping. Any check of this rule must be run **after** the
+  deletion lands, not before.
+
+`sceneBounds` already adds `PAD = 24` beyond the right-most tile, so there is a 24-unit strip
+inside `base` and to the right of every tile with nothing drawn in it. Put the gutter there:
+`MARGIN` is a small constant (~4 scene units) reserving room for the arrowhead, making the
+endpoint `PAD - MARGIN` ≈ 20 units clear of the right-most tile and strictly inside the
+clipping box. No change to `GraphCanvas`, `sceneBounds`, or the overflow contract — which is
+the reason to prefer this over widening the extent: `base` also drives `fitScale`, the scroll
+extent and the zoom clamp, so inflating it to accommodate a transient highlight would change
+the resting zoom of every scene whether or not a row is active.
+
+Consequences, which are the point of choosing a scene-space endpoint:
 
 - **Zoom and scroll are free.** The endpoint is a scene coordinate under the same
   `.canvas-scale` transform as every other connector, so it scales and pans with the scene
@@ -301,8 +327,10 @@ Consequences, which are the point of choosing it:
   *these* tiles) and by the shared direction colour, which is the question the user asked:
   *which tiles does this sibling touch, and which way?*
 
-`GUTTER` must exceed the widest tile's right overhang so stubs do not begin under a tile;
-derive it from the scene's right-most node extent rather than hardcoding if that proves tight.
+**Degenerate case.** The right-most tile in the scene is itself only `PAD` from the gutter, so
+its stub is ~20 units long — short, but present and correctly coloured. A tile can never be
+*past* the gutter, since `base.w` is derived from the tiles themselves. Test the right-most
+tile explicitly: assert its connector has positive length and `x2 < base.x + base.w`.
 
 #### 4b. The opacity dim must be lifted for these connectors
 
@@ -425,6 +453,7 @@ change, revisited with the user, not a silent redesign.
 | `packages/ui/src/App.tsx` | Carry `interior` through `collectBoundaryEdges`; aggregate into `SiblingSummary[]`/`SiblingTileLink[]`; fold into the existing `useMemo`; pass to `CanvasHost` |
 | `packages/ui/src/ConnectedSiblingsTray.tsx` | **New** — rows, sorting, glyphs, hover/pin callbacks |
 | `packages/ui/src/CanvasHost.tsx` | Render tray as sticky overlay (direct child of `.canvas-scroll`); add `rowHover`/`rowPinned`; extend focus derivation and connector `kind` |
+| `packages/design-system/components/viz/GraphCanvas.jsx` | **Unchanged, deliberately.** Its `overflow: hidden` is why §4a keeps the connector endpoint inside `base`; widening the extent instead would also move `fitScale`, the scroll extent and the zoom clamp |
 | `packages/design-system/components/viz/ConnectorLayer.jsx` | Exempt `hover-in`/`hover-out` kinds from the `role === "muted"` opacity dim, on both path and dots — without this the highlight recolours the crossing edges and then dims them |
 
 ## Verification
@@ -502,9 +531,31 @@ case did not:
    distinction (`weight > 1` ⇒ heavy) rather than scaling linearly. Add a unit test for the
    clamp with a deliberately large weight.
 
-Also confirm in the browser that the anchor-tile brightness asymmetry noted in §4 is
-acceptable, and that the tray does not collide with the elided-edges badge when both are
-visible.
+**Clipping (unit).** Assert every synthesised connector endpoint satisfies
+`base.x <= x2 < base.x + base.w` and likewise for y — the invariant §4a's endpoint rule
+exists to hold. Include the right-most tile in the fixture, since it is the tightest case,
+and assert its connector still has positive length. This test must run against a scene with
+the marker nodes already deleted; a fixture that still contains them inflates `base.w` and
+would pass vacuously.
+
+**Clipping (browser).** With a row active, confirm the full connector — stroke *and*
+arrowhead — is visible at fit scale, zoomed in, zoomed out, and panned to the right edge.
+Check specifically the connector belonging to the right-most tile. Run this only after §2's
+deletion has landed, for the `base.w` reason in §4a.
+
+**Association (browser).** External review asked, fairly, whether the shared highlight and
+direction colour are enough to identify the relationship given rows and connectors are
+deliberately not joined. Acceptance: with a row hovered, a viewer should be able to name which
+tiles that sibling touches and in which direction, without the tray. Check it on the
+group-focus case above, which is the hard one — `Unclustered` lights three tiles all inbound,
+so colour alone does not disambiguate it from `Backend Packaging`, which lights the same three
+tiles the same colour. If the two rows prove indistinguishable in practice, the recorded
+fallback is a row-to-connector cue (matching the row's hover treatment to the lit tiles'
+accent), **not** re-anchoring connectors to row positions — that is the coordinate coupling
+§4a exists to avoid.
+
+Also confirm the anchor-tile brightness asymmetry noted in §4 is acceptable, and that the tray
+does not collide with the elided-edges badge when both are visible.
 
 ## Out of scope
 
