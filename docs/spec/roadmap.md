@@ -74,6 +74,10 @@ merged" in `README.md`.
 - Light skin's canvas background vignette is hardcoded for the dark skin
   (`GraphCanvas` radial-gradient) — tracked as a followup, not part of any
   active plan
+- Temperature scale is misused: the Inspector's `RiskMeter` paints
+  `semantics.confidence` on the risk ramp (high confidence reads as
+  critical red), and the Legend shows the ramp in Current where nothing
+  reads it — `docs/backlog/temperature-scale-misuse.md`
 
 ## Future work (not yet planned in `docs/plans/`)
 
