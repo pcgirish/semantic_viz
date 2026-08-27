@@ -56,6 +56,12 @@ Two variants, and the second is probably the right one:
   generation-bound, so cutting prefill will not cut wall time proportionally. The token/cost
   saving is the solid win; a latency win is not.
 
+## Blocked on
+`cache-token-capture.md` — **land that first.** This item's whole justification is a
+prefix-caching win, and `llm_calls` currently records no cache-token columns, so a
+successful reorder and a no-op are indistinguishable in the trace. Measure first,
+then change the prompts.
+
 ## Related
 - `docs/llm-call-observability.md` — the correction showing this, not per-file source
   duplication, is the real repetition in Pass A prompts.
