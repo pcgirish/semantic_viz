@@ -5,10 +5,10 @@ import type { Unit } from "@scv/schema";
 
 afterEach(cleanup);
 
-function makeUnit(id: string, name: string): Unit {
+function makeUnit(id: string, name: string, kind = "layer"): Unit {
   return {
     id,
-    kind: "layer",
+    kind,
     name,
     qualname: name,
     lang: "python",
@@ -41,6 +41,25 @@ describe("Breadcrumb", () => {
     expect(screen.getByText("root")).toBeInTheDocument();
     expect(screen.getByText("cli-tools")).toBeInTheDocument();
     expect(screen.getByText("cli-commands")).toBeInTheDocument();
+  });
+
+  it("shortens a module segment to its file name, keeping the full path as a tooltip", () => {
+    // Module names are repo-relative paths; spelling one out in full crowds every other
+    // segment off the toolbar, so the crumb shows the basename and hovers the rest.
+    const units = [makeUnit("u:a", "root"), makeUnit("u:b", "packages/ui/src/App.tsx", "module")];
+    render(<Breadcrumb focus="u:b" focusStack={["u:a"]} units={units} onGoTo={vi.fn()} onBack={vi.fn()} />);
+
+    const segment = screen.getByText("App.tsx");
+    expect(segment).toBeInTheDocument();
+    expect(segment.getAttribute("title")).toBe("packages/ui/src/App.tsx");
+    expect(screen.queryByText("packages/ui/src/App.tsx")).toBeNull();
+  });
+
+  it("leaves non-module segment labels alone even when they contain slashes", () => {
+    const units = [makeUnit("u:a", "ui/rendering")];
+    render(<Breadcrumb focus="u:a" focusStack={[]} units={units} onGoTo={vi.fn()} onBack={vi.fn()} />);
+
+    expect(screen.getByText("ui/rendering")).toBeInTheDocument();
   });
 
   it("clicking a non-last segment calls onGoTo with its index", () => {

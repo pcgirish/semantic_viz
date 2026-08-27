@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { Delta, Edge, Snapshot, Unit } from "@scv/schema";
+import { displayName, pathLeaf } from "@scv/layout";
 import type { BoundaryEdge } from "@scv/layout";
 import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
@@ -198,7 +199,8 @@ export function summariseSiblings(input: {
       .sort((a, b) => b.edgeCount - a.edgeCount || a.interior.localeCompare(b.interior));
     return {
       id,
-      name: unit.name,
+      // Same rule the tiles use: a module's name is its path, and the row is too narrow for one.
+      name: displayName(unit),
       tiles,
       inCount,
       outCount,
@@ -221,6 +223,14 @@ function descendantIds(root: Unit, unitsById: Map<string, Unit>): Set<string> {
     stack.push(...(unitsById.get(id)?.children ?? []));
   }
   return ids;
+}
+
+/** A repo root recorded as a path shows only its leaf — the toolbar labels the project, not its
+ *  location on disk. A placeholder root ("." from an older CLI) is repaired server-side, where the
+ *  served directory is actually known. Falls back to the raw root so a name that survives no
+ *  leaf extraction (e.g. "/") still labels the toolbar with something. */
+function repoLabel(root: string): string {
+  return pathLeaf(root) || root.trim();
 }
 
 const MODE_LABEL: Record<string, string> = {
@@ -418,7 +428,7 @@ export function App({ snapshotUrl }: AppProps): JSX.Element {
         left={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
             <span style={{ font: "var(--weight-bold) var(--text-lg) var(--font-core)", color: "var(--text-hi)" }}>
-              {state.snapshot.repo.root}
+              {repoLabel(state.snapshot.repo.root)}
             </span>
             <span style={{ color: "var(--text-dim)", font: "var(--weight-regular) var(--text-sm) var(--font-core)" }}>
               {shortSha(sha)} · {MODE_LABEL[mode]} mode

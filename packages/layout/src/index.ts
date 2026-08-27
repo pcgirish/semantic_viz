@@ -1,4 +1,4 @@
-export { buildScene } from "./layout.js";
+export { buildScene, displayName, pathLeaf } from "./layout.js";
 export type { BuildSceneOptions, BoundaryEdge } from "./layout.js";
 export { buildFlowchartScene } from "./flowchart.js";
 export { rank } from "./rank.js";

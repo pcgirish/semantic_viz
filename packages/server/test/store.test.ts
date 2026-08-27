@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { SnapshotStore } from "../src/store.js";
 import { makeSnapshot, writeScvFixture } from "./fixtures.js";
@@ -15,6 +16,25 @@ describe("SnapshotStore", () => {
       { sha: "c".repeat(40), kind: "commit", ts: "2026-02-01T00:00:00Z", author: "Bo", author_kind: "human", amount: 0 },
       { sha: "b".repeat(40), kind: "commit", ts: "2026-01-01T00:00:00Z", author: "Ada", author_kind: "human", amount: 0 },
     ]);
+  });
+
+  it("names a snapshot whose repo root is a placeholder after the served directory", () => {
+    // `scv analyze .` used to store `path.basename(".")` — literally "." — so the UI had no
+    // project name to show. The server knows the real root: it is the parent of the .scv dir.
+    const stale = makeSnapshot({ repo: { root: ".", vcs: "git" } });
+    const scvDir = writeScvFixture([stale]);
+    const store = new SnapshotStore(scvDir);
+
+    const served = store.getSnapshot("a".repeat(40));
+
+    expect(served?.repo.root).toBe(path.basename(path.dirname(scvDir)));
+  });
+
+  it("leaves a real repo root recorded in the snapshot alone", () => {
+    const scvDir = writeScvFixture([makeSnapshot({ repo: { root: "orderly", vcs: "git" } })]);
+    const store = new SnapshotStore(scvDir);
+
+    expect(store.getSnapshot("a".repeat(40))?.repo.root).toBe("orderly");
   });
 
   it("carries rev.pr through so revs can be grouped by pull request", () => {

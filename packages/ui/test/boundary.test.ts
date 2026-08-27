@@ -208,6 +208,32 @@ describe("summariseSiblings", () => {
     expect(summarise([edge("e1", "m1", "m2")], "sys", ["g1", "g2", "g3", "g4"])).toEqual([]);
   });
 
+  it("trims a module sibling's path down to its file name", () => {
+    // A module's name is its repo-relative path; the tray row is narrow, so spelling the whole
+    // path out pushes the part that identifies the file off the end.
+    // Focus a module so its siblings are modules too — the case where the tray lists files.
+    const pathUnits = [
+      unit("l1", "layer", ["packages/ui/src/App.tsx", "packages/ui/src/store.ts"]),
+      unit("packages/ui/src/App.tsx", "module", ["fn:render"], "l1"),
+      unit("packages/ui/src/store.ts", "module", [], "l1"),
+      unit("fn:render", "function", [], "packages/ui/src/App.tsx"),
+    ];
+    const byId = new Map(pathUnits.map((u) => [u.id, u]));
+    const focusedUnit = byId.get("packages/ui/src/App.tsx")!;
+    const { boundaryEdges } = collectBoundaryEdges({
+      focusedUnit,
+      visibleUnits: [byId.get("fn:render")!],
+      edges: [edge("e1", "fn:render", "packages/ui/src/store.ts")],
+      unitsById: byId,
+    });
+
+    const rows = summariseSiblings({ focusedUnit, boundaryEdges, unitsById: byId });
+
+    expect(rows.map((r) => r.name)).toEqual(["store.ts"]);
+    // The id stays the full path — it is what selection and highlighting key off.
+    expect(rows[0]!.id).toBe("packages/ui/src/store.ts");
+  });
+
   it("works the same at layer focus, where the siblings are layers rather than groups", () => {
     // Siblings are whatever kind the focused unit is; nothing in the summary names a kind.
     const rows = summarise([edge("e1", "m1", "m1b")], "l1", ["m1"]);

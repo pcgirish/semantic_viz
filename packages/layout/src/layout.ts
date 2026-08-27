@@ -39,13 +39,26 @@ export type BuildSceneOptions = {
   externalUnits?: Unit[];
 };
 
+/**
+ * Last segment of a path, for display. Both separators are recognised: a snapshot captured on
+ * Windows records `\`, and a path can mix the two (git-for-windows and node's path APIs both
+ * emit such forms), so neither can be assumed. Trailing separators are ignored so a directory
+ * path yields the directory's own name rather than an empty string.
+ *
+ * Shared by the module tile/crumb labels and the toolbar's repo label — the same question
+ * ("what is this path's name?") asked of a file and of a repo root.
+ */
+export function pathLeaf(path: string): string {
+  const trimmed = path.trim().replace(/[/\\]+$/, "");
+  return trimmed.slice(Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\")) + 1);
+}
+
 // Module names are the file's relative path (e.g. "packages/extractor/src/facts.ts");
 // other kinds already carry a leaf symbol name. The breadcrumb supplies the folder
 // context, so a tile only needs the filename.
-function displayName(u: Unit): string {
+export function displayName(u: Unit): string {
   if (u.kind !== "module") return u.name;
-  const parts = u.name.split("/");
-  return parts[parts.length - 1] ?? u.name;
+  return pathLeaf(u.name) || u.name;
 }
 
 /** Cyclomatic complexity -> side count, per docs/serve.md#2 ("sides = complexity, with a correction"). */

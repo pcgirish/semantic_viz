@@ -53,9 +53,12 @@ export class SnapshotStore {
   private readonly snapshotsDir: string;
   private readonly deltasDir: string;
   private readonly layoutsDir: string;
+  /** The directory being served — the parent of `.scv` — used to name repos that recorded a placeholder root. */
+  private readonly repoName: string;
   private cache: CacheEntry | undefined;
 
   constructor(scvDir: string) {
+    this.repoName = path.basename(path.dirname(path.resolve(scvDir)));
     this.snapshotsDir = path.join(scvDir, "snapshots");
     this.deltasDir = path.join(scvDir, "deltas");
     this.layoutsDir = path.join(scvDir, "layouts");
@@ -69,6 +72,17 @@ export class SnapshotStore {
   private containedPath(dir: string, name: string): string | undefined {
     const full = path.resolve(dir, name);
     return full === dir || full.startsWith(dir + path.sep) ? full : undefined;
+  }
+
+  /**
+   * Snapshots captured by `scv analyze .` recorded `path.basename(".")` — literally "." — as the
+   * repo name, leaving the UI with nothing to label the project with. The browser cannot resolve
+   * that itself, so name those after the directory being served; a real recorded name wins.
+   */
+  private withRepoName(snapshot: Snapshot): Snapshot {
+    const recorded = snapshot.repo.root.trim().replace(/\/+$/, "");
+    if (recorded !== "" && recorded !== "." && recorded !== "..") return snapshot;
+    return { ...snapshot, repo: { ...snapshot.repo, root: this.repoName } };
   }
 
   /**
@@ -108,7 +122,7 @@ export class SnapshotStore {
       if (!full) continue;
       const snapshot = parseOrThrow(SnapshotSchema, readFileSync(full, "utf-8"), full);
       reportInvariantFindings(snapshot, full);
-      snapshots.push(snapshot);
+      snapshots.push(this.withRepoName(snapshot));
     }
 
     this.cache = { files, snapshots };
