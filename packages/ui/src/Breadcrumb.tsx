@@ -1,4 +1,5 @@
 import { Button, PathBreadcrumb } from "@scv/design-system";
+import { displayName } from "@scv/layout";
 import type { Unit } from "@scv/schema";
 
 export type BreadcrumbProps = {
@@ -10,12 +11,12 @@ export type BreadcrumbProps = {
 };
 
 /** A module's name is its repo-relative path; spelled out in full it crowds every other
- *  segment off the toolbar, so the crumb shows the file name and hovers the full path. */
+ *  segment off the toolbar, so the crumb shows the file name (the same leaf the tiles show)
+ *  and keeps the full path as hover text. */
 function segmentFor(unit: Unit | undefined, id: string): { label: string; title?: string } {
-  const name = unit?.name ?? id;
-  if (unit?.kind !== "module") return { label: name };
-  const base = name.slice(name.lastIndexOf("/") + 1);
-  return base === name ? { label: name } : { label: base, title: name };
+  if (!unit) return { label: id };
+  const label = displayName(unit);
+  return label === unit.name ? { label } : { label, title: unit.name };
 }
 
 /** Resolves the focus/focusStack drill path to breadcrumb segment labels — shared so the

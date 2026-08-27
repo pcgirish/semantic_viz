@@ -42,7 +42,7 @@ export type BuildSceneOptions = {
 // Module names are the file's relative path (e.g. "packages/extractor/src/facts.ts");
 // other kinds already carry a leaf symbol name. The breadcrumb supplies the folder
 // context, so a tile only needs the filename.
-function displayName(u: Unit): string {
+export function displayName(u: Unit): string {
   if (u.kind !== "module") return u.name;
   const parts = u.name.split("/");
   return parts[parts.length - 1] ?? u.name;

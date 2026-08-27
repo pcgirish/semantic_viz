@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { Delta, Edge, Snapshot, Unit } from "@scv/schema";
+import { displayName } from "@scv/layout";
 import type { BoundaryEdge } from "@scv/layout";
 import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
@@ -198,7 +199,8 @@ export function summariseSiblings(input: {
       .sort((a, b) => b.edgeCount - a.edgeCount || a.interior.localeCompare(b.interior));
     return {
       id,
-      name: unit.name,
+      // Same rule the tiles use: a module's name is its path, and the row is too narrow for one.
+      name: displayName(unit),
       tiles,
       inCount,
       outCount,
