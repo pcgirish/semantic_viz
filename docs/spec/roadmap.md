@@ -78,6 +78,10 @@ merged" in `README.md`.
   `semantics.confidence` on the risk ramp (high confidence reads as
   critical red), and the Legend shows the ramp in Current where nothing
   reads it — `docs/backlog/temperature-scale-misuse.md`
+- Modules are never narrated: `LEAF_KINDS` covers functions and classes,
+  layers and groups are synthesized, and `kind: "module"` falls between
+  both — so a module has no what/how/when/where/why and no name but its
+  file path — `docs/backlog/module-tier-not-narrated.md`
 
 ## Future work (not yet planned in `docs/plans/`)
 
