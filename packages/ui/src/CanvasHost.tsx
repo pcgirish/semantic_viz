@@ -107,20 +107,21 @@ export function CanvasHost({
     return id ? (siblingById.get(id) ?? null) : null;
   }, [rowHover, rowPinned, siblingById]);
 
+  /**
+   * Canvas focus is tile hover and nothing else.
+   *
+   * A tray row deliberately produces no focus at all. FocusState nominates one anchor node and
+   * highlights what is near *it*, which a row cannot answer honestly: the sibling it addresses is
+   * off-canvas, and the boundary data maps sibling -> interior tile, never interior tile -> tile.
+   * Borrowing the model anyway (by nominating tiles[0]) made ConnectorLayer promote every edge
+   * touching one arbitrarily-chosen tile, so the canvas lit a set of connectors the row had never
+   * asked about and that changed with the sort order. The row's answer is the coupling fill alone.
+   */
   const focus: FocusState = useMemo(() => {
-    // Tile hover wins: the pointer is on the canvas, and answering "what touches this tile"
-    // is the more immediate question.
-    if (hover) {
-      const { near } = neighbours(hover, scene.links, 1);
-      return { id: hover, near, far: [] };
-    }
-    if (!activeRow || activeRow.tiles.length === 0) return { id: null, near: [], far: [] };
-    // focusRole returns "none" for every node when `focus.id` is null, so the row highlight
-    // cannot be expressed as "no focused node, these neighbours" — it has to nominate one
-    // anchor. tiles[0] is the most-connected tile, and the sort is stable.
-    const ids = activeRow.tiles.map((t) => t.interior);
-    return { id: ids[0]!, near: ids, far: [], sticky: rowPinned === activeRow.id };
-  }, [hover, scene.links, activeRow, rowPinned]);
+    if (!hover) return { id: null, near: [], far: [] };
+    const { near } = neighbours(hover, scene.links, 1);
+    return { id: hover, near, far: [] };
+  }, [hover, scene.links]);
 
   const connectorEdges = scene.links.flatMap((l) => {
     // route.ts's spreadPorts already fans each node's in/out edges across its border
@@ -272,6 +273,9 @@ export function CanvasHost({
         <ConnectedSiblingsTray
           siblings={siblings}
           pinned={rowPinned}
+          // Tile hover suppresses the coupling fill, so the row must go dark with it — a
+          // coloured row over an uncoloured canvas would promise a highlight that is not there.
+          active={hover ? null : (activeRow?.id ?? null)}
           // The tray sits inside `.canvas-scroll`, so moving the pointer from a tile onto a row
           // never fires the canvas's own onMouseLeave and the tile hover stays set — and tile
           // hover outranks the row, so the highlight never appeared. Being over a row is itself

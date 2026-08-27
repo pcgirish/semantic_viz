@@ -564,13 +564,41 @@ describe("CanvasHost: connected-siblings tray", () => {
 
     fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
 
-    // "a" is the coupled tile; "b" is not, so it dims. Selection is the Inspector's business
-    // and the tray is a highlight, so the store must be untouched.
-    const dim = (id: string) =>
-      (container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement).style.opacity !== "1";
-    expect(dim("a")).toBe(false);
-    expect(dim("b")).toBe(true);
+    // "a" is the coupled tile and "b" is not, so only "a" takes a face colour. Selection is the
+    // Inspector's business and the tray is a highlight, so the store must be untouched.
+    expect(face(container, "a")).toContain("var(--temp-4)");
+    expect(face(container, "b")).not.toContain("var(--temp-4)");
     expect(useAppStore.getState().selection).toBeNull();
+  });
+
+  it("leaves the canvas's own focus alone, so a row dims and recolours nothing", () => {
+    // A row cannot name an anchor node honestly: the sibling is off-canvas, and the boundary data
+    // maps sibling -> interior tile, never tile -> tile. Borrowing FocusState anyway made
+    // ConnectorLayer promote every edge touching one arbitrarily-chosen tile.
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+    const strokes = () => connectors(container).map((p) => p.getAttribute("stroke")).sort();
+    const before = strokes();
+
+    fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
+
+    expect(strokes()).toEqual(before);
+    for (const id of ["a", "b"])
+      expect((container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement).style.opacity).toBe("1");
+  });
+
+  it("colours the active row in the direction its coupling runs, by hover or by click", () => {
+    render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+    const row = () => screen.getByTestId("sibling-row-g2");
+    expect(row().style.backgroundImage).toBe("");
+
+    fireEvent.mouseEnter(row());
+    expect(row().style.backgroundImage).toContain("var(--temp-4)");
+
+    // Pinning is the same highlight by a different gesture, so it paints the row the same way.
+    fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
+    fireEvent.click(row());
+    fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
+    expect(row().style.backgroundImage).toContain("var(--temp-4)");
   });
 
   it("lights a row hovered straight off a tile, rather than holding the stale tile hover", () => {
@@ -644,11 +672,11 @@ describe("CanvasHost: connected-siblings tray", () => {
     fireEvent.click(screen.getByTestId("sibling-row-g2"));
     fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
 
-    expect((container.querySelector('.tile[data-id="b"]') as HTMLElement).style.opacity).not.toBe("1");
+    expect(face(container, "a")).toContain("var(--temp-4)");
 
     // Clicking the same row again releases it.
     fireEvent.click(screen.getByTestId("sibling-row-g2"));
-    expect((container.querySelector('.tile[data-id="b"]') as HTMLElement).style.opacity).toBe("1");
+    expect(face(container, "a")).not.toContain("var(--temp-4)");
   });
 
   it("lets a tile hover override a pinned row, since the pointer is on the canvas", () => {
@@ -657,9 +685,10 @@ describe("CanvasHost: connected-siblings tray", () => {
     fireEvent.click(screen.getByTestId("sibling-row-g2"));
     fireEvent.mouseOver(container.querySelector('.tile[data-id="b"]')!);
 
-    // Hovering "b" answers "what touches b" — a->b — so "a" stays lit but the crossing stub
-    // for the pinned row is gone.
-    expect(connectors(container).some((p) => p.getAttribute("stroke") === "var(--temp-4)")).toBe(false);
+    // Hovering "b" asks "what touches b", and the canvas answers that instead: the pinned row's
+    // coupling fill drops, and its tray row goes dark with it rather than promising a highlight.
+    expect(face(container, "a")).not.toContain("var(--temp-4)");
+    expect(screen.getByTestId("sibling-row-g2").style.backgroundImage).toBe("");
   });
 
   it("drops a pin when the focus changes, so it cannot light tiles of the new frame", () => {

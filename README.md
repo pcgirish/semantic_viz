@@ -378,7 +378,10 @@ direction, and how many edges collapsed into it. Hovering or pinning a row fills
 the tiles inside the focus that sibling actually couples to, colouring each one by
 which way its edges run — a tile coupled both ways is split between the two
 colours rather than given a third — so the coupling is something you can see on
-the canvas rather than a count to read. The synthetic client-side
+the canvas rather than a count to read. The row itself takes the same colour, and
+nothing else on the canvas moves: a row leaves the ordinary connectors and
+dimming untouched, because the sibling it names is off-canvas and any connector
+drawn for it could only end somewhere arbitrary. The synthetic client-side
 domain tier those group units replace is now gone, and with it the layer `group`
 name string: regions, the legend, and the breadcrumb key on a group unit's id, so
 renaming a group no longer reads as one group vanishing and another appearing,

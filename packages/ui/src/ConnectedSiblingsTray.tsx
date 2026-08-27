@@ -5,6 +5,20 @@ import type { SiblingSummary } from "./App.js";
 /** One glyph per direction, so the row's render path is a lookup rather than two comparisons. */
 const DIRECTION_GLYPH = { in: "←", out: "→", both: "↔" } as const;
 
+/**
+ * The same two colours the tiles take, so a highlighted row and the tiles it lit read as one
+ * gesture. A both-ways row is split rather than blended, matching the tile's face gradient.
+ */
+// Every entry is a gradient, including the solid ones: `backgroundImage` accepts no bare colour,
+// and a single-colour gradient keeps the bar's paint path to one property.
+const DIRECTION_COLOR = {
+  in: "linear-gradient(var(--cool-azure), var(--cool-azure))",
+  out: "linear-gradient(var(--temp-4), var(--temp-4))",
+  // Split, not blended — the same choice the tile's face gradient makes, so a both-ways row and
+  // a both-ways tile show the same pair of colours rather than a third one.
+  both: "linear-gradient(var(--temp-4) 50%, var(--cool-azure) 50%)",
+} as const;
+
 const rowStyle: CSSProperties = {
   display: "flex",
   alignItems: "baseline",
@@ -21,6 +35,9 @@ export type ConnectedSiblingsTrayProps = {
   siblings: SiblingSummary[];
   /** Id of the row whose highlight is pinned, or null. */
   pinned: string | null;
+  /** Id of the row currently driving the canvas highlight — hovered, or pinned with nothing
+   *  hovered. Distinct from `pinned`: the row is coloured whichever way it became active. */
+  active?: string | null;
   onHover: (id: string | null) => void;
   onTogglePin: (id: string) => void;
   /** Open on mount. False on a canvas too narrow for the overlay not to swallow the scene. */
@@ -47,6 +64,7 @@ export type ConnectedSiblingsTrayProps = {
 export function ConnectedSiblingsTray({
   siblings,
   pinned,
+  active = null,
   onHover,
   onTogglePin,
   defaultOpen = true,
@@ -72,12 +90,14 @@ export function ConnectedSiblingsTray({
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", maxHeight, overflowY: "auto" }}>
           {siblings.map((s) => {
             const linked = s.direction !== null;
+            const isActive = linked && active === s.id;
             return (
               <div
                 key={s.id}
                 data-testid={`sibling-row-${s.id}`}
                 data-linked={linked ? "true" : "false"}
                 data-pinned={pinned === s.id ? "true" : undefined}
+                data-active={isActive ? "true" : undefined}
                 onMouseEnter={linked ? () => onHover(s.id) : undefined}
                 onClick={linked ? () => onTogglePin(s.id) : undefined}
                 style={{
@@ -87,6 +107,20 @@ export function ConnectedSiblingsTray({
                   // indistinguishable from broken. Greyed and inert says "not coupled".
                   color: linked ? rowStyle.color : "var(--text-faint)",
                   outline: pinned === s.id ? "1px solid var(--accent-lift)" : undefined,
+                  // The direction colour rides a left bar rather than the row's background:
+                  // full-bleed --temp-4 behind body text would not carry legible contrast, and
+                  // the bar still pairs the row with the tiles it just lit.
+                  ...(isActive
+                    ? {
+                        // One `background` layer paints both cases: a solid direction colour and
+                        // the split gradient are equally valid images, so no branch is needed.
+                        backgroundImage: DIRECTION_COLOR[s.direction!],
+                        backgroundSize: "4px 100%",
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "left center",
+                        backgroundColor: "var(--surface-3)",
+                      }
+                    : null),
                 }}
               >
                 {linked && <span aria-hidden="true">{DIRECTION_GLYPH[s.direction!]}</span>}
