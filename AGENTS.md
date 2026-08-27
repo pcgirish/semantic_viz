@@ -78,7 +78,11 @@ These skills are byproducts of this project. They analyze any codebase and creat
 
 | Skill | Use when |
 |---|---|
+| `agent-analyze-repo` | Analyzing a whole repo end to end with zero LLM calls (runs the chain below) |
+| `agent-analyze-structure` | Extracting structure and control-flow blocks; the mandatory first step |
 | `agent-analyze-functions` | Authoring per-function/class semantics without an LLM pass |
+| `agent-analyze-docs` | Authoring README/docs extracts without an LLM pass |
+| `agent-analyze-clusters` | Running deterministic clustering after verifying its inputs are narrated |
 | `agent-analyze-layers` | Authoring layer/cluster narration without an LLM pass |
 | `agent-analyze-groups` | Authoring group narration over real layers without an LLM pass |
 | `agent-analyze-flows` | Authoring API flow narration without an LLM pass |

@@ -392,11 +392,21 @@ Pass-C-shaped layer narration against the real deterministic clustering (Pass
 B), then `scv merge-semantics` writes correctly-hashed `functions.json`/
 `layers.json` artifacts a subsequent `scv analyze` reuses as-is. An unmatched
 unit id or a pending layer that doesn't match a real cluster is warned and
-skipped, never a hard failure. Because `--no-llm` never produces a `docs.json`
-artifact, merging layer narration in that gap caches a correctly-hashed empty
-docs artifact rather than dropping the merge or guessing — docs stay
-unsummarized until a real `scv analyze docs --force` run, which the merge
-warns about explicitly.
+skipped, never a hard failure.
+
+That path is now complete for every stage. `--with-docs` merges agent-authored
+README/`docs/` extracts, so the zero-LLM route no longer leaves `docs.json`
+empty and clustering no longer runs blind to the repo's own vocabulary, and
+`--with-groups`/`--with-flows` cover group and flow narration. Block units —
+the Flowchart view's data — are pure AST structure, so they are built
+deterministically on every path rather than only inside the LLM pass: a repo
+analyzed entirely through the agent path gets working flowcharts. Alongside
+these, `.agents/skills/agent-analyze-*` ships one skill per stage plus an
+`agent-analyze-repo` umbrella that runs the chain in dependency order. A
+deterministic stage (`clusters`) genuinely computes under `--no-llm` instead of
+empty-defaulting, but refuses to compute over an empty-defaulted dependency —
+naming the skill to run — because a `clusters.json` derived from nothing is
+cache-fresh and indistinguishable from a good one on the next run.
 
 | Package | What it does | Status |
 |---|---|---|
