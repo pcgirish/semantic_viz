@@ -42,11 +42,11 @@ Apply the same standard to `functions`: if its units carry no semantics, run
 scv analyze <root> clusters --no-llm
 ```
 
-`--no-llm` is what makes this safe. `clusters` is deterministic, so it is
-computed for real even under `--no-llm` — but its provider-backed dependencies
-are not, and without the flag a bare `scv analyze <root> clusters` would
-freshen `functions` and `docs` by **calling the provider**, breaking the chain's
-zero-call guarantee.
+`--no-llm` is what makes this safe, and it is never optional here. `clusters` is
+deterministic, so it is computed for real even under `--no-llm` — but its
+provider-backed dependencies are not. Omitting the flag lets the same stage
+command freshen `functions` and `docs` by **calling the provider**, breaking the
+chain's zero-call guarantee.
 
 Under `--no-llm` a defaulted dependency is refused outright rather than
 silently clustered over:

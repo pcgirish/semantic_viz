@@ -82,6 +82,5 @@ scv analyze <root> docs --no-llm
 ```
 
 Confirm the progress log reports no Pass Docs calls. The suite-wide zero-call
-check — a bare `scv analyze <root>` over every stage — belongs to
-`agent-analyze-repo`'s final step, not here. Then continue with
-`agent-analyze-clusters`, which depends on this artifact.
+check across every stage belongs to `agent-analyze-repo`'s final step, not here.
+Then continue with `agent-analyze-clusters`, which depends on this artifact.
