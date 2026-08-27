@@ -265,11 +265,37 @@ export function CanvasHost({
           {elidedEdges} connectors hidden — showing the strongest {DEFAULT_EDGE_BUDGET}
         </div>
       )}
-      {/* Sticky and floated right for the same reason as the badge above, and float order puts
-          it below that badge rather than under it. Deliberately a child of `.canvas-scroll`
-          and not `.canvas-extent`: inside the extent it would be scaled by the zoom transform
-          and scroll away with the scene. */}
+      {/* The tray hangs off a sticky wrapper that is exactly the visible width, not off the
+          tray itself. Both `float: right` and a sticky `left` resolve against the containing
+          block — `.canvas-scroll`'s *content* box, whose width is the widest in-flow child, i.e.
+          `.canvas-extent` (the scene at the current scale). So zooming in widened the box the
+          tray was pinned to and walked it inward from the visible edge, flush with the right of
+          the *scene* rather than the right of the viewport. Sizing the wrapper from `viewport.w`
+          makes the anchor the viewport by construction, at any scale or scroll offset.
+
+          Inside `.canvas-scroll` rather than a child of `.canvas-extent`: inside the extent it
+          would also be scaled by the zoom transform. Inside it rather than an overlay outside the
+          container: moving the pointer from a tile onto a row must not fire the canvas's own
+          onMouseLeave (see onHover below), which leaving the container would do.
+
+          The wrapper spans the viewport, so it must not swallow pointer events over the canvas
+          it covers; the tray re-enables them for itself. */}
       {viewport && (
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            left: 0,
+            float: "left",
+            clear: "both",
+            width: viewport.w,
+            height: 0,
+            display: "flex",
+            justifyContent: "flex-end",
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        >
         <ConnectedSiblingsTray
           siblings={siblings}
           pinned={rowPinned}
@@ -287,8 +313,9 @@ export function CanvasHost({
           onTogglePin={(id) => setRowPinned((p) => (p === id ? null : id))}
           defaultOpen={viewport.w === 0 || viewport.w >= NARROW_CANVAS}
           maxHeight={Math.max(120, viewport.h - 96)}
-          style={{ position: "sticky", top: 0, float: "right", clear: "right", zIndex: 2, margin: 8 }}
+          style={{ width: "max-content", margin: 8 }}
         />
+        </div>
       )}
       <div className="canvas-extent" style={{ width: renderSize.w, height: renderSize.h, position: "relative" }}>
       <div
