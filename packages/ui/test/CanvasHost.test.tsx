@@ -559,6 +559,31 @@ describe("CanvasHost: connected-siblings tray", () => {
     cleanup();
   });
 
+  it("anchors the tray to the viewport width, not to the scaled scene", () => {
+    // jsdom computes no layout, so this pins the structure that produces the anchoring rather
+    // than the resulting geometry. The bug: the tray floated right inside `.canvas-scroll`,
+    // whose content box is as wide as `.canvas-extent` — the scene at the current scale — so
+    // zooming in widened the box it was pinned to and walked it inward from the visible edge.
+    // The fix hangs it off a sticky wrapper sized from the viewport, which cannot grow with zoom.
+    const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
+
+    const tray = screen.getByTestId("connected-siblings-tray") as HTMLElement;
+    const wrapper = tray.parentElement as HTMLElement;
+
+    expect(wrapper.style.position).toBe("sticky");
+    expect(wrapper.style.width).toBe("1200px");
+    expect(wrapper.style.justifyContent).toBe("flex-end");
+    // Zero-height so the band never pushes the scene down, and click-through so the strip it
+    // lays across the canvas does not eat tile hovers beside the tray. The tray itself opts back
+    // in (its own root sets pointer-events: auto), so only the empty band is transparent.
+    expect(wrapper.style.height).toBe("0px");
+    expect(wrapper.style.pointerEvents).toBe("none");
+    expect(tray.style.pointerEvents).toBe("auto");
+    // The extent is the zoom-scaled box; the tray must not live inside it or be pinned to it.
+    expect(extent(container).contains(tray)).toBe(false);
+    expect(tray.style.float).toBe("");
+  });
+
   it("lights the tiles a hovered row couples to, without touching the app's selection", () => {
     const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
 
