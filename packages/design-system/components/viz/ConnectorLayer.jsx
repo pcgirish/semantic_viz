@@ -44,9 +44,13 @@ function orthoPath(x1,y1,x2,y2,radius=10,stub=14){
  */
 function orthoPathVertical(x1,y1,x2,y2,clearY,radius=10){
   const dx=x2-x1,sx=Math.sign(dx)||1;
+  // `sy` tracks which way the path actually travels. Without it the corner radii assume a
+  // downward run and overshoot `clearY` on an upward one, so the elbow doubles back on
+  // itself — visible as a crooked stub on every dependency edge.
+  const sy=Math.sign(clearY-y1)||1;
   if(Math.abs(dx)<2) return `M ${x1} ${y1} V ${y2}`;
   const r=Math.max(2,Math.min(radius,Math.abs(clearY-y1),Math.abs(y2-clearY),Math.abs(dx)/2));
-  return `M ${x1} ${y1} V ${clearY-r} Q ${x1} ${clearY} ${x1+r*sx} ${clearY} H ${x2-r*sx} Q ${x2} ${clearY} ${x2} ${clearY+r} V ${y2}`;
+  return `M ${x1} ${y1} V ${clearY-r*sy} Q ${x1} ${clearY} ${x1+r*sx} ${clearY} H ${x2-r*sx} Q ${x2} ${clearY} ${x2} ${clearY+r*sy} V ${y2}`;
 }
 
 /** SVG layer of connectors between canvas nodes — bezier or Manhattan-routed. */
