@@ -66,26 +66,78 @@ unit to its nearest *visible* ancestor — via the existing `buildUnitToAncestor
 same file, and uses it **only as a filter**: it looks up the interior endpoint's visible tile,
 keeps the edge if one exists, and throws the tile id away. Keep it instead.
 
-Emit a per-sibling row array alongside the existing return values:
+**A flat `interior: string[]` is not enough.** An earlier draft of this section proposed one,
+and external review was right to reject it. §4a draws *one connector per interior tile per
+row*, each with its own direction and stroke weight. A deduped id list cannot say which
+crossing edges belong to which tile, so it cannot give a per-tile direction or weight — a row
+with three tiles and ten edges collapses to "these three tiles, somehow, ten times". And
+`CanvasHost` cannot recover the mapping: `BoundaryEdge` carries `{edge, external, direction}`
+with no interior field, and the external endpoint is deliberately not a visible unit, so
+there is nothing there to re-derive from.
+
+So the id must be *carried*, at the point it is already computed and dropped:
 
 ```ts
+/** One crossing edge, with its interior endpoint resolved to a visible tile. */
+export type BoundaryLink = {
+  edge: Edge;
+  /** Unit id of the collapsed external endpoint (the tray row's identity). */
+  external: string;
+  /** The *visible* tile the interior endpoint rolls up to — `toVisible.get(insideEndpoint)`,
+   *  which `collectBoundaryEdges` currently computes and discards. Never null: an edge whose
+   *  interior endpoint has no visible tile is filtered out before this record is built. */
+  interior: string;
+  direction: "in" | "out";
+};
+```
+
+This is a superset of today's `BoundaryEdge` (`packages/layout/src/layout.ts`), so widen that
+type with the `interior` field rather than introducing a parallel one; `buildScene` ignores
+the extra field and its behaviour is unchanged.
+
+The tray then consumes an aggregation of those links:
+
+```ts
+/** One tray row: a sibling and everything it couples to. */
 export type SiblingSummary = {
   /** Sibling unit id — the row's identity. Not necessarily a `layer`: see §6. */
   id: string;
   name: string;
-  /** Visible interior tile ids this sibling couples to (deduped). */
-  interior: string[];
+  /** One entry per participating interior tile, each carrying its own direction and
+   *  weight — this is what §4a draws a connector from. Empty for a zero-link sibling. */
+  tiles: SiblingTileLink[];
   inCount: number;
   outCount: number;
+  /** Total crossing edges — `sum(tiles[].edgeCount)`, not `tiles.length`. */
   edgeCount: number;
   /** `null` for a zero-link sibling — it has no direction, and must not be
    *  defaulted to "out" by an `inCount > 0 ? "in" : "out"` ternary. */
   direction: "in" | "out" | "both" | null;
 };
+
+export type SiblingTileLink = {
+  /** Visible interior tile id. */
+  interior: string;
+  /** Crossing edges between this tile and this sibling, aggregated. */
+  edgeCount: number;
+  /** Summed `edge.weight ?? 1` across those edges, for connector stroke weight. */
+  weight: number;
+  /** This tile's own direction to this sibling — independent of the row's. A row can be
+   *  `"both"` while each of its tiles is purely `"in"` or purely `"out"`. */
+  direction: "in" | "out" | "both";
+};
 ```
 
+**Aggregation rule.** Group the links by `(external, interior)`. Each group becomes one
+`SiblingTileLink`: `edgeCount` is the group size, `weight` the sum of `edge.weight ?? 1`, and
+`direction` is `"both"` when the group contains links of both directions, otherwise the shared
+one. Group those by `external` to build the row: `inCount`/`outCount` count *edges* not tiles,
+`edgeCount` is their sum, and the row `direction` is `"both"` when both are non-zero, `"in"`
+or `"out"` when exactly one is, and `null` when both are zero. Sort `tiles` by `edgeCount`
+descending so the strongest connector is drawn first and is stable across renders.
+
 Rows cover **every** sibling, not just coupled ones; uncoupled siblings get `edgeCount: 0`,
-`interior: []`, `direction: null`. Sort by `edgeCount` descending with zero-link rows last.
+`tiles: []`, `direction: null`. Sort rows by `edgeCount` descending with zero-link rows last.
 
 Keep this array **separate from `externalUnits`**. `externalUnits` feeds `buildScene`;
 widening it to include uncoupled siblings would change layout behaviour and break existing
@@ -154,12 +206,15 @@ being fixed.
 Resolution — anchor `id` on a real tile and let `near` carry the set:
 
 ```ts
-{ id: interior[0], near: interior, far: [], sticky: pinned }
+const ids = row.tiles.map((t) => t.interior);   // already sorted by edgeCount desc
+{ id: ids[0], near: ids, far: [], sticky: pinned }
 ```
 
 with all participating ids (including the anchor) in `near`. Consequences read off those two
 functions: the anchor renders `"self"` (accent glow) and its peers `"near"` — a cosmetic wart
-where one tile is a notch brighter than the others. If that reads wrong in the browser, fix
+where one tile is a notch brighter than the others — though since `tiles` is sorted by
+`edgeCount` descending, the anchor is the most strongly coupled tile, so the extra emphasis at
+least falls somewhere defensible rather than on an arbitrary member. If that reads wrong, fix
 it in `focusRole` (test `near` membership before the `id` equality test) or via a skin-side
 `role` override — **not** by nulling `focus.id`, which silently disables the whole highlight.
 
@@ -206,17 +261,48 @@ Implementation notes:
 
 - Build them in `CanvasHost` alongside `connectorEdges`, not in `@scv/layout`: they depend on
   transient hover state and on the tray's DOM position, neither of which belongs in a `Scene`.
-- The tray is a sticky overlay in viewport coordinates while connectors are drawn in scene
-  coordinates under `transform: scale()`. Convert using the `base` origin and `scale` already
-  available in `CanvasHost`, or terminate the edges at the scene-space x of the canvas's right
-  edge and let the tray sit visually beyond it. **Prefer the latter** — it keeps the connector
-  geometry entirely in scene space and avoids coupling edge routing to tray layout. Confirm
-  the endpoints land level with their rows at several zoom levels.
-- Aggregate per interior tile: one connector per tile per row, carrying the summed weight,
-  matching how `rollUpEdges` already merges contributors.
+- One connector per `SiblingTileLink` (§1), so the aggregation is already done: `weight` sets
+  the stroke weight, `direction` the colour. No grouping logic in `CanvasHost`. **Clamp the
+  stroke weight** — map `weight` through the existing `heavy` boolean (`> 1`) rather than
+  scaling linearly; real data reaches 145 on a single tile link (see the group-focus
+  acceptance case), which would otherwise draw a bar across the canvas.
 - Direction encoding matches the existing tile-hover path so both read identically: an edge
-  leaving the interior tile is `hover-out` (orange), one entering is `hover-in` (azure). A tile
-  with both gets one connector of each.
+  leaving the interior tile is `hover-out` (orange), one entering is `hover-in` (azure). A
+  `direction: "both"` tile gets one connector of each.
+
+**Endpoint coordinate rule.** The previous draft said "prefer terminating at the right edge,
+confirm in the browser", which external review correctly called implementation guesswork. The
+rule is:
+
+The connector's far endpoint is **not** anchored to the tray row's DOM position. It terminates
+at a fixed point in scene space:
+
+```
+x = base.x + base.w + GUTTER     // GUTTER: a small constant, ~24 scene units
+y = the interior tile's own port y
+```
+
+That is, every connector for an active row runs horizontally from its tile to a common
+right-edge gutter, at the tile's own height — a short flat stub, not a line aimed at a row.
+Consequences, which are the point of choosing it:
+
+- **Zoom and scroll are free.** The endpoint is a scene coordinate under the same
+  `.canvas-scale` transform as every other connector, so it scales and pans with the scene
+  automatically. No viewport↔scene conversion exists to go wrong.
+- **Canvas resize is free.** `base` derives from scene bounds, not from the container, so a
+  resize does not move the endpoint.
+- **A collapsed tray cannot detach anything**, because nothing is attached to the tray. The
+  highlight — lit tiles, recoloured connectors, dimmed remainder — is exactly as valid with
+  the tray collapsed, which is what §7 requires when it says a pin survives collapse.
+- **Rows and connectors are not visually joined**, and deliberately so. Joining them would
+  require the tray's per-row viewport y, converting it into scene space, and re-deriving it on
+  every scroll, zoom, resize, collapse and row-list scroll — five inputs, each a way for lines
+  to drift off their rows. The association is carried by the highlight itself (this row lit
+  *these* tiles) and by the shared direction colour, which is the question the user asked:
+  *which tiles does this sibling touch, and which way?*
+
+`GUTTER` must exceed the widest tile's right overhang so stubs do not begin under a tile;
+derive it from the scene's right-most node extent rather than hardcoding if that proves tight.
 
 #### 4b. The opacity dim must be lifted for these connectors
 
@@ -284,13 +370,15 @@ Consequences for this plan:
 - **Row copy carries no kind noun.** A row is `↔ Word Problem Core · 10 links`, never
   "sibling layer". The tray title is `Connected siblings`.
 - **No kind-conditional behaviour.** Sorting, direction glyphs, the zero-link greyed row,
-  hover/pin and the synthesised connectors of §4a all key on `edgeCount` and `interior`,
+  hover/pin and the synthesised connectors of §4a all key on `edgeCount` and `tiles`,
   never on `unit.kind`. There is deliberately no special case for `group`: a group sibling
   is one more row.
 - **Test requirement:** the `boundary.test.ts` additions must include a fixture where the
-  focused unit is a `group` and its siblings are `layer`s, asserting identical row shape and
-  identical `interior` resolution to the layer/module case. Without it the generic claim
-  above is untested.
+  focused unit is a `group`, so its siblings are `group`s and its visible tiles are `layer`s
+  — asserting identical row shape and identical interior-tile resolution to the layer/module
+  case. (Siblings are always the focused unit's *own* kind, since they share a parent; the
+  visible tiles are one level below. Both shift together as you drill.) Without this the
+  generic claim above is untested. The corresponding end-to-end case is in Verification.
 
 The one place kind still matters is the deferred navigation work, which stays out of scope:
 what "open this sibling" means depends on the sibling's kind and its depth relative to the
@@ -333,7 +421,8 @@ change, revisited with the user, not a silent redesign.
 | `packages/layout/src/scene.ts` | Drop `SceneNode.boundary` |
 | `packages/layout/src/layout.ts` | Delete `boundaryMarkers`, `MARKER_*`, and its call site |
 | `packages/skins/tiles/src/node.tsx` | Remove boundary branch, glyph map, dim filter |
-| `packages/ui/src/App.tsx` | Extend `collectBoundaryEdges` to emit `SiblingSummary[]`; fold into the existing `useMemo`; pass to `CanvasHost` |
+| `packages/layout/src/layout.ts` (type) | Widen `BoundaryEdge` → `BoundaryLink` with the resolved `interior` tile id (§1) — the field `collectBoundaryEdges` already computes and discards |
+| `packages/ui/src/App.tsx` | Carry `interior` through `collectBoundaryEdges`; aggregate into `SiblingSummary[]`/`SiblingTileLink[]`; fold into the existing `useMemo`; pass to `CanvasHost` |
 | `packages/ui/src/ConnectedSiblingsTray.tsx` | **New** — rows, sorting, glyphs, hover/pin callbacks |
 | `packages/ui/src/CanvasHost.tsx` | Render tray as sticky overlay (direct child of `.canvas-scroll`); add `rowHover`/`rowPinned`; extend focus derivation and connector `kind` |
 | `packages/design-system/components/viz/ConnectorLayer.jsx` | Exempt `hover-in`/`hover-out` kinds from the `role === "muted"` opacity dim, on both path and dots — without this the highlight recolours the crossing edges and then dims them |
@@ -349,8 +438,22 @@ never bare executables). TDD red-green-refactor is mandatory for the behaviour c
 
 **Tests to extend:** `packages/ui/test/boundary.test.ts` — all five existing tests assert on
 `boundaryEdges`/`externalUnits` only, and because the rows are a separate array those
-assertions stay valid unchanged. Add cases for: `interior` resolving to the visible ancestor
-rather than the deep leaf, zero-link siblings present with `direction: null`, and sort order.
+assertions stay valid unchanged. Add cases for:
+
+- `BoundaryLink.interior` resolves to the visible **ancestor**, not the deep leaf — the
+  mapping the reviewer flagged as untested. Use a fixture where the crossing edge terminates
+  several levels below a visible tile, and assert the tile id, not the leaf id.
+- **Aggregation:** two crossing edges from the same interior tile to the same sibling produce
+  **one** `SiblingTileLink` with `edgeCount: 2` and summed `weight`, while the row's
+  `edgeCount` stays 2 (edges, not tiles). This is the specific confusion the flat-array
+  contract allowed, so it needs its own test.
+- **Per-tile direction independent of the row's:** a sibling with one inbound-only tile and
+  one outbound-only tile yields row `direction: "both"` while each `SiblingTileLink` is
+  `"in"` and `"out"` respectively — never `"both"` on either tile.
+- A single tile with edges both ways gets `direction: "both"` on that tile.
+- Zero-link siblings present with `tiles: []` and `direction: null`.
+- Sort order: rows by `edgeCount` descending with zero-link last; `tiles` by `edgeCount`
+  descending (the anchor tile in §4 depends on this being stable).
 
 **New tests:** a `ConnectorLayer` case asserting that an edge with kind `hover-in`/`hover-out`
 renders at full opacity even when its `edgeRole` is `"muted"`, plus one confirming
@@ -372,8 +475,36 @@ tiles and dim the rest; clicking must pin it; the breadcrumb must not change. Cr
 counts against the numbers above — they were derived from the snapshot, so a mismatch means
 the interior-endpoint mapping regressed.
 
-Confirm in the browser that the anchor-tile brightness asymmetry noted in §4 is acceptable,
-and that the tray does not collide with the elided-edges badge when both are visible.
+**End-to-end, group focus** (required by external review — the case above only exercises layer
+focus, so on its own it does not test the §6 generic claim). Same snapshot, drill
+`Backend Domain` from root. Its siblings are the system's other children, all `group`s.
+Expected, computed from the snapshot rather than guessed:
+
+| Row | Edges | Direction | Interior tiles |
+|---|---|---|---|
+| Unclustered | 212 | `←` in | Word Problem Core 145, Eval Criteria 63, Auth Service 4 |
+| Backend Packaging | 10 | `←` in | Word Problem Core 5, Auth Service 3, Eval Criteria 2 |
+| Database Migrations | 9 | `←` in | Word Problem Core 4, Auth Service 3, Eval Criteria 2 |
+| Frontend | 0 | greyed, `no links` | — |
+
+This case is worth more than a naming check; deriving it exposed two things the layer-focus
+case did not:
+
+1. **Every row is purely inbound**, so all four direction glyphs are `←` and every synthesised
+   connector is azure. The `↔`/`→` glyphs and the orange `hover-out` stroke are unexercised at
+   group focus in this snapshot. Keep the layer-focus case as the direction-coverage case —
+   the two are not redundant.
+2. **`Unclustered` carries 212 crossing edges**, twenty times the next row. Two consequences
+   to handle rather than discover at runtime: the row's count needs a sane presentation at
+   three digits (the tray width in §3 was chosen against `· 10 links`), and its 145-edge
+   connector must not render as an absurdly thick stroke — **clamp the synthesised connector's
+   stroke weight**, mapping `SiblingTileLink.weight` through the existing heavy/normal
+   distinction (`weight > 1` ⇒ heavy) rather than scaling linearly. Add a unit test for the
+   clamp with a deliberately large weight.
+
+Also confirm in the browser that the anchor-tile brightness asymmetry noted in §4 is
+acceptable, and that the tray does not collide with the elided-edges badge when both are
+visible.
 
 ## Out of scope
 
