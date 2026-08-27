@@ -82,7 +82,13 @@ merged" in `README.md`.
   nothing reads those rows beyond the `scv analyze` summary: the cache DB is
   CLI-local, the server never opens it, and no UI shows tokens or cost (the
   UI's `cost` field is the Interpreter's complexity estimate, not LLM spend).
-  CLI-only `scv usage` recommended before any UI/schema commitment
+  CLI-only `scv usage` recommended before any UI/schema commitment. Two scope limits
+  are settled and recorded there: the Anthropic API's cache-token fields are dropped
+  at the response-type parse, so no recorded run can be turned into a bill until
+  `docs/backlog/cache-token-capture.md` lands (a prerequisite for the prompt-prefix
+  work, which is otherwise unmeasurable); and the **agent-analyze route has no such
+  metrics by construction** — it makes zero provider calls, so tokens/cost/latency
+  have nothing to measure, and coverage is the comparable metric there instead
 - Check-in split: `scv export --structural` for committing deterministic
   (non-LLM) snapshot data
 - Group-narration pass — groups currently ship with `semantics: null`

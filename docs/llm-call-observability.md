@@ -99,6 +99,51 @@ usage-style route. The UI's `cost` fields (`Inspector.tsx:203-207`, `Flows.tsx:2
 are `unit.cost` — the Interpreter's semantic complexity/IO estimate. That is a **name
 collision, not LLM spend**; no UI surface shows tokens or cost.
 
+#### The agent-analyze route has no metrics, by construction
+
+Every row in `llm_calls` is written by `CachedProvider.interpret`
+(`cached-provider.ts:52` for a content-cache hit, `:69` for a real call). Those are
+the only two callers of `logCall` in the repo.
+
+The agent-analyze skills run `scv analyze --no-llm` / `scv merge-semantics`
+(`merge-semantics.ts:258` sets `noLlm: true`), and `--no-llm` passes an **empty**
+provider allow-list (`analyze.ts:172-173`). No provider call happens, so `interpret`
+never runs, so no row is written. `CachedProvider` is still constructed
+(`analyze.ts:111`) and the DB still opened; on that path it simply stays untouched.
+
+This is not a gap to be closed. **There is nothing to measure** — tokens, cost,
+latency, and cache-hit rate are all properties of provider calls, and the route's
+defining property is that it makes zero. A `scv usage` run against an agent-authored
+snapshot reporting `0/0/0` is reporting correctly.
+
+The authoring cost is real, but it is spent in the *agent's* session, not in `scv`.
+For Claude Code that is `~/.claude/projects/<project>/<session>.jsonl`, where every
+assistant turn carries a full `usage` block (`input_tokens`, `output_tokens`,
+`cache_creation_input_tokens`, `cache_read_input_tokens`, `service_tier`). Two
+caveats before treating that as an answer:
+
+- A skill has no closing boundary. `Skill` appears as a `tool_use` entry, but it
+  returns instructions *into the current turn*; the model keeps working in the same
+  conversation and the cost spreads across later turns with no marker for where the
+  skill's influence ends. Only a skill run as a subagent — which gets its own session
+  file — has an unambiguous total.
+- The dominant field is `cache_read_input_tokens`, billed at a large discount.
+  Summing raw `input_tokens` overstates spend substantially.
+
+And this is Claude Code-specific. `.agents/skills/` is deliberately portable across
+Codex, Cursor, and anything SKILL.md-aware; those tools have their own usage formats
+or none, and standardizing across them is a spec problem this project does not
+control.
+
+**Consequence for any usage surface:** report per-route and label by provider. Do not
+sum an ollama token (free, local), an Anthropic cache-read token (billed at a
+fraction), and an agent-session token (billed elsewhere entirely) into one figure —
+the result would be meaningless. For the agent route the comparable metrics are
+*coverage* ones: units narrated over total units, and artifacts genuinely computed
+versus empty-defaulted. `analyze.ts` already computes the latter as
+`emptyArtifactsSet` (`:165`, `:177`) and discards it after the run summary; that is
+the closest existing analogue to the `llm_calls` trace for a zero-call route.
+
 #### Two shapes, not yet decided
 
 The trace is per-run, per-machine and cache-local. It is not snapshot data, so it does
