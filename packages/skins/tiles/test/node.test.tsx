@@ -143,35 +143,56 @@ describe("node encoding channels", () => {
     });
   });
 
-  describe("coupling: split fill = direction of a hovered sibling's edges", () => {
-    // A tile is a polygon whose silhouette comes from a clip-path, so the two-tone fill has to
-    // be a gradient on the element itself — a half-width child would spill past the clip.
-    it("fills a tile coupled only outbound with the outbound colour alone", () => {
-      const el = tile(node(makeNode({ id: "a" }), { coupling: "out" }));
-      expect(el.style.background).toContain("var(--temp-4)");
-      expect(el.style.background).not.toContain("var(--cool-azure)");
+  describe("coupling: face colour = direction of a hovered sibling's edges", () => {
+    /**
+     * The face, not the element behind it. PolyNode lays an absolutely positioned Facet SVG
+     * over the tile (inset:0) and that path carries its own fill, so asserting the wrapper's
+     * background can pass while the visible polygon shows nothing of the coupling.
+     */
+    function face(el: HTMLElement): { fill: string; stops: string[] } {
+      const path = el.querySelector("svg path") as SVGPathElement;
+      const fill = path.getAttribute("fill") ?? "";
+      const id = /^url\(#(.+)\)$/.exec(fill)?.[1];
+      const stops = id
+        ? [...el.querySelectorAll(`#${id} stop`)].map((s) => s.getAttribute("stop-color") ?? "")
+        : [];
+      return { fill, stops };
+    }
+
+    function render1(ctx: Parameters<typeof node>[1]): HTMLElement {
+      const { container } = render(node(makeNode({ id: "a" }), ctx));
+      return container.querySelector(".tile") as HTMLElement;
+    }
+
+    it("paints a tile coupled only outbound in the outbound colour, over the layer hue", () => {
+      const { fill, stops } = face(render1({ coupling: "out", layerColor: "#123456" }));
+      const painted = [fill, ...stops].join(" ");
+      expect(painted).toContain("var(--temp-4)");
+      expect(painted).not.toContain("var(--cool-azure)");
+      // Solid rather than an alpha wash, so the layer hue underneath does not dilute it.
+      expect(painted).not.toContain("#123456");
     });
 
-    it("fills a tile coupled only inbound with the inbound colour alone", () => {
-      const el = tile(node(makeNode({ id: "a" }), { coupling: "in" }));
-      expect(el.style.background).toContain("var(--cool-azure)");
-      expect(el.style.background).not.toContain("var(--temp-4)");
+    it("paints a tile coupled only inbound in the inbound colour", () => {
+      const painted = Object.values(face(render1({ coupling: "in" }))).flat().join(" ");
+      expect(painted).toContain("var(--cool-azure)");
+      expect(painted).not.toContain("var(--temp-4)");
     });
 
-    it("splits a both-ways tile between the two colours, with a hard edge", () => {
+    it("splits a both-ways tile across the face, one direction per gradient stop", () => {
       // The point of the split is that "both" is visibly composed of in and out rather than
-      // being a third thing to learn, so both colours must appear...
-      const el = tile(node(makeNode({ id: "a" }), { coupling: "both" }));
-      expect(el.style.background).toContain("var(--temp-4)");
-      expect(el.style.background).toContain("var(--cool-azure)");
-      // ...and meet at a hard stop, not blend into a gradient that reads as a third colour.
-      expect(el.style.background).toContain("50%");
-      expect(el.style.background).toContain("linear-gradient");
+      // being a third thing to learn, so both colours must appear on the polygon itself.
+      const { fill, stops } = face(render1({ coupling: "both" }));
+      expect(fill).toMatch(/^url\(#/);
+      expect(stops).toContain("var(--temp-4)");
+      expect(stops).toContain("var(--cool-azure)");
     });
 
-    it("leaves an uncoupled tile's fill to the layer hue", () => {
-      const el = tile(node(makeNode({ id: "a" }), {}));
-      expect(el.style.background).toBe("");
+    it("leaves an uncoupled tile's face to the layer hue", () => {
+      const painted = Object.values(face(render1({ layerColor: "#123456" }))).flat().join(" ");
+      expect(painted).toContain("#123456");
+      expect(painted).not.toContain("var(--temp-4)");
+      expect(painted).not.toContain("var(--cool-azure)");
     });
   });
 });

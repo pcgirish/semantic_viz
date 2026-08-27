@@ -48,19 +48,20 @@ export type Coupling = "in" | "out" | "both";
 const COUPLING_COLOR = { in: "var(--cool-azure)", out: "var(--temp-4)" } as const;
 
 /**
- * Coupling as a split fill (the tray's crossing edges have no second tile to draw to, since the
- * sibling they address is a tray row rather than something on the canvas). A tile is a clipped
- * polygon, so this has to be a gradient on the element itself; a hard stop at 50% keeps "both"
- * reading as its two halves instead of blending into a third colour.
+ * Coupling as the tile's face colour — the tray's crossing edges have no second tile to draw a
+ * connector to, since the sibling they address is a tray row rather than something on the canvas.
+ *
+ * This has to reach the polygon itself. PolyNode lays an absolutely positioned Facet SVG over the
+ * element (inset:0), so a background behind it is covered by that path's own fill; the face is
+ * painted via `color`/`fillTo` instead. A tile coupled both ways takes each direction as one stop
+ * of the face gradient, so it reads as its two colours rather than blending into a third.
  */
-export function couplingStyle(c: Coupling | undefined): CSSProperties {
-  if (!c) return {};
-  if (c === "both") {
-    return {
-      background: `linear-gradient(135deg, ${COUPLING_COLOR.out} 0 50%, ${COUPLING_COLOR.in} 50% 100%)`,
-    };
-  }
-  return { background: COUPLING_COLOR[c] };
+export function couplingFace(
+  c: Coupling | undefined,
+): { color: string; fillTo?: string } | null {
+  if (!c) return null;
+  if (c === "both") return { color: COUPLING_COLOR.out, fillTo: COUPLING_COLOR.in };
+  return { color: COUPLING_COLOR[c] };
 }
 
 /**
@@ -97,7 +98,11 @@ export function node(n: SceneNode, ctx: TileContext = {}): ReactElement {
       label={n.name}
       shape={shape}
       size={n.w}
-      color={ctx.layerColor}
+      // A coupling highlight wins over the layer hue and renders solid: it answers the question
+      // the pointer is asking right now, and an alpha wash over the hue would not read as either.
+      color={couplingFace(ctx.coupling)?.color ?? ctx.layerColor}
+      fillTo={couplingFace(ctx.coupling)?.fillTo}
+      filled={ctx.coupling !== undefined}
       focus={ctx.focus}
       onFocusNode={ctx.onFocusNode}
       style={
@@ -108,9 +113,6 @@ export function node(n: SceneNode, ctx: TileContext = {}): ReactElement {
           height: n.h,
           ...deltaStyle(ctx.delta),
           ...riskStyle(ctx.delta),
-          // Last, so a coupling highlight wins over the delta fill: it answers the question
-          // the pointer is asking right now.
-          ...couplingStyle(ctx.coupling),
         } as CSSProperties
       }
       onClick={ctx.onClick}

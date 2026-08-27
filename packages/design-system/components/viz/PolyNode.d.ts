@@ -18,6 +18,9 @@ export interface PolyNodeProps extends React.HTMLAttributes<HTMLDivElement>{
   selected?:boolean;
   /** solid filled face instead of the outlined treatment (also implied by selected) */
   filled?:boolean;
+  /** second stop of the face gradient; defaults to a shade of `color`. Set it to paint the
+   *  face in two distinct colours (e.g. a tile coupled in both directions). */
+  fillTo?:string;
   /** fade out-of-focus nodes */
   dim?:boolean;
   /** node id — required for focus highlighting */

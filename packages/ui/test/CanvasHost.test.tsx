@@ -521,6 +521,22 @@ describe("CanvasHost: connected-siblings tray", () => {
     { id: "g4", name: "Docs", tiles: [], inCount: 0, outCount: 0, edgeCount: 0, direction: null },
   ];
 
+  /**
+   * The colours actually painted on a tile's visible polygon. PolyNode lays an absolutely
+   * positioned Facet SVG over the element, so the wrapper's background is not what the user
+   * sees — a solid face reads off the path's fill, a two-tone one off its gradient stops.
+   */
+  function face(container: HTMLElement, id: string): string {
+    const tile = container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement;
+    const path = tile.querySelector("svg path") as SVGPathElement;
+    const fill = path.getAttribute("fill") ?? "";
+    const gid = /^url\(#(.+)\)$/.exec(fill)?.[1];
+    const stops = gid
+      ? [...tile.querySelectorAll(`#${gid} stop`)].map((s) => s.getAttribute("stop-color") ?? "")
+      : [];
+    return [fill, ...stops].join(" ");
+  }
+
   /** Connector strokes, so the tile/region rects and the marker arrowheads are filtered out. */
   const STROKES = ["var(--connector)", "var(--connector-active)", "var(--cool-azure)", "var(--temp-4)"];
   function connectors(container: HTMLElement) {
@@ -566,8 +582,7 @@ describe("CanvasHost: connected-siblings tray", () => {
     fireEvent.mouseOver(container.querySelector('.tile[data-id="b"]') as HTMLElement);
     fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
 
-    const bg = (container.querySelector('.tile[data-id="a"]') as HTMLElement).style.background;
-    expect(bg).toContain("var(--temp-4)");
+    expect(face(container, "a")).toContain("var(--temp-4)");
   });
 
   it("fills each coupled tile by the direction its edges to the hovered sibling run", () => {
@@ -588,9 +603,8 @@ describe("CanvasHost: connected-siblings tray", () => {
     // The sibling itself is a tray row, not a tile, so the coupling has nowhere to be drawn to;
     // the tiles carry it. Outbound reads orange, inbound azure — the same in/out vocabulary the
     // tile-hover trace uses for real connectors.
-    const bg = (id: string) => (container.querySelector(`.tile[data-id="${id}"]`) as HTMLElement).style.background;
-    expect(bg("a")).toContain("var(--temp-4)");
-    expect(bg("b")).toContain("var(--cool-azure)");
+    expect(face(container, "a")).toContain("var(--temp-4)");
+    expect(face(container, "b")).toContain("var(--cool-azure)");
   });
 
   it("splits a tile coupled both ways between the two colours", () => {
@@ -601,9 +615,9 @@ describe("CanvasHost: connected-siblings tray", () => {
 
     fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
 
-    const bg = (container.querySelector('.tile[data-id="a"]') as HTMLElement).style.background;
-    expect(bg).toContain("var(--temp-4)");
-    expect(bg).toContain("var(--cool-azure)");
+    const painted = face(container, "a");
+    expect(painted).toContain("var(--temp-4)");
+    expect(painted).toContain("var(--cool-azure)");
   });
 
   it("adds no connectors for crossing edges, which have no second tile to reach", () => {
@@ -617,13 +631,11 @@ describe("CanvasHost: connected-siblings tray", () => {
 
   it("clears the coupling fill when the pointer leaves the row", () => {
     const { container } = render(<CanvasHost units={units} edges={edges} siblings={siblings} focusId="g1" />);
-    const bg = () => (container.querySelector('.tile[data-id="a"]') as HTMLElement).style.background;
-
     fireEvent.mouseEnter(screen.getByTestId("sibling-row-g2"));
-    expect(bg()).toContain("var(--temp-4)");
+    expect(face(container, "a")).toContain("var(--temp-4)");
 
     fireEvent.mouseLeave(screen.getByTestId("connected-siblings-tray"));
-    expect(bg()).toBe("");
+    expect(face(container, "a")).not.toContain("var(--temp-4)");
   });
 
   it("keeps a pinned row's highlight after the pointer leaves the tray", () => {
