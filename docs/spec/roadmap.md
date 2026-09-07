@@ -71,6 +71,9 @@ merged" in `README.md`.
 
 ## Known open issues
 
+- Layout ranks stack top-to-bottom; the left-to-right rank axis change from
+  PR #80 (deferred alongside canvas pan/zoom, which has since shipped) never
+  landed — `docs/backlog/layout-left-to-right-axis.md`
 - Light skin's canvas background vignette is hardcoded for the dark skin
   (`GraphCanvas` radial-gradient) — tracked as a followup, not part of any
   active plan
