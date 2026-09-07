@@ -33,11 +33,8 @@ nothing has needed one at the canvas level yet. Reopen if large graphs prove
 otherwise.
 
 ## Still open — left-to-right layout axis
-The companion item from PR #80 has **not** shipped. `packages/layout/src/place.ts`
-still places one row per rank and stacks rows downward, so cross-rank flow reads
-top-to-bottom. (The "left-to-right" comments in `place.ts`, `route.ts`, and
-`flowchart.ts` describe ordering *within* a rank, not the rank axis itself.)
-Tracked here rather than in its own file because the two were filed together.
+The companion item from PR #80 has **not** shipped. Split into its own file:
+`docs/backlog/layout-left-to-right-axis.md`.
 
 ## Affected
 - `packages/ui/src/CanvasHost.tsx`
