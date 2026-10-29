@@ -1,5 +1,7 @@
-# Written by `scv init`. Fails a PR whose committed .scv/semantics/ store is stale, missing or
+# Adapted from `scv init`. Fails a PR whose committed .scv/semantics/ store is stale, missing or
 # orphaned entries; fix it with the agent-analyze-pr skill and commit the store.
+# Unlike the generated workflow, this repo is scv itself, so it builds scv from its own checkout
+# instead of cloning it from a pinned ref.
 name: scv-check
 on:
   pull_request:
@@ -15,17 +17,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: Build scv from source
-        env:
-          SCV_REPO: "https://github.com/pcgirish/semantic_viz.git"
-          SCV_REF: "4a5238c73ac38fb58c1688ec478a499874253a69"
-        run: |
-          git init -q "$RUNNER_TEMP/semviz"
-          git -C "$RUNNER_TEMP/semviz" remote add origin "$SCV_REPO"
-          git -C "$RUNNER_TEMP/semviz" fetch --depth 1 origin "$SCV_REF"
-          git -C "$RUNNER_TEMP/semviz" checkout -q FETCH_HEAD
-          cd "$RUNNER_TEMP/semviz" && npm ci && npm run build --workspace packages/cli
+      - name: Build scv from this checkout
+        run: npm ci && npm run build --workspace packages/cli
       - name: scv check
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: node "$RUNNER_TEMP/semviz/packages/cli/dist/bin.js" check --base "origin/$BASE_REF"
+        run: node packages/cli/dist/bin.js check --base "origin/$BASE_REF"

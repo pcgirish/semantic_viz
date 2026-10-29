@@ -188,7 +188,8 @@ scv-viewer serve & scv-viewer ui
 ```
 
 `--install git` builds scv in CI from a pinned commit of this repo, which must
-be pushed. `hydrate` reuses only entries still fresh at that revision, so the
+be pushed and publicly cloneable (CI clones it anonymously). This repo's own
+workflow builds scv from its checkout instead. `hydrate` reuses only entries still fresh at that revision, so the
 viewer shows exactly what was committed.
 
 ## Screenshots
