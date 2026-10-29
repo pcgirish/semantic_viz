@@ -3,6 +3,7 @@ import path from "node:path";
 import { Command } from "commander";
 import { fmtElapsed } from "@scv/interpreter";
 import { runAnalyze, type RunAnalyzeOptions } from "./analyze.js";
+import { runCheck } from "./check.js";
 import { runDiff } from "./diff.js";
 import { runExport } from "./export.js";
 import { runHydrate } from "./hydrate.js";
@@ -134,6 +135,19 @@ program
     if (result.stale > 0) console.error(`[WARN] ${result.stale} committed entries are stale at ${result.sha} and were not hydrated`);
     if (result.emptyArtifacts.length > 0) console.error(`[WARN] snapshot hydrated without: ${result.emptyArtifacts.join(", ")}`);
     for (const warning of result.warnings) console.error(`[WARN] ${warning}`);
+  });
+
+program
+  .command("check")
+  .description("list committed semantics that must be re-authored — stale, missing or orphaned entries, each with the skill that fixes it; exits 1 on any finding")
+  .argument("[root]", "repo root", ".")
+  .option("--base <ref>", "report function findings only for units whose inputs changed since `git merge-base <ref> HEAD`; docs and global artifacts are always checked")
+  .option("--json", "print { ok, base, items } as JSON instead of tab-separated status, kind, id, skill lines")
+  .action(async (root: string, opts: { base?: string; json?: boolean }) => {
+    const result = await runCheck({ root: path.resolve(root), base: opts.base });
+    if (opts.json) console.log(JSON.stringify(result, null, 2));
+    else for (const item of result.items) console.log([item.status, item.kind, item.id, item.skill].join("\t"));
+    if (!result.ok) process.exitCode = 1;
   });
 
 program
