@@ -16,7 +16,7 @@
       "architecture_notes": [
         "A repo is turned into a SymbolGraph by static analysis, with an Interpreter and a Differ layered on top, then served as a drillable tile map in the browser"
       ],
-      "fingerprint": "a6e8f43ec6e8dbbfb57c9b68bee22ddbb1832d1c",
+      "fingerprint": "93cb5e5c91cbbcce0897140416214b8436417b88",
       "modules": [
         {
           "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
@@ -112,7 +112,7 @@
     },
     "docs/backlog/analyze-positional-args-ambiguity.md": {
       "architecture_notes": [],
-      "fingerprint": "7b4815860c0d8dbd000562be2a853f79d29def64",
+      "fingerprint": "c638953c10f98ab6cfb97f78d20f75ca37acf306",
       "modules": [
         {
           "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
@@ -123,7 +123,7 @@
         }
       ],
       "path": "docs/backlog/analyze-positional-args-ambiguity.md",
-      "purpose": "Open backlog item: scv analyze's [root] [artifact] positional arguments are ambiguous"
+      "purpose": "Closed backlog item: scv analyze's [root] [artifact] positionals were ambiguous; resolved by rejecting a lone artifact name with both explicit forms"
     },
     "docs/backlog/api-flow-misses-di-middleware.md": {
       "architecture_notes": [],
