@@ -1,0 +1,18 @@
+{
+  "file": "scripts/ensure-fixtures.mjs",
+  "storeVersion": 1,
+  "units": {
+    "u:scripts.ensure-fixtures.ensureFixture": {
+      "fingerprint": "13c5c4c872146955e4e5906937cf11470d4ecd21",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.85,
+        "how": "Returns 'present' when dest/.git exists; otherwise runs git clone -b main from the bundle with a fixed argv and no shell, throwing on spawn errors or a non-zero exit",
+        "what": "Clones a fixture repo's git bundle into place unless a checkout already exists",
+        "when": "Run by npm's pretest hook before every npm run test",
+        "where": "Root scripts: test fixture provisioning",
+        "why": "fixtures/orderly is a gitignored nested repo whose history tests read, so fresh clones and review worktrees need it rebuilt from the committed bundle"
+      }
+    }
+  }
+}

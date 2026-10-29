@@ -116,6 +116,11 @@ merged" in `README.md`.
 
 Both pillars are checked against `fixtures/orderly`:
 
+`fixtures/orderly` is a nested git repo, gitignored here; `npm run test`
+restores it from the committed `fixtures/orderly.bundle` when missing. After
+committing to the fixture's `main`, run `npm run fixtures:bundle` and commit the
+bundle.
+
 - **Current** — the extractor/interpreter pipeline runs end to end on it
   every analyze run; units, edges, clustering, and narration are exercised
   on real, non-trivial code.

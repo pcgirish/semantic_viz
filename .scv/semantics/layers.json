@@ -1,5 +1,5 @@
 {
-  "fingerprint": "4fd42fb9c2ca1852e560be2d01d6ee1a9cb772bb",
+  "fingerprint": "26b48dc2a73e651041955511a17d83a56addd251",
   "layers": {
     "u:layer:05f7b227b1c9": {
       "confidence": 0.8,
@@ -289,6 +289,18 @@
       "when": "When npm run test runs that workspace",
       "where": "packages/skins/tiles3d/vitest.config.ts",
       "why": "Lets each package configure its own test environment"
+    },
+    "u:layer:966b3685e55f": {
+      "confidence": 0.8,
+      "files": [
+        "scripts/ensure-fixtures.mjs"
+      ],
+      "how": "Clones the bundle's main branch when no checkout exists, as npm's pretest hook",
+      "name": "Test Fixture Provisioning",
+      "what": "Script restoring the nested fixtures/orderly repo from its committed git bundle",
+      "when": "Before every npm run test",
+      "where": "scripts",
+      "why": "Lets fresh clones and review worktrees run the fixture-backed tests"
     },
     "u:layer:9ea2b7858f38": {
       "confidence": 0.9,
