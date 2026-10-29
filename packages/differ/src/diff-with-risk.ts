@@ -1,5 +1,5 @@
-import { runPassD, rankInspectQueue, type Provider } from "@scv/interpreter";
-import type { Delta, Snapshot, UnitDelta } from "@scv/schema";
+import { runPassD, rankInspectQueue, type Provider } from "@semviz/interpreter";
+import type { Delta, Snapshot, UnitDelta } from "@semviz/schema";
 import { runDiffer } from "./diff.js";
 
 /**

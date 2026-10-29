@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Scene } from "@scv/layout";
+import type { Scene } from "@semviz/layout";
 import { minimapProjection, type Viewer } from "../src/minimap.js";
 import { bounds } from "../src/bounds.js";
 

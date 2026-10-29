@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runServe } from "../src/serve.js";
 
 function writeScvFixture(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "scv-cli-serve-test-"));
+  const root = mkdtempSync(path.join(tmpdir(), "scv-viewer-serve-test-"));
   const scvDir = path.join(root, ".scv");
   const snapshotsDir = path.join(scvDir, "snapshots");
   mkdirSync(snapshotsDir, { recursive: true });

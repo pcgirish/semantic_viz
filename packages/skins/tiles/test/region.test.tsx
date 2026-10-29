@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import type { SceneRegion } from "@scv/layout";
+import type { SceneRegion } from "@semviz/layout";
 import { region } from "../src/region.js";
 
 function makeRegion(overrides: Partial<SceneRegion> & { id: string }): SceneRegion {

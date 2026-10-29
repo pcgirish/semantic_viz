@@ -1,9 +1,9 @@
 import * as THREE from "three";
-import type { Scene } from "@scv/layout";
-import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
-import { tiles3dSkin } from "@scv/skin-tiles3d";
-import { cityscapeSkin, ground } from "@scv/skin-cityscape";
-import type { DeltaInfo, Skin } from "@scv/skin-contract";
+import type { Scene } from "@semviz/layout";
+import { codedreamLayerPalette, hashLayerToColor } from "@semviz/skin-tiles";
+import { tiles3dSkin } from "@semviz/skin-tiles3d";
+import { cityscapeSkin, ground } from "@semviz/skin-cityscape";
+import type { DeltaInfo, Skin } from "@semviz/skin-contract";
 import type { ViewMode } from "./store.js";
 
 /** Which 3D skin the host is drawing. Both draw into the same scene graph (docs/serve.md#6). */

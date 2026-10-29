@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { SymbolGraph } from "@scv/extractor";
-import type { Edge, Snapshot, Unit } from "@scv/schema";
+import type { SymbolGraph } from "@semviz/extractor";
+import type { Edge, Snapshot, Unit } from "@semviz/schema";
 import {
   buildBlockUnits,
   runClustersPass,
@@ -18,7 +18,7 @@ import {
   type Layer,
   type PassAUnitRecord,
   type Provider,
-} from "@scv/interpreter";
+} from "@semviz/interpreter";
 import type { DiscoveredDoc } from "./discover-docs.js";
 import { ancestorShas } from "./rev.js";
 

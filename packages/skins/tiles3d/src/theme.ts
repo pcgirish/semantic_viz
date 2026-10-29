@@ -1,4 +1,4 @@
-import type { Theme } from "@scv/skin-contract";
+import type { Theme } from "@semviz/skin-contract";
 
 /** Default tiles3d theme — a skin may reinterpret the theme freely, never the encoding (docs/serve.md#6). */
 export const defaultTheme: Theme = {

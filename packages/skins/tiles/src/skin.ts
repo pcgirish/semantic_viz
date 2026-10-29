@@ -1,14 +1,14 @@
 import type { ReactElement } from "react";
-import type { SceneLink, SceneNode, SceneRegion } from "@scv/layout";
-import type { CameraMove, Intent, RenderContext, Skin, Theme } from "@scv/skin-contract";
+import type { SceneLink, SceneNode, SceneRegion } from "@semviz/layout";
+import type { CameraMove, Intent, RenderContext, Skin, Theme } from "@semviz/skin-contract";
 import { node } from "./node.js";
 import { link, type LinkOptions } from "./link.js";
 import { region } from "./region.js";
 import { defaultTheme } from "./theme.js";
 
-// The contract now lives in @scv/skin-contract so every skin and host shares one shape
+// The contract now lives in @semviz/skin-contract so every skin and host shares one shape
 // (docs/serve.md#6 "Navigation belongs in the skin contract"). Re-exported here so existing
-// importers of @scv/skin-tiles keep working.
+// importers of @semviz/skin-tiles keep working.
 export type { CameraMove, Intent, RenderContext, Theme };
 
 /**

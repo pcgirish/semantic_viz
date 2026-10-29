@@ -1,5 +1,5 @@
-import { FileRow, Tray } from "@scv/design-system";
-import type { Delta } from "@scv/schema";
+import { FileRow, Tray } from "@semviz/design-system";
+import type { Delta } from "@semviz/schema";
 
 export type InspectQueueProps = {
   entries: Delta["inspect_queue"];

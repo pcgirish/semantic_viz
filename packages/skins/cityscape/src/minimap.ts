@@ -1,4 +1,4 @@
-import type { Scene } from "@scv/layout";
+import type { Scene } from "@semviz/layout";
 import { bounds } from "./bounds.js";
 
 /** Where the walker is standing and which way they face, in world coordinates. */

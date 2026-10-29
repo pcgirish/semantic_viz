@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { displayName, pathLeaf } from "../src/layout.js";
-import type { Unit } from "@scv/schema";
+import type { Unit } from "@semviz/schema";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
   return {

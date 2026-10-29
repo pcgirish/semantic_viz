@@ -5,6 +5,11 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "docs/mock/**"],
+    ignores: ["**/dist/**", "**/build/**", "**/node_modules/**", "docs/mock/**"],
+  },
+  {
+    // Build scripts run directly under Node.
+    files: ["packages/*/scripts/**/*.mjs"],
+    languageOptions: { globals: { URL: "readonly", console: "readonly", process: "readonly" } },
   },
 );

@@ -1,17 +1,39 @@
 {
-  "name": "@scv/differ",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@semviz/differ",
+  "version": "0.1.0",
+  "description": "Diffs two semviz snapshots into a ranked scv-delta/1 inspect queue.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pcgirish/semantic_viz.git",
+    "directory": "packages/differ"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/interpreter": "*",
-    "@scv/schema": "*",
+    "@semviz/interpreter": "^0.1.0",
+    "@semviz/schema": "^0.1.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

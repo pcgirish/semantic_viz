@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Database from "better-sqlite3";
-import { ContentCache, type Provider, type ProviderResult } from "@scv/interpreter";
+import { ContentCache, type Provider, type ProviderResult } from "@semviz/interpreter";
 import { runAnalyze } from "../src/analyze.js";
 
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));

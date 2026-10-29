@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { node } from "../src/node.js";
-import type { SceneNode } from "@scv/layout";
+import type { SceneNode } from "@semviz/layout";
 
 function makeNode(overrides: Partial<SceneNode> & { id: string }): SceneNode {
   return {

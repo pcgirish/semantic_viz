@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { SymbolEdge, SymbolGraph, SymbolUnit } from "@scv/extractor";
+import type { SymbolEdge, SymbolGraph, SymbolUnit } from "@semviz/extractor";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RECORD_VERSION, readAuthoredRecord, stampAuthored, writeAuthoredRecord } from "../src/authored-record.js";
 import { emptyAuthoredSet, evaluate, type AuthoredSet, type FingerprintInputs } from "../src/fingerprints.js";

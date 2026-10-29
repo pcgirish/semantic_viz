@@ -1,15 +1,13 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { Command } from "commander";
-import { fmtElapsed } from "@scv/interpreter";
+import { fmtElapsed } from "@semviz/interpreter";
 import { runAnalyze, type RunAnalyzeOptions } from "./analyze.js";
 import { runCheck } from "./check.js";
 import { runDiff } from "./diff.js";
 import { runExport } from "./export.js";
 import { runHydrate } from "./hydrate.js";
 import { runMergeSemantics } from "./merge-semantics.js";
-import { runServe } from "./serve.js";
-import { runUi } from "./ui.js";
 
 const program = new Command();
 
@@ -148,26 +146,6 @@ program
     if (opts.json) console.log(JSON.stringify(result, null, 2));
     else for (const item of result.items) console.log([item.status, item.kind, item.id, item.skill].join("\t"));
     if (!result.ok) process.exitCode = 1;
-  });
-
-program
-  .command("serve")
-  .description("serve the JSON API for a previously analyzed repo's .scv snapshots")
-  .argument("[root]", "repo root whose .scv dir to serve", ".")
-  .option("--port <n>", "port to listen on", process.env.PORT ?? "3000")
-  .action(async (root: string, opts: { port: string }) => {
-    const { scvDir, port } = await runServe({ root, port: Number(opts.port) });
-    console.log(`serving ${scvDir} on http://127.0.0.1:${port}`);
-  });
-
-program
-  .command("ui")
-  .description("serve the built SPA and proxy /api/* to a running `scv serve` process")
-  .option("--port <n>", "port to listen on", "5173")
-  .option("--api-port <n>", "port of the running `scv serve` process to proxy /api/* to", "3000")
-  .action(async (opts: { port: string; apiPort: string }) => {
-    const { port } = await runUi({ port: Number(opts.port), apiPort: Number(opts.apiPort) });
-    console.log(`serving UI on http://127.0.0.1:${port} (proxying /api to http://127.0.0.1:${opts.apiPort})`);
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {

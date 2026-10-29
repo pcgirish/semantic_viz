@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { extractRepo, type SymbolGraph } from "@scv/extractor";
+import { extractRepo, type SymbolGraph } from "@semviz/extractor";
 import {
   PendingSemanticsSchema,
   SnapshotSchema,
@@ -15,7 +15,7 @@ import {
   type PendingSemantics,
   type Snapshot,
   type Unit,
-} from "@scv/schema";
+} from "@semviz/schema";
 import {
   layerIdFor,
   buildGroupUnits,
@@ -31,7 +31,7 @@ import {
   type DocExtract,
   type Layer,
   type Provider,
-} from "@scv/interpreter";
+} from "@semviz/interpreter";
 import { computeInputHash, ensureArtifact, readArtifact, writeArtifact, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { readAuthoredRecord, stampAuthored, writeAuthoredRecord } from "./authored-record.js";

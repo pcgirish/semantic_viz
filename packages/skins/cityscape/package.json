@@ -1,5 +1,5 @@
 {
-  "name": "@scv/skin-cityscape",
+  "name": "@semviz/skin-cityscape",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/layout": "*",
-    "@scv/skin-contract": "*",
-    "@scv/skin-tiles3d": "*",
+    "@semviz/layout": "*",
+    "@semviz/skin-contract": "*",
+    "@semviz/skin-tiles3d": "*",
     "three": "^0.185.1"
   },
   "devDependencies": {

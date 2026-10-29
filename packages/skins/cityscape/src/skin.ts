@@ -1,7 +1,7 @@
 import type { Object3D } from "three";
-import type { SceneLink, SceneNode } from "@scv/layout";
-import type { CameraMove, Intent, RenderContext, Skin } from "@scv/skin-contract";
-import { node as tiles3dNode, link as tiles3dLink, defaultTheme, type LinkOptions } from "@scv/skin-tiles3d";
+import type { SceneLink, SceneNode } from "@semviz/layout";
+import type { CameraMove, Intent, RenderContext, Skin } from "@semviz/skin-contract";
+import { node as tiles3dNode, link as tiles3dLink, defaultTheme, type LinkOptions } from "@semviz/skin-tiles3d";
 
 export type CityscapeSkin = Skin<Object3D, Object3D, Object3D>;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Snapshot, Unit } from "@scv/schema";
-import type { SymbolGraph, SymbolUnit } from "@scv/extractor";
+import type { Snapshot, Unit } from "@semviz/schema";
+import type { SymbolGraph, SymbolUnit } from "@semviz/extractor";
 import { runFunctionsPass } from "../src/orchestrate.js";
 import type { PassAUnitRecord } from "../src/cache.js";
 import type { Provider, ProviderResult } from "../src/provider.js";

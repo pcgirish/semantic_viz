@@ -1,4 +1,4 @@
-import type { SymbolBlock } from "@scv/extractor";
+import type { SymbolBlock } from "@semviz/extractor";
 
 /** Renders one block's own source span, sliced from the full function source by line
  *  number (both 1-indexed, matching SymbolBlock.startLine/endLine). */

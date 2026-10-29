@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { Canvas3dHost } from "../src/Canvas3dHost.js";
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 
 const units = [
   { id: "a", name: "a", kind: "module", layer: "edge", loc: { sloc: 10 }, complexity: 2, risk: 0 },

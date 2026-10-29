@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from "react";
-import { GroupFrame, TEMP_STOPS } from "@scv/design-system";
-import type { Unit } from "@scv/schema";
-import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
+import { GroupFrame, TEMP_STOPS } from "@semviz/design-system";
+import type { Unit } from "@semviz/schema";
+import { codedreamLayerPalette, hashLayerToColor } from "@semviz/skin-tiles";
 
 export type LegendProps = {
   units: Unit[];

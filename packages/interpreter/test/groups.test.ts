@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Unit } from "@scv/schema";
+import type { Unit } from "@semviz/schema";
 import { UNGROUPED_ID, buildGroupUnits, resolveGroupMembership } from "../src/groups.js";
 import type { Provider } from "../src/provider.js";
 

@@ -1,5 +1,5 @@
 {
-  "name": "@scv/ui",
+  "name": "@semviz/ui",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,12 +9,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/design-system": "*",
-    "@scv/layout": "*",
-    "@scv/schema": "*",
-    "@scv/skin-contract": "*",
-    "@scv/skin-tiles": "*",
-    "@scv/skin-tiles3d": "*",
+    "@semviz/design-system": "*",
+    "@semviz/layout": "*",
+    "@semviz/schema": "*",
+    "@semviz/skin-contract": "*",
+    "@semviz/skin-tiles": "*",
+    "@semviz/skin-tiles3d": "*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "three": "^0.185.1",

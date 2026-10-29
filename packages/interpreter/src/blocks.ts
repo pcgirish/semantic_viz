@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import type { SymbolBlockGraph, SymbolGraph, SymbolUnit } from "@scv/extractor";
-import type { Edge, Unit, UnitProvenance } from "@scv/schema";
+import type { SymbolBlockGraph, SymbolGraph, SymbolUnit } from "@semviz/extractor";
+import type { Edge, Unit, UnitProvenance } from "@semviz/schema";
 import type { BlockLabel } from "./pass-a-blocks.js";
 
 /** Presentable fallback block names, keyed by BlockType, for when a block has no label —

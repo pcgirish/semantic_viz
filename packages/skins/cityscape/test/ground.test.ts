@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import type { Scene } from "@scv/layout";
+import type { Scene } from "@semviz/layout";
 import { ground } from "../src/ground.js";
 
 function scene(nodes?: Array<Record<string, unknown>>): Scene {

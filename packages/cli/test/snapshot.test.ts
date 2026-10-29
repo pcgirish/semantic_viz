@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { extractRepo } from "@scv/extractor";
+import { extractRepo } from "@semviz/extractor";
 import { toSnapshot } from "../src/snapshot.js";
 
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));
@@ -63,7 +63,7 @@ describe("toSnapshot", () => {
   });
 
   it("is valid against SnapshotSchema", async () => {
-    const { SnapshotSchema } = await import("@scv/schema");
+    const { SnapshotSchema } = await import("@semviz/schema");
     expect(() => SnapshotSchema.parse(snapshot)).not.toThrow();
   });
 });

@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Provider, ProviderResult } from "@scv/interpreter";
-import type { Snapshot } from "@scv/schema";
+import type { Provider, ProviderResult } from "@semviz/interpreter";
+import type { Snapshot } from "@semviz/schema";
 import { runDiff } from "../src/diff.js";
 
 function makeSnapshot(sha: string, units: Snapshot["units"] = []): Snapshot {

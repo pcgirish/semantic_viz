@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
-import { ConnectorLayer } from "@scv/design-system";
+import { ConnectorLayer } from "@semviz/design-system";
 
 afterEach(cleanup);
 

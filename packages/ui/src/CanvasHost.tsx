@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Edge, Unit } from "@scv/schema";
-import { ConnectorLayer, GraphCanvas, neighbours, type FocusState } from "@scv/design-system";
-import { buildScene, type BoundaryEdge, type Scene } from "@scv/layout";
-import { codedreamLayerPalette, hashLayerToColor, node as tile, region as regionBox } from "@scv/skin-tiles";
+import type { Edge, Unit } from "@semviz/schema";
+import { ConnectorLayer, GraphCanvas, neighbours, type FocusState } from "@semviz/design-system";
+import { buildScene, type BoundaryEdge, type Scene } from "@semviz/layout";
+import { codedreamLayerPalette, hashLayerToColor, node as tile, region as regionBox } from "@semviz/skin-tiles";
 import type { SiblingSummary } from "./App.js";
 import { ConnectedSiblingsTray } from "./ConnectedSiblingsTray.js";
 import { DEFAULT_EDGE_BUDGET } from "./edge-budget.js";
@@ -35,7 +35,7 @@ export type CanvasHostProps = {
 };
 
 /**
- * Canvas host: builds a Scene from units/edges (@scv/layout, unchanged) and draws it as
+ * Canvas host: builds a Scene from units/edges (@semviz/layout, unchanged) and draws it as
  * PolyNode tiles connected by a ConnectorLayer (docs/serve.md#1 — layout produces the
  * Scene, the skin draws it, nothing else computes positions). Click selects, double-click
  * drills; double-click on empty canvas ascends (docs/serve.md#4, "Current" view navigation).

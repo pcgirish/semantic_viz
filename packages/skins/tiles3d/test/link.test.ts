@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { link } from "../src/link.js";
-import type { SceneLink } from "@scv/layout";
+import type { SceneLink } from "@semviz/layout";
 
 function makeLink(overrides: Partial<SceneLink> & { from: string; to: string }): SceneLink {
   return {

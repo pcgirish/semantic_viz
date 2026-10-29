@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
-import { UnitSchema } from "@scv/schema";
-import type { Unit } from "@scv/schema";
+import { UnitSchema } from "@semviz/schema";
+import type { Unit } from "@semviz/schema";
 import { stripCodeFence } from "./json-response.js";
 import type { ProviderResult } from "./provider.js";
 

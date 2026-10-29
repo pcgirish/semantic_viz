@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 import { nestedScene } from "../src/nested.js";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {

@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { PendingSemantics } from "@scv/schema";
+import type { PendingSemantics } from "@semviz/schema";
 import { runMergeSemantics, type RunMergeSemanticsOptions } from "../src/merge-semantics.js";
 
 /** A throwaway git repository with its `.scv` dir kept outside it, so the worktree stays clean. */

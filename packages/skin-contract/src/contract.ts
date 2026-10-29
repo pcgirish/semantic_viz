@@ -1,4 +1,4 @@
-import type { SceneLink, SceneNode, SceneRegion } from "@scv/layout";
+import type { SceneLink, SceneNode, SceneRegion } from "@semviz/layout";
 
 /**
  * The skin contract: the spec for turning a Scene into a drawing (docs/serve.md#1, #6).

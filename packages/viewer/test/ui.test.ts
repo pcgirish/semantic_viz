@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runUi } from "../src/ui.js";
 
 function writeDistFixture(): string {
-  const dist = mkdtempSync(path.join(tmpdir(), "scv-cli-ui-test-"));
+  const dist = mkdtempSync(path.join(tmpdir(), "scv-viewer-ui-test-"));
   writeFileSync(path.join(dist, "index.html"), "<html><body>scv ui</body></html>");
   mkdirSync(path.join(dist, "assets"), { recursive: true });
   writeFileSync(path.join(dist, "assets", "app.js"), "console.log('scv');");
@@ -60,9 +60,7 @@ describe("runUi", () => {
   });
 
   it("rejects clearly when the dist directory is missing", async () => {
-    const missingDir = path.join(tmpdir(), "scv-cli-ui-test-missing-" + Date.now());
-    await expect(runUi({ port: 0, apiPort: 3000, distDir: missingDir })).rejects.toThrow(
-      /npm run build --workspace packages\/ui/,
-    );
+    const missingDir = path.join(tmpdir(), "scv-viewer-ui-test-missing-" + Date.now());
+    await expect(runUi({ port: 0, apiPort: 3000, distDir: missingDir })).rejects.toThrow(/UI not built/);
   });
 });

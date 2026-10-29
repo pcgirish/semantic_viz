@@ -1,4 +1,4 @@
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 import { buildUnitToAncestor } from "./App.js";
 
 /**

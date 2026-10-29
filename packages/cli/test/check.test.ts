@@ -1,4 +1,4 @@
-import { extractRepo } from "@scv/extractor";
+import { extractRepo } from "@semviz/extractor";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCheck, type CheckItem, type CheckResult } from "../src/check.js";
 import { runExport } from "../src/export.js";

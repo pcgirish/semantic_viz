@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { runDifferWithRisk } from "../src/diff-with-risk.js";
-import type { Provider, ProviderResult } from "@scv/interpreter";
-import type { Snapshot, Unit, Edge } from "@scv/schema";
+import type { Provider, ProviderResult } from "@semviz/interpreter";
+import type { Snapshot, Unit, Edge } from "@semviz/schema";
 
 function makeUnit(overrides: Partial<Unit> = {}): Unit {
   return {

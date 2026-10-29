@@ -1,4 +1,4 @@
-import type { Delta, Edge, Snapshot, Unit, UnitDelta } from "@scv/schema";
+import type { Delta, Edge, Snapshot, Unit, UnitDelta } from "@semviz/schema";
 import { matchGroupLineage } from "./group-lineage.js";
 
 const BLAST_RADIUS_CAP = 4;

@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { PendingDocSchema, PendingFlowSchema, PendingGroupSchema, PendingLayerSchema, PendingUnitSchema } from "@scv/schema";
+import { PendingDocSchema, PendingFlowSchema, PendingGroupSchema, PendingLayerSchema, PendingUnitSchema } from "@semviz/schema";
 import { z } from "zod";
 import { sortKeys } from "./artifacts.js";
 

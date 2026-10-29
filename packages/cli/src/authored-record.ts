@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { PendingDocSchema, PendingFlowSchema, PendingGroupSchema, PendingLayerSchema, PendingUnitSchema, type PendingUnit } from "@scv/schema";
+import { PendingDocSchema, PendingFlowSchema, PendingGroupSchema, PendingLayerSchema, PendingUnitSchema, type PendingUnit } from "@semviz/schema";
 import { z } from "zod";
 import { canonicalJson } from "./artifacts.js";
 import { emptyAuthoredSet, evaluate, type AuthoredSet, type Choice, type FingerprintInputs, type Stamped } from "./fingerprints.js";

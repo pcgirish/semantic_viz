@@ -1,6 +1,6 @@
-import { isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
-import { runPassB, type ImportEdge } from "@scv/interpreter";
-import type { PendingDoc, PendingFlow, PendingGroup, PendingLayer, PendingUnit, Snapshot, Unit } from "@scv/schema";
+import { isGeneratedPath, isTestPath, type SymbolGraph } from "@semviz/extractor";
+import { runPassB, type ImportEdge } from "@semviz/interpreter";
+import type { PendingDoc, PendingFlow, PendingGroup, PendingLayer, PendingUnit, Snapshot, Unit } from "@semviz/schema";
 import { canonicalJson, graphHash, hashOf } from "./artifacts.js";
 import type { DiscoveredDoc } from "./discover-docs.js";
 import type { StoreContents } from "./semantics-store.js";

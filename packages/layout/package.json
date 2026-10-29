@@ -1,5 +1,5 @@
 {
-  "name": "@scv/layout",
+  "name": "@semviz/layout",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/schema": "*"
+    "@semviz/schema": "*"
   },
   "devDependencies": {
     "@types/node": "^26.1.2"

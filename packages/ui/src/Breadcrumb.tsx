@@ -1,6 +1,6 @@
-import { Button, PathBreadcrumb } from "@scv/design-system";
-import { displayName } from "@scv/layout";
-import type { Unit } from "@scv/schema";
+import { Button, PathBreadcrumb } from "@semviz/design-system";
+import { displayName } from "@semviz/layout";
+import type { Unit } from "@semviz/schema";
 
 export type BreadcrumbProps = {
   focus: string | null;

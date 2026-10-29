@@ -1,5 +1,5 @@
 import path from "node:path";
-import { extractRepo, isTestPath } from "@scv/extractor";
+import { extractRepo, isTestPath } from "@semviz/extractor";
 import { canonicalJson } from "./artifacts.js";
 import { git, withCheckout } from "./checkout.js";
 import { discoverDocs } from "./discover-docs.js";

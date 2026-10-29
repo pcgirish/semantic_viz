@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
-import type { Scene } from "@scv/layout";
+import type { Scene } from "@semviz/layout";
 import { applyFocus, buildSceneGraph, cullLabels, disposeGraph, disposeRenderer, frameScene, LABEL_MAX_DISTANCE, skin3d, unitAt } from "../src/scene3d.js";
 
 function makeScene(): Scene {

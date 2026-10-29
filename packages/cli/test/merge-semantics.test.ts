@@ -4,9 +4,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, uti
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { extractRepo } from "@scv/extractor";
-import { buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
-import { semanticHashInput, type Unit } from "@scv/schema";
+import { extractRepo } from "@semviz/extractor";
+import { buildFlowTracingContext, traceFlowSteps } from "@semviz/interpreter";
+import { semanticHashInput, type Unit } from "@semviz/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeInputHash, contentHashOf, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
 import { discoverDocs } from "../src/discover-docs.js";

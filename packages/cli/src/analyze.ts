@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { extractRepo } from "@scv/extractor";
-import type { Snapshot, Unit } from "@scv/schema";
+import { extractRepo } from "@semviz/extractor";
+import type { Snapshot, Unit } from "@semviz/schema";
 import {
   CachedProvider,
   ContentCache,
@@ -12,7 +12,7 @@ import {
   type InterpreterConfig,
   type Provider,
   type ProviderUsage,
-} from "@scv/interpreter";
+} from "@semviz/interpreter";
 import { dependencyClosure, ensureArtifact, loadPreviousLayers, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { discoverDocs } from "./discover-docs.js";

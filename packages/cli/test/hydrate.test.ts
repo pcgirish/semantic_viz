@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { extractRepo } from "@scv/extractor";
+import { extractRepo } from "@semviz/extractor";
 import { afterEach, describe, expect, it } from "vitest";
 import { runExport } from "../src/export.js";
 import { computeClusters } from "../src/fingerprints.js";

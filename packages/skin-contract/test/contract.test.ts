@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { tilesSkin } from "@scv/skin-tiles";
-import { tiles3dSkin } from "@scv/skin-tiles3d";
+import { tilesSkin } from "@semviz/skin-tiles";
+import { tiles3dSkin } from "@semviz/skin-tiles3d";
 import type { CameraMove, Intent, Skin } from "../src/index.js";
 
 /**

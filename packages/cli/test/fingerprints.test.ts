@@ -1,4 +1,4 @@
-import type { SymbolEdge, SymbolGraph, SymbolUnit } from "@scv/extractor";
+import type { SymbolEdge, SymbolGraph, SymbolUnit } from "@semviz/extractor";
 import { describe, expect, it } from "vitest";
 import { docFingerprint, functionFingerprints } from "../src/fingerprints.js";
 

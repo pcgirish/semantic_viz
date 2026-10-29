@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { Snapshot } from "@scv/schema";
-import { finalizeSnapshot } from "@scv/interpreter";
+import type { Snapshot } from "@semviz/schema";
+import { finalizeSnapshot } from "@semviz/interpreter";
 import { ensureArtifact, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 
 export interface AssembleSnapshotOptions {

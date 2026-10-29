@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildScene } from "../src/layout.js";
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
   return {

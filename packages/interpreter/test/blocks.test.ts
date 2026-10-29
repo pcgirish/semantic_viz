@@ -1,6 +1,6 @@
-import { extractRepo } from "@scv/extractor";
-import type { SymbolGraph } from "@scv/extractor";
-import type { Unit } from "@scv/schema";
+import { extractRepo } from "@semviz/extractor";
+import type { SymbolGraph } from "@semviz/extractor";
+import type { Unit } from "@semviz/schema";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildBlockUnits, type BlockLabelWithProvenance } from "../src/blocks.js";

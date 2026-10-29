@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import type { SymbolGraph, SymbolBlockGraph, SymbolUnit } from "@scv/extractor";
-import { isGeneratedPath, isTestPath } from "@scv/extractor";
-import { formatFindings, validateSnapshotInvariants } from "@scv/schema";
-import type { Edge, Snapshot, Unit } from "@scv/schema";
+import type { SymbolGraph, SymbolBlockGraph, SymbolUnit } from "@semviz/extractor";
+import { isGeneratedPath, isTestPath } from "@semviz/extractor";
+import { formatFindings, validateSnapshotInvariants } from "@semviz/schema";
+import type { Edge, Snapshot, Unit } from "@semviz/schema";
 import type { Provider } from "./provider.js";
 import type { PassAUnitRecord } from "./cache.js";
 import { runPassA } from "./pass-a.js";

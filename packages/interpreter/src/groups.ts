@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { semanticHashInput, type Unit } from "@scv/schema";
+import { semanticHashInput, type Unit } from "@semviz/schema";
 import type { Provider } from "./provider.js";
 
 /**

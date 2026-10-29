@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
-import type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "@scv/extractor";
-import type { Edge, External, Snapshot, Unit } from "@scv/schema";
+import type { SymbolEdge, SymbolExternal, SymbolGraph, SymbolUnit } from "@semviz/extractor";
+import type { Edge, External, Snapshot, Unit } from "@semviz/schema";
 import type { HeadRev } from "./rev.js";
 
 export interface ToSnapshotOptions {

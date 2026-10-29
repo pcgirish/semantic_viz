@@ -1,16 +1,38 @@
 {
-  "name": "@scv/extractor",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@semviz/extractor",
+  "version": "0.1.0",
+  "description": "Parses Python and TypeScript repos into semviz units, edges and control-flow blocks.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pcgirish/semantic_viz.git",
+    "directory": "packages/extractor"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/schema": "*",
+    "@semviz/schema": "^0.1.0",
     "tree-sitter": "^0.25.1",
     "tree-sitter-python": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2"

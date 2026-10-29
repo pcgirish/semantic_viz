@@ -1,7 +1,7 @@
 import type { CSSProperties, MouseEvent, ReactElement } from "react";
-import { PolyNode, type FocusState } from "@scv/design-system";
-import type { SceneNode } from "@scv/layout";
-import type { DeltaInfo, RenderContext } from "@scv/skin-contract";
+import { PolyNode, type FocusState } from "@semviz/design-system";
+import type { SceneNode } from "@semviz/layout";
+import type { DeltaInfo, RenderContext } from "@semviz/skin-contract";
 
 const HIGH_RISK = 0.5;
 
