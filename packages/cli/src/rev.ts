@@ -10,9 +10,19 @@ export interface HeadRev {
 
 /** Reads HEAD's sha, author, and commit timestamp via `git log -1`. */
 export function headRev(root: string): HeadRev {
-  const result = spawnSync("git", ["log", "-1", "--format=%H|%an|%aI"], { cwd: root, encoding: "utf-8" });
+  return commitRev(root, "HEAD");
+}
+
+/**
+ * Resolves `rev` (a sha, branch, tag or `HEAD~n`) to a commit and reads its sha, author and
+ * timestamp. Git gets argument arrays, never a shell, and a rev starting with `-` is refused so
+ * it can never be read as an option.
+ */
+export function commitRev(root: string, rev: string): HeadRev {
+  if (rev.length === 0 || rev.startsWith("-")) throw new Error(`invalid revision ${JSON.stringify(rev)}`);
+  const result = spawnSync("git", ["log", "-1", "--no-walk", "--format=%H|%an|%aI", `${rev}^{commit}`, "--"], { cwd: root, encoding: "utf-8" });
   if (result.status !== 0 || !result.stdout) {
-    throw new Error(`failed to read HEAD rev for ${root}: ${result.stderr || "not a git repository"}`);
+    throw new Error(`failed to read ${rev} rev for ${root}: ${result.stderr || "not a git repository"}`);
   }
   const [sha, author, ts] = result.stdout.trim().split("|");
   if (!sha || !author || !ts) {

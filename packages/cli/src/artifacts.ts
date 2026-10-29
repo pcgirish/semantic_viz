@@ -199,14 +199,14 @@ export function readArtifact<T>(ctx: ArtifactContext, name: ArtifactName): Store
 
 /** JSON replacer that emits every object's keys in sorted order. Arrays keep their order — callers
  *  that build arrays from unordered input sort them before writing. */
-function sortKeys(_key: string, value: unknown): unknown {
+export function sortKeys(_key: string, value: unknown): unknown {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
   const record = value as Record<string, unknown>;
   return Object.fromEntries(Object.keys(record).sort().map((key) => [key, record[key]]));
 }
 
 /** Deterministic serialization: equal payloads produce identical text regardless of key order. */
-function canonicalJson(value: unknown): string {
+export function canonicalJson(value: unknown): string {
   return JSON.stringify(value, sortKeys);
 }
 
@@ -236,11 +236,11 @@ export function writeArtifact<T>(ctx: ArtifactContext, name: ArtifactName, input
   renameSync(temp, file);
 }
 
-function hashOf(...parts: string[]): string {
+export function hashOf(...parts: string[]): string {
   return createHash("sha1").update(parts.join("\0")).digest("hex");
 }
 
-function graphHash(graph: SymbolGraph): string {
+export function graphHash(graph: SymbolGraph): string {
   return hashOf(
     graph.units.map((u) => `${u.id}:${u.hash.struct}:${u.hash.text}`).join("\n"),
     graph.edges.map((e) => `${e.from}>${e.to}:${e.kind}`).join("\n"),

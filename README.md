@@ -290,6 +290,18 @@ Artifact writes are write-if-changed: each artifact stores a canonical
 `merge-semantics` run that yields the same content under the same input hash
 leaves the file and its mtime untouched.
 
+Authored semantics can be committed and shared. `merge-semantics` stamps each
+entry with a sha-independent freshness fingerprint (unit hashes, call edges and
+callee semantics; doc content; cluster/narration inputs for layers, groups and
+flows). `scv export` publishes the entries authored at HEAD into the committed
+store `.scv/semantics/` (function shards per source file, plus `docs.json`,
+`layers.json`, `groups.json`, `flows.json`), keeping stale entries unchanged
+and pruning entries whose unit or doc is gone. `scv hydrate [rev]` extracts
+that revision (in place for a clean HEAD, otherwise in a temporary detached
+worktree), reads the store committed at it and merges only the entries still
+fresh there into `.scv/artifacts/<sha>/` — no LLM calls. Only `.scv/semantics/`
+is commit-eligible; every other `.scv/` path stays ignored.
+
 Pass A is resumable. Every unit's result is persisted the moment it resolves,
 keyed by the unit's structural hash, so an interrupted `scv analyze` costs at
 most the units still in flight — a re-run reanalyzes only what is genuinely
@@ -449,7 +461,7 @@ cache-fresh and indistinguishable from a good one on the next run.
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
 | `packages/interpreter` | Pass A (leaf semantics + branch labels, with scoped retry on incomplete blocks), Pass Docs (repo README/docs structural extraction), Pass B (deterministic agglomerative single-linkage file clustering over the import graph — no LLM), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps; Pass C-groups uses a layer baseline plus LLM-proposed merges), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking. Emits `added`/`removed`/`modified`/`risk_changed`; `moved` and `renamed` are deliberately unsupported — they need rename-detection heuristics this differ does not implement | Implemented |
-| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve`; `scv merge-semantics` — injects agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache, zero LLM calls | Implemented |
+| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve`; `scv merge-semantics` — injects agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache, zero LLM calls; `scv export` / `scv hydrate [rev]` — publish authored semantics to the committed `.scv/semantics/` store and seed any revision's artifacts from it | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |

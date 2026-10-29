@@ -9,8 +9,17 @@
 *.swp
 *.swo
 
-# visualizer data
-.scv/
+# visualizer data (.scv/semantics/ is the committed store; everything else is local)
+**/.scv/cache.sqlite
+**/.scv/cache.sqlite-*
+**/.scv/artifacts/
+**/.scv/snapshots/
+**/.scv/deltas/
+**/.scv/layouts/
+**/.scv/pending/
+**/.scv/config.yaml
+**/.scv/.semantics-staging/
+**/.scv/.semantics-old/
 # Fixture repos (nested git repos, versioned independently)
 fixtures/orderly/
 

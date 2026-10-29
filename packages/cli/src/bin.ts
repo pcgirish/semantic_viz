@@ -4,6 +4,8 @@ import { Command } from "commander";
 import { fmtElapsed } from "@scv/interpreter";
 import { runAnalyze, type RunAnalyzeOptions } from "./analyze.js";
 import { runDiff } from "./diff.js";
+import { runExport } from "./export.js";
+import { runHydrate } from "./hydrate.js";
 import { runMergeSemantics } from "./merge-semantics.js";
 import { runServe } from "./serve.js";
 import { runUi } from "./ui.js";
@@ -107,6 +109,30 @@ program
     if (result.emptyArtifacts.length > 0) {
       console.error(`[WARN] snapshot merged without: ${result.emptyArtifacts.join(", ")}`);
     }
+    for (const warning of result.warnings) console.error(`[WARN] ${warning}`);
+  });
+
+program
+  .command("export")
+  .description("publish the semantics authored at HEAD into the committed store .scv/semantics/ — entries whose stamp is stale are kept as they were, entries for removed units/docs are pruned")
+  .argument("[root]", "repo root", ".")
+  .action((root: string) => {
+    const result = runExport({ root: path.resolve(root) });
+    console.log(`exported ${result.functions} function/class and ${result.docs} doc entries to ${result.dir}`);
+    if (result.stale > 0) console.error(`[WARN] ${result.stale} stale entries kept unchanged — re-author them and export again`);
+  });
+
+program
+  .command("hydrate")
+  .description("seed .scv/artifacts/<sha>/ from the semantics committed at a revision, keeping only entries still fresh against that revision's structure — no LLM calls")
+  .argument("[rev]", "commit-ish to hydrate", "HEAD")
+  .argument("[root]", "repo root", ".")
+  .action(async (rev: string, root: string) => {
+    const result = await runHydrate({ root: path.resolve(root), rev });
+    console.log(`hydrated ${result.sha}: merged ${result.merged}, skipped ${result.skipped}`);
+    console.log(`wrote ${result.path}`);
+    if (result.stale > 0) console.error(`[WARN] ${result.stale} committed entries are stale at ${result.sha} and were not hydrated`);
+    if (result.emptyArtifacts.length > 0) console.error(`[WARN] snapshot hydrated without: ${result.emptyArtifacts.join(", ")}`);
     for (const warning of result.warnings) console.error(`[WARN] ${warning}`);
   });
 

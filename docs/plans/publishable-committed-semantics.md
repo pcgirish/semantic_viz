@@ -26,7 +26,7 @@ Fixes `docs/backlog/unconditional-artifact-rewrites.md` by separating two identi
 - Deterministic serialization: sorted keys and stable array order.
 - Tests: no-op merge leaves files and mtimes untouched and the assembled snapshot (including flows) stays populated; `promptRev` bump still invalidates; scoped artifact still isolated from a full run.
 
-## Phase 1: Committed store and export/hydrate
+## Phase 1: Committed store and export/hydrate — done
 - **New committed layout `.scv/semantics/`**, keyed by unit id rather than commit sha.
   - Function/class semantics are sharded **per source file** (`functions/<encoded-src-path>.json`) so parallel PRs rarely conflict. Path encoding is reversible and must stay contained under `functions/`.
   - Global narration stays one file each: `docs.json`, `layers.json`, `groups.json`, `flows.json`.
