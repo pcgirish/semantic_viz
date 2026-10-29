@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -15,6 +15,8 @@ export interface ToolInfo {
   repoUrl: string;
   /** HEAD of the scv source checkout this CLI runs from; absent for an npm install. */
   checkoutSha?: string;
+  /** Resolves a branch or tag to the commit it names in that checkout; absent for an npm install. */
+  resolveRef?: (ref: string) => string | undefined;
 }
 
 export type InstallMethod = "npm" | "git";
@@ -23,7 +25,7 @@ export interface InitOptions {
   root: string;
   /** How the CI workflow installs scv. Defaults to `git` when run from a source checkout, else `npm`. */
   install?: InstallMethod;
-  /** Commit-ish CI builds scv from with `install: "git"`. Defaults to the checkout's HEAD. */
+  /** Commit CI builds scv from with `install: "git"`: a full sha, or a branch/tag resolved to one in the scv checkout. Defaults to its HEAD. */
   gitRef?: string;
   /** Overrides the bundled skills directory (tests). */
   skillsDir?: string;
@@ -67,6 +69,7 @@ const WHOLE_SCV_IGNORE = /^\/?(\*\*\/)?\.scv(\/(\*\*?)?)?$/;
 
 /** Branch, tag or sha — interpolated into the workflow, so no whitespace or shell metacharacters. */
 const GIT_REF = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
+const COMMIT_SHA = /^[0-9a-f]{40}$/;
 const OptionsSchema = z.object({
   install: z.enum(["npm", "git"], { message: "--install must be npm or git" }).optional(),
   gitRef: z.string().regex(GIT_REF, "--git-ref must be a branch, tag or commit sha").optional(),
@@ -85,17 +88,29 @@ export function bundledTool(): ToolInfo {
     version: manifest.version,
     nodeMajor: /\d+/.exec(manifest.engines.node)![0],
     repoUrl: manifest.repository.url.replace(/^git\+/, ""),
-    checkoutSha: checkoutShaOf(PKG_DIR),
+    ...checkoutOf(PKG_DIR),
   };
 }
 
-function checkoutShaOf(dir: string): string | undefined {
-  if (dir.split(path.sep).includes("node_modules")) return undefined;
-  try {
-    return git(dir, ["rev-parse", "--verify", "HEAD"]).trim();
-  } catch {
-    return undefined;
-  }
+function checkoutOf(dir: string): Pick<ToolInfo, "checkoutSha" | "resolveRef"> {
+  if (dir.split(path.sep).includes("node_modules")) return {};
+  const resolveRef = (ref: string) => {
+    try {
+      return git(dir, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]).trim();
+    } catch {
+      return undefined;
+    }
+  };
+  const checkoutSha = resolveRef("HEAD");
+  return checkoutSha ? { checkoutSha, resolveRef } : {};
+}
+
+/** The immutable commit CI builds scv from: never a branch or tag, which could move after init. */
+function pinnedCommit(tool: ToolInfo, ref: string | undefined): string | undefined {
+  if (ref === undefined || COMMIT_SHA.test(ref)) return ref;
+  const sha = tool.resolveRef?.(ref);
+  if (!sha) throw new Error(`--git-ref ${ref} must be a full commit sha, or a branch or tag in the scv source checkout (pinned to its commit sha)`);
+  return sha;
 }
 
 /** The skills the build bundles into the package, else — in an unbuilt source checkout — the repo's own. */
@@ -182,7 +197,7 @@ export function runInit(options: InitOptions): InitResult {
   const skillsDir = options.skillsDir ?? defaultSkillsDir();
   const skillFiles = bundledSkillFiles(skillsDir);
   const install = parsed.data.install ?? (tool.checkoutSha ? "git" : "npm");
-  const gitRef = parsed.data.gitRef ?? tool.checkoutSha;
+  const gitRef = pinnedCommit(tool, parsed.data.gitRef) ?? tool.checkoutSha;
   if (install === "git" && !gitRef) throw new Error("--install git needs --git-ref <ref> when scv does not run from a source checkout");
   const workflowText = workflow(tool, install, gitRef);
 
@@ -190,12 +205,29 @@ export function runInit(options: InitOptions): InitResult {
   const warnings: string[] = [];
   const record = (rel: string, outcome: InitOutcome) => actions.push({ path: rel.split(path.sep).join("/"), outcome });
 
+  // Every write stays inside the repo: a path is writable only if it, or its nearest existing
+  // ancestor, resolves under the real root — symlinked directories and files may point anywhere.
+  const realRoot = realpathSync(root);
+  const insideRoot = (file: string): boolean => {
+    let existing = file;
+    while (!existsSync(existing)) existing = path.dirname(existing);
+    const real = realpathSync(existing);
+    return real === realRoot || real.startsWith(realRoot + path.sep);
+  };
+  const keepOutside = (rel: string) => {
+    warnings.push(`${rel.split(path.sep).join("/")} resolves outside the repo through a symlink; left untouched`);
+    record(rel, "kept");
+  };
+  // Anything already at a path (even a dangling symlink) is never written through; a non-file is kept.
+  const occupied = (file: string) => lstatSync(file, { throwIfNoEntry: false }) !== undefined;
+  const isFile = (file: string) => existsSync(file) && statSync(file).isFile();
+
   const ensureFile = (rel: string, content: Buffer | string) => {
     const file = path.join(root, rel);
-    // lstat, not exists: a dangling symlink here must be kept, never written through.
-    if (lstatSync(file, { throwIfNoEntry: false })) {
-      return record(rel, existsSync(file) && readFileSync(file).equals(Buffer.from(content)) ? "unchanged" : "kept");
+    if (occupied(file)) {
+      return record(rel, isFile(file) && readFileSync(file).equals(Buffer.from(content)) ? "unchanged" : "kept");
     }
+    if (!insideRoot(file)) return keepOutside(rel);
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, content, { flag: "wx" });
     record(rel, "created");
@@ -203,7 +235,9 @@ export function runInit(options: InitOptions): InitResult {
   /** Appends `missing(existing)` as its own paragraph, unless it returns nothing. */
   const appendMissing = (rel: string, missing: (existing: string) => string | undefined) => {
     const file = path.join(root, rel);
-    const existing = existsSync(file) ? readFileSync(file, "utf-8") : undefined;
+    if (occupied(file) && !isFile(file)) return record(rel, "kept");
+    if (!insideRoot(file)) return keepOutside(rel);
+    const existing = occupied(file) ? readFileSync(file, "utf-8") : undefined;
     const block = missing(existing ?? "");
     if (block === undefined) return record(rel, "unchanged");
     const prefix = existing ? (existing.endsWith("\n") ? existing : `${existing}\n`) + "\n" : "";
@@ -217,7 +251,9 @@ export function runInit(options: InitOptions): InitResult {
   const linkTarget = path.relative(path.dirname(CLAUDE_SKILLS_REL), SKILLS_REL);
   const link = path.join(root, CLAUDE_SKILLS_REL);
   const linkStat = lstatSync(link, { throwIfNoEntry: false });
-  if (!linkStat) {
+  if (!linkStat && !insideRoot(link)) {
+    keepOutside(CLAUDE_SKILLS_REL);
+  } else if (!linkStat) {
     mkdirSync(path.dirname(link), { recursive: true });
     symlinkSync(linkTarget, link, "dir");
     record(CLAUDE_SKILLS_REL, "created");

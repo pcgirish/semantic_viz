@@ -81,7 +81,7 @@ Fixes `docs/backlog/unconditional-artifact-rewrites.md` by separating two identi
 
 ## Phase 5: `scv init` — done
 
-> Done: `scv init [root] [--install npm|git] [--git-ref <ref>]`. Because nothing is published yet, the workflow's install is configurable: `npm` runs `npx --yes --package semviz@<version> scv check`; `git` clones this repo at a pinned ref, builds `packages/cli` and runs its `dist/bin.js` — the default when init runs from a source checkout, pinned to its HEAD. `${{ github.base_ref }}` reaches the shell only through `env`. Per-file outcomes are `created` / `updated` (lines appended) / `unchanged` / `kept` (differs, left alone); init warns when `.gitignore` ignores `.scv/` as a whole.
+> Done: `scv init [root] [--install npm|git] [--git-ref <ref>]`. Because nothing is published yet, the workflow's install is configurable: `npm` runs `npx --yes --package semviz@<version> scv check`; `git` clones this repo at a pinned ref, builds `packages/cli` and runs its `dist/bin.js` — the default when init runs from a source checkout. The ref is always pinned to a commit sha (HEAD, or `--git-ref` resolved in the checkout), never a movable branch or tag. No write leaves the repo through a symlink. `${{ github.base_ref }}` reaches the shell only through `env`. Per-file outcomes are `created` / `updated` (lines appended) / `unchanged` / `kept` (differs, left alone); init warns when `.gitignore` ignores `.scv/` as a whole.
 
 `npx scv init` in the target repo:
 - Copies the bundled `agent-analyze-*` skills into `.agents/skills/`, and symlinks `.claude/skills` if absent.

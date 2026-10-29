@@ -346,11 +346,13 @@ appends an `AGENTS.md` rule to run `agent-analyze-pr` before opening a PR. It
 then prints the bootstrap step (run `agent-analyze-repo`, commit
 `.scv/semantics/`). The workflow installs scv with `npx` at the version that
 ran init (`--install npm`), or builds it from this repo at a pinned ref
-(`--install git`, the default when run from a source checkout, pinned to its
-HEAD unless `--git-ref` names a pushed branch, tag or sha). Init is idempotent:
-it prints `created`, `updated`, `unchanged` or `kept` per file, never
-overwrites a file it owns that you changed, and only appends missing lines to
-`.gitignore`, `.gitattributes` and `AGENTS.md`.
+(`--install git`, the default when run from a source checkout). The git ref is
+always an immutable commit: HEAD by default, or `--git-ref` — a full sha, or a
+branch or tag of the checkout resolved to its sha; that commit must be pushed.
+Init is idempotent: it prints `created`, `updated`, `unchanged` or `kept` per
+file, never overwrites a file it owns that you changed, only appends missing
+lines to `.gitignore`, `.gitattributes` and `AGENTS.md`, and never writes
+outside the repo through a symlink.
 
 Pass A is resumable. Every unit's result is persisted the moment it resolves,
 keyed by the unit's structural hash, so an interrupted `scv analyze` costs at

@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runInit, type InitOptions, type ToolInfo } from "../src/init.js";
 
 const NPM_TOOL: ToolInfo = { name: "semviz", version: "1.2.3", nodeMajor: "24", repoUrl: "https://github.com/example/semviz.git" };
-const CHECKOUT_TOOL: ToolInfo = { ...NPM_TOOL, checkoutSha: "0123456789abcdef0123456789abcdef01234567" };
+const CHECKOUT_TOOL: ToolInfo = {
+  ...NPM_TOOL,
+  checkoutSha: "0123456789abcdef0123456789abcdef01234567",
+  resolveRef: (ref) => (ref === "v1.2.3" ? "89abcdef0123456789abcdef0123456789abcdef" : undefined),
+};
 
 describe("runInit", () => {
   let root: string;
@@ -121,6 +125,35 @@ describe("runInit", () => {
     expect(outcomeOf(result, ".github/workflows/scv-check.yml")).toBe("kept");
   });
 
+  it("never writes outside the repo through a symlinked directory or shared file", () => {
+    const outside = path.join(path.dirname(root), "outside");
+    mkdirSync(outside);
+    writeFileSync(path.join(outside, "AGENTS.md"), "# theirs\n");
+    symlinkSync(outside, path.join(root, ".github"));
+    symlinkSync(path.join(outside, "AGENTS.md"), path.join(root, "AGENTS.md"));
+
+    const result = init();
+
+    expect(existsSync(path.join(outside, "workflows"))).toBe(false);
+    expect(readFileSync(path.join(outside, "AGENTS.md"), "utf-8")).toBe("# theirs\n");
+    expect(outcomeOf(result, ".github/workflows/scv-check.yml")).toBe("kept");
+    expect(outcomeOf(result, "AGENTS.md")).toBe("kept");
+    expect(result.warnings.join("\n")).toMatch(/AGENTS\.md.*outside the repo/);
+  });
+
+  it("follows a symlinked shared file that stays inside the repo", () => {
+    write("CLAUDE.md", "# Agents\n");
+    symlinkSync("CLAUDE.md", path.join(root, "AGENTS.md"));
+
+    expect(outcomeOf(init(), "AGENTS.md")).toBe("updated");
+    expect(read("CLAUDE.md")).toContain("agent-analyze-pr");
+  });
+
+  it("keeps a directory sitting where an init-owned file goes", () => {
+    mkdirSync(path.join(root, ".github/workflows/scv-check.yml"), { recursive: true });
+    expect(outcomeOf(init(), ".github/workflows/scv-check.yml")).toBe("kept");
+  });
+
   it("leaves an existing .claude/skills alone", () => {
     write(".claude/skills/mine/SKILL.md", "# mine\n");
 
@@ -151,8 +184,22 @@ describe("runInit", () => {
     expect(read(".github/workflows/scv-check.yml")).toContain("npx --yes --package semviz@1.2.3");
 
     rmSync(path.join(root, ".github"), { recursive: true });
-    init({ install: "git", gitRef: "v1.2.3" });
-    expect(read(".github/workflows/scv-check.yml")).toContain('SCV_REF: "v1.2.3"');
+    const sha = "fedcba9876543210fedcba9876543210fedcba98";
+    init({ install: "git", gitRef: sha });
+    expect(read(".github/workflows/scv-check.yml")).toContain(`SCV_REF: "${sha}"`);
+  });
+
+  it("pins a branch or tag to the commit it names in the scv checkout, never the movable ref", () => {
+    init({ tool: CHECKOUT_TOOL, gitRef: "v1.2.3" });
+    const workflow = read(".github/workflows/scv-check.yml");
+    expect(workflow).toContain('SCV_REF: "89abcdef0123456789abcdef0123456789abcdef"');
+    expect(workflow).not.toContain("v1.2.3\"");
+  });
+
+  it("rejects a branch or tag it cannot resolve to a commit", () => {
+    expect(() => init({ install: "git", gitRef: "v1.2.3" })).toThrow(/--git-ref.*commit sha/);
+    expect(() => init({ tool: CHECKOUT_TOOL, gitRef: "no-such-tag" })).toThrow(/--git-ref/);
+    expect(existsSync(path.join(root, ".agents"))).toBe(false);
   });
 
   it("rejects a git install with no ref to pin, an unsafe ref, and a missing root", () => {
