@@ -9,7 +9,7 @@ export default tseslint.config(
   },
   {
     // Build scripts run directly under Node.
-    files: ["packages/*/scripts/**/*.mjs"],
+    files: ["packages/*/scripts/**/*.mjs", "scripts/**/*.mjs"],
     languageOptions: { globals: { URL: "readonly", console: "readonly", process: "readonly" } },
   },
 );

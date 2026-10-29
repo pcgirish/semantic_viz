@@ -1374,10 +1374,10 @@
     },
     "docs/spec/roadmap.md": {
       "architecture_notes": [],
-      "fingerprint": "bbc14f80790733b0e0c3e6f092b2b21fdb050b23",
+      "fingerprint": "b58cc3b0b9df44d90e11bd9cc5255005d8721d6f",
       "modules": [],
       "path": "docs/spec/roadmap.md",
-      "purpose": "Project status: done core pipeline and committed semantics, in-progress work, closed backlog, open issues and future work"
+      "purpose": "Project status: done core pipeline and committed semantics, in-progress work, closed backlog, open issues, future work, and the fixtures/orderly validation baseline restored from its committed bundle"
     },
     "docs/spec/tech-stack.md": {
       "architecture_notes": [

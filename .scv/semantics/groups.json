@@ -1,5 +1,5 @@
 {
-  "fingerprint": "6e3b83f1d4777383ec63528a973ab4bb9c77ff5b",
+  "fingerprint": "a54492c7cfaaa2256ecaa62dc411efc631d98b14",
   "groups": {
     "analysis": {
       "confidence": 0.85,
@@ -87,7 +87,8 @@
         "Root Tooling Config",
         "Vitest Config (skins/tiles)",
         "Vitest Config (skins/tiles3d)",
-        "Vitest Config (skins/cityscape)"
+        "Vitest Config (skins/cityscape)",
+        "Test Fixture Provisioning"
       ],
       "name": "Build and Test Tooling",
       "what": "Repo-wide lint and test configuration plus per-skin test configs",
