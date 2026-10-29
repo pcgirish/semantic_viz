@@ -58,4 +58,8 @@ describe("git-ignored files", () => {
     expect(gitIgnoredPaths(repo(false), candidates).size).toBe(0);
     expect(gitIgnoredPaths(repo(true), []).size).toBe(0);
   });
+
+  it("fail loudly when git itself fails, rather than reporting nothing ignored", () => {
+    expect(() => gitIgnoredPaths(repo(true), ["../outside.py"])).toThrow(/git check-ignore failed/);
+  });
 });
