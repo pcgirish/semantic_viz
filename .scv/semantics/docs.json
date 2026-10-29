@@ -16,7 +16,7 @@
       "architecture_notes": [
         "A repo is turned into a SymbolGraph by static analysis, with an Interpreter and a Differ layered on top, then served as a drillable tile map in the browser"
       ],
-      "fingerprint": "c44db2bed05abe33e07ad646ba5e7febdfde2206",
+      "fingerprint": "a6e8f43ec6e8dbbfb57c9b68bee22ddbb1832d1c",
       "modules": [
         {
           "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
@@ -1374,10 +1374,10 @@
     },
     "docs/spec/roadmap.md": {
       "architecture_notes": [],
-      "fingerprint": "b58cc3b0b9df44d90e11bd9cc5255005d8721d6f",
+      "fingerprint": "30376046cd711c594ef7e01d1dedfad68cf1595c",
       "modules": [],
       "path": "docs/spec/roadmap.md",
-      "purpose": "Project status: done core pipeline and committed semantics, in-progress work, closed backlog, open issues, future work, and the fixtures/orderly validation baseline restored from its committed bundle"
+      "purpose": "Project status: done core pipeline, committed semantics and the hierarchy redesign, closed backlog, open issues including npm publishing and the private-repo limit, future work, and the fixtures/orderly validation baseline restored from its committed bundle"
     },
     "docs/spec/tech-stack.md": {
       "architecture_notes": [
