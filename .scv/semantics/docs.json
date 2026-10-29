@@ -16,7 +16,7 @@
       "architecture_notes": [
         "A repo is turned into a SymbolGraph by static analysis, with an Interpreter and a Differ layered on top, then served as a drillable tile map in the browser"
       ],
-      "fingerprint": "1deffabf8c44511a80009510d8891d313ca2681f",
+      "fingerprint": "c44db2bed05abe33e07ad646ba5e7febdfde2206",
       "modules": [
         {
           "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
