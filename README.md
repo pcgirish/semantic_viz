@@ -1,5 +1,12 @@
 # scv — semantic code visualizer
 
+> [!WARNING]
+> **Work in progress.** scv is under active development and is not production-ready.
+> Features, commands, and file formats may change without notice, and the software may
+> contain bugs. It is provided "as is", without warranty of any kind, express or implied.
+> You use it at your own risk; the authors accept no liability for any damage, data loss,
+> or other consequences arising from its use.
+
 A multi-view visualizer for software projects. It turns a repo into a
 `SymbolGraph` (units, edges, externals) via static analysis, layers an LLM
 Interpreter and a Differ on top, then serves it as a live, drillable tile map
