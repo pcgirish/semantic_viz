@@ -116,7 +116,7 @@ export function functionFingerprints(graph: SymbolGraph, committed: (id: string,
       fingerprints.set(id, hashOf(FINGERPRINT_VERSION, unit.hash.struct, unit.hash.text, sortedQualnames(callers.get(id)), sortedQualnames(callees.get(id)), digest));
     }
     for (const id of members) {
-      semanticsDigest.set(id, hashOf(canonicalJson(committed(id, fingerprints.get(id)!) ?? null)));
+      semanticsDigest.set(id, hashOf(canonicalJson(committed(id, fingerprints.get(id)!)?.semantics ?? null)));
     }
   }
   return fingerprints;

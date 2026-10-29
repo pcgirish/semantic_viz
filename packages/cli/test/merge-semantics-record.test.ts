@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,7 @@ import { readAuthoredRecord } from "../src/authored-record.js";
 import { computeClusters, emptyAuthoredSet, evaluate } from "../src/fingerprints.js";
 import { mergeSemantics } from "../src/merge-semantics.js";
 import { toSnapshot } from "../src/snapshot.js";
+import { gitFixture, mergeInto } from "./git-fixture.js";
 
 const orderlyRoot = fileURLToPath(new URL("../../../fixtures/orderly", import.meta.url));
 const narration = { what: "w", how: "h", when: "n", where: "r", why: "y", confidence: 1 };
@@ -73,5 +74,17 @@ describe("mergeSemantics authored record", () => {
     expect(Object.keys(record.layers!.entry)).toEqual([layerIdFor(files)]);
     expect(record.layers!.entry[layerIdFor(files)]!.name).toBe("Core");
     expect(record.layers!.fingerprint).toBe(evaluate(inputs(), record, emptyAuthoredSet()).layers.fingerprint);
+  });
+
+  it("refuses a committed store that resolves outside the repo", async () => {
+    const fx = gitFixture({ files: { "m.py": "def a():\n    return 1\n" } });
+    try {
+      const outside = path.join(path.dirname(fx.root), "outside");
+      mkdirSync(path.join(outside, "semantics"), { recursive: true });
+      symlinkSync(outside, path.join(fx.root, ".scv"));
+      await expect(mergeInto(fx, {})).rejects.toThrow(/outside/);
+    } finally {
+      fx.cleanup();
+    }
   });
 });

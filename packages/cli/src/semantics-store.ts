@@ -238,7 +238,27 @@ function readRawFromDisk(semanticsDir: string): Map<string, string> {
   return files;
 }
 
+/** Sibling directories used by the swap in `writeStore`; fixed names so a crashed swap can be found. */
+function swapDirs(semanticsDir: string): { staging: string; old: string } {
+  const parent = path.dirname(semanticsDir);
+  const base = path.basename(semanticsDir);
+  return { staging: path.join(parent, `.${base}-staging`), old: path.join(parent, `.${base}-old`) };
+}
+
+/**
+ * Completes a swap that was interrupted: if only the moved-aside old store remains it is put back,
+ * and if the new store was already swapped in the old one is discarded.
+ */
+function recoverInterruptedSwap(semanticsDir: string): void {
+  const { old } = swapDirs(semanticsDir);
+  if (!existsSync(old)) return;
+  if (existsSync(semanticsDir)) rmSync(old, { recursive: true, force: true });
+  else renameSync(old, semanticsDir);
+}
+
+/** Reads and validates the store on disk, first recovering any interrupted `writeStore` swap. */
 export function readStoreFromDisk(semanticsDir: string): StoreContents {
+  recoverInterruptedSwap(semanticsDir);
   return parseStore(readRawFromDisk(semanticsDir));
 }
 
@@ -248,24 +268,29 @@ function sameFiles(a: Map<string, string>, b: Map<string, string>): boolean {
 
 /**
  * Replaces the store with `store`. Nothing is written when the rendered files equal what is on
- * disk. Otherwise the new store is built in a sibling staging directory and swapped in by rename,
- * so a crash leaves either the old or the new store, never a mix.
+ * disk. Otherwise the new store is built in a sibling staging directory and swapped in by two
+ * renames (old store aside, new store in). A failed swap puts the old store back; a crash between
+ * the renames is completed by the next read or write, so the store is always the old or the new
+ * one, never a mix. Assumes a single writer.
  */
 export function writeStore(semanticsDir: string, store: StoreContents): void {
+  recoverInterruptedSwap(semanticsDir);
   const next = renderStore(store);
   if (sameFiles(next, readRawFromDisk(semanticsDir))) return;
 
-  const parent = path.dirname(semanticsDir);
-  const staging = path.join(parent, `.semantics-staging-${process.pid}`);
-  const old = path.join(parent, `.semantics-old-${process.pid}`);
+  const { staging, old } = swapDirs(semanticsDir);
   rmSync(staging, { recursive: true, force: true });
-  rmSync(old, { recursive: true, force: true });
   mkdirSync(path.join(staging, FUNCTIONS_DIR), { recursive: true });
   try {
     for (const [rel, text] of next) writeFileSync(path.join(staging, rel), text);
     const hadStore = existsSync(semanticsDir);
     if (hadStore) renameSync(semanticsDir, old);
-    renameSync(staging, semanticsDir);
+    try {
+      renameSync(staging, semanticsDir);
+    } catch (error) {
+      if (hadStore) renameSync(old, semanticsDir);
+      throw error;
+    }
     if (hadStore) rmSync(old, { recursive: true, force: true });
   } finally {
     rmSync(staging, { recursive: true, force: true });

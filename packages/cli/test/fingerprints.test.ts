@@ -70,6 +70,13 @@ describe("functionFingerprints", () => {
     expect(after.get("u:c")).toBe(before.get("u:c"));
   });
 
+  it("ignores a callee's non-semantics fields such as block labels", () => {
+    const semantics = { what: "w", how: "", when: "", where: "", why: "", confidence: 1 };
+    const labelled = (label: string) => (id: string) =>
+      id === "u:c" ? { kind: "function" as const, semantics, blockLabels: { "decision:0": { label } } } : undefined;
+    expect(functionFingerprints(base(), labelled("two")).get("u:b")).toBe(functionFingerprints(base(), labelled("one")).get("u:b"));
+  });
+
   it("resolves callees before callers, passing each callee's own fingerprint", () => {
     const seen: string[] = [];
     const fps = functionFingerprints(base(), (id, fp) => {

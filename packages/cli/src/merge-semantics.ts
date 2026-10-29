@@ -38,7 +38,7 @@ import { readAuthoredRecord, stampAuthored, writeAuthoredRecord } from "./author
 import { discoverDocs } from "./discover-docs.js";
 import { authoredFromStore, computeClusters, emptyAuthoredSet } from "./fingerprints.js";
 import { changedFiles, headRev } from "./rev.js";
-import { STORE_REL_DIR, readStoreFromDisk, type StoreContents } from "./semantics-store.js";
+import { readStoreFromDisk, storeDirIn, type StoreContents } from "./semantics-store.js";
 import { toSnapshot } from "./snapshot.js";
 
 interface FunctionsData {
@@ -420,7 +420,7 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
   // A graph rebuilt from a persisted snapshot lacks the live structure fingerprints are computed
   // over, so a historical `--sha` merge records nothing rather than minting wrong stamps.
   if (!fromPersistedSnapshot) {
-    const store = options.committedStore ?? readStoreFromDisk(path.join(root, STORE_REL_DIR));
+    const store = options.committedStore ?? readStoreFromDisk(storeDirIn(root));
     const inputs = { graph: ctx.graph, snapshot: ctx.snapshot, docs: ctx.docs };
     const record = stampAuthored(inputs, readAuthoredRecord(ctx.scvDir, ctx.sha), now, authoredFromStore(store));
     writeAuthoredRecord(ctx.scvDir, ctx.sha, record);
