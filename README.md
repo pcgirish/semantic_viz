@@ -320,7 +320,9 @@ per-file by content hash, and each stage (extraction/functions/docs/clusters/
 layers/groups/flows) is persisted under `.scv/artifacts/<sha>/` and only
 recomputed when its actual upstream inputs changed. `scv analyze [root]
 [artifact]` computes a single named artifact (freshening its dependencies
-first); an unknown artifact name is rejected with the list of valid ones.
+first); an unknown artifact name is rejected with the list of valid ones, and
+a lone artifact name (`scv analyze functions`) is rejected as ambiguous with
+both explicit forms — `scv analyze . functions` or `scv analyze ./functions`.
 `scv analyze --no-llm` never calls a provider: it merges from the cache with
 empty defaults, and with an `[artifact]` also computes that stage when it is
 deterministic (`clusters`). The on-disk/wire
