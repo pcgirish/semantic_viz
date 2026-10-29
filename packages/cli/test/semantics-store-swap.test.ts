@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, renameSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,6 +51,20 @@ describe("store swap recovery", () => {
     renameSync(path.join(scvDir, "other"), oldDir);
     expect(what()).toBe("new");
     expect(readdirSync(scvDir)).toEqual(["semantics"]);
+  });
+
+  it("refuses to restore a moved-aside store that is a symlink", () => {
+    const outside = mkdtempSync(path.join(tmpdir(), "scv-swap-outside-"));
+    try {
+      writeStore(path.join(outside, "semantics"), storeSaying("planted"));
+      symlinkSync(path.join(outside, "semantics"), oldDir);
+
+      expect(() => readStoreFromDisk(semanticsDir)).toThrow(/symlink/);
+      expect(() => writeStore(semanticsDir, storeSaying("new"))).toThrow(/symlink/);
+      expect(existsSync(semanticsDir)).toBe(false);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   it("puts the old store back when swapping in the new one fails", () => {

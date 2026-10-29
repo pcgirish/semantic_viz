@@ -245,13 +245,23 @@ function swapDirs(semanticsDir: string): { staging: string; old: string } {
   return { staging: path.join(parent, `.${base}-staging`), old: path.join(parent, `.${base}-old`) };
 }
 
+function isSymlink(file: string): boolean {
+  try {
+    return lstatSync(file).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Completes a swap that was interrupted: if only the moved-aside old store remains it is put back,
  * and if the new store was already swapped in the old one is discarded.
  */
 function recoverInterruptedSwap(semanticsDir: string): void {
   const { old } = swapDirs(semanticsDir);
-  if (!existsSync(old)) return;
+  if (!existsSync(old) && !isSymlink(old)) return;
+  // writeStore only ever moves a real directory aside; anything else was planted.
+  if (!lstatSync(old).isDirectory()) throw new Error(`${old} is a symlink or file, not a moved-aside store`);
   if (existsSync(semanticsDir)) rmSync(old, { recursive: true, force: true });
   else renameSync(old, semanticsDir);
 }

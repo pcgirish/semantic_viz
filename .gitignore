@@ -18,6 +18,8 @@
 **/.scv/layouts/
 **/.scv/pending/
 **/.scv/config.yaml
+**/.scv/.semantics-staging/
+**/.scv/.semantics-old/
 # Fixture repos (nested git repos, versioned independently)
 fixtures/orderly/
 
