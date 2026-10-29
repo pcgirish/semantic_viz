@@ -1,5 +1,5 @@
 {
-  "fingerprint": "70b6473b83bf6cd8c2cec6e55a1b12daa59be075",
+  "fingerprint": "ca61d39a7382744de239026f4645fe646118168a",
   "flows": {
     "analyze": {
       "confidence": 0.8,
@@ -60,13 +60,13 @@
     "export": {
       "confidence": 0.8,
       "entryUnit": "u:packages.cli.src.export.runExport",
-      "how": "Merges the local authoring record into .scv/semantics, prunes entries whose unit or doc no longer exists, and rewrites the store atomically",
+      "how": "Reads artifacts and writes per-unit semantics records into .scv/semantics",
       "name": "Export semantics",
       "route": "scv export",
       "tags": [
         "cli"
       ],
-      "what": "Publishes the entries authored at HEAD into the committed store",
+      "what": "Writes the cached semantics for a revision into the committed store",
       "when": "On scv export, before committing",
       "where": "packages/cli/src/export.ts",
       "why": "Moves semantics from the gitignored cache into versioned files"
@@ -74,13 +74,13 @@
     "hydrate": {
       "confidence": 0.8,
       "entryUnit": "u:packages.cli.src.hydrate.runHydrate",
-      "how": "Reads .scv/semantics at that revision and keeps entries still fresh against a live extraction of it",
+      "how": "Reads the store at that revision and merges it over fresh extraction",
       "name": "Hydrate a revision",
       "route": "scv hydrate",
       "tags": [
         "cli"
       ],
-      "what": "Seeds a revision artifact cache from committed semantics without analysis",
+      "what": "Rebuilds a revision's snapshot from committed semantics without analysis",
       "when": "On scv hydrate <rev>",
       "where": "packages/cli/src/hydrate.ts",
       "why": "Lets any clone view a revision without re-running analysis"
