@@ -15,11 +15,11 @@
       }
     },
     "u:packages.cli.src.analyze.runAnalyze": {
-      "fingerprint": "6f842fa8be090a65aafa537e80971663883e5833",
+      "fingerprint": "b2e9073c0df4ae3a19ddc4aa983ae891e5653b8c",
       "kind": "function",
       "semantics": {
         "confidence": 0.75,
-        "how": "Extracts the tree, ensures every artifact through ensureArtifact, honouring no-LLM and skip options, then assembles and writes the merged scv/1 snapshot",
+        "how": "Rejects an unknown target artifact and contradictory --force options, extracts the tree, ensures every artifact through ensureArtifact honouring no-LLM and skip options, then assembles and writes the merged scv/1 snapshot",
         "what": "Runs the full analysis for a repo and writes the snapshot",
         "when": "On scv analyze",
         "where": "CLI analyze command: extraction plus artifact pipeline",
