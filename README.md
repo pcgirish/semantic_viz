@@ -158,6 +158,37 @@ For flow-level review — did this PR touch a specific request path — switch t
 **API Flow**, pick the flow, and read the per-step dots: each changed unit
 along that flow is marked, in call order, including any branch the flow takes.
 
+## Use in your repo
+
+Commit your semantics next to your code, so every clone and every revision can
+be viewed without re-running analysis. This repo does it itself: see
+`.scv/semantics/` and `.github/workflows/scv-check.yml`.
+
+```bash
+# 0. install scv (nothing is on npm yet — link it from a clone of this repo)
+npm install && npm run build && npm link --workspace packages/cli --workspace packages/viewer
+
+# 1. in your repo: skills, ignore/attribute rules, the PR check workflow, an AGENTS.md rule
+scv init --install git          # or --install npm once semviz is published
+
+# 2. bootstrap the store with your coding agent (zero LLM calls), then commit it
+#    ask the agent: "use the agent-analyze-repo skill"
+git add .scv/semantics/ .agents .claude .github .gitattributes .gitignore AGENTS.md
+git commit -m "chore: add scv semantics"
+
+# 3. per PR: the agent runs agent-analyze-pr (re-authors only what changed);
+#    CI runs scv check --base origin/<base> and fails on stale or missing entries
+scv check --base origin/main
+
+# 4. view any committed revision
+scv hydrate HEAD~1              # assembles that revision's snapshot, no LLM calls
+scv-viewer serve & scv-viewer ui
+```
+
+`--install git` builds scv in CI from a pinned commit of this repo, which must
+be pushed. `hydrate` reuses only entries still fresh at that revision, so the
+viewer shows exactly what was committed.
+
 ## Screenshots
 
 The UI runs on the CodeDream design system (`packages/design-system`), in
@@ -353,7 +384,9 @@ branch or tag of the checkout resolved to its sha; that commit must be pushed.
 Init is idempotent: it prints `created`, `updated`, `unchanged` or `kept` per
 file, never overwrites a file it owns that you changed, only appends missing
 lines to `.gitignore`, `.gitattributes` and `AGENTS.md`, and never writes
-outside the repo through a symlink.
+outside the repo through a symlink. This repo dogfoods the whole loop: its own
+`.scv/semantics/` is committed and its PRs run the generated `scv-check`
+workflow (see [Use in your repo](#use-in-your-repo)).
 
 Pass A is resumable. Every unit's result is persisted the moment it resolves,
 keyed by the unit's structural hash, so an interrupted `scv analyze` costs at

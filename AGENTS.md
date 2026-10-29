@@ -111,3 +111,7 @@ landing cold in the repo.
 
 ## Architecture
 See `docs/design.md` for design/architecture decisions.
+
+## scv semantics
+
+Before opening a PR, run the `agent-analyze-pr` skill.

@@ -95,7 +95,7 @@ Fixes `docs/backlog/unconditional-artifact-rewrites.md` by separating two identi
 - Appends an `AGENTS.md` snippet: "Before opening a PR, run the `agent-analyze-pr` skill."
 - Is idempotent and never overwrites user-modified files.
 
-## Phase 6: Dogfood and docs
+## Phase 6: Dogfood and docs — done
 - Add the same `scv-check` workflow to this repo, bootstrap `.scv/semantics/`, and commit it.
 - Write a README "Use in your repo" section.
 - Update `docs/spec/roadmap.md`: this replaces the `scv export --structural` bullet.
