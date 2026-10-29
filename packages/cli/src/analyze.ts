@@ -87,7 +87,7 @@ export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyze
   mkdirSync(scvDir, { recursive: true });
 
   if (options.force && !options.artifact) {
-    throw new Error("--force requires a target artifact (e.g. `scv analyze --force layers`)");
+    throw new Error(`--force requires a target artifact (e.g. \`scv analyze ${options.root} layers --force\`)`);
   }
   if (options.force && options.noLlm) {
     throw new Error("--force contradicts --no-llm — nothing to force under a no-provider merge");

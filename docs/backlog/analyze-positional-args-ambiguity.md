@@ -76,4 +76,3 @@ error: "functions" is ambiguous: it is an artifact name, but a single argument i
 The meaning never depends on which directories exist. The `[WARN] ... run
 'scv analyze ...'` hint now prints the root it was given
 (`scv analyze . layers`), so it no longer suggests the ambiguous form.
-
