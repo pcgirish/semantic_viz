@@ -13,7 +13,7 @@ import {
   type Provider,
   type ProviderUsage,
 } from "@semviz/interpreter";
-import { dependencyClosure, ensureArtifact, loadPreviousLayers, type ArtifactContext, type ArtifactName } from "./artifacts.js";
+import { ARTIFACT_DEPENDENCIES, dependencyClosure, ensureArtifact, loadPreviousLayers, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { discoverDocs } from "./discover-docs.js";
 import { inScope, resolveChangedFiles } from "./merge-semantics.js";
@@ -80,6 +80,10 @@ function readSource(root: string) {
  * refused with `DefaultedArtifactsError` rather than silently producing a poor result.
  */
 export async function runAnalyze(options: RunAnalyzeOptions): Promise<RunAnalyzeResult> {
+  const artifactNames = Object.keys(ARTIFACT_DEPENDENCIES);
+  if (options.artifact !== undefined && !artifactNames.includes(options.artifact)) {
+    throw new Error(`unknown artifact "${options.artifact}"; expected one of: ${artifactNames.join(", ")}`);
+  }
   const scvDir = options.scvDir ?? path.join(options.root, ".scv");
   mkdirSync(scvDir, { recursive: true });
 
