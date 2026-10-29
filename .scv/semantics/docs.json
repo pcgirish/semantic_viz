@@ -112,7 +112,7 @@
     },
     "docs/backlog/analyze-positional-args-ambiguity.md": {
       "architecture_notes": [],
-      "fingerprint": "c638953c10f98ab6cfb97f78d20f75ca37acf306",
+      "fingerprint": "2c48ed764ac8d6c01193dac0a510d784da7a5ce3",
       "modules": [
         {
           "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
@@ -123,7 +123,7 @@
         }
       ],
       "path": "docs/backlog/analyze-positional-args-ambiguity.md",
-      "purpose": "Closed backlog item: scv analyze's [root] [artifact] positionals were ambiguous; resolved by rejecting a lone artifact name with both explicit forms"
+      "purpose": "Closed backlog item: a lone artifact name given to scv analyze is now rejected as ambiguous, with both explicit forms"
     },
     "docs/backlog/api-flow-misses-di-middleware.md": {
       "architecture_notes": [],
