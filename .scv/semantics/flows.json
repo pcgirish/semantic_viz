@@ -1,0 +1,118 @@
+{
+  "fingerprint": "ca61d39a7382744de239026f4645fe646118168a",
+  "flows": {
+    "analyze": {
+      "confidence": 0.8,
+      "entryUnit": "u:packages.cli.src.analyze.runAnalyze",
+      "how": "Resolves the revision, computes or reuses each artifact in dependency order, and assembles the snapshot",
+      "name": "Analyze a revision",
+      "route": "scv analyze",
+      "tags": [
+        "cli"
+      ],
+      "what": "Runs extraction and the requested interpreter stages, then writes the snapshot",
+      "when": "On scv analyze",
+      "where": "packages/cli/src/analyze.ts",
+      "why": "The main path that turns a repo into a snapshot"
+    },
+    "api": {
+      "confidence": 0.8,
+      "entryUnit": "u:packages.server.src.app.buildApp",
+      "how": "Registers routes over a snapshot store rooted at the repo's .scv directory",
+      "name": "Build the API server",
+      "route": "scv-viewer serve",
+      "tags": [
+        "api"
+      ],
+      "what": "Builds the Fastify app that serves snapshots, deltas and layouts",
+      "when": "When the viewer starts the API",
+      "where": "packages/server/src/app.ts",
+      "why": "Data access for the UI"
+    },
+    "check": {
+      "confidence": 0.8,
+      "entryUnit": "u:packages.cli.src.check.runCheck",
+      "how": "Compares current fingerprints against the committed .scv/semantics store, optionally against a base revision",
+      "name": "Check committed semantics",
+      "route": "scv check",
+      "tags": [
+        "cli"
+      ],
+      "what": "Reports units, docs and tiers whose committed semantics are missing or stale",
+      "when": "On scv check, locally or in CI",
+      "where": "packages/cli/src/check.ts",
+      "why": "Gates PRs on up-to-date committed semantics"
+    },
+    "diff": {
+      "confidence": 0.8,
+      "entryUnit": "u:packages.cli.src.diff.runDiff",
+      "how": "Loads both snapshots and runs the differ",
+      "name": "Diff two revisions",
+      "route": "scv diff",
+      "tags": [
+        "cli"
+      ],
+      "what": "Produces a delta with risk between two analyzed revisions",
+      "when": "On scv diff",
+      "where": "packages/cli/src/diff.ts",
+      "why": "Shows what changed and how risky it is"
+    },
+    "export": {
+      "confidence": 0.8,
+      "entryUnit": "u:packages.cli.src.export.runExport",
+      "how": "Reads artifacts and writes per-unit semantics records into .scv/semantics",
+      "name": "Export semantics",
+      "route": "scv export",
+      "tags": [
+        "cli"
+      ],
+      "what": "Writes the cached semantics for a revision into the committed store",
+      "when": "On scv export, before committing",
+      "where": "packages/cli/src/export.ts",
+      "why": "Moves semantics from the gitignored cache into versioned files"
+    },
+    "hydrate": {
+      "confidence": 0.8,
+      "entryUnit": "u:packages.cli.src.hydrate.runHydrate",
+      "how": "Reads the store at that revision and merges it over fresh extraction",
+      "name": "Hydrate a revision",
+      "route": "scv hydrate",
+      "tags": [
+        "cli"
+      ],
+      "what": "Rebuilds a revision's snapshot from committed semantics without analysis",
+      "when": "On scv hydrate <rev>",
+      "where": "packages/cli/src/hydrate.ts",
+      "why": "Lets any clone view a revision without re-running analysis"
+    },
+    "init": {
+      "confidence": 0.8,
+      "entryUnit": "u:packages.cli.src.init.runInit",
+      "how": "Writes or appends files into the target repo without clobbering existing ones",
+      "name": "Initialize a repo",
+      "route": "scv init",
+      "tags": [
+        "cli"
+      ],
+      "what": "Sets a repo up for committed semantics: skills, agent instructions and the check workflow",
+      "when": "On scv init",
+      "where": "packages/cli/src/init.ts",
+      "why": "One-command adoption for other teams"
+    },
+    "merge": {
+      "confidence": 0.8,
+      "entryUnit": "u:packages.cli.src.merge-semantics.runMergeSemantics",
+      "how": "Validates the pending file and merges functions, docs, layers, groups or flows per flag",
+      "name": "Merge agent-authored semantics",
+      "route": "scv merge-semantics",
+      "tags": [
+        "cli"
+      ],
+      "what": "Injects agent-authored semantics into the artifact cache",
+      "when": "On scv merge-semantics",
+      "where": "packages/cli/src/merge-semantics.ts",
+      "why": "Zero-LLM path for semantics"
+    }
+  },
+  "storeVersion": 1
+}

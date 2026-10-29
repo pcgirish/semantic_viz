@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/layout/StatusBar.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.layout.StatusBar.StatusBar": {
+      "fingerprint": "10544a8bc6e9938ca1005fa901370c1d4d1b0b74",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders status items left and extra content right",
+        "what": "Bottom status strip",
+        "when": "At the bottom of the app",
+        "where": "Design system: layout components",
+        "why": "Repo, ref and state at a glance"
+      }
+    }
+  }
+}

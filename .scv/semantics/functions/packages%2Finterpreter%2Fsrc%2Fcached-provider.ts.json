@@ -1,0 +1,78 @@
+{
+  "file": "packages/interpreter/src/cached-provider.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.cached-provider.CachedProvider": {
+      "fingerprint": "5a67ec2b3ab626f37c760ee2f54e27ffe0c311eb",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Keys each call by a hash of the prompt and context plus prompt revision, provider and model",
+        "what": "Provider wrapper that serves repeated prompts from the content cache",
+        "when": "Wraps every real provider during analyze",
+        "where": "Interpreter: cache-wrapping provider",
+        "why": "Stops non-deterministic output making unchanged units look changed"
+      }
+    },
+    "u:packages.interpreter.src.cached-provider.CachedProvider.constructor": {
+      "fingerprint": "5b390c65de42146bc700dcbf1ff2a4c0ba727eb6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Assigns the constructor arguments",
+        "what": "Stores the inner provider, cache and prompt revision",
+        "when": "Called by analyze",
+        "where": "Interpreter: cache-wrapping provider",
+        "why": "Composes caching over any provider"
+      }
+    },
+    "u:packages.interpreter.src.cached-provider.CachedProvider.interpret": {
+      "fingerprint": "b918d487427c037a8ea52918dbe25f0a0f7c96e9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes the prompt and context, serves a hit, otherwise calls the provider, stores the result and logs the call either way",
+        "what": "Returns a cached result or calls the provider and caches it",
+        "when": "Called by every pass",
+        "where": "Interpreter: cache-wrapping provider",
+        "why": "Idempotent interpretation across snapshots"
+      }
+    },
+    "u:packages.interpreter.src.cached-provider.CachedProvider.model": {
+      "fingerprint": "55c7f1fb79aea84b21481cb73c7cc26e0a3931bf",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Delegates to the wrapped provider",
+        "what": "Returns the inner provider's model",
+        "when": "Read when building cache keys and logs",
+        "where": "Interpreter: cache-wrapping provider",
+        "why": "Wrapper stays transparent"
+      }
+    },
+    "u:packages.interpreter.src.cached-provider.CachedProvider.name": {
+      "fingerprint": "30f3f948afd09a697defbefbc275514fe8b1803d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Delegates to the wrapped provider",
+        "what": "Returns the inner provider's name",
+        "when": "Read when building cache keys and logs",
+        "where": "Interpreter: cache-wrapping provider",
+        "why": "Wrapper stays transparent"
+      }
+    },
+    "u:packages.interpreter.src.cached-provider.CachedProvider.usage": {
+      "fingerprint": "f97e8acebad461732f9423873a1f45366fcd4b2b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Delegates to the wrapped provider",
+        "what": "Returns the inner provider's usage counters",
+        "when": "Read for run summaries",
+        "where": "Interpreter: cache-wrapping provider",
+        "why": "Usage reflects real calls only"
+      }
+    }
+  }
+}

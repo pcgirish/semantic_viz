@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/pass-b.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.pass-b.runPassB": {
+      "fingerprint": "45231705ba1aad6fd2d1a6ddeee34889f2a2e1f9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Calls clusterFiles over the files and import edges and asserts the result is a strict partition",
+        "what": "Clusters files into groups deterministically",
+        "when": "Called by runClustersPass",
+        "where": "Interpreter: Pass B clustering stage",
+        "why": "Kept as a named stage after the LLM clustering call was replaced"
+      }
+    }
+  }
+}

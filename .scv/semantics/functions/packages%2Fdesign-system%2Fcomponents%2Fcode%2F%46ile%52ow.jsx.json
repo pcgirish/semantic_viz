@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/code/FileRow.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.code.FileRow.FileRow": {
+      "fingerprint": "8aac457db5842c8a410072860917a4edf827bfa9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Shows indentation, heat marker, diff counts and an optional churn sparkline",
+        "what": "Dense file tree row",
+        "when": "In file trees",
+        "where": "Design system: code components",
+        "why": "Compact file listing"
+      }
+    }
+  }
+}

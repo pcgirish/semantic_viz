@@ -1,0 +1,42 @@
+{
+  "file": "packages/interpreter/src/rank.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.rank.rankInspectQueue": {
+      "fingerprint": "5b6cfcd7f1c7609e8dd8deff40474c98bb1470c0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Prompts with numbered candidates, validates the returned numbers, appends any omitted ones and falls back to score order",
+        "what": "Orders changed units by what a human should inspect first",
+        "when": "Called by runDifferWithRisk",
+        "where": "Interpreter: inspect queue ranking",
+        "why": "Numbers avoid models mistyping unit ids"
+      }
+    },
+    "u:packages.interpreter.src.rank.rankResponseSchema": {
+      "fingerprint": "524d19e63e772ebbe684ec8457705c77c183fe6e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a zod schema of candidate numbers bounded by the candidate count",
+        "what": "Builds the schema for a ranking response",
+        "when": "Called by rankInspectQueue",
+        "where": "Interpreter: inspect queue ranking",
+        "why": "Rejects out-of-range numbers"
+      }
+    },
+    "u:packages.interpreter.src.rank.sortByScoreDescending": {
+      "fingerprint": "052442c55d23e044b38417fe30ad9ab26aa0365f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sorts a copy by score descending, keeping input order for ties",
+        "what": "Orders candidates by risk score as a fallback",
+        "when": "Used when there is no provider or ranking fails",
+        "where": "Interpreter: inspect queue ranking",
+        "why": "Deterministic fallback ordering"
+      }
+    }
+  }
+}

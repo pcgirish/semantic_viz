@@ -25,3 +25,4 @@ export type {
   SymbolRoute,
 } from "./symbol-graph.js";
 export { isTestPath, isGeneratedPath } from "./qualname.js";
+export { gitIgnoredPaths } from "./git-ignored.js";

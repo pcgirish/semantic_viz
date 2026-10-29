@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/tiles/src/skin.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles.src.skin.navigate": {
+      "fingerprint": "b0183f1b27b7706f3f37ecc2eae92daf41dfef82",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Switches on the intent to zoom into, out of or pan to the target",
+        "what": "Maps a navigation intent to a camera move for the 2D skin",
+        "when": "Called by the 2D host",
+        "where": "Tiles skin: navigation",
+        "why": "Each skin owns how its camera moves"
+      }
+    }
+  }
+}

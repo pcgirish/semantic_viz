@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/tiles/src/theme.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles.src.theme.hashLayerToColor": {
+      "fingerprint": "43bf0a2ecb27c3a651cf59493278dbad0c466e6f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes the id with FNV-1a and indexes the palette, returning empty for an empty id",
+        "what": "Maps a layer id to a palette colour deterministically",
+        "when": "Used by tiles, legend and 3D skins",
+        "where": "Tiles skin: theme",
+        "why": "The same layer is the same colour everywhere"
+      }
+    }
+  }
+}

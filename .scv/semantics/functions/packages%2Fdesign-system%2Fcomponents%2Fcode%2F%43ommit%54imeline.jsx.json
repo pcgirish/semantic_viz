@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/code/CommitTimeline.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.code.CommitTimeline.CommitTimeline": {
+      "fingerprint": "dc6948ede63425d2bff1fed48d0546cbd91def62",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders commit ticks along a track and reports the picked commit",
+        "what": "Horizontal commit scrubber",
+        "when": "In time-based views",
+        "where": "Design system: code components",
+        "why": "The time axis for every view"
+      }
+    }
+  }
+}

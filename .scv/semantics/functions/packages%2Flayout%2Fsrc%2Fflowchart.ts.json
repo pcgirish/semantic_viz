@@ -1,0 +1,54 @@
+{
+  "file": "packages/layout/src/flowchart.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.flowchart.buildFlowchartScene": {
+      "fingerprint": "996f94ed56cf2a8941f1844a5ee2a2b4c4894254",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Collapses runs, ranks blocks, orders branches true left and false right, places fixed-size nodes and routes edges",
+        "what": "Lays out a function's blocks as a flowchart scene",
+        "when": "Used by the viewer's flowchart view",
+        "where": "Layout: flowchart scenes",
+        "why": "A dedicated simple algorithm suits single-entry structured graphs"
+      }
+    },
+    "u:packages.layout.src.flowchart.collapseSequentialRuns": {
+      "fingerprint": "ec7b31d3838484dd3f0bc459511a13558c6bda3a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Absorbs a block into its predecessor when it has one sequential edge in and its predecessor one sequential edge out, rewiring edges",
+        "what": "Merges runs of straight-line blocks into one node",
+        "when": "Called by buildFlowchartScene",
+        "where": "Layout: flowchart scenes",
+        "why": "Straight-line code should not render one box per statement group"
+      }
+    },
+    "u:packages.layout.src.flowchart.inferBlockType": {
+      "fingerprint": "79b16eaf930734533742627805d2275dc00a4104",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns entry, loop, decision, exit or sequential based on incoming, loop-back and branch edges",
+        "what": "Infers a block's shape type from its edges",
+        "when": "Called by buildFlowchartScene",
+        "where": "Layout: flowchart scenes",
+        "why": "Block units store only names, so shape comes from structure"
+      }
+    },
+    "u:packages.layout.src.flowchart.rankBlocks": {
+      "fingerprint": "bf8cbf409e6826ffd391439816128a8725a89bf5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks forward edges from the single entry, ignoring loop-back edges",
+        "what": "Ranks blocks by longest path from the entry",
+        "when": "Called by buildFlowchartScene",
+        "where": "Layout: flowchart scenes",
+        "why": "Gives a top-to-bottom order without cycles"
+      }
+    }
+  }
+}

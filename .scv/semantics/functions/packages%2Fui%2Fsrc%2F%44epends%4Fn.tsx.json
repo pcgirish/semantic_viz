@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/DependsOn.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.DependsOn.DependsOn": {
+      "fingerprint": "4d224409d9a11635b221a728fd0aa935a53bee71",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Groups externals into direct and transitive bands sized by transitive count",
+        "what": "Shows external dependencies in depth bands",
+        "when": "Shown in the depends-on view",
+        "where": "UI: depends-on view",
+        "why": "Reading downward shows how far the supply chain reaches"
+      }
+    }
+  }
+}

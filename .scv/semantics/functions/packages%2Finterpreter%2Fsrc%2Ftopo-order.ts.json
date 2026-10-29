@@ -1,0 +1,30 @@
+{
+  "file": "packages/interpreter/src/topo-order.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.topo-order.topoOrder": {
+      "fingerprint": "ded869b7ab3ccb0a2c45bffa373ac8a097bda062",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs depth-first post-order over call edges, skipping back edges to break cycles, keeping declaration order otherwise",
+        "what": "Orders ids so callees come before callers",
+        "when": "Called by runFunctionsPass",
+        "where": "Interpreter: call graph ordering",
+        "why": "Lets callers see callee semantics"
+      }
+    },
+    "u:packages.interpreter.src.topo-order.topoOrder.visit": {
+      "fingerprint": "5fcf6ec5e9a07e1f53e11125d3da2cba918ca9c7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Marks it on the stack, visits callees not on the stack and appends it after its callees",
+        "what": "Visits one id in the depth-first walk",
+        "when": "Called by topoOrder",
+        "where": "Interpreter: call graph ordering",
+        "why": "Implements post-order with cycle breaking"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/display/Card.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.display.Card.Card": {
+      "fingerprint": "74c69a65cc65a9de2a95aeb1ca8f205bad3f4642",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders an optional title and meta over a padded surface, optionally faceted",
+        "what": "Hairline surface container",
+        "when": "For grouping content",
+        "where": "Design system: display components",
+        "why": "Consistent surface"
+      }
+    }
+  }
+}

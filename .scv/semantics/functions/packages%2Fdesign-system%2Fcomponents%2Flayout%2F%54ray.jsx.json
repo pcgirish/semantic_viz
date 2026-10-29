@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/layout/Tray.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.layout.Tray.Tray": {
+      "fingerprint": "a6c6f1d72c866ae0111016cc4e194cf7463a74f2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders a titled header with actions and collapsible body docked or floating",
+        "what": "Collapsible, dockable panel",
+        "when": "For side panels",
+        "where": "Design system: layout components",
+        "why": "Unit of information density"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/layout/Rail.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.layout.Rail.Rail": {
+      "fingerprint": "8a44cd5ac22c1cb8cced3a6d677ab94031b3485a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders icon buttons for items with the active one highlighted",
+        "what": "Vertical icon rail",
+        "when": "Top-level navigation",
+        "where": "Design system: layout components",
+        "why": "Switch between tools"
+      }
+    }
+  }
+}

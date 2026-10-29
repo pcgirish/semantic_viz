@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/log.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.log.logLlmCall": {
+      "fingerprint": "311f6f17ed8bf2e12a9b83034e5f021878455b2a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Writes a formatted line with pass, unit, timing and cache status when level is info, else does nothing",
+        "what": "Logs one LLM call to stderr at info level",
+        "when": "Called after provider calls",
+        "where": "Interpreter: LLM call logging",
+        "why": "Makes provider usage visible during runs"
+      }
+    }
+  }
+}

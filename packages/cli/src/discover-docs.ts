@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { gitIgnoredPaths } from "@semviz/extractor";
 
 const DOC_EXTENSIONS = new Set([".md", ".rst"]);
 const IGNORED_DIRS = new Set(["node_modules", ".git", ".scv"]);
@@ -33,7 +34,8 @@ function collectDocFiles(dir: string, relDir: string): string[] {
 /**
  * Finds markdown/rst docs worth feeding to Pass Docs: root-level doc files, plus anything under
  * a top-level `docs/`/`documentation/` directory (case-insensitive), recursively. Generic by
- * design — no hardcoded filenames, since scv analyzes arbitrary target repos.
+ * design — no hardcoded filenames, since scv analyzes arbitrary target repos. Docs git ignores
+ * are skipped: a fresh clone, such as CI's, would not have them.
  */
 export function discoverDocs(root: string): DiscoveredDoc[] {
   const relPaths: string[] = [];
@@ -52,8 +54,10 @@ export function discoverDocs(root: string): DiscoveredDoc[] {
     }
   }
 
+  const ignored = gitIgnoredPaths(root, relPaths);
   const docs: DiscoveredDoc[] = [];
   for (const relPath of relPaths) {
+    if (ignored.has(relPath)) continue;
     const fullPath = path.join(root, relPath);
     if (!statSync(fullPath).isFile()) continue;
     const content = readFileSync(fullPath, "utf-8");

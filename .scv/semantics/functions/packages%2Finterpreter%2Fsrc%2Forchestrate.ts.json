@@ -1,0 +1,270 @@
+{
+  "file": "packages/interpreter/src/orchestrate.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.orchestrate.buildContainerUnit": {
+      "fingerprint": "cccecf6531b84f5a9c222d9890a80e18dedbbaec",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Collects unclaimed modules under one static unit, returning null when there are none",
+        "what": "Builds a structural container for modules no layer claimed",
+        "when": "Called by finalizeSnapshot",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Gives orphan modules a parent without inventing meaning"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.buildDirectoryTree": {
+      "fingerprint": "10e8b3c4e1ae10f0f785f14d4c85559009a0a080",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Splits sorted paths into segments and prints each new directory and file at its depth",
+        "what": "Renders file paths as an indented directory tree",
+        "when": "Called by formatRepoContext",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Shows clustering and naming prompts the repo layout"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.buildFlowTracingContext": {
+      "fingerprint": "cecea060725ef38982e5f24ff962ad9e8da7ec3c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Collects call edges with branch labels, the DI dependency map, eligible flow units and route hints",
+        "what": "Builds everything flow tracing needs from an extraction",
+        "when": "Shared by runFlowsPass and the agent-authored flow merge",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Both paths must trace identical steps"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.buildFlowTracingContext.branchLabelFor": {
+      "fingerprint": "ea0093ef137e0a79b746c77f269c42d40df017b5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps call evidence lines to the caller's control-flow edges and returns a true, false or exception style label",
+        "what": "Derives a branch label for a call from its evidence",
+        "when": "Called while collecting call edges",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Carries branch meaning into flow steps"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.buildFlowUnit": {
+      "fingerprint": "95581c6ca73b86a435c1fbcc1f3a28b8d57aa2f2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sets id, route, steps, branching steps and narration fields and computes hashes",
+        "what": "Assembles an api_flow unit from a traced chain and narration",
+        "when": "Called by runFlowsPass and the agent flow merge",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "One builder regardless of who wrote the narration"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.finalizeSnapshot": {
+      "fingerprint": "a09e1985178b6b48090ca6a4890de77697fbcb60",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reparents modules under layers and layers under groups, rolls up layer edges, adds the system and container units and attaches flows and blocks",
+        "what": "Merges pass outputs into one scv snapshot",
+        "when": "Called at the end of analyze and runInterpreter",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Single assembly point for the final snapshot shape"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.fmtElapsed": {
+      "fingerprint": "e7f14f6e3b5627c966c40bf58fb73d208f0163c5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Rounds to seconds and renders as 1m42s or 8s",
+        "what": "Formats elapsed milliseconds as minutes and seconds",
+        "when": "Used in progress lines and run summaries",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Keeps time formatting consistent"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.formatRepoContext": {
+      "fingerprint": "5e7e3dc41468e3bbbe8716d230e89670174f0ad7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders extract purposes, modules and notes followed by the tree, returning undefined when empty",
+        "what": "Combines doc extracts and the directory tree into a repo context string",
+        "when": "Passed to cluster and group prompts",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Gives narration passes repo-level evidence"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.hashSemantics": {
+      "fingerprint": "7b55ba53050457c54e19e6ae14b25503fd4c15e7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a short hash of the JSON serialisation or null when semantics are missing",
+        "what": "Hashes a unit's semantics object",
+        "when": "Used to set semantic hashes",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Lets the differ detect meaning changes"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.isGeneratedUnit": {
+      "fingerprint": "e03d02b6ba3aa299022c9bb96849dfc5caca95ac",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks the unit's file against generated path rules",
+        "what": "Tells whether a unit is generated code",
+        "when": "Used to exclude units from clustering",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Generated imports describe the generator, not the architecture"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.isTestUnit": {
+      "fingerprint": "b6e55f07f667f2b3eef9693e814860b1a7e1e4e2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks the unit's test flag or test path",
+        "what": "Tells whether a unit is test code",
+        "when": "Used to skip narration of test code",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Test code keeps only structural fields"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runClustersPass": {
+      "fingerprint": "68745258a81a0ace05eda4605fbc1025a4b64161",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Filters out test and generated units, collects import edges between modules and runs Pass B clustering",
+        "what": "Clusters modules into layer-shaped file groups",
+        "when": "Called by analyze and runInterpreter",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Deterministic Pass B with no provider call"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runDocsPass": {
+      "fingerprint": "f9b45b6f98a2518ae2dd696436c62582761a75aa",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Delegates to runPassDocs over the discovered doc files",
+        "what": "Extracts structured information from repo docs",
+        "when": "Called by analyze",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Feeds repo context to later passes"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runFlowsPass": {
+      "fingerprint": "3b7acff3cac1ff09638d0f5e37e51e79dfeb606a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Asks for entry point proposals, traces each with traceFlowSteps and narrates the steps with narrateFlow",
+        "what": "Produces narrated api_flow units",
+        "when": "Called by analyze and runInterpreter",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Describes request paths through the system"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runFunctionsPass": {
+      "fingerprint": "35e2d1cfdd28009571e84393f0705fbe2d838f94",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Orders units bottom-up by calls, reuses cached results by struct hash, calls Pass A with callee one-liners and labels each function's control-flow blocks",
+        "what": "Produces Pass A semantics and block labels for leaf units",
+        "when": "Called by runInterpreter and analyze",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Callers see their callees' already-known summaries"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runGroupsPass": {
+      "fingerprint": "e606bac3f5a37bbfd04ffea628b6eb76facf3011",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs Pass C groups, resolves membership to layer ids and builds the group units and reparenting map",
+        "what": "Buckets layers into named architectural groups",
+        "when": "Called by analyze and runInterpreter",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Adds the architecture level above layers"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runInDependencyOrder": {
+      "fingerprint": "8391a10ddbbf7c39561473c45b391ef32db5ed87",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Dispatches ready ids, whose dependencies within the set have finished, up to the limit, falling back to order when cycles block progress",
+        "what": "Runs a function over ids honouring dependencies with bounded concurrency",
+        "when": "Called by runFunctionsPass",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Callers need their callees' semantics while still running in parallel"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runInDependencyOrder.isReady": {
+      "fingerprint": "6c8b51b2b8b9f78b72ba56cb4b2acb83bfdbab42",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks every in-set dependency is in the finished set",
+        "what": "Tells whether an id's dependencies have all finished",
+        "when": "Called by runInDependencyOrder",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Gates dispatch on dependency completion"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runInterpreter": {
+      "fingerprint": "f0b07387c48cef2023f9f43c3a4bc6e3aad98cf1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs functions, clusters, narration, groups and flows passes then finalizes the snapshot",
+        "what": "Runs the full interpretation pipeline over a structural snapshot",
+        "when": "Used by tests and library callers",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Mirrors the reference mock tool's interpret"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.runNarrationPass": {
+      "fingerprint": "faf794a85764def5848123945525520dc22a3301",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs Pass C over the clusters with member one-liners and repo context, carrying over unchanged layers and resolving names",
+        "what": "Narrates each cluster as a layer",
+        "when": "Called by analyze and runInterpreter",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Turns file clusters into named, explained layers"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.systemIdFor": {
+      "fingerprint": "5cf1c36c0177803e234c1a754298f28ac263a466",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Derives the id from the snapshot repo or given system name",
+        "what": "Returns the system unit's id",
+        "when": "Used by the groups pass and finalizeSnapshot",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Keeps both sides agreeing on the system parent"
+      }
+    },
+    "u:packages.interpreter.src.orchestrate.traceFlowSteps": {
+      "fingerprint": "1f166332334cf8e9bc3d310bd1f406e5238b261b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Traces the linear and branching steps and prepends dependency units, returning null for chains shorter than two steps",
+        "what": "Traces one entry point's call chain with DI dependencies as a prefix",
+        "when": "Called by runFlowsPass and the flow merge",
+        "where": "Interpreter: pass orchestration and snapshot assembly",
+        "why": "Deterministic flow shape independent of the provider"
+      }
+    }
+  }
+}

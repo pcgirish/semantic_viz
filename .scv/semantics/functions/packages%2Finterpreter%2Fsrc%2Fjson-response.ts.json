@@ -1,0 +1,66 @@
+{
+  "file": "packages/interpreter/src/json-response.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.json-response.findBalancedJsonBlocks": {
+      "fingerprint": "e3ee20efc0da8c6d3279aaa0b4c0db532d4c14b3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Scans characters tracking depth and string state to ignore braces inside strings",
+        "what": "Finds every top-level balanced JSON object or array in text",
+        "when": "Called by parseJsonResponse",
+        "where": "Interpreter: tolerant JSON parsing of model output",
+        "why": "Reasoning models emit draft JSON before the final answer"
+      }
+    },
+    "u:packages.interpreter.src.json-response.parseJsonResponse": {
+      "fingerprint": "edfde102c4a85d6cda55d5f7daab240f536af9c6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Strips fences, prefers the last balanced block, retries with comma repair and throws a labelled error when nothing parses",
+        "what": "Parses a provider's JSON response tolerantly",
+        "when": "Called by every pass that reads model JSON",
+        "where": "Interpreter: tolerant JSON parsing of model output",
+        "why": "Model output is noisy, and the final answer follows any drafts"
+      }
+    },
+    "u:packages.interpreter.src.json-response.repairKeyValueComma": {
+      "fingerprint": "b032b9d280c2c997140fbd13920de358ae841157",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Rewrites line-leading key comma value patterns only at object depth, leaving array commas untouched",
+        "what": "Fixes a comma written in place of a colon after an object key",
+        "when": "Applied as a fallback when parsing fails",
+        "where": "Interpreter: tolerant JSON parsing of model output",
+        "why": "Repairs a common model typo without corrupting string arrays"
+      }
+    },
+    "u:packages.interpreter.src.json-response.stripCodeFence": {
+      "fingerprint": "a4d430b3ab20e67275397f33535db8d0a4c08601",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Finds an opening fence with optional language tag and returns the inner text, tolerating surrounding prose and a missing closing fence",
+        "what": "Removes a markdown code fence around JSON",
+        "when": "Called by parseJsonResponse",
+        "where": "Interpreter: tolerant JSON parsing of model output",
+        "why": "Models wrap JSON in fences despite instructions"
+      }
+    },
+    "u:packages.interpreter.src.json-response.tryParse": {
+      "fingerprint": "e9770c4d2e9b0f8f03d14ff5fcee03f3733cf9fe",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Wraps JSON.parse in a try and returns the value or undefined",
+        "what": "Parses a JSON candidate, returning undefined on failure",
+        "when": "Called by parseJsonResponse",
+        "where": "Interpreter: tolerant JSON parsing of model output",
+        "why": "Lets candidates be tried in sequence"
+      }
+    }
+  }
+}

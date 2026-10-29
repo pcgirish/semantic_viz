@@ -1,0 +1,18 @@
+{
+  "file": "docs/mock/tools/render_generic.py",
+  "storeVersion": 1,
+  "units": {
+    "u:docs.mock.tools.render_generic.load": {
+      "fingerprint": "7721579b15b9ad644195548b35da3464dd0c43bd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads the latest snapshot and delta JSON from the store directory",
+        "what": "Loads any repo's stored snapshots and deltas",
+        "when": "When rendering a generic mock page",
+        "where": "Generic variant of the design-mock renderer",
+        "why": "Lets the mock render arbitrary analyzed repos"
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "file": "packages/layout/src/seed.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.seed.compareNewAgainstSeeded": {
+      "fingerprint": "a22accc28a438826737c8e6aa565ce99a26d3cfe",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Keeps the new id on the side of the seeded id it started on in the input row",
+        "what": "Orders a new id relative to a seeded id",
+        "when": "Called by seed",
+        "where": "Layout: positional stability",
+        "why": "Stable placement for newly added nodes"
+      }
+    },
+    "u:packages.layout.src.seed.seed": {
+      "fingerprint": "b530f7e1aebda701db4c2e75e9f3af43cd407a32",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sorts each row so ids with a prior x keep relative order and inserts new ids near their input neighbours",
+        "what": "Keeps nodes in their prior left-right order",
+        "when": "Called by buildScene with a prior scene",
+        "where": "Layout: positional stability",
+        "why": "Replay is unreadable if nodes jump between revisions"
+      }
+    }
+  }
+}

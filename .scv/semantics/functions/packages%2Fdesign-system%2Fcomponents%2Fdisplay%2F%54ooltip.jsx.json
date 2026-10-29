@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/display/Tooltip.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.display.Tooltip.Tooltip": {
+      "fingerprint": "8af0bb8c7f0c3f5de5704ce67bfbf7c00d4795f3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Shows content on hover on the chosen side",
+        "what": "Hover tooltip",
+        "when": "On hover over dense UI",
+        "where": "Design system: display components",
+        "why": "Explains without clutter"
+      }
+    }
+  }
+}

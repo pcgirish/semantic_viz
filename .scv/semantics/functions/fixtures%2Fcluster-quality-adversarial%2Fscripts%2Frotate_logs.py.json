@@ -1,0 +1,18 @@
+{
+  "file": "fixtures/cluster-quality-adversarial/scripts/rotate_logs.py",
+  "storeVersion": 1,
+  "units": {
+    "u:fixtures.cluster-quality-adversarial.scripts.rotate_logs.rotate": {
+      "fingerprint": "032b9ea3ac7ace1680f6f36ce97e76f3a7b84072",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a placeholder rotation count",
+        "what": "Rotates a log file",
+        "when": "In ops maintenance",
+        "where": "Adversarial clustering fixture: unrelated ops script",
+        "why": "An isolated script clustering should not merge into features"
+      }
+    }
+  }
+}

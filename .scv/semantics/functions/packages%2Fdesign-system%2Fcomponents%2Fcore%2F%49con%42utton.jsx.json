@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/core/IconButton.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.core.IconButton.IconButton": {
+      "fingerprint": "c9b7be755c7fdc359c6bc3cf97eae66b63c93cd6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders an Icon in a button with size, tone, active and label for accessibility",
+        "what": "Square icon-only control",
+        "when": "In rails, toolbars and tray headers",
+        "where": "Design system: core controls",
+        "why": "Compact actions"
+      }
+    }
+  }
+}

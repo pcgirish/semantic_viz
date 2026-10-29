@@ -1,0 +1,66 @@
+{
+  "file": "packages/skins/tiles/src/node.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles.src.node.couplingFace": {
+      "fingerprint": "5d09d13d5e53348d5a43ec92974e027c348e3b7a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a fill for in, out or both coupling",
+        "what": "Colours a tile's face by coupling direction",
+        "when": "Called by node for tray-linked tiles",
+        "where": "Tiles skin: node tiles",
+        "why": "Coupling needs a visual without a second tile"
+      }
+    },
+    "u:packages.skins.tiles.src.node.deltaStyle": {
+      "fingerprint": "640541e4843a4adaf2184eaa5b06b070fd6c11f4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sets fill saturation by change amount and outlines for added and removed",
+        "what": "Styles a tile for delta mode",
+        "when": "Called by node",
+        "where": "Tiles skin: node tiles",
+        "why": "Change must not rely on colour alone"
+      }
+    },
+    "u:packages.skins.tiles.src.node.node": {
+      "fingerprint": "429a440c344f374f8d1f52eead470f9c4afa62df",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds a PolyNode at scene coordinates with shape, layer hue, delta, risk and nested mini-map",
+        "what": "Renders a scene node as a positioned design-system tile",
+        "when": "Called by the 2D host",
+        "where": "Tiles skin: node tiles",
+        "why": "The skin owns what a node looks like"
+      }
+    },
+    "u:packages.skins.tiles.src.node.riskStyle": {
+      "fingerprint": "33b5d9aac98b1ddf68d6ab139730b6bdcf609887",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a shadow style scaled by risk",
+        "what": "Draws a risk ring around a tile",
+        "when": "Called by node",
+        "where": "Tiles skin: node tiles",
+        "why": "The ring reads outside the tile box"
+      }
+    },
+    "u:packages.skins.tiles.src.node.shapeFor": {
+      "fingerprint": "9666f4eae4f2c2843cd69589371c5392fc3ad144",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps sides to a polygon, overriding decision and loop blocks to a diamond",
+        "what": "Picks a tile's shape",
+        "when": "Called by node",
+        "where": "Tiles skin: node tiles",
+        "why": "Shape encodes complexity, or block meaning in flowcharts"
+      }
+    }
+  }
+}

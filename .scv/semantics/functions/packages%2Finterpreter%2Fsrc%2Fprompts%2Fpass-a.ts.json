@@ -1,0 +1,42 @@
+{
+  "file": "packages/interpreter/src/prompts/pass-a.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.prompts.pass-a.formatCallees": {
+      "fingerprint": "6a360b6fc31f5db6c9524be76ac55844bc5eb187",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders each callee as qualname and one-liner when known, else the bare qualname",
+        "what": "Formats callees with their known one-liners",
+        "when": "Called by passAPrompt",
+        "where": "Interpreter prompts: Pass A",
+        "why": "Bottom-up order makes callee summaries free context"
+      }
+    },
+    "u:packages.interpreter.src.prompts.pass-a.formatQualnameList": {
+      "fingerprint": "f4910051eca5e1b7c4e7b39135287fc40fa58b3b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the label followed by one line per qualname, or a none marker when empty",
+        "what": "Formats a labelled list of qualnames",
+        "when": "Called by passAPrompt",
+        "where": "Interpreter prompts: Pass A",
+        "why": "Keeps prompt sections uniform"
+      }
+    },
+    "u:packages.interpreter.src.prompts.pass-a.passAPrompt": {
+      "fingerprint": "9b398b796800bbc3a3716c3f9095dfcbae5d14d3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Combines the unit source, callers, callees and the output schema for the five semantic fields",
+        "what": "Builds the Pass A prompt for one function or class",
+        "when": "Called by runPassA",
+        "where": "Interpreter prompts: Pass A",
+        "why": "Defines what leaf semantics the model must return"
+      }
+    }
+  }
+}

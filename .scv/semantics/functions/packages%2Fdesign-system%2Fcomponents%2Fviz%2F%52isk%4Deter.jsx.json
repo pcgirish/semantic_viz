@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/viz/RiskMeter.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.RiskMeter.RiskMeter": {
+      "fingerprint": "ec416dd72f40334159376726ff148d1e23932fc6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Fills segments up to the rounded value in temperature colours and lists reasons beneath the label",
+        "what": "Shows a 0 to 7 risk value as a segmented bar with optional reasons",
+        "when": "Used in panels that report a unit's risk",
+        "where": "Design-system viz primitive: segmented risk readout",
+        "why": "Puts risk on the same scale as heat so the two read consistently"
+      }
+    }
+  }
+}

@@ -33,6 +33,10 @@ Status as of 2026-08-26. Source of truth for granular history: `docs/plans/`
 - **Layout** — pure Sugiyama-style layered engine (rank/order/place/route)
 - **Skins** — `tiles` (SVG, 2D), `tiles3d` (three.js orbit), `cityscape`
   (walk/fly + minimap), unified under `skin-contract`
+- **Committed semantics** — `scv export` / `hydrate` / `check` / `init`
+  publish agent-authored semantics to `.scv/semantics/`, seed any revision
+  from it, and gate PRs on freshness; this repo commits its own store
+  (`docs/plans/publishable-committed-semantics.md`)
 - **UI** — Current / Delta / Depends-on / API Flow / Flowchart views,
   Replay timeline, search, fully migrated to `packages/design-system`
   (CodeDream)
@@ -101,8 +105,6 @@ merged" in `README.md`.
   work, which is otherwise unmeasurable); and the **agent-analyze route has no such
   metrics by construction** — it makes zero provider calls, so tokens/cost/latency
   have nothing to measure, and coverage is the comparable metric there instead
-- Check-in split: `scv export --structural` for committing deterministic
-  (non-LLM) snapshot data
 - Group-narration pass — groups currently ship with `semantics: null`
   and no cross-commit name carry-over, so an LLM-chosen group name can
   drift between commits even when membership is unchanged. The

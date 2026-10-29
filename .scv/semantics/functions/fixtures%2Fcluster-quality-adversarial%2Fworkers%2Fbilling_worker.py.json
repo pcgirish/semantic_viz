@@ -1,0 +1,30 @@
+{
+  "file": "fixtures/cluster-quality-adversarial/workers/billing_worker.py",
+  "storeVersion": 1,
+  "units": {
+    "u:fixtures.cluster-quality-adversarial.workers.billing_worker.enqueue_invoice": {
+      "fingerprint": "641cb437ce599c4698a90f198c044da14045df2d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Calls build_invoice for the order",
+        "what": "Queues invoice creation for an order",
+        "when": "When a worker processes an order",
+        "where": "Adversarial clustering fixture: billing worker",
+        "why": "Worker coupled to billing from another directory"
+      }
+    },
+    "u:fixtures.cluster-quality-adversarial.workers.billing_worker.settle": {
+      "fingerprint": "0098b5d5e2f0b6873539c99c60e4eec42d8e38dc",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the amount unchanged",
+        "what": "Settles a money amount",
+        "when": "When a worker settles a payment",
+        "where": "Adversarial clustering fixture: billing worker",
+        "why": "Another dependency on shared money"
+      }
+    }
+  }
+}

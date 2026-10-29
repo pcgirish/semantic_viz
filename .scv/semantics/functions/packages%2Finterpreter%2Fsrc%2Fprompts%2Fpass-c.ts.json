@@ -1,0 +1,30 @@
+{
+  "file": "packages/interpreter/src/prompts/pass-c.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.prompts.pass-c.formatRepoContext": {
+      "fingerprint": "bc9cf0b007936ef3687ebbeb1d58b670bf5d2b05",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a headed section or an empty string",
+        "what": "Formats the optional repo context section",
+        "when": "Called by passCPrompt",
+        "where": "Interpreter prompts: Pass C layers",
+        "why": "Omits the section when there is no context"
+      }
+    },
+    "u:packages.interpreter.src.prompts.pass-c.passCPrompt": {
+      "fingerprint": "addfe33607f9432cdcf93dc1805be04cebff0a9e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists member files and their one-liners with repo context and the layer narration schema",
+        "what": "Builds the prompt that names and narrates one cluster",
+        "when": "Called by runPassC",
+        "where": "Interpreter prompts: Pass C layers",
+        "why": "Naming lives here since membership is computed deterministically"
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "file": "packages/design-system/components/viz/focus.js",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.focus.edgeRole": {
+      "fingerprint": "49e00105f3b84954321c42900af8d3947c8c042d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Derives the role from the roles of both endpoint ids under the current focus",
+        "what": "Returns the focus state of an edge from its endpoints",
+        "when": "Called while rendering edges under a focus",
+        "where": "Design-system viz helpers: focus and neighbour roles",
+        "why": "Keeps edge highlighting consistent with node focus"
+      }
+    },
+    "u:packages.design-system.components.viz.focus.focusRole": {
+      "fingerprint": "e156606d5386f2504f9c95b9f44259703bbb9a60",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares the id against the focus object's self, near and far sets and returns self, near, far, muted or none",
+        "what": "Returns the focus state of one node id",
+        "when": "Called while rendering nodes under a focus",
+        "where": "Design-system viz helpers: focus and neighbour roles",
+        "why": "Centralises how focus dims or highlights nodes"
+      }
+    },
+    "u:packages.design-system.components.viz.focus.neighbours": {
+      "fingerprint": "e219f8f5e9b72db55675ea953111b95f1e557890",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks edges outward from the id up to the given depth, collecting nodes reached at each level",
+        "what": "Computes breadth-first neighbour sets from an edge list",
+        "when": "Used to build the focus sets for a selected node",
+        "where": "Design-system viz helpers: focus and neighbour roles",
+        "why": "Reference traversal for focus behaviour"
+      }
+    }
+  }
+}

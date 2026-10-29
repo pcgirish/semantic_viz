@@ -1,0 +1,30 @@
+{
+  "file": "packages/design-system/components/viz/BubbleChart.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.BubbleChart.BubbleChart": {
+      "fingerprint": "eeeb96607bb396d89938cc5002bac05de6d48c52",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "One band per category with packed circles sized by count and filled by temperature",
+        "what": "Grouped bubble layout",
+        "when": "For category overviews",
+        "where": "Design system: visualisation components",
+        "why": "Shows counts and heat at once"
+      }
+    },
+    "u:packages.design-system.components.viz.BubbleChart.packRow": {
+      "fingerprint": "46afa3ad6403fb60953bd7b81fcaff3073ce3651",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Places circles left to right, wrapping to new rows on overflow, sized by count",
+        "what": "Greedily packs circles in a band",
+        "when": "Inside BubbleChart",
+        "where": "Design system: visualisation components",
+        "why": "Simple deterministic packing"
+      }
+    }
+  }
+}

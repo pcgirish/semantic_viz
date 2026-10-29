@@ -1,0 +1,42 @@
+{
+  "file": "packages/interpreter/src/providers/anthropic.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.providers.anthropic.AnthropicProvider": {
+      "fingerprint": "dfe3cbb9941cb6ecbe6c48ec65b902c3bb28094a",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sends prompts with the configured model and tracks token usage, reading the API key from the environment",
+        "what": "Provider that calls the Anthropic Messages API",
+        "when": "Used when config selects anthropic",
+        "where": "Interpreter providers: Anthropic Messages API",
+        "why": "Metered cloud provider for production quality runs"
+      }
+    },
+    "u:packages.interpreter.src.providers.anthropic.AnthropicProvider.constructor": {
+      "fingerprint": "be3ee2f425fb470e93aacc1c8f86e22d57e71fc2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores the model and effort and creates the API client",
+        "what": "Initialises the provider with model and options",
+        "when": "Called by createProvider",
+        "where": "Interpreter providers: Anthropic Messages API",
+        "why": "Prepares the client once"
+      }
+    },
+    "u:packages.interpreter.src.providers.anthropic.AnthropicProvider.interpret": {
+      "fingerprint": "3b90149b97e1667538a9469cdfd4833a1231c2c6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Calls the messages endpoint with the prompt and optional context, extracts text and updates usage counters",
+        "what": "Sends one prompt and returns the response text",
+        "when": "Called by passes through the cached provider",
+        "where": "Interpreter providers: Anthropic Messages API",
+        "why": "Implements the Provider contract"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/display/Badge.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.display.Badge.Badge": {
+      "fingerprint": "a55efff61d31f8f92bd7867c9f1adcf60dd2f811",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mono chamfered label with tone, icon or dot",
+        "what": "Small status badge",
+        "when": "For statuses and meta",
+        "where": "Design system: display components",
+        "why": "Compact labelling"
+      }
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "file": "packages/ui/src/Flows.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.Flows.Flows": {
+      "fingerprint": "025686a564168f6ea66c3af64f2c9496b1975aa6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Groups flows by entry kind, lists them and draws the selected flow's steps, branching where present, with changed steps marked",
+        "what": "Renders API flows and their steps",
+        "when": "Shown in the flows view",
+        "where": "UI: API flows view",
+        "why": "Shows request paths through the system"
+      }
+    },
+    "u:packages.ui.src.Flows.edgeKind": {
+      "fingerprint": "eb54a88cbe996cd909a40407f126d4d9461d322d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Finds the matching edge and returns its kind",
+        "what": "Returns the kind of edge between two units",
+        "when": "Called by Flows for step connectors",
+        "where": "UI: API flows view",
+        "why": "Labels step links"
+      }
+    },
+    "u:packages.ui.src.Flows.entryKind": {
+      "fingerprint": "4e9bec6249fa6b1f0de48c0de8e782290cb3f61d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns http when the route starts with an HTTP method, else other",
+        "what": "Classifies a flow entry by its route",
+        "when": "Called by Flows to group flows",
+        "where": "UI: API flows view",
+        "why": "Avoids inventing a schema field"
+      }
+    },
+    "u:packages.ui.src.Flows.layoutBranching": {
+      "fingerprint": "79f8ea8715fec768cfb484829f71cada7618383c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Assigns each node its depth as column and the mean of its leaves' rows as row",
+        "what": "Lays out a branching step tree in lanes",
+        "when": "Called by Flows",
+        "where": "UI: API flows view",
+        "why": "Parallel branches get their own lanes"
+      }
+    },
+    "u:packages.ui.src.Flows.layoutBranching.visit": {
+      "fingerprint": "c12004660d60ffa5af4729790e7916ab2468c962",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recurses into children, assigning leaf rows and averaging them for parents",
+        "what": "Positions one step node and its descendants",
+        "when": "Called by layoutBranching",
+        "where": "UI: API flows view",
+        "why": "Implements the lane layout"
+      }
+    }
+  }
+}

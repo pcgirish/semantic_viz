@@ -1,0 +1,42 @@
+{
+  "file": "packages/ui/src/Inspector.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.Inspector.Inspector": {
+      "fingerprint": "86e5d237fd7f843c252d9476c5ad5dff4a3e5858",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders the five semantic fields, metrics, incoming and outgoing dependencies and change details",
+        "what": "Shows a unit's semantics, metrics, dependencies and delta",
+        "when": "Shown for the selected unit",
+        "where": "UI: unit inspector",
+        "why": "Explains the selection"
+      }
+    },
+    "u:packages.ui.src.Inspector.dependencyLabel": {
+      "fingerprint": "f818b2d1f1d12190122d3c5893de3a0ce1d5387f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Uses the rolled-up edge count when present, else the plain name",
+        "what": "Labels a dependency row",
+        "when": "Called by Inspector",
+        "where": "UI: unit inspector",
+        "why": "Counts are actionable and weights are not"
+      }
+    },
+    "u:packages.ui.src.Inspector.fileOf": {
+      "fingerprint": "b296a064d899520e6ee45198a7d7ba26c9951640",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads the first file in the unit location",
+        "what": "Returns the file a unit belongs to",
+        "when": "Called by Inspector",
+        "where": "UI: unit inspector",
+        "why": "Shows location"
+      }
+    }
+  }
+}

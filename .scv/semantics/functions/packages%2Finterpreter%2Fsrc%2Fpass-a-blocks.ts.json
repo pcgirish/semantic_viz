@@ -1,0 +1,42 @@
+{
+  "file": "packages/interpreter/src/pass-a-blocks.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.pass-a-blocks.applyLabels": {
+      "fingerprint": "80b539a98a59507e4eb01d11c0e526903d5450da",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Keeps labels only for known block ids and checks exit block outcomes against the structural expectation",
+        "what": "Merges validated labels into the block label map",
+        "when": "Called by runPassABlocks",
+        "where": "Interpreter: Pass A block labelling",
+        "why": "Rejects mislabelled success and error exits"
+      }
+    },
+    "u:packages.interpreter.src.pass-a-blocks.expectedOutcome": {
+      "fingerprint": "78eedc717ea4f593651da1ab7f98c1c1bf0d4173",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reports error when any incoming edge raises and success otherwise",
+        "what": "Returns the structural outcome of an exit block",
+        "when": "Used by applyLabels",
+        "where": "Interpreter: Pass A block labelling",
+        "why": "Gives ground truth independent of the model"
+      }
+    },
+    "u:packages.interpreter.src.pass-a-blocks.runPassABlocks": {
+      "fingerprint": "0690be4175fd2d801c49da4ed529d7efb8b9b2a8",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds the batched prompt, calls the provider with JSON retry and applies the labels",
+        "what": "Labels all control-flow blocks of one function in one call",
+        "when": "Called by runFunctionsPass for functions with blocks",
+        "where": "Interpreter: Pass A block labelling",
+        "why": "One round trip per function keeps flowchart labelling cheap"
+      }
+    }
+  }
+}

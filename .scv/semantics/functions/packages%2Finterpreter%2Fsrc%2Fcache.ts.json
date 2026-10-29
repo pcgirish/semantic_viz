@@ -1,0 +1,150 @@
+{
+  "file": "packages/interpreter/src/cache.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.cache.ContentCache": {
+      "fingerprint": "12d0abde4209a0224aa2c81029aacb9186e09b42",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores responses keyed by input hash, prompt revision, provider and model, plus Pass A unit rows and a call log",
+        "what": "Content-addressed SQLite cache for interpreter calls",
+        "when": "Used by CachedProvider and runFunctionsPass",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Makes repeated runs idempotent and cheap"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.close": {
+      "fingerprint": "2e032bdd0ae876a6d58d8f7aa3544d9d683cf515",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Closes the SQLite handle",
+        "what": "Closes the database",
+        "when": "Called at the end of a run",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Releases the file"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.constructor": {
+      "fingerprint": "4e1fe7fd4644f75e10c1a70f11af63f65f955a1b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Opens the SQLite file, creates the tables and indexes and runs the one-shot cleanup",
+        "what": "Opens or creates the cache database",
+        "when": "Called when analyze starts",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Prepares the schema once per process"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.delete": {
+      "fingerprint": "5c0dc73457dfd640e4318232969ce207937e722c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Deletes the row for the key",
+        "what": "Removes one response row",
+        "when": "Called when a cached response fails validation",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "A poisoned row cannot be served forever"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.get": {
+      "fingerprint": "5da8f4e0b2becd49f091b8b276bf407eac34fca9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Selects the response row for the key and returns the text and usage, or undefined",
+        "what": "Looks up a cached provider result",
+        "when": "Called by CachedProvider before calling the provider",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Avoids repeat provider calls for identical prompts"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.getPassAUnits": {
+      "fingerprint": "c4c1a0b4ffee0497618057742639534fd41661c5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Selects rows by key and filters to the unit id and current struct hash pairs, parsing each result",
+        "what": "Returns cached Pass A results for units whose struct hash still matches",
+        "when": "Called by runFunctionsPass",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Matching both fields stops stale semantics resurrecting for edited code"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.listCalls": {
+      "fingerprint": "c211b52b3c48cd2d90e0c211f0436cf98599cf95",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Selects all call log rows in insertion order and maps them to records",
+        "what": "Lists every logged call",
+        "when": "Used by observability tooling and tests",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Exposes the call log for analysis"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.logCall": {
+      "fingerprint": "ccdd0fcce8c19e49b13b0b418a6136e59e14c340",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Inserts a row with pass, unit, timing, tokens and cache status",
+        "what": "Records one LLM call or cache hit",
+        "when": "Called by CachedProvider",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Supports cost and duplication analysis"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.runOneShotCleanup": {
+      "fingerprint": "cdf538b2887da94a7693e720496e4b57b8e8e217",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks a durable marker, scans rows once, deletes malformed ones and sets the marker",
+        "what": "Deletes response rows that are not parseable JSON",
+        "when": "Called by the constructor",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Repairs damage from older behaviour without rescanning on every run"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.set": {
+      "fingerprint": "5e88abb911e05195eb989cd9168eaa01824d659f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Upserts the response row for the key",
+        "what": "Stores a provider result",
+        "when": "Called by CachedProvider after a validated call",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "Makes later identical calls free"
+      }
+    },
+    "u:packages.interpreter.src.cache.ContentCache.setPassAUnit": {
+      "fingerprint": "88b8ba3b7e0a3a754a07acdfd6b5393499e59e0a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Upserts the row for the key, unit id and struct hash",
+        "what": "Records one unit's Pass A outcome durably",
+        "when": "Called as each unit completes",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "A crash mid-run keeps finished work"
+      }
+    },
+    "u:packages.interpreter.src.cache.safeJsonParse": {
+      "fingerprint": "aa7e6e5bf30b0c910320849c6448cae6bd7f0d3c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Wraps JSON.parse in a try",
+        "what": "Parses JSON, returning undefined on failure",
+        "when": "Called when reading cache rows",
+        "where": "Interpreter: content-addressed SQLite cache",
+        "why": "A corrupt row is discarded rather than aborting a lookup"
+      }
+    }
+  }
+}

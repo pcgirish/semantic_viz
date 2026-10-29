@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/viz/Sparkline.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.Sparkline.Sparkline": {
+      "fingerprint": "b22c6b25c33b95fe6616d4f160337b2bc7898ad4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Scales the values into the given width and height and renders either one bar per value or a filled area path in the temperature colour",
+        "what": "Draws a small churn or activity chart as bars or an area",
+        "when": "Used in panels showing commit churn or cumulative lines",
+        "where": "Design-system viz primitive: activity micro-chart",
+        "why": "Shows activity trends in a glanceable footprint"
+      }
+    }
+  }
+}

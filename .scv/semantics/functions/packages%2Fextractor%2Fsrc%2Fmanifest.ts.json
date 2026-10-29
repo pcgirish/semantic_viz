@@ -1,0 +1,126 @@
+{
+  "file": "packages/extractor/src/manifest.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.manifest.extractProjectDependenciesArray": {
+      "fingerprint": "545c147afcb7bdea66763b8145386b2711ed46cd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Locates the project section and captures the bracketed dependencies list",
+        "what": "Extracts the dependencies array text from a pyproject project table",
+        "when": "Called by parsePyprojectToml",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Avoids a full TOML parser for one field"
+      }
+    },
+    "u:packages.extractor.src.manifest.findManifestFiles": {
+      "fingerprint": "6b3b9c8f3b2a91b1d58cc121f96645c464735736",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Filters the contained file walk by basename",
+        "what": "Finds every file with a given name under the root",
+        "when": "Called by the per-ecosystem manifest parsers",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Reuses the shared walker so ignore and symlink rules apply"
+      }
+    },
+    "u:packages.extractor.src.manifest.mergePinned": {
+      "fingerprint": "daae8ac788dcb4bef606018102f2edf8389804b1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sorts entries deepest first so shallower files are applied last and win on name conflicts",
+        "what": "Merges pinned dependency maps from several manifest files",
+        "when": "Called by the per-ecosystem manifest parsers",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "The root manifest is the most authoritative"
+      }
+    },
+    "u:packages.extractor.src.manifest.parseManifests": {
+      "fingerprint": "94f0b9280d038e65ea883616bbf42cf237a187d4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs the pypi and npm manifest parsers and returns both",
+        "what": "Reads all dependency manifests in the repo",
+        "when": "Called by extractRepo",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Lets externals carry the versions the repo depends on"
+      }
+    },
+    "u:packages.extractor.src.manifest.parseNpmManifest": {
+      "fingerprint": "2afd6d9a4639e57b4b1e53ca8acbdb764d4132ab",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Finds and parses package.json files and merges them",
+        "what": "Collects npm dependency versions from the repo",
+        "when": "Called by parseManifests",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Builds the npm ecosystem entry"
+      }
+    },
+    "u:packages.extractor.src.manifest.parsePackageJson": {
+      "fingerprint": "dedc97d70fe00120032e0057142541e4167916bd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads the dependencies and devDependencies objects into a name to version map",
+        "what": "Parses a package.json into dependency versions",
+        "when": "Called by parseNpmManifest",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Records npm dependencies and pins"
+      }
+    },
+    "u:packages.extractor.src.manifest.parsePep508Requirement": {
+      "fingerprint": "5b898e9179d79a8fde92649b8bc58f5f67b35754",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Matches the package name and an exact version pin, returning a null version when unpinned",
+        "what": "Parses a PEP 508 requirement into name and pinned version",
+        "when": "Called by parsePyprojectToml",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Normalises pyproject requirements to the same shape as requirements.txt"
+      }
+    },
+    "u:packages.extractor.src.manifest.parsePypiManifest": {
+      "fingerprint": "c6bd96eabe0b9fbf3661f1c6cdbb5c0761110ee7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Finds and parses requirements.txt and pyproject.toml files and merges them",
+        "what": "Collects Python dependency pins from the repo",
+        "when": "Called by parseManifests",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Builds the pypi ecosystem entry"
+      }
+    },
+    "u:packages.extractor.src.manifest.parsePyprojectToml": {
+      "fingerprint": "9a5d1d38949adcc4f5d47849bcbe9305d7b56ec1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Extracts the dependencies array, splits its string entries and parses each with parsePep508Requirement",
+        "what": "Parses pyproject.toml dependencies into pinned versions",
+        "when": "Called by parsePypiManifest",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Supports projects that declare dependencies in pyproject"
+      }
+    },
+    "u:packages.extractor.src.manifest.parseRequirementsTxt": {
+      "fingerprint": "18d6800701fa2ae4a1de295e217dc0b07d5e4da7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Skips comments and options and splits each line into name and version on version operators",
+        "what": "Parses a requirements.txt into pinned versions by package",
+        "when": "Called by parsePypiManifest",
+        "where": "Extractor: dependency manifest parsing",
+        "why": "Records Python dependencies and pins"
+      }
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "file": "packages/interpreter/src/cluster.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.cluster.affinities": {
+      "fingerprint": "1cb5c713dbfb7137d3e03a49b95f79453ed279e1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sums duplicate same-direction import weights then takes the maximum of the two directions, skipping self and unknown edges",
+        "what": "Computes undirected affinity for each file pair",
+        "when": "Called by clusterFiles",
+        "where": "Interpreter: deterministic file clustering",
+        "why": "Stops high fan-in utilities being pulled into clusters by many weak edges"
+      }
+    },
+    "u:packages.interpreter.src.cluster.assertStrictPartition": {
+      "fingerprint": "d84dfec4df21dc04bf3eb1a374271b27c67ee141",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks every file appears exactly once, nothing extra appears and keys match their membership, throwing on any violation",
+        "what": "Validates that cluster groups form a strict partition of the files",
+        "when": "Called after clusterFiles",
+        "where": "Interpreter: deterministic file clustering",
+        "why": "Deterministic output that violates the contract is a bug, so it fails loudly instead of being repaired"
+      }
+    },
+    "u:packages.interpreter.src.cluster.clusterFiles": {
+      "fingerprint": "1bf75c131d5e116960f32cc8cc2b6a5a7bcaf258",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Starts from singletons, repeatedly merges the pair with the highest linkage over retained edges until no positive linkage remains, then canonicalises with toGroups",
+        "what": "Partitions files by weighted agglomerative single-linkage clustering",
+        "when": "Called by Pass B",
+        "where": "Interpreter: deterministic file clustering",
+        "why": "Deterministic and total, replacing an LLM clustering call"
+      }
+    },
+    "u:packages.interpreter.src.cluster.layerIdFor": {
+      "fingerprint": "29627997a24cb365e9d78af70d9ecea612304266",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes the sorted file list into a short id prefixed for layers",
+        "what": "Derives a layer id from its file membership",
+        "when": "Called when building layers from clusters",
+        "where": "Interpreter: deterministic file clustering",
+        "why": "Ids from membership stay stable even when names change between runs"
+      }
+    },
+    "u:packages.interpreter.src.cluster.linkage": {
+      "fingerprint": "fa2f7c46157a173450e73461a00bd173d14b25ec",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Takes the maximum retained affinity across all cross pairs and also returns the total",
+        "what": "Scores two clusters by their strongest retained member pair",
+        "when": "Called by clusterFiles when choosing merges",
+        "where": "Interpreter: deterministic file clustering",
+        "why": "Average linkage diluted real relationships as clusters grew"
+      }
+    },
+    "u:packages.interpreter.src.cluster.resolveLayerNames": {
+      "fingerprint": "d6499d487e6acdf6a73440674062d50cd9acf223",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Claims carried-over names first, then assigns new names in id order, suffixing collisions",
+        "what": "Produces the canonical ordered layer list with unique names",
+        "when": "Called after Pass C narration",
+        "where": "Interpreter: deterministic file clustering",
+        "why": "Names stay identical across the snapshot, the artifact and the next run's carry-over"
+      }
+    },
+    "u:packages.interpreter.src.cluster.retainedEdges": {
+      "fingerprint": "666df2690f54e7c22c2dc2fa3dbb60c6684e85d3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Computes each file's strongest incident weight first, then keeps an edge only when its weight clears the threshold relative to both ends",
+        "what": "Keeps only edges significant at both endpoints",
+        "when": "Called by clusterFiles",
+        "where": "Interpreter: deterministic file clustering",
+        "why": "Primary defence against single-linkage chaining through hubs"
+      }
+    },
+    "u:packages.interpreter.src.cluster.toGroups": {
+      "fingerprint": "c37e200085175e60541e58a139630cedf28db1b4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Computes each cluster's id and inserts groups in ascending id order",
+        "what": "Builds the canonical id-keyed cluster map",
+        "when": "Called by clusterFiles",
+        "where": "Interpreter: deterministic file clustering",
+        "why": "Byte-stable ordering makes serialised output deterministic"
+      }
+    }
+  }
+}

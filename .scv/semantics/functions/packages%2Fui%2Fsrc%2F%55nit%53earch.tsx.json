@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/UnitSearch.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.UnitSearch.UnitSearch": {
+      "fingerprint": "29321b4dc84dae8ae61845dcfdc9f195773b07f5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Filters units by query and picks a result to focus",
+        "what": "Jumps to a unit by name",
+        "when": "Shown in the toolbar",
+        "where": "UI: unit search",
+        "why": "Skips the drill hierarchy in large repos"
+      }
+    }
+  }
+}

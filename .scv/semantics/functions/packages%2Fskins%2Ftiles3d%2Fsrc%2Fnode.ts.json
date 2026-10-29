@@ -1,0 +1,90 @@
+{
+  "file": "packages/skins/tiles3d/src/node.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles3d.src.node.beacon": {
+      "fingerprint": "d8314fcc3afd6f5d5e67d3e32ca2a4b62eb7846d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates a tall emissive mesh above the roof",
+        "what": "Builds a beacon above high-risk buildings",
+        "when": "Called by node for risky units",
+        "where": "Tiles3d skin: buildings",
+        "why": "Risk cannot hide behind taller neighbours"
+      }
+    },
+    "u:packages.skins.tiles3d.src.node.body": {
+      "fingerprint": "382c276401f3a66886176e04c1137c4fe9beaa9c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Extrudes the ngon footprint to the node's depth with the facade material",
+        "what": "Extrudes a node into a prism or cylinder",
+        "when": "Called by node",
+        "where": "Tiles3d skin: buildings",
+        "why": "Height comes from layout, not the skin"
+      }
+    },
+    "u:packages.skins.tiles3d.src.node.facade": {
+      "fingerprint": "4620de151cd8ae7f170d4cb67fea7e80bb38e5c9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Colours by layer hue, adds delta glow and makes non-focused buildings translucent under gating",
+        "what": "Builds a building's facade material",
+        "when": "Called by body",
+        "where": "Tiles3d skin: buildings",
+        "why": "Keeps the focused building visible through the crowd"
+      }
+    },
+    "u:packages.skins.tiles3d.src.node.label": {
+      "fingerprint": "0ee98371c3365b3a6322a48f04535838e358d990",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates a CSS2D object with the unit name",
+        "what": "Builds a DOM label above the roof",
+        "when": "Called by node",
+        "where": "Tiles3d skin: buildings",
+        "why": "DOM labels stay crisp and use design-system fonts"
+      }
+    },
+    "u:packages.skins.tiles3d.src.node.ngonShape": {
+      "fingerprint": "90ce02e11f786c63ef013118e2490ad98ef8a997",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Computes vertices from a radius scaled so the polygon covers the tile",
+        "what": "Builds an n-gon footprint shape",
+        "when": "Called by body",
+        "where": "Tiles3d skin: buildings",
+        "why": "Low side counts would otherwise look like spikes"
+      }
+    },
+    "u:packages.skins.tiles3d.src.node.node": {
+      "fingerprint": "cec84c20fcf27fa6ab3bb6d4a53f70c5a96cb32b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Groups the body, outline, beacon and label, positions it and tags the scene node id",
+        "what": "Renders a scene node as a building group",
+        "when": "Called by buildSceneGraph",
+        "where": "Tiles3d skin: buildings",
+        "why": "Raycast hits anywhere resolve to the unit"
+      }
+    },
+    "u:packages.skins.tiles3d.src.node.outline": {
+      "fingerprint": "25a25ad7d03515ecb35434b9720655ed3bbb01c5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds edge geometry from the body and a contrasting line material",
+        "what": "Draws a body's real edges as lines",
+        "when": "Called by node",
+        "where": "Tiles3d skin: buildings",
+        "why": "Restores the corner count at eye level"
+      }
+    }
+  }
+}

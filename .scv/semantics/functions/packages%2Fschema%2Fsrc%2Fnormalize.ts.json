@@ -1,0 +1,30 @@
+{
+  "file": "packages/schema/src/normalize.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.schema.src.normalize.normalizeText": {
+      "fingerprint": "ed6056a0eac4070b7ebc3213a59d1d2e56d84589",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Applies NFC, locale-fixed lowercase, whitespace collapse, trim and trailing punctuation strip",
+        "what": "Normalises text for hashing",
+        "when": "Called by semanticHashInput",
+        "where": "Schema: semantic hash normalisation",
+        "why": "Hashes must not depend on the machine's locale"
+      }
+    },
+    "u:packages.schema.src.normalize.semanticHashInput": {
+      "fingerprint": "19636ce358b28de1fd8a93828e299271f9427230",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Joins the normalised name and each semantic field with absent fields as empty strings",
+        "what": "Builds the exact string a semantic hash covers",
+        "when": "Called when computing semantic hashes",
+        "where": "Schema: semantic hash normalisation",
+        "why": "Fixed arity keeps different field sets from colliding"
+      }
+    }
+  }
+}

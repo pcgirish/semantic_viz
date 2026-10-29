@@ -1,0 +1,18 @@
+{
+  "file": "packages/extractor/src/vcs.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.vcs.churnByFile": {
+      "fingerprint": "bf500ce16b1c836a5527cfdb1319c4ea34d75507",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs git log with numstat and accumulates added and removed lines, commits and per-author additions per file",
+        "what": "Computes per-file churn, commit count and author line counts",
+        "when": "Called when building units to attach churn",
+        "where": "Extractor: version-control churn",
+        "why": "Churn feeds temperature and risk"
+      }
+    }
+  }
+}

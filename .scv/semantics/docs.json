@@ -1,0 +1,1502 @@
+{
+  "docs": {
+    "AGENTS.md": {
+      "architecture_notes": [
+        "npm-workspace monorepo: each package under packages/* has its own src/ and test/",
+        "Stack is TypeScript, Fastify and SQLite",
+        "Raw request data is validated with Zod at boundaries",
+        "Before opening a PR, agents run agent-analyze-pr to keep the committed .scv/semantics/ store fresh"
+      ],
+      "fingerprint": "30564405024a5a471abc327b1e2f21194f5beede",
+      "modules": [],
+      "path": "AGENTS.md",
+      "purpose": "Agent instructions for the repo: npm commands, TDD and security rules, branch/PR workflow, reviewer and auditor roles, and the shipped skills"
+    },
+    "README.md": {
+      "architecture_notes": [
+        "A repo is turned into a SymbolGraph by static analysis, with an Interpreter and a Differ layered on top, then served as a drillable tile map in the browser"
+      ],
+      "fingerprint": "c44db2bed05abe33e07ad646ba5e7febdfde2206",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "scv-viewer serve/ui entry points",
+          "name": "viewer",
+          "paths": [
+            "packages/viewer/src"
+          ]
+        },
+        {
+          "description": "Fastify API serving snapshots and layouts",
+          "name": "server",
+          "paths": [
+            "packages/server/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        },
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "Matches two snapshots, classifies changes, blast radius and risk rollup",
+          "name": "differ",
+          "paths": [
+            "packages/differ/src"
+          ]
+        }
+      ],
+      "path": "README.md",
+      "purpose": "Entry point for users: what scv is, setup, commands, end-to-end walkthrough, PR review flow, committed semantics and how to adopt them in another repo (init, bootstrap, per-PR check, hydrate, diff for Delta)"
+    },
+    "docs/analyze.md": {
+      "architecture_notes": [
+        "Every field carries a source: static fields are reproducible facts, interpreter fields are opinions cached and versioned by prompt",
+        "The visualizer renders static and interpreted fields differently"
+      ],
+      "fingerprint": "9ec7d0849b2fe65e23e6e4d5181e691413f6441a",
+      "modules": [
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "Matches two snapshots, classifies changes, blast radius and risk rollup",
+          "name": "differ",
+          "paths": [
+            "packages/differ/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        }
+      ],
+      "path": "docs/analyze.md",
+      "purpose": "Specifies what the analyzer produces: extractor facts, interpreter judgments, differ granularity, risk and validation"
+    },
+    "docs/backlog/analyze-positional-args-ambiguity.md": {
+      "architecture_notes": [],
+      "fingerprint": "7b4815860c0d8dbd000562be2a853f79d29def64",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/analyze-positional-args-ambiguity.md",
+      "purpose": "Open backlog item: scv analyze's [root] [artifact] positional arguments are ambiguous"
+    },
+    "docs/backlog/api-flow-misses-di-middleware.md": {
+      "architecture_notes": [],
+      "fingerprint": "6154a454cbca406aafda4017ac00d9e4a42033ed",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/api-flow-misses-di-middleware.md",
+      "purpose": "Closed backlog item: API Flow omitted framework DI/middleware steps"
+    },
+    "docs/backlog/cache-token-capture.md": {
+      "architecture_notes": [],
+      "fingerprint": "0d700ba1dd1bcc7d7c8e2f0b467d4cac63b843a7",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/cache-token-capture.md",
+      "purpose": "Open backlog item: cache token usage fields are dropped before reaching llm_calls"
+    },
+    "docs/backlog/canvas-pan-zoom.md": {
+      "architecture_notes": [],
+      "fingerprint": "88a23b4ecbb946a6f32543cd4d78f6ecf55d5b6c",
+      "modules": [
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/canvas-pan-zoom.md",
+      "purpose": "Backlog item: canvas pan/zoom/fit closed; left-to-right layout axis still open"
+    },
+    "docs/backlog/group-narration-pass.md": {
+      "architecture_notes": [],
+      "fingerprint": "a2c0a1b379c70e6335b8904c0439fa6a97e73ece",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/group-narration-pass.md",
+      "purpose": "Open backlog item: no automated group-narration pass; only the agent-authored path ships"
+    },
+    "docs/backlog/layout-left-to-right-axis.md": {
+      "architecture_notes": [],
+      "fingerprint": "8b7c3c143595105a03ae87e6478f7049b1e7509d",
+      "modules": [
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/layout-left-to-right-axis.md",
+      "purpose": "Open backlog item: switch the layout rank axis to left-to-right"
+    },
+    "docs/backlog/llm-call-concurrency.md": {
+      "architecture_notes": [],
+      "fingerprint": "6edba414c31431a137aa96ac771dad3b85088d92",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/llm-call-concurrency.md",
+      "purpose": "Open backlog item: Pass A concurrency is hardcoded to 2 and Pass Docs is unbounded"
+    },
+    "docs/backlog/module-tier-not-narrated.md": {
+      "architecture_notes": [],
+      "fingerprint": "db28bb02a7e49b736e1868647ac68a83e9736df9",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/module-tier-not-narrated.md",
+      "purpose": "Open backlog item: modules are the one hierarchy tier with no narration or name"
+    },
+    "docs/backlog/ollama-context-length-unset.md": {
+      "architecture_notes": [],
+      "fingerprint": "25ff4b825066eef100235578bec08f2c232bb796",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/ollama-context-length-unset.md",
+      "purpose": "Open backlog item: the Ollama provider never sets num_ctx"
+    },
+    "docs/backlog/openai-provider.md": {
+      "architecture_notes": [],
+      "fingerprint": "5bdf7851031541d03ff87a8e5cbd489ec3bd32c6",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/openai-provider.md",
+      "purpose": "Open backlog item: add an OpenAI provider adapter"
+    },
+    "docs/backlog/prompt-prefix-ordering.md": {
+      "architecture_notes": [],
+      "fingerprint": "71fcb8377acf55e5610a074cb2d9295712a0251b",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/prompt-prefix-ordering.md",
+      "purpose": "Open backlog item: prompt boilerplate sits at the tail, defeating prefix caching"
+    },
+    "docs/backlog/temperature-scale-misuse.md": {
+      "architecture_notes": [],
+      "fingerprint": "0327226afa2e29ec2c6bae441d5dfc094abbe78e",
+      "modules": [
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/temperature-scale-misuse.md",
+      "purpose": "Open backlog item: RiskMeter renders confidence as risk and the legend shows where nothing reads it"
+    },
+    "docs/backlog/unconditional-artifact-rewrites.md": {
+      "architecture_notes": [],
+      "fingerprint": "ec5a9cb01f0e93a8b0930097e49caff981a27828",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        }
+      ],
+      "path": "docs/backlog/unconditional-artifact-rewrites.md",
+      "purpose": "Resolved backlog item: unconditional artifact rewrites invalidated downstream work; fixed by write-if-changed"
+    },
+    "docs/codebase-analysis.md": {
+      "architecture_notes": [
+        "The intended first step builds a call-graph structure from syntax, folder structure and text, with no LLM"
+      ],
+      "fingerprint": "558e7da93295f9f265322512d0ab038da4722b9c",
+      "modules": [
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/codebase-analysis.md",
+      "purpose": "Compares the current analysis pipeline with the intended one stage by stage and plans how to close each gap"
+    },
+    "docs/design-system-inventory.md": {
+      "architecture_notes": [],
+      "fingerprint": "5ea6193d788e425a820efa5ce05fdde6008a4ebd",
+      "modules": [
+        {
+          "description": "CodeDream design tokens and shared components",
+          "name": "design-system",
+          "paths": [
+            "packages/design-system/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/design-system-inventory.md",
+      "purpose": "Read-only inventory of the CodeDream design system cross-referenced against analyzer UI needs ahead of a UI rebuild"
+    },
+    "docs/design.md": {
+      "architecture_notes": [
+        "Static analysis owns symbols and edges as ground truth; the Interpreter owns meaning",
+        "Pipeline: repo → Extractor → SymbolGraph → Interpreter → UnitGraph → Differ → DeltaGraph, served from .scv/ by the server to the web UI",
+        "SymbolGraph is deterministic and cached by file blob hash; UnitGraph (snapshot) is the visualizer's contract; DeltaGraph is the diff of two snapshots plus risk",
+        "3D is a skin over the same layout engine, never a fork",
+        "LLM provider is pluggable: Ollama (local, default) or Anthropic, same prompts and schema"
+      ],
+      "fingerprint": "fcb4a3182b45c9c8f7fdf3054451ed24304b5477",
+      "modules": [
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        },
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "Matches two snapshots, classifies changes, blast radius and risk rollup",
+          "name": "differ",
+          "paths": [
+            "packages/differ/src"
+          ]
+        },
+        {
+          "description": "Fastify API serving snapshots and layouts",
+          "name": "server",
+          "paths": [
+            "packages/server/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/design.md",
+      "purpose": "Top-level design: fixed decisions, the Extractor → Interpreter → Differ pipeline, the scv/1 schema contract and storage layout"
+    },
+    "docs/implement-analyze.md": {
+      "architecture_notes": [
+        "TypeScript on Node 24+ for v1; Rust and Python were rejected because iteration is on prompts and clustering, not parse throughput"
+      ],
+      "fingerprint": "8c2128788c64f816452bb4e53fe855bc433274c7",
+      "modules": [
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        }
+      ],
+      "path": "docs/implement-analyze.md",
+      "purpose": "Implementation stack, package layout, scv init bootstrap and milestones for the analyzer side"
+    },
+    "docs/implement-serve.md": {
+      "architecture_notes": [
+        "Layout is hand-written; d3-hierarchy, dagre and ELK were rejected because lane assignment, bundling and density gating are the differentiating work"
+      ],
+      "fingerprint": "c014ba58ae417684bc476397d4575277d849027b",
+      "modules": [
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        },
+        {
+          "description": "Fastify API serving snapshots and layouts",
+          "name": "server",
+          "paths": [
+            "packages/server/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        },
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        }
+      ],
+      "path": "docs/implement-serve.md",
+      "purpose": "Implementation stack, package layout, API and milestones for the visualizer side"
+    },
+    "docs/llm-call-observability.md": {
+      "architecture_notes": [
+        "Each LLM call is recorded in a per-call SQLite trace"
+      ],
+      "fingerprint": "7509c87b93be9a78b1aed04739479bff08045995",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/llm-call-observability.md",
+      "purpose": "Tracks LLM call observability: token reporting, per-call SQLite trace and in-run progress, with cost assignment still open"
+    },
+    "docs/mock/README.md": {
+      "architecture_notes": [],
+      "fingerprint": "175bfe604365b8a3a7705da40ffc73307d752fd3",
+      "modules": [
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        }
+      ],
+      "path": "docs/mock/README.md",
+      "purpose": "Describes the prototype mock that runs the pipeline end to end on one fixture to validate the schema by consumption"
+    },
+    "docs/plans/README.md": {
+      "architecture_notes": [],
+      "fingerprint": "6378f7909bee6d550635f8dc65c98d0bf086b1d1",
+      "modules": [],
+      "path": "docs/plans/README.md",
+      "purpose": "Index of implementation plans: active, implemented and archived, and how to add one"
+    },
+    "docs/plans/agent-analyze-groups-flows.md": {
+      "architecture_notes": [],
+      "fingerprint": "63a92232187c592ccbe4f72a8ce43af9bf87eea1",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/agent-analyze-groups-flows.md",
+      "purpose": "Plan to rename skills and add agent-analyze-groups and agent-analyze-flows merge paths"
+    },
+    "docs/plans/agent-analyze-suite-and-flowchart-blocks.md": {
+      "architecture_notes": [],
+      "fingerprint": "bd023e6c2b1d8b509dfc020d84a1bb70108d2a52",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/agent-analyze-suite-and-flowchart-blocks.md",
+      "purpose": "Plan to complete the agent-analyze skill suite and fix flowchart block loss on the agent path"
+    },
+    "docs/plans/agent-authored-semantics.md": {
+      "architecture_notes": [],
+      "fingerprint": "b8bd978d8d15002ef9bfe4ef5e6e226047fe2eb3",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/agent-authored-semantics.md",
+      "purpose": "Plan for agent-authored semantics merged via scv merge-semantics instead of LLM Pass A/C"
+    },
+    "docs/plans/api-flow-branching.md": {
+      "architecture_notes": [],
+      "fingerprint": "44d4c37f3f45c2883a0a6945dff18c787c51143c",
+      "modules": [
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/api-flow-branching.md",
+      "purpose": "Plan to model success/failure branches and DI/middleware steps in API flows"
+    },
+    "docs/plans/architecture-view-plate-sides-and-sizing.md": {
+      "architecture_notes": [],
+      "fingerprint": "bf0cce506ed955a240a83e987acef890b6ca2a47",
+      "modules": [
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        }
+      ],
+      "path": "docs/plans/architecture-view-plate-sides-and-sizing.md",
+      "purpose": "Plan to vary plate sides and size plates by fan-in/fan-out in the Architecture view"
+    },
+    "docs/plans/archive/incremental-artifact-analyze.md": {
+      "architecture_notes": [],
+      "fingerprint": "477ca465e105173ec36aaad2f7e297bcf04dd799",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/archive/incremental-artifact-analyze.md",
+      "purpose": "Archived plan for incremental, artifact-based scv analyze with a dependency/staleness model"
+    },
+    "docs/plans/batch-entity-summarization.md": {
+      "architecture_notes": [],
+      "fingerprint": "f2bd3aeece4ba9d6123a5a8fdad9aaf22990a83e",
+      "modules": [],
+      "path": "docs/plans/batch-entity-summarization.md",
+      "purpose": "Plan to batch entity summarization instead of one LLM call per cache-miss entity"
+    },
+    "docs/plans/boundary-markers-to-connected-siblings-tray.md": {
+      "architecture_notes": [],
+      "fingerprint": "669b3d0b9636f5ceb422e7e4ec12cb6bf04bb1fb",
+      "modules": [
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        },
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/boundary-markers-to-connected-siblings-tray.md",
+      "purpose": "Plan to replace boundary markers with a connected-siblings tray when drilling into a layer"
+    },
+    "docs/plans/cityscape-navigation-and-scale.md": {
+      "architecture_notes": [],
+      "fingerprint": "f7e89b18354905ba89e3f52a51be9e7d5b8950c3",
+      "modules": [
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/cityscape-navigation-and-scale.md",
+      "purpose": "Plan to fix cityscape 3D skin navigation, occlusion, zoom-to-drill and scale gaps"
+    },
+    "docs/plans/cli-serve-ui.md": {
+      "architecture_notes": [],
+      "fingerprint": "272146d3a4ef0dd4ec24cc72f644dcd3568129e4",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "Fastify API serving snapshots and layouts",
+          "name": "server",
+          "paths": [
+            "packages/server/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/cli-serve-ui.md",
+      "purpose": "Plan to wire serve and ui commands into the CLI"
+    },
+    "docs/plans/clusters-artifact-split.md": {
+      "architecture_notes": [],
+      "fingerprint": "cabf0ee53e82c8efd5ddea37b145eceff3b33714",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/clusters-artifact-split.md",
+      "purpose": "Plan to split layers into a free clusters artifact and a narration-only layers artifact"
+    },
+    "docs/plans/codedream-ui-migration.md": {
+      "architecture_notes": [],
+      "fingerprint": "0cb6d1d3197660b667c19681309e74df2c7a36c1",
+      "modules": [
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        },
+        {
+          "description": "CodeDream design tokens and shared components",
+          "name": "design-system",
+          "paths": [
+            "packages/design-system/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/codedream-ui-migration.md",
+      "purpose": "Plan to migrate packages/ui to the CodeDream design system"
+    },
+    "docs/plans/deterministic-partition-4c.md": {
+      "architecture_notes": [],
+      "fingerprint": "f80d8436dbd7bad240c230abfbacdd8f810198a8",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/deterministic-partition-4c.md",
+      "purpose": "Phase 4c plan: deterministic partition algorithm for clustering, naming and stickiness"
+    },
+    "docs/plans/flowchart-block-labels-readability.md": {
+      "architecture_notes": [],
+      "fingerprint": "3b24565f70e4ddb52269309d7aa99f2c8440db9b",
+      "modules": [
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/flowchart-block-labels-readability.md",
+      "purpose": "Plan for semantic block labels, edge labels and sequential collapsing in flowcharts"
+    },
+    "docs/plans/flows-pass-c.md": {
+      "architecture_notes": [],
+      "fingerprint": "8854f3871c32962cc5903d1b3df555c80ead6c53",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/flows-pass-c.md",
+      "purpose": "Plan for Pass C to generate api_flow units for the Flows view"
+    },
+    "docs/plans/function-flowchart-extraction.md": {
+      "architecture_notes": [],
+      "fingerprint": "572bd3cc9047befe85dcb59a054c5e2e7a8aa42c",
+      "modules": [
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        },
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/function-flowchart-extraction.md",
+      "purpose": "Plan for function-internal flowchart extraction for TypeScript and Python, from extractor to UI"
+    },
+    "docs/plans/hierarchy-correctness-and-clustering-redesign.md": {
+      "architecture_notes": [],
+      "fingerprint": "63e0c449c19b6caf8885ee290df4da6e0df47085",
+      "modules": [
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/hierarchy-correctness-and-clustering-redesign.md",
+      "purpose": "Approved plan v7: hierarchy correctness, group contracts, then clustering redesign"
+    },
+    "docs/plans/layer-grouping-and-region-boxes.md": {
+      "architecture_notes": [],
+      "fingerprint": "d4b7b558c6c9b0a857692202fe96538235ef874b",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        },
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        },
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/layer-grouping-and-region-boxes.md",
+      "purpose": "Plan to group layers into architectural groups and render region boxes around them"
+    },
+    "docs/plans/layout-direction-foundations-at-top.md": {
+      "architecture_notes": [],
+      "fingerprint": "c696d96df26eb7812bff90c9ccc1e337c4d426f5",
+      "modules": [
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/layout-direction-foundations-at-top.md",
+      "purpose": "Plan to place foundational modules at the top of the dependency layout"
+    },
+    "docs/plans/legend-fidelity-and-plate-sides.md": {
+      "architecture_notes": [],
+      "fingerprint": "3113be01da35cf6cad56dcf2702dc880bd9b477d",
+      "modules": [],
+      "path": "docs/plans/legend-fidelity-and-plate-sides.md",
+      "purpose": "Plan to fix grammar-key legend fidelity and plate side-count encoding"
+    },
+    "docs/plans/llm-call-timing-and-progress.md": {
+      "architecture_notes": [],
+      "fingerprint": "d9ec9c1c63063e3efa41f4261442a2022e81b3c4",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/llm-call-timing-and-progress.md",
+      "purpose": "Plan for LLM call timing, per-phase progress and an analysis-run summary"
+    },
+    "docs/plans/no-llm-merge-and-provenance.md": {
+      "architecture_notes": [],
+      "fingerprint": "2c177e3209524707084db2613a64148055aa2093",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/no-llm-merge-and-provenance.md",
+      "purpose": "Plan for --no-llm as pure merge-from-cache plus per-unit provider/model provenance"
+    },
+    "docs/plans/original-architecture-pipeline.md": {
+      "architecture_notes": [],
+      "fingerprint": "f7372a8f3cb51e2761d6b26661d9019ed4b91e94",
+      "modules": [],
+      "path": "docs/plans/original-architecture-pipeline.md",
+      "purpose": "Original multi-agent architecture plan for the codebase visualizer (project_viz)"
+    },
+    "docs/plans/pass-a-graph-context-and-cheaper-passes.md": {
+      "architecture_notes": [],
+      "fingerprint": "f52397c35c6bd20e40941ea093b837afcdf83c95",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/pass-a-graph-context-and-cheaper-passes.md",
+      "purpose": "Plan to pass graph context into Pass A and make passes fewer and cheaper"
+    },
+    "docs/plans/plate-shape-call-edges-hop-columns.md": {
+      "architecture_notes": [],
+      "fingerprint": "24bdcbeb9f3984f6bc9cb7d0bfeba9a4297b22e8",
+      "modules": [],
+      "path": "docs/plans/plate-shape-call-edges-hop-columns.md",
+      "purpose": "Sequenced plan: plate shape fix, call-resolution gap and compact hop-column layout"
+    },
+    "docs/plans/publishable-committed-semantics.md": {
+      "architecture_notes": [],
+      "fingerprint": "529c7bbe53456bd7f3af3ba467cd53b84c296e49",
+      "modules": [
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "scv-viewer serve/ui entry points",
+          "name": "viewer",
+          "paths": [
+            "packages/viewer/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/publishable-committed-semantics.md",
+      "purpose": "Plan for publishable scv with semantic metadata committed in the repo and written by agents before merge"
+    },
+    "docs/plans/remediation-security-clustering-canvas-docs.md": {
+      "architecture_notes": [],
+      "fingerprint": "32582cef898b4eefa6fc0917f48ac2e5fe16b462",
+      "modules": [
+        {
+          "description": "Fastify API serving snapshots and layouts",
+          "name": "server",
+          "paths": [
+            "packages/server/src"
+          ]
+        },
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/remediation-security-clustering-canvas-docs.md",
+      "purpose": "Remediation plan for security, clustering stability, canvas usability and doc truth"
+    },
+    "docs/plans/repo-docs-and-directory-context-for-pass-b-c.md": {
+      "architecture_notes": [],
+      "fingerprint": "2662718de474a8e559676f12b02cb92e44f47d08",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/repo-docs-and-directory-context-for-pass-b-c.md",
+      "purpose": "Plan to feed repo docs and directory structure into Pass B/C prompts"
+    },
+    "docs/plans/resumable-pass-a-and-analyze-scope.md": {
+      "architecture_notes": [],
+      "fingerprint": "33b6e332e72489fdc1bf7d82825fb5623658391a",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/resumable-pass-a-and-analyze-scope.md",
+      "purpose": "Plan for resumable Pass A via per-unit flush, plus --scope on scv analyze"
+    },
+    "docs/plans/review-reconciliation-security-and-correctness.md": {
+      "architecture_notes": [],
+      "fingerprint": "c38cee439ead5d2e12bf5a11505082def80b42ff",
+      "modules": [],
+      "path": "docs/plans/review-reconciliation-security-and-correctness.md",
+      "purpose": "Plan reconciling two reviews into security, correctness and delivery fixes"
+    },
+    "docs/plans/test-folder-flat-module-no-analysis.md": {
+      "architecture_notes": [],
+      "fingerprint": "2f8658e7f653beee0074354070a2ca9f5a855bea",
+      "modules": [
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/test-folder-flat-module-no-analysis.md",
+      "purpose": "Plan to treat test folders as flat modules and skip flowchart/hierarchy analysis for tests"
+    },
+    "docs/plans/untrack-build-artifacts.md": {
+      "architecture_notes": [],
+      "fingerprint": "c0cb86054f479ce9b737963519ffd4604def1fd4",
+      "modules": [
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/untrack-build-artifacts.md",
+      "purpose": "Plan to untrack build artifacts committed despite .gitignore"
+    },
+    "docs/plans/wave-5-checkpoint-2-wayfinding.md": {
+      "architecture_notes": [],
+      "fingerprint": "7f791b5ed70b53201aca85aa13c8b2f310003026",
+      "modules": [
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        }
+      ],
+      "path": "docs/plans/wave-5-checkpoint-2-wayfinding.md",
+      "purpose": "Checkpoint report on street-level wayfinding in the 3D skin on fixtures/orderly"
+    },
+    "docs/plans/wave-5-skin-contract.md": {
+      "architecture_notes": [],
+      "fingerprint": "d0c21522d2564601e0144733e1c3f5dcefc227a0",
+      "modules": [
+        {
+          "description": "Skin contract and camera/navigation model shared by 2D and 3D skins",
+          "name": "skin-contract",
+          "paths": [
+            "packages/skin-contract/src"
+          ]
+        },
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/plans/wave-5-skin-contract.md",
+      "purpose": "Wave 5 plan: a real skin contract, 3D host and cityscape skin"
+    },
+    "docs/review/codex-review.md": {
+      "architecture_notes": [],
+      "fingerprint": "f1904b1561da51852472cd0f454f990b4de0fb44",
+      "modules": [
+        {
+          "description": "Fastify API serving snapshots and layouts",
+          "name": "server",
+          "paths": [
+            "packages/server/src"
+          ]
+        },
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        }
+      ],
+      "path": "docs/review/codex-review.md",
+      "purpose": "Codex whole-repo review at dc4fe57 (BLOCKED): path traversal, symlink escape, dependency CVEs, risk floor bypass, missing runtime validation"
+    },
+    "docs/review/comments-comprehensive-review-2026-08-21.md": {
+      "architecture_notes": [],
+      "fingerprint": "5cc725d87f562e374c5067615074f8c1df685f2e",
+      "modules": [],
+      "path": "docs/review/comments-comprehensive-review-2026-08-21.md",
+      "purpose": "Verified response to the 2026-08-21 comprehensive review, with agreements, disagreements and recommended order"
+    },
+    "docs/review/comprehensive-review-2026-08-19.md": {
+      "architecture_notes": [],
+      "fingerprint": "9b13b7d39a7bd14f9f830e7928a33b5b541c856b",
+      "modules": [
+        {
+          "description": "Fastify API serving snapshots and layouts",
+          "name": "server",
+          "paths": [
+            "packages/server/src"
+          ]
+        }
+      ],
+      "path": "docs/review/comprehensive-review-2026-08-19.md",
+      "purpose": "Comprehensive review at 326b442 covering design, code quality, security and usability"
+    },
+    "docs/review/comprehensive-review-2026-08-21.md": {
+      "architecture_notes": [],
+      "fingerprint": "fb932e39b7ef3ebd96ea0ca121d9b5829a4bb4d5",
+      "modules": [
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/review/comprehensive-review-2026-08-21.md",
+      "purpose": "Overall review (NEEDS CHANGES): hierarchy instability, group semantics, parent/child consistency and visualization findings"
+    },
+    "docs/review/project-review.md": {
+      "architecture_notes": [],
+      "fingerprint": "f4fc6f0303edcb4ac5dee6527dc3e9a5b4ee7da5",
+      "modules": [],
+      "path": "docs/review/project-review.md",
+      "purpose": "Project-level review at dc4fe57 of design, architecture, modules, flows, cost, usability and testing"
+    },
+    "docs/serve.md": {
+      "architecture_notes": [
+        "Position, size and shape all carry meaning",
+        "Layout produces one Scene structure; every skin consumes it and none computes its own"
+      ],
+      "fingerprint": "250a4f05a0d3a3da82266a9bbf75512f1cb0dab0",
+      "modules": [
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        },
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        }
+      ],
+      "path": "docs/serve.md",
+      "purpose": "Specifies what the visualizer shows: the scene abstraction, encodings, layout engine, edge routing and the views"
+    },
+    "docs/spec/mission.md": {
+      "architecture_notes": [
+        "Runtime tracing, live profiling and a hosted multi-tenant service are out of scope for v1"
+      ],
+      "fingerprint": "d0ca69a5ecabf8c141df3251fcd1706a3369ee5e",
+      "modules": [],
+      "path": "docs/spec/mission.md",
+      "purpose": "States what scv is for, the two questions it answers, design philosophy and v1 non-goals"
+    },
+    "docs/spec/roadmap.md": {
+      "architecture_notes": [],
+      "fingerprint": "bbc14f80790733b0e0c3e6f092b2b21fdb050b23",
+      "modules": [],
+      "path": "docs/spec/roadmap.md",
+      "purpose": "Project status: done core pipeline and committed semantics, in-progress work, closed backlog, open issues and future work"
+    },
+    "docs/spec/tech-stack.md": {
+      "architecture_notes": [
+        "Pipeline: repo → Extractor → SymbolGraph → Interpreter → UnitGraph → Differ → DeltaGraph"
+      ],
+      "fingerprint": "aaecbbf48bd04b1164e2494c42ccde3a500159e8",
+      "modules": [
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        },
+        {
+          "description": "tree-sitter static analysis producing the SymbolGraph",
+          "name": "extractor",
+          "paths": [
+            "packages/extractor/src"
+          ]
+        },
+        {
+          "description": "LLM passes A/Docs/B/C/D, provider interface, cache and ranking",
+          "name": "interpreter",
+          "paths": [
+            "packages/interpreter/src"
+          ]
+        },
+        {
+          "description": "Matches two snapshots, classifies changes, blast radius and risk rollup",
+          "name": "differ",
+          "paths": [
+            "packages/differ/src"
+          ]
+        },
+        {
+          "description": "Pure layered layout engine: rank, order, place, route",
+          "name": "layout",
+          "paths": [
+            "packages/layout/src"
+          ]
+        },
+        {
+          "description": "Skin contract and camera/navigation model shared by 2D and 3D skins",
+          "name": "skin-contract",
+          "paths": [
+            "packages/skin-contract/src"
+          ]
+        },
+        {
+          "description": "Rendering skins: tiles (SVG), tiles3d and cityscape (three.js)",
+          "name": "skins",
+          "paths": [
+            "packages/skins"
+          ]
+        },
+        {
+          "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
+          "name": "cli",
+          "paths": [
+            "packages/cli/src"
+          ]
+        },
+        {
+          "description": "scv-viewer serve/ui entry points",
+          "name": "viewer",
+          "paths": [
+            "packages/viewer/src"
+          ]
+        },
+        {
+          "description": "Fastify API serving snapshots and layouts",
+          "name": "server",
+          "paths": [
+            "packages/server/src"
+          ]
+        },
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        },
+        {
+          "description": "CodeDream design tokens and shared components",
+          "name": "design-system",
+          "paths": [
+            "packages/design-system/src"
+          ]
+        }
+      ],
+      "path": "docs/spec/tech-stack.md",
+      "purpose": "Stack, core libraries, pipeline architecture, provider layer, package layout, storage and commands"
+    },
+    "docs/ui-schema-inventory.md": {
+      "architecture_notes": [
+        "The UI is a React 18 + TypeScript + Vite SPA using Zustand for state"
+      ],
+      "fingerprint": "a8b047574a341e96a77b4d9eae01128642177107",
+      "modules": [
+        {
+          "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
+          "name": "ui",
+          "paths": [
+            "packages/ui/src"
+          ]
+        },
+        {
+          "description": "Zod schemas for the scv/1 snapshot and scv-delta/1 contracts",
+          "name": "schema",
+          "paths": [
+            "packages/schema/src"
+          ]
+        }
+      ],
+      "path": "docs/ui-schema-inventory.md",
+      "purpose": "Read-only inventory of packages/ui cross-referenced against packages/schema, listing gaps in both directions"
+    }
+  },
+  "storeVersion": 1
+}

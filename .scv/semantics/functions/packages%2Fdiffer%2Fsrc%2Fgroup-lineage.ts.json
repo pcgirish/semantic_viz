@@ -1,0 +1,54 @@
+{
+  "file": "packages/differ/src/group-lineage.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.differ.src.group-lineage.matchGroupLineage": {
+      "fingerprint": "ab1dc26191443a6c44577b8cfc31dfa0a4be88b6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares membership of each clustered kind on both sides and keeps relationships above the overlap threshold",
+        "what": "Finds splits and merges among clustered units across snapshots",
+        "when": "Called by runDiffer",
+        "where": "Differ: split and merge lineage for clustered groups",
+        "why": "Explains group changes that added, removed and modified cannot describe"
+      }
+    },
+    "u:packages.differ.src.group-lineage.matchWithinKind": {
+      "fingerprint": "c236ad23691e6712d6cd1965ed6e13420e430a42",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Scores member-set overlap between every pair, then labels many-to-one as merge and one-to-many as split while skipping unchanged and one-to-one drift",
+        "what": "Matches before and after groups of one kind by member overlap",
+        "when": "Called by matchGroupLineage per clustered kind",
+        "where": "Differ: split and merge lineage for clustered groups",
+        "why": "Keeps lineage limited to genuine splits and merges"
+      }
+    },
+    "u:packages.differ.src.group-lineage.membership": {
+      "fingerprint": "7443e105951449990e555ee1e60352453247f5ff",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Filters units by kind and collects each one's member ids into a set",
+        "what": "Builds a map from group id to member file set for one kind",
+        "when": "Called by matchGroupLineage",
+        "where": "Differ: split and merge lineage for clustered groups",
+        "why": "Provides the sets overlap is computed on"
+      }
+    },
+    "u:packages.differ.src.group-lineage.sameMembers": {
+      "fingerprint": "f81282843523b623cb4696f858d07d4a72a59cec",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares sizes and checks every member of one is in the other",
+        "what": "Tells whether two member sets are equal",
+        "when": "Used to skip groups with unchanged membership",
+        "where": "Differ: split and merge lineage for clustered groups",
+        "why": "Avoids reporting lineage for stable groups"
+      }
+    }
+  }
+}

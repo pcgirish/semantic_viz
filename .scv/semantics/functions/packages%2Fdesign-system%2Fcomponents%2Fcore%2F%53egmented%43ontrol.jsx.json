@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/core/SegmentedControl.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.core.SegmentedControl.SegmentedControl": {
+      "fingerprint": "239ba6c4dd15cf69172a819597913085cdd3cf4f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders option buttons and highlights the selected value",
+        "what": "Mode switcher",
+        "when": "For view modes like 2D and 3D",
+        "where": "Design system: core controls",
+        "why": "Switch between exclusive modes"
+      }
+    }
+  }
+}

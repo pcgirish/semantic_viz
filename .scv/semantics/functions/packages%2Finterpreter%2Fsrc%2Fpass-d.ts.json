@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/pass-d.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.pass-d.runPassD": {
+      "fingerprint": "1177826f134ad9b8a651a9e1cb80b25430e59447",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Prompts with the before and after context, validates five risk axes and sets the score to their maximum",
+        "what": "Narrates risk for one unit whose semantics changed",
+        "when": "Called by runDifferWithRisk",
+        "where": "Interpreter: Pass D risk narration",
+        "why": "Turns a semantic change into an explained risk"
+      }
+    }
+  }
+}

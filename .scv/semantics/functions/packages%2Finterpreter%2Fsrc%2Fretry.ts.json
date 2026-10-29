@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/retry.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.retry.interpretJsonWithRetry": {
+      "fingerprint": "1b68fca80cde3b3d645b96410e7276e2f2bf3e9f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Repeats the full call, parse and schema validation up to the attempt limit, throwing the last error",
+        "what": "Calls the provider and validates its JSON with retries",
+        "when": "Used by every structured pass",
+        "where": "Interpreter: JSON call retry",
+        "why": "Model output errors are random per call, so a fresh call beats more parsing"
+      }
+    }
+  }
+}

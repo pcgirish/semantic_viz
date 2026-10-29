@@ -1,0 +1,54 @@
+{
+  "file": "packages/ui/src/edge-budget.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.edge-budget.applyEdgeBudget": {
+      "fingerprint": "7f140872f036ef8de2a3b9c5a32bd0b40ddfecc1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Ranks by group boundary crossing, weight, count and id, keeping the limit and reporting the rest",
+        "what": "Keeps the most informative connectors",
+        "when": "Called before drawing connectors",
+        "where": "UI: edge rollup and budget",
+        "why": "Large levels stay readable"
+      }
+    },
+    "u:packages.ui.src.edge-budget.crossesBoundary": {
+      "fingerprint": "e96f4323aab2e57be4c97af5999e3dafe729e18d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares the group of both endpoints",
+        "what": "Tells whether an edge crosses groups",
+        "when": "Called by applyEdgeBudget",
+        "where": "UI: edge rollup and budget",
+        "why": "Cross-group coupling ranks first"
+      }
+    },
+    "u:packages.ui.src.edge-budget.groupResolver": {
+      "fingerprint": "37d7f193223721dfe1e73bd7fd28ab262b631d00",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks parents to the nearest group unit, caching results",
+        "what": "Returns a memoised nearest-group lookup",
+        "when": "Called by applyEdgeBudget",
+        "where": "UI: edge rollup and budget",
+        "why": "Avoids repeated walks"
+      }
+    },
+    "u:packages.ui.src.edge-budget.rollUpEdges": {
+      "fingerprint": "a8a7a109194d6d194d61fe62f6804acf05625455",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps endpoints to visible ancestors, drops internal edges and sums weights and counts per pair",
+        "what": "Rolls edges up to visible tiles and merges duplicates",
+        "when": "Called before drawing connectors",
+        "where": "UI: edge rollup and budget",
+        "why": "A connector must aggregate all its contributors"
+      }
+    }
+  }
+}

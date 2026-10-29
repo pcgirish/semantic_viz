@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/core/Select.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.core.Select.Select": {
+      "fingerprint": "8b27e8015cdaff3d05b11331bd5f2ffdb7b79414",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Wraps a select element with label and hairline styling",
+        "what": "Compact native select",
+        "when": "For picking one option",
+        "where": "Design system: core controls",
+        "why": "Consistent dropdown"
+      }
+    }
+  }
+}

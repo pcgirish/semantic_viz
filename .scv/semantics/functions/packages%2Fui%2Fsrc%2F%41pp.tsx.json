@@ -1,0 +1,102 @@
+{
+  "file": "packages/ui/src/App.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.App.App": {
+      "fingerprint": "c3ab53020a824edae04cfc9aab0948767d72fd99",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Loads snapshots and revs, holds focus, view, skin and delta state, and composes the canvas, rails, inspector, legend and replay",
+        "what": "Root viewer component",
+        "when": "Mounted by boot",
+        "where": "UI: application shell",
+        "why": "Single owner of viewer state"
+      }
+    },
+    "u:packages.ui.src.App.buildUnitToAncestor": {
+      "fingerprint": "390bf1b02c7f8346d736a07171dfae8719c41625",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks children from each visible unit, recording ownership for every descendant",
+        "what": "Maps every unit to its nearest visible ancestor",
+        "when": "Called when rolling up edges",
+        "where": "UI: application shell",
+        "why": "Edges between leaf units must land on visible tiles"
+      }
+    },
+    "u:packages.ui.src.App.collectBoundaryEdges": {
+      "fingerprint": "ec822fb64468d323f84e9b6e8ad22bfb6324fb78",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Keeps edges with exactly one endpoint inside and resolves the outside end to the focused unit's containing sibling",
+        "what": "Finds edges crossing the focused subtree's boundary",
+        "when": "Called for the connected-siblings tray",
+        "where": "UI: application shell",
+        "why": "Cross-boundary coupling would otherwise vanish"
+      }
+    },
+    "u:packages.ui.src.App.descendantIds": {
+      "fingerprint": "9c91693d170ecdf17eb14a41f0905c7d6e2a6660",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks children from the root",
+        "what": "Returns a unit and all its descendants",
+        "when": "Called by collectBoundaryEdges",
+        "where": "UI: application shell",
+        "why": "Same ownership rule as edge rollup"
+      }
+    },
+    "u:packages.ui.src.App.mergeDirection": {
+      "fingerprint": "d375ec85e076e0230aa9a16ba390e977eb18dbbf",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns both when in and out differ, else the direction",
+        "what": "Combines edge directions",
+        "when": "Called by summariseSiblings",
+        "where": "UI: application shell",
+        "why": "Accumulates direction per sibling"
+      }
+    },
+    "u:packages.ui.src.App.repoLabel": {
+      "fingerprint": "ae5f257b8f6e7f769ee61aa600b034198c12f7a8",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Takes the last path segment, falling back to the raw root",
+        "what": "Shows a repo root path as its leaf name",
+        "when": "Called for the toolbar",
+        "where": "UI: application shell",
+        "why": "The toolbar labels the project, not its location"
+      }
+    },
+    "u:packages.ui.src.App.shaFromSnapshotUrl": {
+      "fingerprint": "b4e6c574ac4b72838862a3e1d649e98e6dd2d674",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Takes the last path segment",
+        "what": "Extracts the sha from a snapshot URL",
+        "when": "Called by App",
+        "where": "UI: application shell",
+        "why": "Knows which rev is open"
+      }
+    },
+    "u:packages.ui.src.App.summariseSiblings": {
+      "fingerprint": "46853a8135306d16358ffa7582f06223f2b8bb3c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Counts edges and merges direction per sibling, including siblings with none",
+        "what": "Aggregates crossing edges into one row per sibling",
+        "when": "Called for the connected-siblings tray",
+        "where": "UI: application shell",
+        "why": "Not coupled differs from not shown"
+      }
+    }
+  }
+}

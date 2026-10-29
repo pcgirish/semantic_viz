@@ -1,0 +1,30 @@
+{
+  "file": "packages/cli/src/export.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.export.published": {
+      "fingerprint": "aa73c84649cb19f1f24fda578b96b9d71a63298f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the fresh authored entry with its merge-time stamp, else the committed entry as is",
+        "what": "Picks the entry export publishes for one item",
+        "when": "For every item during export",
+        "where": "scv export: publishes authored entries to the committed store",
+        "why": "Never mints a stamp, so staleness stays truthful"
+      }
+    },
+    "u:packages.cli.src.export.runExport": {
+      "fingerprint": "fff02f15f1907f29434983db6e7be4869cd55e61",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Evaluates current inputs, picks published entries per function, doc, layers, groups and flows, prunes vanished items and writes the store atomically",
+        "what": "Merges entries authored at HEAD into the committed store",
+        "when": "On scv export before committing",
+        "where": "scv export: publishes authored entries to the committed store",
+        "why": "Produces the .scv/semantics/ store checked into the repo"
+      }
+    }
+  }
+}

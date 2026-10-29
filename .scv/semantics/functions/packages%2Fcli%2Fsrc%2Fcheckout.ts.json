@@ -1,0 +1,30 @@
+{
+  "file": "packages/cli/src/checkout.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.checkout.git": {
+      "fingerprint": "6183975cd83508f662665c233f655aa2a1577692",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "execFileSync without a shell, trimming output",
+        "what": "Runs git with an argument array and returns stdout",
+        "when": "Whenever the CLI needs git",
+        "where": "Git checkout helpers for historical revisions",
+        "why": "Safe git invocation"
+      }
+    },
+    "u:packages.cli.src.checkout.withCheckout": {
+      "fingerprint": "c17b79199f6e61c8f4ad6412c7d1626e01ff46a4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Uses the repo itself for a clean HEAD, else adds a detached worktree and removes it afterwards",
+        "what": "Runs a callback against a checkout of a sha",
+        "when": "When analyzing or checking another revision",
+        "where": "Git checkout helpers for historical revisions",
+        "why": "Isolates historical work from the user's tree"
+      }
+    }
+  }
+}

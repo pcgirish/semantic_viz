@@ -1,0 +1,30 @@
+{
+  "file": "packages/layout/src/rank.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.rank.rank": {
+      "fingerprint": "21db3bca45a432540be1ed76d1f27b445427122d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Computes a DFS post-order ignoring back edges, then relaxes ranks forward",
+        "what": "Assigns each unit a rank by longest incoming path",
+        "when": "Called by buildScene",
+        "where": "Layout: longest-path ranking",
+        "why": "Places dependencies in consistent tiers even with cycles"
+      }
+    },
+    "u:packages.layout.src.rank.rank.dfs": {
+      "fingerprint": "f2306fec23e4bed109999cb727442fa362e60555",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Marks it on the stack, visits successors not on the stack and records it in post-order",
+        "what": "Visits one id in the ranking walk",
+        "when": "Called by rank",
+        "where": "Layout: longest-path ranking",
+        "why": "Detects back edges to keep the walk finite"
+      }
+    }
+  }
+}

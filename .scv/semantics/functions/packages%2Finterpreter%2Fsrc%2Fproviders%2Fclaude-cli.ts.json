@@ -1,0 +1,42 @@
+{
+  "file": "packages/interpreter/src/providers/claude-cli.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.providers.claude-cli.ClaudeCliProvider": {
+      "fingerprint": "9e106752a8c2c9ee42d82dec1ba0c981a1c88d49",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs the CLI with the prompt and parses its output, using plan OAuth rather than an API key",
+        "what": "Provider that shells out to the claude CLI",
+        "when": "Used for dev and eval runs",
+        "where": "Interpreter providers: claude CLI",
+        "why": "Draws on plan quota instead of metered billing"
+      }
+    },
+    "u:packages.interpreter.src.providers.claude-cli.ClaudeCliProvider.constructor": {
+      "fingerprint": "bb7f85864504c5520b827573dc61e89d8a25ae38",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores model and options with defaults",
+        "what": "Initialises the CLI provider",
+        "when": "Called by createProvider",
+        "where": "Interpreter providers: claude CLI",
+        "why": "Prepares the subprocess settings"
+      }
+    },
+    "u:packages.interpreter.src.providers.claude-cli.ClaudeCliProvider.interpret": {
+      "fingerprint": "43b484c6691356a7de324f2bd83dfdb0c51d2b14",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Spawns the CLI with the prompt on stdin, collects stdout, handles errors and updates usage",
+        "what": "Runs one prompt through the claude CLI",
+        "when": "Called by passes through the cached provider",
+        "where": "Interpreter providers: claude CLI",
+        "why": "Implements the Provider contract"
+      }
+    }
+  }
+}

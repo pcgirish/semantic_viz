@@ -1,0 +1,42 @@
+{
+  "file": "packages/cli/src/discover-docs.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.discover-docs.collectDocFiles": {
+      "fingerprint": "3b6f20cf8e5f7052a91ae6bc781bfcde83641614",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks entries, recursing into directories and keeping doc files with relative paths",
+        "what": "Recursively collects doc files under a directory",
+        "when": "For top-level docs directories",
+        "where": "Discovery of README and docs files for Pass Docs",
+        "why": "Gathers nested docs"
+      }
+    },
+    "u:packages.cli.src.discover-docs.discoverDocs": {
+      "fingerprint": "f77713e3f3c047a923a3a59693a9f95ffdf2fb49",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Combines root-level doc files and files under a top-level docs dir, skipping git-ignored ones, sorted",
+        "what": "Finds the repo's docs worth narrating",
+        "when": "Before Pass Docs and fingerprinting",
+        "where": "Discovery of README and docs files for Pass Docs",
+        "why": "Generic doc discovery that matches a fresh clone"
+      }
+    },
+    "u:packages.cli.src.discover-docs.isDocFile": {
+      "fingerprint": "c2a3e9fe7fed20552face35506a5be46fe427596",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks the lowercase extension",
+        "what": "Tells whether a filename is a markdown or rst doc",
+        "when": "While walking doc directories",
+        "where": "Discovery of README and docs files for Pass Docs",
+        "why": "Restricts docs to prose formats"
+      }
+    }
+  }
+}

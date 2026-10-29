@@ -1,0 +1,30 @@
+{
+  "file": "packages/layout/src/order.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.order.order": {
+      "fingerprint": "b20d886c9392f406b2ae8756d1fe469e107a2d96",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Buckets ids by rank and runs alternating barycentre sweeps down and up for a few passes, breaking ties by input order",
+        "what": "Groups ids into rank rows and reduces crossings",
+        "when": "Called by buildScene",
+        "where": "Layout: crossing reduction",
+        "why": "Fewer crossings with a deterministic tiebreak"
+      }
+    },
+    "u:packages.layout.src.order.order.sweep": {
+      "fingerprint": "97647a20721e8cb76909dedc1d43b85f9a7ecbbc",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "For each row sorts ids by the mean index of their neighbours in the adjacent row",
+        "what": "Reorders rows by neighbour barycentres in one direction",
+        "when": "Called by order",
+        "where": "Layout: crossing reduction",
+        "why": "One pass of barycentre crossing reduction"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/cli/src/docs-narration.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.docs-narration.classifyDocsNarration": {
+      "fingerprint": "6639e336078086fae9e56b60e834bedb39c0f941",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares discovered docs with narrated extracts to report none, partial or complete",
+        "what": "Classifies the docs artifact's narration state",
+        "when": "When analyze summarises its run",
+        "where": "Classifies how docs were narrated for analyze reporting",
+        "why": "Tells the user whether docs still need authoring"
+      }
+    }
+  }
+}

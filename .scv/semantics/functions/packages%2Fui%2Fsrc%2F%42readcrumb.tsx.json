@@ -1,0 +1,42 @@
+{
+  "file": "packages/ui/src/Breadcrumb.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.Breadcrumb.Breadcrumb": {
+      "fingerprint": "768875a815c2d110d2af86b7af281e400b0f4fa3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists clickable segments to each ancestor with a back control",
+        "what": "Renders the drill path and a back button",
+        "when": "Shown in the toolbar",
+        "where": "UI: breadcrumb",
+        "why": "Users always know where they are"
+      }
+    },
+    "u:packages.ui.src.Breadcrumb.focusPathSegments": {
+      "fingerprint": "084155ddf6953e013f56d7b8cd3ce2386a6fea2f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps the focus stack and focus to labelled segments",
+        "what": "Resolves the drill path to segment labels",
+        "when": "Called by Breadcrumb and the flowchart breadcrumb",
+        "where": "UI: breadcrumb",
+        "why": "Shared so both extend the real drill path"
+      }
+    },
+    "u:packages.ui.src.Breadcrumb.segmentFor": {
+      "fingerprint": "ca9e8d3dffae36c0dd138f1fc203b98d42cfe818",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Uses the path leaf for modules with the full path as hover text",
+        "what": "Builds the label for one breadcrumb segment",
+        "when": "Called by focusPathSegments",
+        "where": "UI: breadcrumb",
+        "why": "Full paths would crowd the toolbar"
+      }
+    }
+  }
+}

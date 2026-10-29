@@ -1,0 +1,54 @@
+{
+  "file": "packages/ui/src/autonav.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.autonav.computeAutoNavIntent": {
+      "fingerprint": "1aa42e8c11d04d17a2efd50de7cc086e5110f054",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares distance to thresholds with hysteresis and facing state, returning null by default",
+        "what": "Decides whether camera distance implies drilling in or out",
+        "when": "Called every frame by the 3D host",
+        "where": "UI: 3D auto navigation",
+        "why": "Zooming becomes navigation without extra gestures"
+      }
+    },
+    "u:packages.ui.src.autonav.distanceToLevel": {
+      "fingerprint": "c1181a7f30d1fe566bde24655b7b3681260f187f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Computes the bounding box centre and returns the distance",
+        "what": "Measures camera distance to the level's centre",
+        "when": "Called by the 3D host",
+        "where": "UI: 3D auto navigation",
+        "why": "Drives drill-out decisions"
+      }
+    },
+    "u:packages.ui.src.autonav.distanceToSelection": {
+      "fingerprint": "9baa24731c70c21aa8b4b509145f084b447da891",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Finds the selection's centre and returns distance, or infinity",
+        "what": "Measures camera distance to the selected building",
+        "when": "Called by the 3D host",
+        "where": "UI: 3D auto navigation",
+        "why": "Drilling only goes where the user pointed"
+      }
+    },
+    "u:packages.ui.src.autonav.facingLevel": {
+      "fingerprint": "f85f71b766a7fe31196c891cf7a970532112f4d0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares the level's centre direction with the camera's forward vector",
+        "what": "Tells whether the level lies in front of the camera",
+        "when": "Called by the 3D host",
+        "where": "UI: 3D auto navigation",
+        "why": "Separates backing off from flying through"
+      }
+    }
+  }
+}

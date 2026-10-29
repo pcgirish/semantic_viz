@@ -1,0 +1,234 @@
+{
+  "file": "packages/cli/src/semantics-store.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.semantics-store.assertInside": {
+      "fingerprint": "6c47edd93b0d68706c2c784c7919b3f840cbbae7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares realpaths and throws on escape",
+        "what": "Asserts a path resolves inside the store root",
+        "when": "While reading raw files",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Guards against symlink escapes"
+      }
+    },
+    "u:packages.cli.src.semantics-store.assertRepoRelativePath": {
+      "fingerprint": "1339d34388f016e74f19424725b296640afeada6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks for absolute paths, backslashes and .. segments",
+        "what": "Rejects paths that are not repo-relative POSIX paths",
+        "when": "When decoding shard names",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Store contents cannot point outside the repo"
+      }
+    },
+    "u:packages.cli.src.semantics-store.decodeShardName": {
+      "fingerprint": "a5e4f28e5977ba2d6495052e95defd9271dc194b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Percent-decodes and requires the canonical encoding of a valid path",
+        "what": "Decodes a shard file name back to a source path",
+        "when": "When reading the store",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Rejects ambiguous or forged shard names"
+      }
+    },
+    "u:packages.cli.src.semantics-store.emptyStore": {
+      "fingerprint": "883d2c55be5d693579ed689b5fddb4b3af3c926b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds empty function shards and sections",
+        "what": "Returns a store with no entries",
+        "when": "When no store exists yet",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Default value"
+      }
+    },
+    "u:packages.cli.src.semantics-store.encodeShardName": {
+      "fingerprint": "9060320819f2e035b1158768b329ffd3b983f0ad",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Passes [a-z0-9._-] through and percent-encodes every other byte",
+        "what": "Encodes a source path into one shard file name",
+        "when": "When writing function shards",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Names never contain separators or collide by case"
+      }
+    },
+    "u:packages.cli.src.semantics-store.git": {
+      "fingerprint": "d9120d48e3cbc3b6b4c7d3b3d7f82a94af3c597f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "execFileSync with argument arrays and a large buffer",
+        "what": "Runs git and returns raw stdout",
+        "when": "When reading the store from git",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Safe binary-capable git calls"
+      }
+    },
+    "u:packages.cli.src.semantics-store.isSymlink": {
+      "fingerprint": "bd469d3f08bef5a51d53e15603c27d29f00adc0b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "lstat with errors treated as false",
+        "what": "Tells whether a path is a symbolic link",
+        "when": "Before trusting store paths",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Refuses links in the store"
+      }
+    },
+    "u:packages.cli.src.semantics-store.parseStore": {
+      "fingerprint": "28e02bcd9e537dd2a2a4254cb50532d2f670bdea",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Dispatches each relative path to its schema and rejects unknown paths",
+        "what": "Parses all store files into store contents",
+        "when": "When reading from disk or git",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Strict validation of the committed store"
+      }
+    },
+    "u:packages.cli.src.semantics-store.parseStoreFile": {
+      "fingerprint": "194074e81be291df04643ef52e8707d66425168d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "JSON.parse then Zod validation, prefixing errors with the file path",
+        "what": "Parses one store file against its schema",
+        "when": "For every store file",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Store input is untrusted"
+      }
+    },
+    "u:packages.cli.src.semantics-store.readRawFromDisk": {
+      "fingerprint": "b90b43ef0dea0012cf18d6bcf2062535f76649ad",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks the store directory, rejecting entries that resolve outside it",
+        "what": "Reads raw store files from disk",
+        "when": "In readStoreFromDisk",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Safe raw reads"
+      }
+    },
+    "u:packages.cli.src.semantics-store.readStoreFromDisk": {
+      "fingerprint": "41e05aa0c30d9e7571f8da04a77a13dfaf344dba",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recovers an interrupted swap, reads raw files and parses them",
+        "what": "Reads and validates the store on disk",
+        "when": "In export, check and hydrate",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Entry point for the working-tree store"
+      }
+    },
+    "u:packages.cli.src.semantics-store.readStoreFromGit": {
+      "fingerprint": "315bf50a1186cdbf0db02839c00ab070319fe457",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists the tree with ls-tree, accepts only regular-file blobs and parses them",
+        "what": "Reads the store as committed at a sha",
+        "when": "For check --base and hydrate",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Compares against what is actually committed"
+      }
+    },
+    "u:packages.cli.src.semantics-store.recoverInterruptedSwap": {
+      "fingerprint": "bf48c063cd04bd50ae81d59cf531bee1d4ca8520",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Restores the old store when only it remains, or discards it when the new one is in place",
+        "what": "Completes an interrupted store swap",
+        "when": "Before reading or writing the store",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Store is always old or new, never mixed"
+      }
+    },
+    "u:packages.cli.src.semantics-store.renderJson": {
+      "fingerprint": "20bf592c26d238071007e5a19b71eaa756c4fcbc",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Canonical JSON with a trailing newline",
+        "what": "Renders a value as canonical store JSON",
+        "when": "When writing store files",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Stable diffs"
+      }
+    },
+    "u:packages.cli.src.semantics-store.renderStore": {
+      "fingerprint": "116225797482793640e5f1ec4814bab1485726b2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Produces one file per function shard plus docs, layers, groups and flows files",
+        "what": "Renders store contents into files",
+        "when": "Before writing the store",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Defines the on-disk layout"
+      }
+    },
+    "u:packages.cli.src.semantics-store.sameFiles": {
+      "fingerprint": "36a278b2bbac110f280aa54af252213d7488a705",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares sizes and every entry",
+        "what": "Tells whether two rendered file maps are equal",
+        "when": "Before writing the store",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Skips writes that change nothing"
+      }
+    },
+    "u:packages.cli.src.semantics-store.storeDirIn": {
+      "fingerprint": "9113d2595db30a4a6b5b16076fdaf84ee7951b91",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Resolves symlinks and the nearest existing ancestor, refusing dangling links and paths outside the root",
+        "what": "Returns the store directory under a root, refusing escapes",
+        "when": "Before reading or writing the store",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Untrusted repos cannot redirect writes outside themselves"
+      }
+    },
+    "u:packages.cli.src.semantics-store.swapDirs": {
+      "fingerprint": "c80e134c668d1e7a22e72cca8248074750e38864",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Derives fixed sibling directory names",
+        "what": "Names the staging and old directories for a swap",
+        "when": "In writeStore and recovery",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "A crashed swap can always be found"
+      }
+    },
+    "u:packages.cli.src.semantics-store.writeStore": {
+      "fingerprint": "a9b84a40d937c7a1febede893689345bcdfe0d64",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds it in a staging directory and swaps it in by two renames, rolling back on failure",
+        "what": "Replaces the store atomically",
+        "when": "On export",
+        "where": "The committed .scv/semantics/ store: layout, validation and atomic writes",
+        "why": "Readers never see a half-written store"
+      }
+    }
+  }
+}

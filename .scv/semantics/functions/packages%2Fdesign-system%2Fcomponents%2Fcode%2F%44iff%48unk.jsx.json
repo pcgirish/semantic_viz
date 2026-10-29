@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/code/DiffHunk.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.code.DiffHunk.DiffHunk": {
+      "fingerprint": "7ff25c21d95b197df3739c692ff6276b50502fbe",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders a header and gutter-marked added and removed lines, collapsible",
+        "what": "Unified diff block",
+        "when": "When showing a code change",
+        "where": "Design system: code components",
+        "why": "Shows diffs in the house style"
+      }
+    }
+  }
+}

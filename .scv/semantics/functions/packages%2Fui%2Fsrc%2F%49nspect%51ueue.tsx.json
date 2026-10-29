@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/InspectQueue.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.InspectQueue.InspectQueue": {
+      "fingerprint": "798bcb2cf1c8d8326ad6b2109c6aa12b2d0863f3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders entries in the given rank order with summaries and select on click",
+        "what": "Lists changed units in review order",
+        "when": "Delta mode's primary interface",
+        "where": "UI: inspect queue",
+        "why": "Rank reflects judgement, not risk score"
+      }
+    }
+  }
+}

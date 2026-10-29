@@ -1,0 +1,42 @@
+{
+  "file": "packages/design-system/components/viz/temp.js",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.temp.tempColor": {
+      "fingerprint": "cf151c2b2b93b6a910dcebdd73def41facfd6454",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Looks up the stop with tempStop and returns its token",
+        "what": "Returns the CSS token for a temperature",
+        "when": "Used for themed colouring in CSS",
+        "where": "Design-system viz helpers: temperature palette lookup",
+        "why": "Keeps components on design tokens instead of raw colours"
+      }
+    },
+    "u:packages.design-system.components.viz.temp.tempHex": {
+      "fingerprint": "37402b7353bea2c2113528531f2793b3cc842001",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Looks up the stop with tempStop and returns its hex value",
+        "what": "Returns the hex colour for a temperature",
+        "when": "Used where a literal colour is required, such as SVG or canvas",
+        "where": "Design-system viz helpers: temperature palette lookup",
+        "why": "Provides raw colours where tokens cannot be used"
+      }
+    },
+    "u:packages.design-system.components.viz.temp.tempStop": {
+      "fingerprint": "79947069e26c2e58acfa5c53688fb7a26249b496",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Rounds the value, clamps it to the stop range and indexes TEMP_STOPS",
+        "what": "Clamps a temperature to 0..7 and returns its palette stop",
+        "when": "Called by tempColor, tempHex and components needing a stop",
+        "where": "Design-system viz helpers: temperature palette lookup",
+        "why": "Single place that maps any temperature to the palette"
+      }
+    }
+  }
+}

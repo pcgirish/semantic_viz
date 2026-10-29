@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/ConnectedSiblingsTray.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.ConnectedSiblingsTray.ConnectedSiblingsTray": {
+      "fingerprint": "d1f16010d15e0d2fab2a80639c8c24f5a8305ce2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders one row per sibling summary with click to highlight",
+        "what": "Lists each sibling of the focus with crossing edge counts and direction",
+        "when": "Shown beside the canvas",
+        "where": "UI: connected-siblings tray",
+        "why": "Rows replace boundary markers that could not say not coupled"
+      }
+    }
+  }
+}

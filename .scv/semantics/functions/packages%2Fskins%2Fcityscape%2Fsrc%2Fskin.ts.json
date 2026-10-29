@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/cityscape/src/skin.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.cityscape.src.skin.navigate": {
+      "fingerprint": "f21ebc039865917de093dd9ba2f38a24ad821f68",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Switches on the intent to choose a walk-height move toward the target or back out",
+        "what": "Maps a navigation intent to a camera move for the cityscape",
+        "when": "Called by the 3D host on intents",
+        "where": "Cityscape skin: navigation",
+        "why": "Each skin owns how its camera moves"
+      }
+    }
+  }
+}

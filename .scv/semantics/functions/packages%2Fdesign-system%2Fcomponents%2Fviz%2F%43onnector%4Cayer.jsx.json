@@ -1,0 +1,42 @@
+{
+  "file": "packages/design-system/components/viz/ConnectorLayer.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.ConnectorLayer.ConnectorLayer": {
+      "fingerprint": "70ef1efe39a5df14708c7b84e2b0a319c83081a8",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Draws curved or orthogonal paths with optional arrows and focus dimming",
+        "what": "SVG layer of connectors between nodes",
+        "when": "Under canvas nodes",
+        "where": "Design system: visualisation components",
+        "why": "Shows relationships"
+      }
+    },
+    "u:packages.design-system.components.viz.ConnectorLayer.orthoPath": {
+      "fingerprint": "b69aac2c04a42b80ac38e0c2f49238d8ac4e73ad",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Routes horizontal-first through mid-x or vertical-first through mid-y with a stub off the node face",
+        "what": "Builds a Manhattan path with rounded elbows",
+        "when": "For orthogonal connectors",
+        "where": "Design system: visualisation components",
+        "why": "Clean routing between nodes"
+      }
+    },
+    "u:packages.design-system.components.viz.ConnectorLayer.orthoPathVertical": {
+      "fingerprint": "a1ff150428fd379ccc24b04ea06006cbd42eb71b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Leaves and arrives along y, elbowing sideways at a shared clear height",
+        "what": "Builds a vertical-port Manhattan path",
+        "when": "For dependency and flowchart edges",
+        "where": "Design system: visualisation components",
+        "why": "Matches the router's vertical port model"
+      }
+    }
+  }
+}

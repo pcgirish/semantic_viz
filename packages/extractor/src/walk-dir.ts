@@ -1,5 +1,6 @@
 import { lstatSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { gitIgnoredPaths } from "./git-ignored.js";
 
 const SKIP_DIRS = new Set(["__pycache__", ".git", ".scv", "node_modules", "dist"]);
 
@@ -14,7 +15,7 @@ function escapesRoot(realRoot: string, target: string): boolean {
 }
 
 /**
- * Lists every file under `root`, sorted, skipping dotfiles and `SKIP_DIRS`.
+ * Lists every file under `root`, sorted, skipping dotfiles, `SKIP_DIRS` and files git ignores.
  *
  * Symlinks are traversed only when their target stays inside `root`. An analyzed repo is
  * untrusted input: a link escaping the root would pull outside files into the unit set, whose
@@ -66,5 +67,7 @@ export function listFilesContained(root: string): string[] {
       }
     }
   }
-  return out.sort();
+  const toRel = (file: string) => path.relative(root, file).split(path.sep).join("/");
+  const ignored = gitIgnoredPaths(root, out.map(toRel));
+  return out.filter((file) => !ignored.has(toRel(file))).sort();
 }

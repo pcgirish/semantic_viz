@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/cityscape/src/ground.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.cityscape.src.ground.ground": {
+      "fingerprint": "6bba61d7658376d53bb1a81d60196c57f2a52bac",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates a plane and grid sized to the scene bounds with padding",
+        "what": "Builds the floor and grid under the city",
+        "when": "Called when rendering the cityscape",
+        "where": "Cityscape skin: ground plane",
+        "why": "At eye level a city without a floor looks like it floats"
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "file": "packages/extractor/src/grammars/registry.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.grammars.registry.langForFile": {
+      "fingerprint": "37bd2f87771f53246e7567726c0a130b98149682",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Looks up the file extension in the supported extension table and returns null for unsupported files",
+        "what": "Maps a file path to its source language",
+        "when": "Called by parseRepoFiles to choose a parser",
+        "where": "Extractor: tree-sitter grammar registry",
+        "why": "Decides which files are source code at all"
+      }
+    },
+    "u:packages.extractor.src.grammars.registry.parserFor": {
+      "fingerprint": "32da895fa76b56ec90958bd38989be71fbaf505f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates or reuses a cached parser configured with the language grammar",
+        "what": "Returns a tree-sitter parser for a language",
+        "when": "Called by parseRepoFiles per file",
+        "where": "Extractor: tree-sitter grammar registry",
+        "why": "Avoids rebuilding parsers for every file"
+      }
+    }
+  }
+}

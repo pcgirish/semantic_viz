@@ -1,0 +1,258 @@
+{
+  "file": "packages/extractor/src/walk-typescript.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.walk-typescript.BlockBuilder": {
+      "fingerprint": "c4029be24dea10d8843468ab02be5eae82dd5b97",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints per-type block ids in a single pass and walks statements, branching on if, loops, try and switch",
+        "what": "Builds control-flow blocks and edges for one TypeScript function body",
+        "when": "Used by collectControlFlow",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Ids only need stability within the function since the resolver qualifies them"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.bodyStatements": {
+      "fingerprint": "1c3db1aeca25490986871dd22bdfa133c397e7ed",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the named children of a statement block or wraps a single statement",
+        "what": "Returns the statements of a body node",
+        "when": "Used by the walkers for bodies",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Handles braceless bodies"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.build": {
+      "fingerprint": "85920996cba4360882e788a66fb8c087636ca6d3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the internal arrays",
+        "what": "Returns the collected blocks and edges",
+        "when": "Called by collectControlFlow after walking",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Exposes the result"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.constructor": {
+      "fingerprint": "6f00e8826e9a747cf18d471d4f4a6acd56444b02",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores the source, file and function qualname and resets counters and output arrays",
+        "what": "Initialises the builder for one function",
+        "when": "Called by collectControlFlow",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Scopes block ids to one function"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.edge": {
+      "fingerprint": "99ce34b9c11311ea151cbd961315e1e07bca9d29",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Appends from, to, edge type and optional raises flag",
+        "what": "Records a control-flow edge",
+        "when": "Called by the walk methods",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Captures how blocks connect"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.mint": {
+      "fingerprint": "20d9b7dabcfe3dc4bd9bedf61778042b5f4c7cfd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Increments the counter for the block type and records type, line range and optional condition",
+        "what": "Creates a block fact and returns its id",
+        "when": "Called by the walk methods",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Ids only need to be unique within the function"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.mintEntry": {
+      "fingerprint": "041d9618ff2767803668db16c4d2b73f8716354d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints an entry block at the start line",
+        "what": "Creates the entry block for a function",
+        "when": "Called by collectControlFlow",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Gives every flowchart a single start"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.run": {
+      "fingerprint": "b8dd6b64fd93f948f46444ef129fa0e9238c21f7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Calls walkStatements on the statements starting at the entry id",
+        "what": "Walks the function body from the entry block",
+        "when": "Called by collectControlFlow",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Starts the walk"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.walkIf": {
+      "fingerprint": "d014e9e37e41745350e1260fdba88dec8260bca1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints a condition block, walks the consequence on a true edge and the alternative on a false edge, recursing for else-if, then merges",
+        "what": "Builds blocks for an if and else chain",
+        "when": "Called by walkStatements",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Represents branching in the flowchart"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.walkLoop": {
+      "fingerprint": "827f2a98a010d72dbfa2a80e5d2b6801cf6656ab",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints a loop block, walks the body and adds a back edge",
+        "what": "Builds blocks for for, for-in, while and do loops",
+        "when": "Called by walkStatements",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Represents iteration in the flowchart"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.walkStatements": {
+      "fingerprint": "d0f6affa95af554f374a529dfa852a3dd83a0565",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Dispatches compound statements to their walkers, groups simple statements into blocks, tags only the first edge with the branch type and returns the attach point or null on dead ends",
+        "what": "Walks a statement list and links its blocks",
+        "when": "Called recursively by the walk methods",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Core of the control-flow construction"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.walkSwitch": {
+      "fingerprint": "353ba671f626d82158a17773503bc3280ab5b313",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints a switch block and walks each case, letting cases without break fall through to the next",
+        "what": "Builds blocks for a switch statement",
+        "when": "Called by walkStatements",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Models TypeScript fallthrough semantics"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.BlockBuilder.walkTry": {
+      "fingerprint": "a273c296c4c699ae9921723ffcfa00cd75dcd62f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks the try body, connects the catch on an exception edge and routes paths through finally",
+        "what": "Builds blocks for try, catch and finally",
+        "when": "Called by walkStatements",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Represents exception paths"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.collectControlFlow": {
+      "fingerprint": "14283dc3ea8d78ab161a8c4a9b541f76b1696fa5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates a BlockBuilder, mints the entry, runs it over the body statements and pushes the facts",
+        "what": "Emits block and control-flow facts for a TypeScript function body",
+        "when": "Called by walkDefs",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Powers the flowchart view for TypeScript"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.collectImports": {
+      "fingerprint": "c61e56bdaf03c0303c7a8be7c6f91a0ad086d013",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Handles named, default and namespace imports and re-exports, resolving relative specifiers",
+        "what": "Emits import facts for a TypeScript file",
+        "when": "Called by walkTypeScriptFile",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Feeds import edges and module resolution"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.collectRefs": {
+      "fingerprint": "587771d6fb0cd2c25d3fbb35bd670f043618020d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks the subtree recording call targets and identifier references attributed to the enclosing definition",
+        "what": "Emits call and reference facts within a scope",
+        "when": "Called by walkDefs",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Feeds call and reference edges"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.paramsOf": {
+      "fingerprint": "d08cab7bda4fcf946de2341871523b537e609a82",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Iterates required and optional parameter nodes reading pattern and type",
+        "what": "Extracts parameter names and type annotations",
+        "when": "Called by walkDefs",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Records signatures for units"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.text": {
+      "fingerprint": "7e43ff458183ca87f6f065e44cf2819ad9092ea7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Slices the source between the node's start and end indices",
+        "what": "Returns the source text of a syntax node",
+        "when": "Used throughout the TypeScript walker",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Shared helper for reading node text"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.unwrapExport": {
+      "fingerprint": "d027db82c06614d89eb63702f7e15d65c9fb27d2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the declaration child of an export node or the node itself",
+        "what": "Returns the declaration inside an export statement",
+        "when": "Called by walkDefs",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Treats exported and plain declarations alike"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.walkDefs": {
+      "fingerprint": "61804d8096abef3f7a557c04390aa6208a551224",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recurses through the tree tracking the enclosing qualname and records functions, arrow-function consts, classes and methods with location, params and control flow",
+        "what": "Emits definition facts for TypeScript classes, functions and methods",
+        "when": "Called by walkTypeScriptFile",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Produces the units of a TypeScript file"
+      }
+    },
+    "u:packages.extractor.src.walk-typescript.walkTypeScriptFile": {
+      "fingerprint": "65c1b3e74452275e88f67f1fc74507eda4883316",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs definition and import collection over the tree",
+        "what": "Produces all facts for one TypeScript file",
+        "when": "Called by parseRepoFiles for TypeScript files",
+        "where": "Extractor: TypeScript syntax tree walker",
+        "why": "Entry point of the TypeScript walker"
+      }
+    }
+  }
+}

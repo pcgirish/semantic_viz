@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/prompts/pass-docs.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.prompts.pass-docs.passDocsPrompt": {
+      "fingerprint": "74d80d1e7fa5b92960c10994ad0e1242586a0994",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Embeds the doc path and content with the purpose, modules and notes schema",
+        "what": "Builds the prompt extracting structure from one doc",
+        "when": "Called by runPassDocs",
+        "where": "Interpreter prompts: Pass Docs",
+        "why": "Asks only for clustering-relevant facts"
+      }
+    }
+  }
+}

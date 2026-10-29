@@ -1,0 +1,42 @@
+{
+  "file": "packages/ui/src/usePanZoom.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.usePanZoom.fitScale": {
+      "fingerprint": "e34ff6574cfc1478801a0c759c7fc6c015eb4444",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Divides viewport by content size, caps at 1 and clamps, returning 1 before layout",
+        "what": "Computes the scale that fits content in the viewport",
+        "when": "Called by usePanZoom",
+        "where": "UI: pan and zoom hook",
+        "why": "Avoids blowing up tiny scenes and dividing by zero"
+      }
+    },
+    "u:packages.ui.src.usePanZoom.sceneBounds": {
+      "fingerprint": "df6b6eabf52a06b25d418c4c774fa63d30a9bf89",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Takes min and max over nodes and adds padding",
+        "what": "Computes a scene's padded bounding box",
+        "when": "Called by hosts",
+        "where": "UI: pan and zoom hook",
+        "why": "The content extent pan and zoom work on"
+      }
+    },
+    "u:packages.ui.src.usePanZoom.usePanZoom": {
+      "fingerprint": "618bd1e733879d9d028bbb6483e636686066de84",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Tracks scale in state, keeps the cursor point fixed on zoom and pans by scrolling",
+        "what": "Provides wheel zoom, drag pan and fit over a scroll viewport",
+        "when": "Used by CanvasHost and Flowchart",
+        "where": "UI: pan and zoom hook",
+        "why": "Shared navigation for 2D views"
+      }
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -95,5 +96,25 @@ describe("discoverDocs", () => {
     const docs = discoverDocs(root);
 
     expect(docs).toEqual([]);
+  });
+});
+
+describe("discoverDocs in a git repo", () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(path.join(tmpdir(), "scv-discover-docs-git-"));
+    spawnSync("git", ["init", "-q"], { cwd: root });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it("skips docs git ignores, which a fresh clone would not have", () => {
+    mkdirSync(path.join(root, "docs", "private"), { recursive: true });
+    writeFileSync(path.join(root, "README.md"), "# Project\n\nSome real content here.");
+    writeFileSync(path.join(root, "NOTES.md"), "# Notes\n\nSome real local-only content.");
+    writeFileSync(path.join(root, "docs", "design.md"), "# Design\n\nSome real content here.");
+    writeFileSync(path.join(root, "docs", "private", "draft.md"), "# Draft\n\nSome real local-only content.");
+    writeFileSync(path.join(root, ".gitignore"), "NOTES.md\ndocs/private/\n");
+
+    expect(discoverDocs(root).map((d) => d.path).sort()).toEqual(["README.md", "docs/design.md"]);
   });
 });

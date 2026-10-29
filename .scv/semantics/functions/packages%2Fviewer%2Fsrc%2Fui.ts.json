@@ -1,0 +1,18 @@
+{
+  "file": "packages/viewer/src/ui.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.viewer.src.ui.runUi": {
+      "fingerprint": "bdf599ba2e5290dc4b7b6e3ace9942f5aa4a6ca1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks the bundle exists, proxies api requests to the API port and serves the dist directory with an index fallback on localhost",
+        "what": "Serves the built UI and proxies the API",
+        "when": "Called by the CLI ui command",
+        "where": "Viewer: UI server",
+        "why": "One local URL for the viewer"
+      }
+    }
+  }
+}

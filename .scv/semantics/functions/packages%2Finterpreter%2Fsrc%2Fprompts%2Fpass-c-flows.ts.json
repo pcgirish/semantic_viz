@@ -1,0 +1,42 @@
+{
+  "file": "packages/interpreter/src/prompts/pass-c-flows.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.prompts.pass-c-flows.formatRouteHints": {
+      "fingerprint": "23fb357709b162d07873898b12fc4a61cb3cbcf3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders one line per hint with method, path and handler",
+        "what": "Formats structural route hints for the prompt",
+        "when": "Called by passCEntryPointsPrompt",
+        "where": "Interpreter prompts: Pass C flows",
+        "why": "Points the model at real routes"
+      }
+    },
+    "u:packages.interpreter.src.prompts.pass-c-flows.passCEntryPointsPrompt": {
+      "fingerprint": "e91440390a8ca6d6c43bdad7b9c63dfc7654b93e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists unit one-liners, call edges and route hints with the output schema",
+        "what": "Builds the prompt that proposes flow entry points",
+        "when": "Called by proposeFlowEntryPoints",
+        "where": "Interpreter prompts: Pass C flows",
+        "why": "Lets the model pick entry points from real units"
+      }
+    },
+    "u:packages.interpreter.src.prompts.pass-c-flows.passCFlowNarrationPrompt": {
+      "fingerprint": "525051735139696d1293dbdb33e808d610b82540",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists the route, name and ordered step summaries with the narration schema",
+        "what": "Builds the prompt that narrates a traced flow",
+        "when": "Called by narrateFlow",
+        "where": "Interpreter prompts: Pass C flows",
+        "why": "Narration is grounded in real steps"
+      }
+    }
+  }
+}

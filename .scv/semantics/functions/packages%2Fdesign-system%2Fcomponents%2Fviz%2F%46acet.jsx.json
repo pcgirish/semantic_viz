@@ -1,0 +1,42 @@
+{
+  "file": "packages/design-system/components/viz/Facet.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.Facet.Facet": {
+      "fingerprint": "51607b513f3077d2d11e55423ef8022ffec250fe",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Computes vertices with points, draws fill and stroke via facetPath inside a sized SVG and overlays children in a centred container",
+        "what": "Renders a faceted shape as SVG with children centred on top",
+        "when": "Used wherever the design system needs a chamfered or tagged outline",
+        "where": "Design-system viz primitive: faceted SVG shapes",
+        "why": "Keeps the outline unbroken on diagonal edges, unlike CSS borders with clip-path"
+      }
+    },
+    "u:packages.design-system.components.viz.Facet.facetPath": {
+      "fingerprint": "69e5a53ecf5a368a029867ffb7d7275123dabf46",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "For each vertex trims r back along both adjacent edges and joins them with a quadratic curve through the vertex",
+        "what": "Builds an SVG path string for a polygon with rounded vertices",
+        "when": "Called by Facet and PolyNode when drawing a shape",
+        "where": "Design-system viz primitive: faceted SVG shapes",
+        "why": "SVG paths round corners cleanly where a CSS border under clip-path would break on diagonals"
+      }
+    },
+    "u:packages.design-system.components.viz.Facet.points": {
+      "fingerprint": "3744a85402f7b9baf70aed74cf120b381f5a2f02",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Switches on the shape name and emits polygon vertices, converting pixel chamfer and tag cuts into unit space using the box width and height",
+        "what": "Returns the unit-space vertex list for a named facet shape",
+        "when": "Called by Facet before building its path",
+        "where": "Design-system viz primitive: faceted SVG shapes",
+        "why": "Chamfer cuts are specified in pixels so they need the box size to stay visually constant"
+      }
+    }
+  }
+}

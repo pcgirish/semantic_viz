@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/display/Tag.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.display.Tag.Tag": {
+      "fingerprint": "2e97c2d001cffc07445fe7380d94b8c641c3cf24",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders a coloured label with optional icon and remove button",
+        "what": "Arrow-shaped removable tag",
+        "when": "For owners, packages and labels",
+        "where": "Design system: display components",
+        "why": "Distinctive labelling"
+      }
+    }
+  }
+}

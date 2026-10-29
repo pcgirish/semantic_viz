@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/core/Button.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.core.Button.Button": {
+      "fingerprint": "38e2eca1840347d9c5e6cdca2b18c3e5e1f3ad66",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders a chamfered button with variant, size, icon and disabled states",
+        "what": "Faceted action button",
+        "when": "Wherever an action is offered",
+        "where": "Design system: core controls",
+        "why": "Consistent primary control"
+      }
+    }
+  }
+}

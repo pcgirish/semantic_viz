@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/core/Input.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.core.Input.Input": {
+      "fingerprint": "ea0d07be35461d3500309da5c82be44850b0044b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders an input with optional icon, suffix, mono and invalid styles",
+        "what": "Hairline text field",
+        "when": "For search and paths",
+        "where": "Design system: core controls",
+        "why": "Consistent text input"
+      }
+    }
+  }
+}

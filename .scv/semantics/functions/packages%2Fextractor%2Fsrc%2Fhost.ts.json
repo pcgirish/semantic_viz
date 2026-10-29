@@ -1,0 +1,66 @@
+{
+  "file": "packages/extractor/src/host.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.host.cacheFileFor": {
+      "fingerprint": "1ac974abad603d73f3b5d15b9617168e99ebea04",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes the relative path into a filename under the cache directory",
+        "what": "Returns the cache file path for one source file",
+        "when": "Called by the cache read and write helpers",
+        "where": "Extractor: repo parsing with a content-hash cache",
+        "why": "Keeps cache filenames safe regardless of source path"
+      }
+    },
+    "u:packages.extractor.src.host.knownModulesOf": {
+      "fingerprint": "a05916210806649134511abf613ca978e46026ed",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps each file fact to its module qualname into a set",
+        "what": "Collects the module qualnames defined by the parsed files",
+        "when": "Used by graph resolution to tell internal imports from external ones",
+        "where": "Extractor: repo parsing with a content-hash cache",
+        "why": "Separates in-repo modules from third-party packages"
+      }
+    },
+    "u:packages.extractor.src.host.parseRepoFiles": {
+      "fingerprint": "425b63b910063e3229ea588f810d1442d6c42316",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists contained files, picks a parser per language, reads cached facts by content hash or walks the tree with the language walker and caches the result",
+        "what": "Parses every source file under a root into file facts",
+        "when": "Called by extractRepo",
+        "where": "Extractor: repo parsing with a content-hash cache",
+        "why": "Cache is keyed on file bytes only so unchanged files are never re-parsed"
+      }
+    },
+    "u:packages.extractor.src.host.readCachedFacts": {
+      "fingerprint": "e30e8a5da7d0644d853f196f407865a3710a48f1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Loads the cache file, returning its facts only if the stored content hash equals the current one and undefined otherwise",
+        "what": "Reads cached facts for a file when its content hash matches",
+        "when": "Called by parseRepoFiles before parsing",
+        "where": "Extractor: repo parsing with a content-hash cache",
+        "why": "Skips re-parsing unchanged files"
+      }
+    },
+    "u:packages.extractor.src.host.writeCachedFacts": {
+      "fingerprint": "0697a14aa8286edc7d5df25905a1d6c1da8051fe",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Serialises the content hash and facts as JSON into the cache file",
+        "what": "Writes a file's facts to the cache keyed by content hash",
+        "when": "Called by parseRepoFiles after parsing a file",
+        "where": "Extractor: repo parsing with a content-hash cache",
+        "why": "Lets later runs reuse the parse"
+      }
+    }
+  }
+}
