@@ -79,6 +79,7 @@ These skills are byproducts of this project. They analyze any codebase and creat
 | Skill | Use when |
 |---|---|
 | `agent-analyze-repo` | Analyzing a whole repo end to end with zero LLM calls (runs the chain below) |
+| `agent-analyze-pr` | Updating the committed `.scv/semantics/` store before opening a PR (re-authors only what `scv check --base` reports) |
 | `agent-analyze-structure` | Extracting structure and control-flow blocks; the mandatory first step |
 | `agent-analyze-functions` | Authoring per-function/class semantics without an LLM pass |
 | `agent-analyze-docs` | Authoring README/docs extracts without an LLM pass |

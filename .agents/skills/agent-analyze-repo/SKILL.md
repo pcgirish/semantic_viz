@@ -71,6 +71,22 @@ scv ui
 Layers, groups and flows render with your narration, and double-clicking a
 branching function opens a populated Flowchart view.
 
+## Publish the store
+
+End the bootstrap by exporting the authored semantics into the committed store
+and committing it, so clones and CI can `scv hydrate` instead of re-authoring:
+
+```sh
+scv export <root>
+scv check <root>      # must report nothing
+git add .scv/semantics/
+git commit -m "chore: add scv semantics"
+```
+
+Commit on a branch and land it through a PR like any other change. From then
+on, keep the store current per PR with `agent-analyze-pr`, which re-authors only
+what each branch changed.
+
 ## Failure modes
 
 - **A stage still reports as empty** — its merge was skipped or its `inputHash`

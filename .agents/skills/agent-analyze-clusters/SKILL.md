@@ -6,8 +6,8 @@ description: Run scv's deterministic file clustering (Pass B) with zero LLM/prov
 # Deterministic clustering (Pass B)
 
 **There is nothing to author here.** Pass B is deterministic — it partitions the
-repo's files into clusters from the import graph alone and takes no provider
-argument (`packages/interpreter/src/pass-b.ts`). Layer *names and narration* are
+repo's files into clusters from the import graph alone and never calls a
+provider. Layer *names and narration* are
 `agent-analyze-layers`, a separate step.
 
 What this skill does is verify the inputs, run the pass, and hand the real
@@ -22,8 +22,7 @@ indistinguishable from a good one on the next run. Check before running.
 
 For `docs`, `docs.json === []` is ambiguous on its own — it is equally a
 faithful narration of a repo with no docs and a `--no-llm` empty default.
-Disambiguate against the discovered doc paths (`classifyDocsNarration` in
-`packages/cli/src/docs-narration.ts` implements this):
+Disambiguate against the doc paths scv discovers (the README and `docs/` files):
 
 | Status | Meaning | Action |
 |---|---|---|
