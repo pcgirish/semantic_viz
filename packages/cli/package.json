@@ -12,7 +12,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "scv": "./dist/bin.js"
+    "scv": "./dist/bin.js",
+    "semviz": "./dist/bin.js"
   },
   "exports": {
     ".": {

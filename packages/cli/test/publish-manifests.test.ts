@@ -61,9 +61,9 @@ describe("publish manifests", () => {
     }
   });
 
-  it("the CLI is lean: bin scv, bundled skills, no viewer runtime", () => {
+  it("the CLI is lean: bins scv and semviz, bundled skills, no viewer runtime", () => {
     const cli = manifest("semviz");
-    expect(cli.bin).toEqual({ scv: "./dist/bin.js" });
+    expect(cli.bin).toEqual({ scv: "./dist/bin.js", semviz: "./dist/bin.js" });
     expect(cli.files).toContain("skills");
     for (const dep of ["fastify", "@fastify/static", "@fastify/http-proxy", "@semviz/server", "@semviz/ui"]) {
       expect(cli.dependencies).not.toHaveProperty(dep);

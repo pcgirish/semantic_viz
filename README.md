@@ -325,7 +325,8 @@ clean, then commits the store in the same PR. A conflict on a global file
 (`layers.json`, `groups.json`, `flows.json`) is resolved by re-running it.
 
 The tool ships as npm packages. `scv` (analyze, diff, merge-semantics, export,
-hydrate, check) is the `semviz` package, bundling the `agent-analyze-*` skills
+hydrate, check, init) is the `semviz` package — installed as both `scv` and
+`semviz`, so `npx semviz check` works — bundling the `agent-analyze-*` skills
 under `skills/`; it carries no web server. The viewer is the separate
 `@semviz/viewer` package (bin `scv-viewer`), self-contained: the browser app
 ships as prebuilt static assets and the server is bundled into its JS, so its
