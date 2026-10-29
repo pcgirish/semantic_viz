@@ -180,8 +180,10 @@ git commit -m "chore: add scv semantics"
 #    CI runs scv check --base origin/<base> and fails on stale or missing entries
 scv check --base origin/main
 
-# 4. view any committed revision
+# 4. view any committed revision; diff two of them for Delta
 scv hydrate HEAD~1              # assembles that revision's snapshot, no LLM calls
+scv hydrate HEAD
+scv diff "$(git rev-parse HEAD~1)" "$(git rev-parse HEAD)"   # Pass D risk uses the configured provider
 scv-viewer serve & scv-viewer ui
 ```
 
