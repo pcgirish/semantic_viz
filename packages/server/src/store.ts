@@ -10,7 +10,7 @@ import {
   type Layout,
   type Snapshot,
   type Unit,
-} from "@scv/schema";
+} from "@semviz/schema";
 
 export type { Layout };
 

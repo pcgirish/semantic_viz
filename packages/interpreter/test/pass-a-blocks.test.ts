@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { runPassABlocks } from "../src/pass-a-blocks.js";
 import type { Provider, ProviderResult } from "../src/provider.js";
-import type { SymbolBlock, SymbolControlFlowEdge } from "@scv/extractor";
+import type { SymbolBlock, SymbolControlFlowEdge } from "@semviz/extractor";
 
 function makeBlock(overrides: Partial<SymbolBlock> & { id: string }): SymbolBlock {
   return {

@@ -1,4 +1,4 @@
-import type { Unit, UnitRelationship } from "@scv/schema";
+import type { Unit, UnitRelationship } from "@semviz/schema";
 
 /**
  * Cluster lineage across two snapshots, for every clustered kind — layers and groups alike.

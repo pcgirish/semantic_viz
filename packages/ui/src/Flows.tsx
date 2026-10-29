@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Badge, ConnectorLayer, GraphCanvas, Tray } from "@scv/design-system";
-import type { Edge, StepBranch, Unit } from "@scv/schema";
+import { Badge, ConnectorLayer, GraphCanvas, Tray } from "@semviz/design-system";
+import type { Edge, StepBranch, Unit } from "@semviz/schema";
 
 const NODE_W = 200;
 const COL_GAP = 140;

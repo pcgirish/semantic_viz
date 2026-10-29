@@ -1,5 +1,5 @@
-import { Badge, Card, RiskMeter, Tray } from "@scv/design-system";
-import type { Delta, Edge, External, Unit } from "@scv/schema";
+import { Badge, Card, RiskMeter, Tray } from "@semviz/design-system";
+import type { Delta, Edge, External, Unit } from "@semviz/schema";
 
 export type InspectorProps = {
   unit: Unit | null;

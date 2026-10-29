@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { External } from "@scv/schema";
+import type { External } from "@semviz/schema";
 
 export type EntryPointsRailProps = {
   externals: External[];

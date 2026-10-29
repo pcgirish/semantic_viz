@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { runPassA } from "../src/pass-a.js";
 import type { Provider, ProviderResult } from "../src/provider.js";
-import type { SymbolUnit } from "@scv/extractor";
+import type { SymbolUnit } from "@semviz/extractor";
 
 function makeUnit(overrides: Partial<SymbolUnit> = {}): SymbolUnit {
   return {

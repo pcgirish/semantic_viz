@@ -1,4 +1,4 @@
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 import { rank } from "./rank.js";
 import { expand } from "./expand.js";
 import { order } from "./order.js";

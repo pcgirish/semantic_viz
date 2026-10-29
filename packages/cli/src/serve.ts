@@ -1,5 +1,5 @@
 import path from "node:path";
-import { buildApp } from "@scv/server";
+import { buildApp } from "@semviz/server";
 import type { FastifyInstance } from "fastify";
 
 export interface RunServeOptions {

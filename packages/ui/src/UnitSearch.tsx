@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { Unit } from "@scv/schema";
+import type { Unit } from "@semviz/schema";
 
 export type UnitSearchProps = {
   units: Unit[];

@@ -1,6 +1,6 @@
 import path from "node:path";
-import { extractRepo } from "@scv/extractor";
-import type { PendingSemantics } from "@scv/schema";
+import { extractRepo } from "@semviz/extractor";
+import type { PendingSemantics } from "@semviz/schema";
 import type { ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { withCheckout } from "./checkout.js";

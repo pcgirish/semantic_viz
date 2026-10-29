@@ -1,4 +1,4 @@
-import type { Scene } from "@scv/layout";
+import type { Scene } from "@semviz/layout";
 
 /** Ground-plane extent of a scene, in world units: x across, z (the layout's y) into rank. */
 export type Bounds = { minX: number; minZ: number; width: number; depth: number; cx: number; cz: number };

@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import type { Edge, Unit } from "@scv/schema";
-import { buildScene, type Scene } from "@scv/layout";
+import type { Edge, Unit } from "@semviz/schema";
+import { buildScene, type Scene } from "@semviz/layout";
 import { useAppStore } from "./store.js";
 import { applyFocus, buildSceneGraph, cullLabels, disposeGraph, disposeRenderer, frameScene, FOV_DEG, skin3d, unitAt, type Skin3dName } from "./scene3d.js";
 import type { TileDeltaInfo } from "./CanvasHost.js";
 import { Minimap } from "./Minimap.js";
 import { flyControls, orbitControls, walkControls, type Controls3d } from "./controls3d.js";
 import { computeAutoNavIntent, distanceToLevel, distanceToSelection, facingLevel, type AutoNavState } from "./autonav.js";
-import type { Viewer } from "@scv/skin-cityscape";
+import type { Viewer } from "@semviz/skin-cityscape";
 import { DEFAULT_EDGE_BUDGET } from "./edge-budget.js";
 
 export type Canvas3dHostProps = {

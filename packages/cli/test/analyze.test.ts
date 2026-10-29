@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Provider, ProviderResult } from "@scv/interpreter";
+import type { Provider, ProviderResult } from "@semviz/interpreter";
 import { runAnalyze } from "../src/analyze.js";
 import { DefaultedArtifactsError } from "../src/artifacts.js";
 

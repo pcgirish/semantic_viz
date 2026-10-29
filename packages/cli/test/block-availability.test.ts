@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SymbolBlockGraph } from "@scv/extractor";
+import type { SymbolBlockGraph } from "@semviz/extractor";
 import { classifyBlockAvailability } from "../src/block-availability.js";
 
 function branchingGraph(): Record<string, SymbolBlockGraph> {

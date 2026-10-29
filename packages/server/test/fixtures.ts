@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { Delta, Snapshot } from "@scv/schema";
+import type { Delta, Snapshot } from "@semviz/schema";
 
 export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return {

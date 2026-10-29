@@ -1,5 +1,5 @@
 import path from "node:path";
-import { extractRepo } from "@scv/extractor";
+import { extractRepo } from "@semviz/extractor";
 import { readAuthoredRecord } from "./authored-record.js";
 import { discoverDocs } from "./discover-docs.js";
 import { authoredFromStore, evaluate, type Choice } from "./fingerprints.js";

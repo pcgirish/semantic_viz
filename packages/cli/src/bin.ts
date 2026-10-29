@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { Command } from "commander";
-import { fmtElapsed } from "@scv/interpreter";
+import { fmtElapsed } from "@semviz/interpreter";
 import { runAnalyze, type RunAnalyzeOptions } from "./analyze.js";
 import { runCheck } from "./check.js";
 import { runDiff } from "./diff.js";

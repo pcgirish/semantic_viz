@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import type { Delta, Edge, External, Unit } from "@scv/schema";
+import type { Delta, Edge, External, Unit } from "@semviz/schema";
 import { Inspector } from "../src/Inspector.js";
 
 function makeExternal(overrides: Partial<External> & { id: string; name: string }): External {

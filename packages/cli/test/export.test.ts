@@ -1,5 +1,5 @@
 import path from "node:path";
-import { extractRepo } from "@scv/extractor";
+import { extractRepo } from "@semviz/extractor";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runExport } from "../src/export.js";
 import { STORE_REL_DIR, readStoreFromDisk } from "../src/semantics-store.js";

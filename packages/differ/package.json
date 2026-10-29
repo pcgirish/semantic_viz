@@ -1,5 +1,5 @@
 {
-  "name": "@scv/differ",
+  "name": "@semviz/differ",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/interpreter": "*",
-    "@scv/schema": "*",
+    "@semviz/interpreter": "*",
+    "@semviz/schema": "*",
     "zod": "^3.23.0"
   },
   "devDependencies": {

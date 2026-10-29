@@ -226,7 +226,7 @@ The only consumable API today is `extractRepo`, which walks a repo on disk
 and returns a `SymbolGraph`:
 
 ```ts
-import { extractRepo } from "@scv/extractor";
+import { extractRepo } from "@semviz/extractor";
 
 const graph = extractRepo("/path/to/repo");
 

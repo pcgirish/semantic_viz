@@ -1,5 +1,5 @@
-// Barrel export for @scv/design-system (CodeDream components).
-// Token stylesheet entry: import "@scv/design-system/styles.css" once at app root.
+// Barrel export for @semviz/design-system (CodeDream components).
+// Token stylesheet entry: import "@semviz/design-system/styles.css" once at app root.
 
 export * from "./components/core/Button.jsx";
 export * from "./components/core/IconButton.jsx";

@@ -7,7 +7,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 export interface RunUiOptions {
   port: number;
   apiPort: number;
-  /** Directory containing the built SPA (index.html + assets). Defaults to @scv/ui's dist. */
+  /** Directory containing the built SPA (index.html + assets). Defaults to @semviz/ui's dist. */
   distDir?: string;
 }
 
@@ -17,7 +17,7 @@ export interface RunUiResult {
 }
 
 function resolveDefaultDistDir(): string {
-  const uiPkg = new URL(import.meta.resolve("@scv/ui/package.json"));
+  const uiPkg = new URL(import.meta.resolve("@semviz/ui/package.json"));
   return path.join(path.dirname(uiPkg.pathname), "dist");
 }
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SymbolUnit } from "@scv/extractor";
+import type { SymbolUnit } from "@semviz/extractor";
 import type { Provider } from "./provider.js";
 import { passAPrompt } from "./prompts/pass-a.js";
 import { interpretJsonWithRetry } from "./retry.js";

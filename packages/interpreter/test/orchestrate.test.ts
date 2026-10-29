@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { finalizeSnapshot, runInterpreter } from "../src/orchestrate.js";
-import { validateSnapshotInvariants } from "@scv/schema";
+import { validateSnapshotInvariants } from "@semviz/schema";
 import type { Provider, ProviderContext, ProviderResult } from "../src/provider.js";
-import type { SymbolGraph } from "@scv/extractor";
-import type { Snapshot, Unit } from "@scv/schema";
+import type { SymbolGraph } from "@semviz/extractor";
+import type { Snapshot, Unit } from "@semviz/schema";
 import { CLUSTERING_ALGORITHM, CLUSTERING_TIE_BREAK, CLUSTERING_VERSION, MERGE_THRESHOLD, MIN_EDGE_WEIGHT } from "../src/cluster.js";
 
 function makeGraph(): SymbolGraph {

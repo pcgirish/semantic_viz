@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import type { Unit } from "@scv/schema";
+import type { Unit } from "@semviz/schema";
 import { Flows } from "../src/Flows.js";
 
 afterEach(cleanup);

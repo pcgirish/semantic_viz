@@ -1,6 +1,6 @@
-import { ConnectorLayer, GraphCanvas, PolyNode } from "@scv/design-system";
-import type { Edge, Unit } from "@scv/schema";
-import { buildFlowchartScene } from "@scv/layout";
+import { ConnectorLayer, GraphCanvas, PolyNode } from "@semviz/design-system";
+import type { Edge, Unit } from "@semviz/schema";
+import { buildFlowchartScene } from "@semviz/layout";
 import { sceneBounds, usePanZoom } from "./usePanZoom.js";
 
 export type FlowchartProps = {

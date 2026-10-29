@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
-import type { SceneNode } from "@scv/layout";
+import type { SceneNode } from "@semviz/layout";
 import { node } from "../src/node.js";
 import { codedreamLayerPalette, hashLayerToColor } from "../src/theme.js";
 

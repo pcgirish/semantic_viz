@@ -1,4 +1,4 @@
-import type { SymbolUnit } from "@scv/extractor";
+import type { SymbolUnit } from "@semviz/extractor";
 
 const MAX_GRAPH_CONTEXT_ITEMS = 8;
 

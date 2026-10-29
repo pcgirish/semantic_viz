@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
-import type { Unit } from "@scv/schema";
+import type { Unit } from "@semviz/schema";
 import { ContentCache } from "../src/cache.js";
 
 /** Minimal schema-valid Unit, the shape `pass_a_units.result_json` must round-trip. */

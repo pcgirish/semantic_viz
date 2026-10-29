@@ -1,4 +1,4 @@
-import type { SceneLink } from "@scv/layout";
+import type { SceneLink } from "@semviz/layout";
 import { el } from "./svg.js";
 
 export type LinkOptions = {

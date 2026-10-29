@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Unit } from "@scv/schema";
+import type { Unit } from "@semviz/schema";
 import { matchGroupLineage, MERGE_MAJORITY, OVERLAP_THRESHOLD } from "../src/group-lineage.js";
 
 function group(id: string, members: string[]): Unit {

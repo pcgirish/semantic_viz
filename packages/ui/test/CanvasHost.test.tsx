@@ -1,10 +1,10 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 import { CanvasHost } from "../src/CanvasHost.js";
 import { useAppStore } from "../src/store.js";
 import type { SiblingSummary } from "../src/App.js";
-import { tempHex } from "@scv/design-system";
+import { tempHex } from "@semviz/design-system";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {
   return {

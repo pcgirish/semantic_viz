@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { render, cleanup, fireEvent } from "@testing-library/react";
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 import { Flowchart } from "../src/Flowchart.js";
 
 afterEach(cleanup);

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Tray } from "@scv/design-system";
+import { Tray } from "@semviz/design-system";
 import type { SiblingSummary } from "./App.js";
 
 /** One glyph per direction, so the row's render path is a lookup rather than two comparisons. */

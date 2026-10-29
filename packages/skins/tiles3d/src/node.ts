@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import type { SceneNode } from "@scv/layout";
-import type { RenderContext } from "@scv/skin-contract";
+import type { SceneNode } from "@semviz/layout";
+import type { RenderContext } from "@semviz/skin-contract";
 
 const BEACON_HEIGHT = 40;
 const GATED_OPACITY = 0.18;

@@ -1,6 +1,6 @@
-import { minimapProjection, type Viewer } from "@scv/skin-cityscape";
-import type { Scene } from "@scv/layout";
-import { codedreamLayerPalette, hashLayerToColor } from "@scv/skin-tiles";
+import { minimapProjection, type Viewer } from "@semviz/skin-cityscape";
+import type { Scene } from "@semviz/layout";
+import { codedreamLayerPalette, hashLayerToColor } from "@semviz/skin-tiles";
 
 const SIZE = 168;
 

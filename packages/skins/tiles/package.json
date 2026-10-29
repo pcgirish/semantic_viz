@@ -1,5 +1,5 @@
 {
-  "name": "@scv/skin-tiles",
+  "name": "@semviz/skin-tiles",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/layout": "*",
-    "@scv/skin-contract": "*",
-    "@scv/design-system": "*"
+    "@semviz/layout": "*",
+    "@semviz/skin-contract": "*",
+    "@semviz/design-system": "*"
   },
   "devDependencies": {
     "jsdom": "^25.0.0",

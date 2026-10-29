@@ -1,6 +1,6 @@
-import type { Box } from "@scv/layout";
-import { nestedScene } from "@scv/layout";
-import type { Edge, Unit } from "@scv/schema";
+import type { Box } from "@semviz/layout";
+import { nestedScene } from "@semviz/layout";
+import type { Edge, Unit } from "@semviz/schema";
 import { el } from "./svg.js";
 
 /**

@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import type { Delta, Edge, Snapshot, Unit } from "@scv/schema";
-import { displayName, pathLeaf } from "@scv/layout";
-import type { BoundaryEdge } from "@scv/layout";
-import { SegmentedControl, Select, Toolbar, Tray } from "@scv/design-system";
+import type { Delta, Edge, Snapshot, Unit } from "@semviz/schema";
+import { displayName, pathLeaf } from "@semviz/layout";
+import type { BoundaryEdge } from "@semviz/layout";
+import { SegmentedControl, Select, Toolbar, Tray } from "@semviz/design-system";
 import { Breadcrumb } from "./Breadcrumb.js";
 import { CanvasHost, type TileDeltaInfo } from "./CanvasHost.js";
 import { UnitSearch } from "./UnitSearch.js";

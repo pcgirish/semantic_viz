@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
-import "@scv/design-system/styles.css";
+import "@semviz/design-system/styles.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("missing #root element");

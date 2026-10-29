@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import type { Unit } from "@scv/schema";
+import type { Unit } from "@semviz/schema";
 import { UnitSearch } from "../src/UnitSearch.js";
 
 afterEach(cleanup);

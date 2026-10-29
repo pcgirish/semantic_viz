@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, CommitTimeline } from "@scv/design-system";
+import { Button, CommitTimeline } from "@semviz/design-system";
 
 /** git's default abbreviated-sha length — enough to disambiguate, short enough to scan. */
 export function shortSha(sha: string): string {

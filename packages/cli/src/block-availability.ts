@@ -1,4 +1,4 @@
-import type { SymbolBlockGraph } from "@scv/extractor";
+import type { SymbolBlockGraph } from "@semviz/extractor";
 
 /**
  * What the `agent-analyze-structure` skill reports about the Flowchart view's data after an

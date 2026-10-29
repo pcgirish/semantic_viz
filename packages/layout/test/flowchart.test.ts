@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFlowchartScene } from "../src/flowchart.js";
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 
 function makeBlock(overrides: Partial<Unit> & { id: string }): Unit {
   return {

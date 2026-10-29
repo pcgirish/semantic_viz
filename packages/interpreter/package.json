@@ -1,5 +1,5 @@
 {
-  "name": "@scv/interpreter",
+  "name": "@semviz/interpreter",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/extractor": "*",
-    "@scv/schema": "*",
+    "@semviz/extractor": "*",
+    "@semviz/schema": "*",
     "better-sqlite3": "^11.3.0",
     "yaml": "^2.5.0",
     "zod": "^3.23.0"

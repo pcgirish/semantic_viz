@@ -1,5 +1,5 @@
 {
-  "name": "@scv/extractor",
+  "name": "@semviz/extractor",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scv/schema": "*",
+    "@semviz/schema": "*",
     "tree-sitter": "^0.25.1",
     "tree-sitter-python": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2"

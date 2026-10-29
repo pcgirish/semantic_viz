@@ -1,7 +1,7 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
-import type { Scene } from "@scv/layout";
-import type { Viewer } from "@scv/skin-cityscape";
+import type { Scene } from "@semviz/layout";
+import type { Viewer } from "@semviz/skin-cityscape";
 import { Minimap } from "../src/Minimap.js";
 
 afterEach(() => {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SymbolBlock, SymbolControlFlowEdge } from "@scv/extractor";
+import type { SymbolBlock, SymbolControlFlowEdge } from "@semviz/extractor";
 import type { Provider } from "./provider.js";
 import { passABlocksPrompt } from "./prompts/pass-a-blocks.js";
 import { interpretJsonWithRetry } from "./retry.js";

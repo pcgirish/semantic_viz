@@ -1,4 +1,4 @@
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 import type { Scene, SceneLink, SceneNode } from "./scene.js";
 
 const NODE_W = 160;

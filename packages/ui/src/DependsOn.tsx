@@ -1,5 +1,5 @@
-import { BubbleChart } from "@scv/design-system";
-import type { External } from "@scv/schema";
+import { BubbleChart } from "@semviz/design-system";
+import type { External } from "@semviz/schema";
 
 export type DependsOnProps = {
   externals: External[];

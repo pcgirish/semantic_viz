@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor, fireEvent, within } from "@testing-library/react";
-import type { Snapshot } from "@scv/schema";
+import type { Snapshot } from "@semviz/schema";
 import { App, buildUnitToAncestor } from "../src/App.js";
 import { DEFAULT_EDGE_BUDGET } from "../src/edge-budget.js";
 import { useAppStore } from "../src/store.js";
@@ -348,13 +348,13 @@ describe("buildUnitToAncestor", () => {
     const groupUnits = [
       { id: "u:group:api", children: ["u:layer:api"] },
       { id: "u:group:platform", children: ["u:layer:db"] },
-    ] as unknown as import("@scv/schema").Unit[];
+    ] as unknown as import("@semviz/schema").Unit[];
     const unitsById = new Map([
       ["u:layer:api", { id: "u:layer:api", parent: "u:group:api" }],
       ["u:layer:db", { id: "u:layer:db", parent: "u:group:platform" }],
       ["u:mod:api_handler", { id: "u:mod:api_handler", parent: "u:layer:api" }],
       ["u:mod:db_conn", { id: "u:mod:db_conn", parent: "u:layer:db" }],
-    ] as unknown as [string, import("@scv/schema").Unit][]);
+    ] as unknown as [string, import("@semviz/schema").Unit][]);
 
     const result = buildUnitToAncestor(groupUnits, unitsById);
 

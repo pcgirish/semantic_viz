@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { render, cleanup, fireEvent } from "@testing-library/react";
-import type { Unit } from "@scv/schema";
+import type { Unit } from "@semviz/schema";
 import { Legend } from "../src/Legend.js";
 
 function makeUnit(overrides: Partial<Unit> & { id: string }): Unit {

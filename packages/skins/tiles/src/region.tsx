@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import type { SceneRegion } from "@scv/layout";
+import type { SceneRegion } from "@semviz/layout";
 
 export type RegionContext = {
   /** Scene-space origin the region's absolute position is measured from. */

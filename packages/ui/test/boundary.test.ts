@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 import { collectBoundaryEdges, summariseSiblings } from "../src/App.js";
 
 function unit(id: string, kind: Unit["kind"], children: string[] = [], parent: string | null = null): Unit {

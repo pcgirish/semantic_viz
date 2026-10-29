@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { extractRepo } from "@scv/extractor";
-import type { Layer, Provider, ProviderResult } from "@scv/interpreter";
-import { CLUSTERING_VERSION, layerIdFor } from "@scv/interpreter";
+import { extractRepo } from "@semviz/extractor";
+import type { Layer, Provider, ProviderResult } from "@semviz/interpreter";
+import { CLUSTERING_VERSION, layerIdFor } from "@semviz/interpreter";
 import { toSnapshot } from "../src/snapshot.js";
 import { ancestorShas } from "../src/rev.js";
 import {

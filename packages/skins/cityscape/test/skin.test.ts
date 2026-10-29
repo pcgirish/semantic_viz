@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import type { SceneNode } from "@scv/layout";
+import type { SceneNode } from "@semviz/layout";
 import { cityscapeSkin } from "../src/index.js";
 
 function node(over: Partial<SceneNode> = {}): SceneNode {

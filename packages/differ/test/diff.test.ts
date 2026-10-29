@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runDiffer } from "../src/diff.js";
-import type { Snapshot, Unit, Edge } from "@scv/schema";
+import type { Snapshot, Unit, Edge } from "@semviz/schema";
 
 function makeUnit(overrides: Partial<Unit> = {}): Unit {
   return {

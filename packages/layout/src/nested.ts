@@ -1,4 +1,4 @@
-import type { Edge, Unit } from "@scv/schema";
+import type { Edge, Unit } from "@semviz/schema";
 import { buildScene } from "./layout.js";
 import type { Scene } from "./scene.js";
 import type { Box } from "./place.js";

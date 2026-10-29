@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import type { External } from "@scv/schema";
+import type { External } from "@semviz/schema";
 import { DependsOn } from "../src/DependsOn.js";
 
 afterEach(cleanup);

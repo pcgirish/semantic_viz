@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { runFlowsPass } from "../src/orchestrate.js";
 import type { Provider, ProviderResult } from "../src/provider.js";
-import type { SymbolGraph } from "@scv/extractor";
-import type { Snapshot } from "@scv/schema";
+import type { SymbolGraph } from "@semviz/extractor";
+import type { Snapshot } from "@semviz/schema";
 
 function makeGraph(): SymbolGraph {
   return {

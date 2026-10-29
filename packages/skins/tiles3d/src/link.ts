@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { SceneLink } from "@scv/layout";
+import type { SceneLink } from "@semviz/layout";
 
 const FULL_OPACITY = 1;
 const GATED_OPACITY = 0.15;

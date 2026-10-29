@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
-import { LayoutSchema, type Layout } from "@scv/schema";
+import { LayoutSchema, type Layout } from "@semviz/schema";
 import { isSafePathSegment, SnapshotStore } from "./store.js";
 
 export interface BuildAppOptions {

@@ -1,14 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { runDifferWithRisk } from "@scv/differ";
-import { createProvider, loadInterpreterConfig, type Provider } from "@scv/interpreter";
+import { runDifferWithRisk } from "@semviz/differ";
+import { createProvider, loadInterpreterConfig, type Provider } from "@semviz/interpreter";
 import {
   SnapshotSchema,
   formatFindings,
   validateSnapshotInvariants,
   type Delta,
   type Snapshot,
-} from "@scv/schema";
+} from "@semviz/schema";
 
 export interface RunDiffOptions {
   scvDir: string;

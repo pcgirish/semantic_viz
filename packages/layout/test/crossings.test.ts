@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { Edge, Snapshot, Unit } from "@scv/schema";
+import type { Edge, Snapshot, Unit } from "@semviz/schema";
 import { buildScene } from "../src/layout.js";
 import type { Scene } from "../src/scene.js";
 
