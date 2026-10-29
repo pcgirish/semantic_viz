@@ -1,0 +1,126 @@
+{
+  "file": "packages/interpreter/src/checker.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.checker.checkAndRepairClusters": {
+      "fingerprint": "9555d50eff84eeb64459587e37c1aa5dc79b6ebf",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Drops invented files, keeps the first assignment of duplicates and puts unmentioned files in an unclustered fallback",
+        "what": "Repairs a proposed clustering into a strict partition of the real files",
+        "when": "Applied to untrusted cluster proposals",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Guarantees every real file appears exactly once"
+      }
+    },
+    "u:packages.interpreter.src.checker.clusteringQuality": {
+      "fingerprint": "ee61078b493747c9c4c37173c49fd6cb68540dd7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Combines modularity, giniImbalance, cluster count and largest share into one record",
+        "what": "Measures a partition's modularity, count, size distribution and imbalance",
+        "when": "Used in tests and quality reports",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Makes clustering regressions show up as changed numbers"
+      }
+    },
+    "u:packages.interpreter.src.checker.directoryClusters": {
+      "fingerprint": "6506b9109bfcbd3815b7c350c0930fbda8b3d723",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Groups file paths by dirname",
+        "what": "Builds a baseline clustering where each file joins its parent directory",
+        "when": "Used as a comparison baseline for clustering quality",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Gives a directory-shaped reference partition"
+      }
+    },
+    "u:packages.interpreter.src.checker.giniImbalance": {
+      "fingerprint": "4bf2a48bbaa50be4ed91747d31f2d9f7fc71010c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sorts sizes and applies the Gini formula scaled to the range 0 to 1, returning 0 for a single cluster",
+        "what": "Computes a normalised Gini coefficient over cluster sizes",
+        "when": "Called by clusteringQuality",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Measures how uneven cluster sizes are"
+      }
+    },
+    "u:packages.interpreter.src.checker.modularity": {
+      "fingerprint": "c78046785e7211ffab8a3cd9f62bd6aa7b137d64",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sums the weight of edges whose endpoints share a cluster and divides by the total",
+        "what": "Scores the fraction of edge weight inside clusters",
+        "when": "Used by clusteringQuality and baseline comparison",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Cheap cohesion measure for comparing partitions"
+      }
+    },
+    "u:packages.interpreter.src.checker.normalizeClusterName": {
+      "fingerprint": "1c3057dbac0f22f82701e2355f7f4e9a43be7513",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Splits on case and separators, joins with underscores and drops one trailing banned token unless it is the only token",
+        "what": "Canonicalises a cluster name to snake case",
+        "when": "Applied to proposed cluster and group names",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Keeps names stable across runs that vary case and suffixes"
+      }
+    },
+    "u:packages.interpreter.src.checker.traceFlow": {
+      "fingerprint": "e94de364b14da3a99a8d72eff093e3c2be88a886",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds an adjacency map of known units and recursively keeps the longest branch with a per-branch visited set, returning null for unknown entries",
+        "what": "Traces an API flow's steps from an entry unit along real call edges",
+        "when": "Called when building flow units",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Every step is a validated graph edge, so steps cannot be hallucinated"
+      }
+    },
+    "u:packages.interpreter.src.checker.traceFlow.longestFrom": {
+      "fingerprint": "f5273a7e658a71fc611b1bcdf52436b994669fa2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recurses into each unvisited callee and keeps the longest resulting path",
+        "what": "Returns the longest call chain starting at one unit",
+        "when": "Called by traceFlow",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Picks one linear branch so steps stay a list, not a tree"
+      }
+    },
+    "u:packages.interpreter.src.checker.traceFlowBranching": {
+      "fingerprint": "1ae4af6940d60b325d403719e5a9eb36968bf0a1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds a tree over outgoing call edges capped by fan-out and depth, carrying edge labels and a per-branch visited set",
+        "what": "Traces every branch of an API flow from its entry unit",
+        "when": "Called when building branching flow steps",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Preserves conditional fan-out without unbounded growth"
+      }
+    },
+    "u:packages.interpreter.src.checker.traceFlowBranching.build": {
+      "fingerprint": "d96c53d88047ffcb482808e9165cf0172f11bffc",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recurses into up to the maximum fan-out of unvisited callees until the depth cap",
+        "what": "Builds the branch tree node for one unit",
+        "when": "Called by traceFlowBranching",
+        "where": "Interpreter: validation of clusters and traced flows",
+        "why": "Bounds tree size while keeping branch labels"
+      }
+    }
+  }
+}

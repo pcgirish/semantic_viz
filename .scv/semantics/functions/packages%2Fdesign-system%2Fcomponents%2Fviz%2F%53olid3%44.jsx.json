@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/viz/Solid3D.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.Solid3D.Solid3D": {
+      "fingerprint": "c748197f1326a80679066ab7bb6de09e24fdd013",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds faces with CSS transforms at the given size and depth, applies tilt and optional spin animation, and colours faces from the palette with the shared light rig",
+        "what": "Renders a CSS 3D polyhedron block tinted by temperature",
+        "when": "Used as the 3D skin's node primitive",
+        "where": "Design-system viz primitive: CSS 3D block",
+        "why": "Keeps the 3D skin visually consistent with the flat canvas"
+      }
+    }
+  }
+}

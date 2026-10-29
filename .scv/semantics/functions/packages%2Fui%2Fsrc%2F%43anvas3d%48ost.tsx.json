@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/Canvas3dHost.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.Canvas3dHost.Canvas3dHost": {
+      "fingerprint": "a1dda82ce360fe88961f89a0fd3d65a323a9ce96",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Owns the renderer, render loop, camera, controls, hit testing and autonav, and builds the scene graph from the skin",
+        "what": "WebGL host for the 3D skins",
+        "when": "Rendered when a 3D skin is active",
+        "where": "UI: 3D host",
+        "why": "The host owns navigation while the skin owns geometry"
+      }
+    }
+  }
+}

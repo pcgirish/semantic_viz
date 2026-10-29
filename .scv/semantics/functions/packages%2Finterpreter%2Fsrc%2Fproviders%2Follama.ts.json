@@ -1,0 +1,42 @@
+{
+  "file": "packages/interpreter/src/providers/ollama.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.providers.ollama.OllamaProvider": {
+      "fingerprint": "587337ac57764a82d47452284746a1deea35d37f",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Posts prompts to the ollama generate endpoint with the configured model",
+        "what": "Provider that talks to a local ollama server",
+        "when": "Default provider for local development",
+        "where": "Interpreter providers: local ollama",
+        "why": "Free local provider with no batching or caching"
+      }
+    },
+    "u:packages.interpreter.src.providers.ollama.OllamaProvider.constructor": {
+      "fingerprint": "379302316d3e2156f642c1b5c9adad041d84f71a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores model and base URL options",
+        "what": "Initialises the ollama provider",
+        "when": "Called by createProvider",
+        "where": "Interpreter providers: local ollama",
+        "why": "Prepares the endpoint"
+      }
+    },
+    "u:packages.interpreter.src.providers.ollama.OllamaProvider.interpret": {
+      "fingerprint": "2280b765de7c2e5ff4e4e44c4f2a88c14009be2b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Posts the prompt, checks the response status and reads the generated text and token counts",
+        "what": "Sends one prompt to ollama and returns the text",
+        "when": "Called by passes through the cached provider",
+        "where": "Interpreter providers: local ollama",
+        "why": "Implements the Provider contract"
+      }
+    }
+  }
+}

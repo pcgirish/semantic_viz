@@ -1,0 +1,270 @@
+{
+  "file": "docs/mock/tools/extract.py",
+  "storeVersion": 1,
+  "units": {
+    "u:docs.mock.tools.extract.Extractor": {
+      "fingerprint": "bda90aac3bc65635af7d65304eb2883f955d31ea",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Holds units, edges and import maps; scan collects definitions, resolve links references, finish adds metrics and VCS data",
+        "what": "Three-pass Python extractor producing a symbol graph",
+        "when": "When extract() runs on a revision",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Prototype of the real extractor's unit/edge model"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor.__init__": {
+      "fingerprint": "da08cbbe8d8b7f938f9aefd2822fc59e3540c6a7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores root and rev and creates empty unit, edge and import tables",
+        "what": "Initialises extractor state for a root and revision",
+        "when": "When an Extractor is constructed",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Sets up per-run state"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor._def": {
+      "fingerprint": "feff973e99cdb2f1a2959a34e49b09c35589fc42",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds the unit with qualname, lines, hashes and metrics, then recurses into the body",
+        "what": "Records a class or function unit and its nested definitions",
+        "when": "For each def or class found while scanning",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Produces the nested unit hierarchy"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor._edge": {
+      "fingerprint": "8a05151dd202d127474d439f1a8c5989a09508e0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds an edge record with kind, location and confidence, skipping self and duplicate edges",
+        "what": "Appends a deduplicated edge",
+        "when": "When a reference resolves",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Central place for edge creation"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor._target": {
+      "fingerprint": "ff57a2b39d838d13098b60d066a50d5751b3559c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks local names, import aliases and module-qualified attributes against known units",
+        "what": "Resolves a call expression to a unit id",
+        "when": "When visit_Call needs a target",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Maps syntax to graph nodes, or None when external"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor._walk_module": {
+      "fingerprint": "c29abd27a1f487478bc086ce4994ae287f0134e1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Records imports and dispatches class and function defs to _def",
+        "what": "Walks a module's top-level statements",
+        "when": "During scan for each file",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Separates module-level handling from definition handling"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor.finish": {
+      "fingerprint": "c7772e13ed9233bc7cdf405bd365f456f2063cc6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Aggregates child metrics, records external packages and pulls git blame/log data",
+        "what": "Third pass: metrics, externals and VCS metadata",
+        "when": "After resolve",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Completes the graph with data the viewer displays"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor.resolve": {
+      "fingerprint": "ba695cf069d1428697567f3ba4b5935f8657fd00",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Re-walks each file with a visitor that tracks the enclosing unit and maps call targets",
+        "what": "Second pass: resolves call references into edges",
+        "when": "After scan completes",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Call edges drive the graph and blast radius"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor.resolve.V": {
+      "fingerprint": "ee81355832516209ac2db9dad4a4bcd17cfee13e",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Pushes and pops the active unit on class and function entry, handling calls",
+        "what": "AST visitor tracking the current enclosing unit",
+        "when": "During reference resolution",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Attributes each call to its caller"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor.resolve.V.__init__": {
+      "fingerprint": "ce18222224d8ea360e4517918f23ef7aa48a1ee9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores the extractor and an empty scope stack",
+        "what": "Binds the visitor to its outer extractor",
+        "when": "When the visitor is created per file",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Gives visitor methods access to extractor state"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor.resolve.V._enter": {
+      "fingerprint": "ea34b811eaace1449d774dcd997d76b22aa23002",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Pushes the unit id for the node, visits children, then pops",
+        "what": "Enters a class or function scope",
+        "when": "On visiting a def or class",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Keeps the caller context accurate"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor.resolve.V.visit_Call": {
+      "fingerprint": "4431f22a84bf71c7f204209aaf000c4834e72d63",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Resolves the call target and emits an edge when found",
+        "what": "Records a call edge from the current scope",
+        "when": "For every call expression",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Builds the call graph"
+      }
+    },
+    "u:docs.mock.tools.extract.Extractor.scan": {
+      "fingerprint": "81e18966d9238c41b14efd5415d91e6c69ebdb4f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses each Python file and walks module bodies into units",
+        "what": "First pass: records every module, class and function definition",
+        "when": "First step of extraction",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Definitions must exist before references can resolve"
+      }
+    },
+    "u:docs.mock.tools.extract.checkout": {
+      "fingerprint": "e928e10d710148eddff598a8fd62aec460ec554f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Pipes git archive of rev into tar extracting at dest, leaving the worktree alone",
+        "what": "Materialises a revision's tree into a directory",
+        "when": "Before extracting a historical revision",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Lets two revisions be analyzed without disturbing the user's checkout"
+      }
+    },
+    "u:docs.mock.tools.extract.complexity": {
+      "fingerprint": "6a327c7a57a14a26c7c216ab6c115781bc67da22",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Counts decision nodes (if, loops, boolean ops, handlers) plus one",
+        "what": "Approximates cyclomatic complexity of an AST node",
+        "when": "When computing function metrics",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Cheap complexity signal for the mock viewer"
+      }
+    },
+    "u:docs.mock.tools.extract.extract": {
+      "fingerprint": "a6c609692a94396c993c975c542fee2921bc7d6b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks the revision out to a temp dir and runs scan, resolve and finish",
+        "what": "Extracts a symbol graph for a repo revision",
+        "when": "Entry point of the mock extractor",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Produces snapshot data for the design mock"
+      }
+    },
+    "u:docs.mock.tools.extract.h": {
+      "fingerprint": "9a256533d829ef55bb5473f8c937f3223611b97d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "sha1 digest truncated to n characters",
+        "what": "Returns a short hex hash of a string",
+        "when": "When the mock needs stable ids or content hashes",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Deterministic, compact identifiers"
+      }
+    },
+    "u:docs.mock.tools.extract.modname": {
+      "fingerprint": "96adc420859f0a272b571db82b5a7ba8911f56c0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Strips the .py suffix and __init__ and replaces separators with dots",
+        "what": "Converts a relative path to a dotted module name",
+        "when": "When naming module units",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Matches Python import naming so references resolve"
+      }
+    },
+    "u:docs.mock.tools.extract.normalize": {
+      "fingerprint": "f09d9c442b861ee390c46ab40ddfbb6cec43aeda",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Strips comment lines and whitespace-only lines",
+        "what": "Normalises source text ignoring comments and blank lines",
+        "when": "Before hashing unit text",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "So pure reformatting is not reported as a text change"
+      }
+    },
+    "u:docs.mock.tools.extract.py_files": {
+      "fingerprint": "f27ec6bcd125b04baa0502fdad9990d1f82fda5f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "os.walk filtered to .py files, skipping hidden and cache dirs",
+        "what": "Lists Python source files under a root",
+        "when": "At the start of a scan",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Defines the file set the mock analyzes"
+      }
+    },
+    "u:docs.mock.tools.extract.sh": {
+      "fingerprint": "69558ca906b00d62e19ddf8a6213437fb8fe7bcf",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "subprocess call with optional cwd, raising on failure",
+        "what": "Runs a shell command and returns its stdout",
+        "when": "Whenever the mock extractor needs git output",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "Small helper to keep git plumbing terse"
+      }
+    },
+    "u:docs.mock.tools.extract.sloc": {
+      "fingerprint": "2dc7e114c349a54fb91a019f5804eb628a0f4b55",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Filters source lines that are empty or start with #",
+        "what": "Counts non-blank, non-comment lines",
+        "when": "When computing unit metrics",
+        "where": "Design-mock Python extractor built on the ast module",
+        "why": "A simple size metric for the mock"
+      }
+    }
+  }
+}

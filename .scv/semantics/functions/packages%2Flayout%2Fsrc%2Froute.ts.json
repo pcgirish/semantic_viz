@@ -1,0 +1,54 @@
+{
+  "file": "packages/layout/src/route.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.route.centre": {
+      "fingerprint": "9e813ce8b27cd456c8271b91bcf420722b2ff356",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Adds half the width and height to its origin",
+        "what": "Returns the centre point of a box",
+        "when": "Called by routing helpers",
+        "where": "Layout: edge routing",
+        "why": "Shared geometry helper"
+      }
+    },
+    "u:packages.layout.src.route.route": {
+      "fingerprint": "f22ed944128b87f4db8e4aae3d1ed05839cad08c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks each chain's waypoints through dummy boxes using the spread ports and assigns lanes left to right",
+        "what": "Turns expanded chains into drawable links",
+        "when": "Called by buildScene",
+        "where": "Layout: edge routing",
+        "why": "Produces readable bundled routes"
+      }
+    },
+    "u:packages.layout.src.route.spreadPorts": {
+      "fingerprint": "8e6a2b0d78cc31d5d74c256cd25dfa3bdd77c130",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Groups chain ends by node, sorts them by the other end's x and assigns evenly spaced ports on the top or bottom border",
+        "what": "Spreads edge endpoints across node borders",
+        "when": "Called by route",
+        "where": "Layout: edge routing",
+        "why": "Stops many edges converging on one pixel"
+      }
+    },
+    "u:packages.layout.src.route.spreadPorts.assign": {
+      "fingerprint": "0cd545714e42b35cb4ea654ba336290b380d7fa5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sorts each node's ends by other x and spaces them along the border",
+        "what": "Assigns evenly spaced ports for one border",
+        "when": "Called by spreadPorts for in and out ports",
+        "where": "Layout: edge routing",
+        "why": "Shared logic for both borders"
+      }
+    }
+  }
+}

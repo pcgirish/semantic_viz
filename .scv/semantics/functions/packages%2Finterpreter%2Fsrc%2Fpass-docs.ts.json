@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/pass-docs.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.pass-docs.runPassDocs": {
+      "fingerprint": "f04101034e7d12f43c833634849be64e870caddb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Calls the provider once per doc with the docs prompt and validates each extract",
+        "what": "Extracts clustering-relevant structure from repo docs",
+        "when": "Called by runDocsPass",
+        "where": "Interpreter: Pass Docs",
+        "why": "Gives later passes the repo's own description of itself"
+      }
+    }
+  }
+}

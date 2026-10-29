@@ -1,0 +1,114 @@
+{
+  "file": "packages/ui/src/scene3d.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.scene3d.applyFocus": {
+      "fingerprint": "a4c0cf584c3b1e347e5efd00b6359576131f13ec",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mutates existing materials' opacity in place",
+        "what": "Dims everything except the focused building and its edges",
+        "when": "Called on every focus change",
+        "where": "UI: 3D scene graph",
+        "why": "Rebuilding per click would be too costly"
+      }
+    },
+    "u:packages.ui.src.scene3d.buildSceneGraph": {
+      "fingerprint": "235b7d364e80591a7e65b0b0a6d37412afd5df7b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Asks the skin to draw each node and link, wiring hue, gating and delta",
+        "what": "Builds the THREE graph for a scene",
+        "when": "Called by Canvas3dHost on scene change",
+        "where": "UI: 3D scene graph",
+        "why": "The skin owns looks and the host only bookkeeps"
+      }
+    },
+    "u:packages.ui.src.scene3d.cullLabels": {
+      "fingerprint": "6efcc0aee0a8a84b08c81e102d977403f90760d3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hides labels beyond a distance and those overlapping a nearer label on screen",
+        "what": "Hides unreadable labels",
+        "when": "Called each frame",
+        "where": "UI: 3D scene graph",
+        "why": "Distant and colliding labels are noise"
+      }
+    },
+    "u:packages.ui.src.scene3d.disposeGraph": {
+      "fingerprint": "9c516475bc257faee9e68382a3e2bc3e5f79681b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Traverses and disposes geometries and materials then empties the group",
+        "what": "Frees every GPU resource the graph holds",
+        "when": "Called before rebuild and on unmount",
+        "where": "UI: 3D scene graph",
+        "why": "WebGL resources leak otherwise"
+      }
+    },
+    "u:packages.ui.src.scene3d.disposeRenderer": {
+      "fingerprint": "6ab591812b10935dd8a5d0c1ce0d36a99207db9c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Disposes the renderer and forces context loss",
+        "what": "Tears down a renderer and its context",
+        "when": "Called on unmount or skin switch",
+        "where": "UI: 3D scene graph",
+        "why": "Browsers cap live WebGL contexts"
+      }
+    },
+    "u:packages.ui.src.scene3d.footprint": {
+      "fingerprint": "ff865fb175bf69fc6843d6df83a736eac7c8b943",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Converts scene bounds into centre and size in x and z",
+        "what": "Computes the city's ground-plane extent",
+        "when": "Called by frameScene",
+        "where": "UI: 3D scene graph",
+        "why": "Matches the 2D bounds"
+      }
+    },
+    "u:packages.ui.src.scene3d.frameScene": {
+      "fingerprint": "062e3530a1f3490646b5fd7ace2104ede82ae3c4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Pulls back to fit the city for orbit or drops to eye height at the near edge for street",
+        "what": "Picks the camera framing for a scene",
+        "when": "Called when the scene or mode changes",
+        "where": "UI: 3D scene graph",
+        "why": "Street view makes rank a direction you travel"
+      }
+    },
+    "u:packages.ui.src.scene3d.skin3d": {
+      "fingerprint": "09abef18da100ff62533506c6fd45b1cc74824f3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Looks up the skin registry",
+        "what": "Returns the 3D skin by name",
+        "when": "Called by Canvas3dHost",
+        "where": "UI: 3D scene graph",
+        "why": "Switches skins"
+      }
+    },
+    "u:packages.ui.src.scene3d.unitAt": {
+      "fingerprint": "381820e702d4d551150833a7375516b601b01401",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks up parents to the first object tagged with a scene node id",
+        "what": "Resolves a raycast hit to its unit",
+        "when": "Called by hit testing",
+        "where": "UI: 3D scene graph",
+        "why": "Any part of a building resolves to its unit"
+      }
+    }
+  }
+}

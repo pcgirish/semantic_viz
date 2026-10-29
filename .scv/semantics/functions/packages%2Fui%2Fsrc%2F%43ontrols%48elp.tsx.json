@@ -1,0 +1,30 @@
+{
+  "file": "packages/ui/src/ControlsHelp.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.ControlsHelp.ControlsHelp": {
+      "fingerprint": "39a91713d080aa6dc341346ae87461af4435efb1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists the bindings beside the encoding legend",
+        "what": "Renders a key and mouse legend for the current 3D camera",
+        "when": "Shown when a 3D skin is active",
+        "where": "UI: camera controls help",
+        "why": "Explains each camera model"
+      }
+    },
+    "u:packages.ui.src.ControlsHelp.bindings": {
+      "fingerprint": "b63dc317ce49b582a1a5d5c54a50951528a44f04",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Switches on skin and view mode to a binding list, or null for 2D",
+        "what": "Returns the key and mouse bindings for the current camera",
+        "when": "Called by ControlsHelp",
+        "where": "UI: camera controls help",
+        "why": "3D cameras do not announce their controls"
+      }
+    }
+  }
+}

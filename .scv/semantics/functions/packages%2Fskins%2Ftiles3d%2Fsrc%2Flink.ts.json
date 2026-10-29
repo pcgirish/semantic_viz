@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/tiles3d/src/link.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles3d.src.link.link": {
+      "fingerprint": "4c7b59310ec870bc5a624fe3f107232afdac54a6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds a THREE line along the routed path with density gating opacity",
+        "what": "Renders a scene link as a ground-plane line",
+        "when": "Called by buildSceneGraph",
+        "where": "Tiles3d skin: links",
+        "why": "Routing channels double as streets"
+      }
+    }
+  }
+}

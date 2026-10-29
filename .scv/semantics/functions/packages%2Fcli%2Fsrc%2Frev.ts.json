@@ -1,0 +1,54 @@
+{
+  "file": "packages/cli/src/rev.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.rev.ancestorShas": {
+      "fingerprint": "08e75f84ffe7c58a68764eee29456467c7736036",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs git rev-list --first-parent, returning empty on any failure",
+        "what": "Lists first-parent ancestors of HEAD",
+        "when": "When looking for previous layers to carry over",
+        "where": "Git revision helpers",
+        "why": "Keeps layer names stable across commits"
+      }
+    },
+    "u:packages.cli.src.rev.changedFiles": {
+      "fingerprint": "2d040decc670da88ee498a2b131ad924d3deee99",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs git diff --name-only HEAD~1 HEAD, empty on failure",
+        "what": "Lists files changed in HEAD's last commit",
+        "when": "For --scope changed",
+        "where": "Git revision helpers",
+        "why": "Scopes merges to recent edits"
+      }
+    },
+    "u:packages.cli.src.rev.commitRev": {
+      "fingerprint": "c7d073659a9d46b1efbcb37bede2b372ef1673cd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Refuses revs starting with -, then runs git log -1 with argument arrays",
+        "what": "Resolves a revision to its sha, author and timestamp",
+        "when": "When a command takes a revision",
+        "where": "Git revision helpers",
+        "why": "Safe revision resolution"
+      }
+    },
+    "u:packages.cli.src.rev.headRev": {
+      "fingerprint": "5902f87bc60a8056cfefd623c5e476d930d16e42",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Delegates to commitRev for HEAD",
+        "what": "Reads HEAD's sha, author and commit time",
+        "when": "When analyze records the revision",
+        "where": "Git revision helpers",
+        "why": "Snapshot provenance"
+      }
+    }
+  }
+}

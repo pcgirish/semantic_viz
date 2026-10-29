@@ -1,0 +1,42 @@
+{
+  "file": "packages/cli/src/check.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.check.baseState": {
+      "fingerprint": "3d9bca1ba77c5e3846be03e44b3f5203c0d5d475",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks out the merge base and evaluates its fingerprints and store",
+        "what": "Evaluates the committed store at the merge base",
+        "when": "When check runs with --base",
+        "where": "scv check: lists committed semantics that must be re-authored",
+        "why": "Lets findings be limited to what the branch changed"
+      }
+    },
+    "u:packages.cli.src.check.runCheck": {
+      "fingerprint": "a501ca99583658f3b53944f47b9ab49f693422ef",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Evaluates the working tree against the committed store, optionally filtering function findings to those changed since the merge base",
+        "what": "Recomputes fingerprints and lists stale, missing and orphaned entries",
+        "when": "On scv check and in CI",
+        "where": "scv check: lists committed semantics that must be re-authored",
+        "why": "Gates PRs on up-to-date committed semantics"
+      }
+    },
+    "u:packages.cli.src.check.statusOf": {
+      "fingerprint": "1ab8f9f2018d52aea2efcc2b0789c5d0c538e475",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns stale when committed against other inputs, missing when absent and expected",
+        "what": "Maps a choice to a check status",
+        "when": "For each evaluated item",
+        "where": "scv check: lists committed semantics that must be re-authored",
+        "why": "Normalises findings"
+      }
+    }
+  }
+}

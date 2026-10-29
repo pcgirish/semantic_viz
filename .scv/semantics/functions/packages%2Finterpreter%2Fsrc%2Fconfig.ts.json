@@ -1,0 +1,30 @@
+{
+  "file": "packages/interpreter/src/config.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.config.loadInterpreterConfig": {
+      "fingerprint": "32e00cb2571b884bcb7b65c2c7eda2db3e2f01d7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses the config YAML and falls back to the ollama default when the file or key is absent",
+        "what": "Reads the interpreter provider, model and effort from the scv config",
+        "when": "Called by analyze when choosing a provider",
+        "where": "Interpreter: provider configuration file",
+        "why": "Lets each repo choose its provider without flags"
+      }
+    },
+    "u:packages.interpreter.src.config.writeInterpreterConfig": {
+      "fingerprint": "0427768ea5e0cd9c4b8a7ebcfb4abb1caa921679",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates the scv directory if needed and overwrites the YAML with an interpreter key",
+        "what": "Writes the interpreter config to the scv config file",
+        "when": "Called by setup commands",
+        "where": "Interpreter: provider configuration file",
+        "why": "Persists the provider choice"
+      }
+    }
+  }
+}

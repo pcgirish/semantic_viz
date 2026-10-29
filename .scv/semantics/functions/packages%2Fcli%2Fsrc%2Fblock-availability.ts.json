@@ -1,0 +1,30 @@
+{
+  "file": "packages/cli/src/block-availability.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.block-availability.classifyBlockAvailability": {
+      "fingerprint": "b24212c7642699c9b4029ca6beb485b02f3fea6d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns none, structural or labeled based on branching and labels present",
+        "what": "Classifies block availability for reporting",
+        "when": "When analyze reports flowchart readiness",
+        "where": "Classifies whether flowchart blocks exist for a snapshot",
+        "why": "Tells the user whether the Flowchart view has content"
+      }
+    },
+    "u:packages.cli.src.block-availability.hasBranching": {
+      "fingerprint": "37bc0830167f0167c1eb243a7d8949a1880e4839",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Looks for any decision or loop block beyond entry and exit",
+        "what": "Tells whether a block graph actually branches",
+        "when": "When classifying block availability",
+        "where": "Classifies whether flowchart blocks exist for a snapshot",
+        "why": "Straight-line functions do not count as having blocks"
+      }
+    }
+  }
+}

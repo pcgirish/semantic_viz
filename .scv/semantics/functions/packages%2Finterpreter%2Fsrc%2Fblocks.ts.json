@@ -1,0 +1,30 @@
+{
+  "file": "packages/interpreter/src/blocks.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.blocks.buildBlockUnits": {
+      "fingerprint": "f282c7514df3aa80c81a5a7b55c1ab950f7eb1d8",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Turns each function's block graph into block units parented under that function, naming them from labels, and emits control_flow edges with branch labels",
+        "what": "Builds the block units and control_flow edges behind the Flowchart view",
+        "when": "Called by every pipeline and zero-LLM merge path",
+        "where": "Interpreter: control-flow block units",
+        "why": "Blocks are pure AST structure so they need no LLM context"
+      }
+    },
+    "u:packages.interpreter.src.blocks.recoverBlockLabels": {
+      "fingerprint": "f88dc3265609bf29bd4eb9896e294320d93d3621",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recovers each label from the block name, the outgoing edge label and the provenance source",
+        "what": "Reads labels back out of already-built block units",
+        "when": "Called by merges that change only unit semantics",
+        "where": "Interpreter: control-flow block units",
+        "why": "Preserves existing block labels without a pending file"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/viewer/src/serve.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.viewer.src.serve.runServe": {
+      "fingerprint": "c0f23336b140b246e01b33f6115403872468d21c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds the Fastify app over the repo's scv directory and listens on the port",
+        "what": "Starts the snapshot API server",
+        "when": "Called by the CLI serve command",
+        "where": "Viewer: API server",
+        "why": "Serves snapshots to the UI"
+      }
+    }
+  }
+}

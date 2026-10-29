@@ -1,0 +1,18 @@
+{
+  "file": "packages/layout/src/nested.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.nested.nestedScene": {
+      "fingerprint": "a10c5df228af46f45534563c633a8d5acefcf6c4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs buildScene on the children and scales the result uniformly to fit, returning null when empty or too small",
+        "what": "Lays out a unit's children scaled into its box",
+        "when": "Used to render collapsed modules",
+        "where": "Layout: nested mini-maps",
+        "why": "The interior is a faithful thumbnail of what opening shows"
+      }
+    }
+  }
+}

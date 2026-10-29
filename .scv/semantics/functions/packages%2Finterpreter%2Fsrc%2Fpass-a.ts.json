@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/pass-a.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.pass-a.runPassA": {
+      "fingerprint": "b134501c5223345edb2d509e2bfff53d197eb220",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds the Pass A prompt with source, callers and callee one-liners, calls the provider with JSON retry and validates the result",
+        "what": "Produces semantics for one function or class",
+        "when": "Called by runFunctionsPass",
+        "where": "Interpreter: Pass A leaf semantics",
+        "why": "Core narration of what each unit does"
+      }
+    }
+  }
+}

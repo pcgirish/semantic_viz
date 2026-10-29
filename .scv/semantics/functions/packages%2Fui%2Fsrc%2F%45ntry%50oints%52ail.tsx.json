@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/EntryPointsRail.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.EntryPointsRail.EntryPointsRail": {
+      "fingerprint": "3fd4d67f7a7a702a72be7f9024f96a31726906ce",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders one row per external with select on click",
+        "what": "Lists external dependencies as clickable rows",
+        "when": "Shown in the depends-on rail",
+        "where": "UI: depends-on rail",
+        "why": "The rail lists what to select"
+      }
+    }
+  }
+}

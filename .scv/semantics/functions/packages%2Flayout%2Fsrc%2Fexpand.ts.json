@@ -1,0 +1,42 @@
+{
+  "file": "packages/layout/src/expand.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.expand.dummyId": {
+      "fingerprint": "9eda179c38124eb957d6321e1f05de26ea71caa9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Combines the prefix, endpoints and rank",
+        "what": "Builds the id for a dummy node on an edge",
+        "when": "Called by expand",
+        "where": "Layout: long edge expansion",
+        "why": "Gives each intermediate rank a stable id"
+      }
+    },
+    "u:packages.layout.src.expand.expand": {
+      "fingerprint": "f6f4c54702ea364e3398b23a0275ee97e866623e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Inserts one dummy per intermediate rank and returns the extended id and rank sets with chained edges",
+        "what": "Breaks edges spanning several ranks into chains through dummy nodes",
+        "when": "Called by buildScene before ordering",
+        "where": "Layout: long edge expansion",
+        "why": "Long edges then take part in crossing reduction"
+      }
+    },
+    "u:packages.layout.src.expand.isDummy": {
+      "fingerprint": "59e7e79a205773cce01967849a404fe27ebb486b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks for the dummy id prefix",
+        "what": "Tells whether a node id is a dummy",
+        "when": "Used by placement and routing",
+        "where": "Layout: long edge expansion",
+        "why": "Dummy nodes are drawn differently"
+      }
+    }
+  }
+}

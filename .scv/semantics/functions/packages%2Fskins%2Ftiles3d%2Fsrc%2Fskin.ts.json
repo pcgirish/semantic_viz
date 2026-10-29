@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/tiles3d/src/skin.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles3d.src.skin.navigate": {
+      "fingerprint": "c45eca72c84f0804f83ae336c4ae21b670ba94f9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Switches on the intent to orbit toward, away from or frame the target",
+        "what": "Maps a navigation intent to a camera move for the orbit skin",
+        "when": "Called by the 3D host",
+        "where": "Tiles3d skin: navigation",
+        "why": "Each skin owns how its camera moves"
+      }
+    }
+  }
+}

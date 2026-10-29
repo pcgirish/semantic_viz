@@ -1,0 +1,118 @@
+{
+  "fingerprint": "6e3b83f1d4777383ec63528a973ab4bb9c77ff5b",
+  "groups": {
+    "analysis": {
+      "confidence": 0.85,
+      "how": "Extractor builds the SymbolGraph, interpreter passes add semantics through pluggable providers, differ compares snapshots, all validated by the schema",
+      "layers": [
+        "Extractor",
+        "Grammar Registry",
+        "Interpreter Passes",
+        "Interpreter Prompts",
+        "LLM Providers",
+        "Differ",
+        "Schema"
+      ],
+      "name": "Analysis Pipeline",
+      "what": "Turns a repo into snapshots and deltas: static extraction, interpreter passes and diffing over one schema",
+      "when": "Whenever scv analyzes or diffs a revision",
+      "where": "packages/extractor, packages/interpreter, packages/differ, packages/schema",
+      "why": "Separates deterministic facts from interpreted meaning behind one data contract"
+    },
+    "cli": {
+      "confidence": 0.85,
+      "how": "bin.ts dispatches commands over the pipeline and committed store; a build script copies skills into the package",
+      "layers": [
+        "CLI Commands",
+        "CLI Skill Packaging"
+      ],
+      "name": "CLI and Packaging",
+      "what": "The scv command line and the build step that ships agent skills with it",
+      "when": "When users or CI run scv, and when the CLI is built",
+      "where": "packages/cli",
+      "why": "One installable entry point for analysis, checks and repo setup"
+    },
+    "design-system": {
+      "confidence": 0.85,
+      "how": "Token-styled components grouped by role and re-exported from one entry",
+      "layers": [
+        "Design System Entry",
+        "Core Components",
+        "Display Components",
+        "Layout Components",
+        "Code Components",
+        "Viz Components"
+      ],
+      "name": "Design System",
+      "what": "CodeDream design tokens and React components used by the UI",
+      "when": "Whenever the UI renders controls, panels or charts",
+      "where": "packages/design-system",
+      "why": "Consistent visual vocabulary across every screen"
+    },
+    "fixtures": {
+      "confidence": 0.75,
+      "how": "Python fixture code with cross-folder coupling, and Python tools that render the mock",
+      "layers": [
+        "Adversarial Billing Invoice",
+        "Adversarial Billing Worker",
+        "Adversarial Shared Money",
+        "Adversarial Shipping",
+        "Adversarial Scripts",
+        "Mock Prototype Tools"
+      ],
+      "name": "Fixtures and Prototypes",
+      "what": "The adversarial clustering fixture and the docs/mock prototype tools",
+      "when": "When clustering quality is evaluated or the mock is regenerated",
+      "where": "fixtures/cluster-quality-adversarial, docs/mock/tools",
+      "why": "Test inputs and prototypes kept apart from product code"
+    },
+    "serving": {
+      "confidence": 0.85,
+      "how": "Fastify routes read the .scv store; the viewer starts the API and serves the bundled UI with a proxy",
+      "layers": [
+        "Viewer",
+        "Viewer Bundling",
+        "API Server"
+      ],
+      "name": "Viewer and API",
+      "what": "Serves snapshots over HTTP and hosts the built UI locally",
+      "when": "When a user opens the visualizer",
+      "where": "packages/viewer, packages/server",
+      "why": "Keeps data serving separate from analysis and from the UI"
+    },
+    "tooling": {
+      "confidence": 0.8,
+      "how": "ESLint and the Vitest workspace at the root, with per-package Vitest configs",
+      "layers": [
+        "Root Tooling Config",
+        "Vitest Config (skins/tiles)",
+        "Vitest Config (skins/tiles3d)",
+        "Vitest Config (skins/cityscape)"
+      ],
+      "name": "Build and Test Tooling",
+      "what": "Repo-wide lint and test configuration plus per-skin test configs",
+      "when": "When npm run lint or npm run test runs",
+      "where": "repo root, packages/skins/*/vitest.config.ts",
+      "why": "One lint and test policy for the monorepo"
+    },
+    "visualization": {
+      "confidence": 0.85,
+      "how": "Layout computes one scene; skins render it through a shared contract inside the React app's canvas hosts",
+      "layers": [
+        "UI App",
+        "UI Build Config",
+        "Layout Engine",
+        "Skin Contract",
+        "Tiles Skin",
+        "Tiles3D Skin",
+        "Cityscape Skin"
+      ],
+      "name": "Visualization",
+      "what": "The browser visualizer: layout engine, skin contract, 2D and 3D skins and the React app",
+      "when": "Whenever a snapshot is explored in the browser",
+      "where": "packages/ui, packages/layout, packages/skin-contract, packages/skins",
+      "why": "One layout, many presentations, never a fork per skin"
+    }
+  },
+  "storeVersion": 1
+}

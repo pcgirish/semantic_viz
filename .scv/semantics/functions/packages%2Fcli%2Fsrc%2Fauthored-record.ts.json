@@ -1,0 +1,90 @@
+{
+  "file": "packages/cli/src/authored-record.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.authored-record.freshView": {
+      "fingerprint": "a21a8bf7c0601548362f4550b611409717ff196b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the fresh record entry, else the fresh store entry, else undefined",
+        "what": "Picks the entry a re-author builds on",
+        "when": "When layering partial re-authors",
+        "where": "Local record of entries authored at HEAD, stamped with fingerprints",
+        "why": "So partial edits keep current fields"
+      }
+    },
+    "u:packages.cli.src.authored-record.isEmpty": {
+      "fingerprint": "0259844b05d3169e4ebd9939e334f7334e144413",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks every section is empty",
+        "what": "Tells whether an authored record has no entries",
+        "when": "Before writing the record",
+        "where": "Local record of entries authored at HEAD, stamped with fingerprints",
+        "why": "Avoids creating empty files"
+      }
+    },
+    "u:packages.cli.src.authored-record.layerOver": {
+      "fingerprint": "818a863875afd079c0235923c0374795b1c024ff",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Merges semantics, cost, tags and block labels, preferring the new values",
+        "what": "Overlays a partial re-author on an existing entry",
+        "when": "When a re-author sets only some fields",
+        "where": "Local record of entries authored at HEAD, stamped with fingerprints",
+        "why": "Partial edits keep the rest of the entry"
+      }
+    },
+    "u:packages.cli.src.authored-record.readAuthoredRecord": {
+      "fingerprint": "ff5d25570f42dad3a80313a40713533d4075f0ff",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses and validates the JSON, returning an empty set when absent",
+        "what": "Reads the authored record for a sha",
+        "when": "Before stamping or exporting",
+        "where": "Local record of entries authored at HEAD, stamped with fingerprints",
+        "why": "Recovers what was authored locally"
+      }
+    },
+    "u:packages.cli.src.authored-record.recordFile": {
+      "fingerprint": "ef1dec0eac2c9403ae1448f0c45becf4cac87fdc",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Joins scvDir, a record directory and the sha",
+        "what": "Path of the authored record for a sha",
+        "when": "When reading or writing the record",
+        "where": "Local record of entries authored at HEAD, stamped with fingerprints",
+        "why": "Keeps the layout in one place"
+      }
+    },
+    "u:packages.cli.src.authored-record.stampAuthored": {
+      "fingerprint": "99b679adbd156f74126355ec9e5cc3d5a7389f39",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Computes current fingerprints, stamps new entries, keeps prior stamps and drops vanished units or docs",
+        "what": "Folds newly merged entries into the record and stamps them",
+        "when": "After merge-semantics",
+        "where": "Local record of entries authored at HEAD, stamped with fingerprints",
+        "why": "Records exactly what inputs each entry was authored against"
+      }
+    },
+    "u:packages.cli.src.authored-record.writeAuthoredRecord": {
+      "fingerprint": "075d5c286f2e02f0cdedfa80f202509a55164cb2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Skips empty records without a file, else writes canonical JSON via temp file and rename",
+        "what": "Writes the authored record atomically when it changed",
+        "when": "After a merge",
+        "where": "Local record of entries authored at HEAD, stamped with fingerprints",
+        "why": "Persists authored entries safely"
+      }
+    }
+  }
+}

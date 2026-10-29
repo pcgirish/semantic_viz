@@ -1,0 +1,102 @@
+{
+  "file": "packages/layout/src/layout.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.layout.buildScene": {
+      "fingerprint": "efbdd4bfe10f2b4c2832d9333ca870b9d4bed3de",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Ranks units, expands long edges, orders rows, seeds from the prior scene, places boxes, routes links and adds regions",
+        "what": "Composes ranking, ordering, seeding, placement and routing into a scene",
+        "when": "Called by the viewer for graph views",
+        "where": "Layout: graph scene composition",
+        "why": "Pure function so the same input always gives the same scene"
+      }
+    },
+    "u:packages.layout.src.layout.depthFor": {
+      "fingerprint": "73aa2d357da08906aded2dbd12ce16c5470ab1a6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Scales and clamps the line count",
+        "what": "Maps SLOC to a 3D extrusion depth",
+        "when": "Called by buildScene",
+        "where": "Layout: graph scene composition",
+        "why": "Bigger units look heavier"
+      }
+    },
+    "u:packages.layout.src.layout.displayName": {
+      "fingerprint": "0d485e141142c98fde47a1feb82d91c8e2b1e185",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Uses the path leaf for modules and the unit name otherwise",
+        "what": "Returns a unit's display name",
+        "when": "Used for node labels",
+        "where": "Layout: graph scene composition",
+        "why": "Breadcrumbs already supply folder context"
+      }
+    },
+    "u:packages.layout.src.layout.groupOf": {
+      "fingerprint": "916643972f60e81ad31af750ddc67b9b19460c49",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks to the nearest layer and one hop more to its group unit",
+        "what": "Finds the id of the group containing a unit's layer",
+        "when": "Called by regionsFor",
+        "where": "Layout: graph scene composition",
+        "why": "Ids survive renames that would otherwise look like a group vanishing"
+      }
+    },
+    "u:packages.layout.src.layout.layerIdOf": {
+      "fingerprint": "bef6d4cd97b37d9439210e94dd86aeb36b7416dd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks the parent chain until a layer kind",
+        "what": "Finds the id of a unit's nearest layer ancestor",
+        "when": "Called by groupOf and region logic",
+        "where": "Layout: graph scene composition",
+        "why": "Associates nodes with layers"
+      }
+    },
+    "u:packages.layout.src.layout.pathLeaf": {
+      "fingerprint": "f88b361dc9000d0eb4086e5087c180bd9fa32cef",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Splits on both slash and backslash and ignores trailing separators",
+        "what": "Returns the last segment of a path",
+        "when": "Used for tile and breadcrumb labels",
+        "where": "Layout: graph scene composition",
+        "why": "Snapshots can come from Windows or mixed separators"
+      }
+    },
+    "u:packages.layout.src.layout.regionsFor": {
+      "fingerprint": "b46e3e87f213d13b10087cf8d9a408a9096a6d45",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Groups visible nodes by group id and emits a box only for groups with two or more distinct layers present",
+        "what": "Builds padded bounding regions for groups on screen",
+        "when": "Called by buildScene",
+        "where": "Layout: graph scene composition",
+        "why": "Single-node groups are visual noise"
+      }
+    },
+    "u:packages.layout.src.layout.sidesFor": {
+      "fingerprint": "292eabb200cea7776dab8b2a31aa5b0d416b0c34",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Buckets the complexity value into a small set of shapes",
+        "what": "Maps complexity to a polygon side count",
+        "when": "Called by buildScene",
+        "where": "Layout: graph scene composition",
+        "why": "Complexity becomes visible as shape"
+      }
+    }
+  }
+}

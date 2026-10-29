@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/tiles/src/minimap.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles.src.minimap.minimap": {
+      "fingerprint": "5d01c001cd2b03155bfd1d6c102cb7602232181e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs nestedScene and renders small rects and paths, returning null when nothing fits",
+        "what": "Draws a unit's children as a nested mini-map",
+        "when": "Called by node rendering",
+        "where": "Tiles skin: nested mini-map",
+        "why": "The interior previews what opening the unit shows"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/Minimap.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.Minimap.Minimap": {
+      "fingerprint": "4f0d65005fe2c8375c402f294294fa005ef4be1c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Draws the minimapProjection with nodes, viewer position and selection",
+        "what": "Renders a top-down inset of the city with the viewer",
+        "when": "Shown at street level",
+        "where": "UI: minimap",
+        "why": "Makes street-level navigation possible"
+      }
+    }
+  }
+}

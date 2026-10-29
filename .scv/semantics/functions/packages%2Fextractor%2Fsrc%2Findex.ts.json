@@ -1,0 +1,18 @@
+{
+  "file": "packages/extractor/src/index.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.extractRepo": {
+      "fingerprint": "5193fd0d5d11db7b2a9772220ee83b52e1cbafd7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses repo files, reads manifests and resolves facts into a graph of units and edges",
+        "what": "Extracts the symbol graph for a repository",
+        "when": "Called by analyze as the structural pass",
+        "where": "Extractor: package entry point",
+        "why": "Single entry point for deterministic structure extraction"
+      }
+    }
+  }
+}

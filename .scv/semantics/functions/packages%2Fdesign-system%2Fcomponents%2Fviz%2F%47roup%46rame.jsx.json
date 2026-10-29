@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/viz/GroupFrame.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.GroupFrame.GroupFrame": {
+      "fingerprint": "af3cf6be14a74fec82356a8e27bc5c9b9bbfd96f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders a bordered container in the given stroke colour with a header holding icon, label and meta, then the children",
+        "what": "Draws a dashed frame around a cluster of nodes with a label",
+        "when": "Used to indicate a package, layer, owner or feature grouping on the canvas",
+        "where": "Design-system viz primitive: dashed group outline",
+        "why": "Makes grouping visible without adding a node of its own"
+      }
+    }
+  }
+}

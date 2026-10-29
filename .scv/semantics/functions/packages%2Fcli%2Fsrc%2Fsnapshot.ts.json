@@ -1,0 +1,54 @@
+{
+  "file": "packages/cli/src/snapshot.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.snapshot.toEdge": {
+      "fingerprint": "c79b96be0e00bbd95a7d9b4ac2da80667f35a578",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Copies endpoints, kind, weight and provenance",
+        "what": "Converts a symbol edge to a snapshot edge",
+        "when": "During toSnapshot",
+        "where": "Maps extractor output onto the scv/1 snapshot contract",
+        "why": "Contract mapping"
+      }
+    },
+    "u:packages.cli.src.snapshot.toExternal": {
+      "fingerprint": "a96aba0bfcec7696453762f1fd59448454ca1005",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Copies ecosystem, name, version and usage",
+        "what": "Converts an external dependency record",
+        "when": "During toSnapshot",
+        "where": "Maps extractor output onto the scv/1 snapshot contract",
+        "why": "Contract mapping"
+      }
+    },
+    "u:packages.cli.src.snapshot.toSnapshot": {
+      "fingerprint": "6ade54b31052b6b30b40d28850d3580db9c4e0a0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Converts units, edges and externals and adds revision metadata",
+        "what": "Maps a symbol graph onto an scv/1 snapshot",
+        "when": "After extraction",
+        "where": "Maps extractor output onto the scv/1 snapshot contract",
+        "why": "Structural snapshot that passes later enrich"
+      }
+    },
+    "u:packages.cli.src.snapshot.toUnit": {
+      "fingerprint": "0156638564e53da22a176c7bf5aa2cea6bee1864",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Copies identity, location, hashes and metrics, leaving semantics null",
+        "what": "Converts a symbol unit to a snapshot unit",
+        "when": "During toSnapshot",
+        "where": "Maps extractor output onto the scv/1 snapshot contract",
+        "why": "Contract mapping"
+      }
+    }
+  }
+}

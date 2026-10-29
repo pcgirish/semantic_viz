@@ -1,0 +1,42 @@
+{
+  "file": "fixtures/cluster-quality-adversarial/app/shared/money.py",
+  "storeVersion": 1,
+  "units": {
+    "u:fixtures.cluster-quality-adversarial.app.shared.money.Money": {
+      "fingerprint": "5f0602a55e563d2d38867867c44fee7e33c5d0f1",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Wraps an integer cents field",
+        "what": "Value type holding an amount in cents",
+        "when": "Used across billing, shipping and workers",
+        "where": "Adversarial clustering fixture: shared money value type",
+        "why": "A shared utility that clustering must not over-attract"
+      }
+    },
+    "u:fixtures.cluster-quality-adversarial.app.shared.money.Money.__init__": {
+      "fingerprint": "e96f449a7da5719e7f4055b4602243f32f6aa92d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores cents",
+        "what": "Constructs a Money amount",
+        "when": "When an amount is created",
+        "where": "Adversarial clustering fixture: shared money value type",
+        "why": "Value initialisation"
+      }
+    },
+    "u:fixtures.cluster-quality-adversarial.app.shared.money.Money.as_cents": {
+      "fingerprint": "b05977cbe6a84b78d9f37ebc983d28ba84390534",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the stored integer",
+        "what": "Returns the amount in cents",
+        "when": "When callers serialise money",
+        "where": "Adversarial clustering fixture: shared money value type",
+        "why": "Accessor used by dependents"
+      }
+    }
+  }
+}

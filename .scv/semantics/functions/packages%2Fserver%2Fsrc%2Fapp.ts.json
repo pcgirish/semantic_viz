@@ -1,0 +1,30 @@
+{
+  "file": "packages/server/src/app.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.server.src.app.buildApp": {
+      "fingerprint": "f4806816c2095694e518d20221b1fe7d701cacbb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Registers routes for revs, snapshots, units, search, deltas and layouts over a SnapshotStore with param checks",
+        "what": "Builds the Fastify app serving snapshot APIs",
+        "when": "Called by the viewer serve command",
+        "where": "Server: Fastify API",
+        "why": "Single place defining the HTTP API"
+      }
+    },
+    "u:packages.server.src.app.rejectUnsafe": {
+      "fingerprint": "6357846439949a583c1f951bd62d5d459faadfc9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks each decoded param with isSafePathSegment and replies 400 on failure",
+        "what": "Rejects route params that could escape their directory",
+        "when": "Called by every route with path params",
+        "where": "Server: Fastify API",
+        "why": "Traversal is a bad request, not a missing file"
+      }
+    }
+  }
+}

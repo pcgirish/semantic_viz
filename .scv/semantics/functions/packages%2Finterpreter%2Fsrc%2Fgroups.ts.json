@@ -1,0 +1,54 @@
+{
+  "file": "packages/interpreter/src/groups.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.groups.buildGroupUnit": {
+      "fingerprint": "7f0bc441a4177597f0b7caa690fe4bf877228624",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Aggregates member layer metrics, sets the system parent and attaches the narration",
+        "what": "Builds one group unit with parent, children, hashes and metrics",
+        "when": "Called by buildGroupUnits",
+        "where": "Interpreter: group units over layers",
+        "why": "Keeps group construction in one place"
+      }
+    },
+    "u:packages.interpreter.src.groups.buildGroupUnits": {
+      "fingerprint": "00bde20c411669b9e8958b59c1cf65dca08b574a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates one unit per group via buildGroupUnit and records each member layer's new parent",
+        "what": "Builds complete group units and the layer reparenting map",
+        "when": "Called by the groups pass",
+        "where": "Interpreter: group units over layers",
+        "why": "Gives group shape a single owner before finalizeSnapshot attaches it"
+      }
+    },
+    "u:packages.interpreter.src.groups.groupIdFor": {
+      "fingerprint": "886e5f9eb2ef37285250283b6ee7db46d6deec96",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes the sorted member ids into a short prefixed id",
+        "what": "Derives a group id from its member layer ids",
+        "when": "Called by buildGroupUnits",
+        "where": "Interpreter: group units over layers",
+        "why": "Names are rechosen every run, so ids depend only on membership"
+      }
+    },
+    "u:packages.interpreter.src.groups.resolveGroupMembership": {
+      "fingerprint": "0b7552da0ced4dc0239bf69e429b01726a5669af",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Indexes layer units by name, failing on duplicate names, unknown names or a layer claimed twice",
+        "what": "Converts group to layer-name mappings into group to layer-id mappings",
+        "when": "Called by the groups pass",
+        "where": "Interpreter: group units over layers",
+        "why": "Collisions or invented names make the grouping untrustworthy, so failures are fatal"
+      }
+    }
+  }
+}

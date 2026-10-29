@@ -1,0 +1,30 @@
+{
+  "file": "docs/mock/tools/render.py",
+  "storeVersion": 1,
+  "units": {
+    "u:docs.mock.tools.render.load": {
+      "fingerprint": "e70b754ff437e8cef7381bc2dcfaefa479ad4f1d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads JSON files from the store directory and prunes them",
+        "what": "Loads stored snapshots and deltas for rendering",
+        "when": "When rendering the mock page",
+        "where": "Design-mock renderer that inlines snapshot data into the prototype HTML",
+        "why": "Gathers data to inline"
+      }
+    },
+    "u:docs.mock.tools.render.prune": {
+      "fingerprint": "8d7043e8c7b8c6a0aaa9b178d6bf3eb101bbb99d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Copies the snapshot keeping only contract fields",
+        "what": "Drops snapshot fields the UI never reads",
+        "when": "Before embedding data in the page",
+        "where": "Design-mock renderer that inlines snapshot data into the prototype HTML",
+        "why": "Keeps the embedded payload small"
+      }
+    }
+  }
+}

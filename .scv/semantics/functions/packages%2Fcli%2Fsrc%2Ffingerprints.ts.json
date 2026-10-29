@@ -1,0 +1,114 @@
+{
+  "file": "packages/cli/src/fingerprints.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.fingerprints.authoredFromStore": {
+      "fingerprint": "3a6f3bb3463a4b8d4005157a9abca38bfda08e57",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Flattens function shards by unit id and splits out fingerprints",
+        "what": "Converts the committed store into an authored set",
+        "when": "Before evaluating against the store",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "Gives store and record the same shape"
+      }
+    },
+    "u:packages.cli.src.fingerprints.callSccs": {
+      "fingerprint": "3e5f3edb420ede871765e3091a7e89ce76f92f8a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Iterative Tarjan's algorithm emitting callees before callers",
+        "what": "Computes strongly connected components of the call graph",
+        "when": "Before fingerprinting functions",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "Lets recursion cycles be excluded from their own digests without stack overflow"
+      }
+    },
+    "u:packages.cli.src.fingerprints.choose": {
+      "fingerprint": "57e514f618a1a20f46b8c91386f6172342ef028f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Marks each side fresh when its stamp matches the fingerprint",
+        "what": "Pairs a fingerprint with the primary and store entries",
+        "when": "Per item during evaluate",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "Decides which entry is current"
+      }
+    },
+    "u:packages.cli.src.fingerprints.committedView": {
+      "fingerprint": "223fad197452f8fc17af0bfb540454d96fe2625c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Picks the store-side entry when present",
+        "what": "Returns the committed entry of a choice",
+        "when": "When downstream fingerprints read upstream narration",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "Downstream staleness follows what is committed"
+      }
+    },
+    "u:packages.cli.src.fingerprints.computeClusters": {
+      "fingerprint": "8896f742b93146d1cbfc2797847ce593a00df653",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds file-level import weights from module units and edges and clusters them",
+        "what": "Runs deterministic Pass B over a structural snapshot",
+        "when": "When fingerprinting layers and in check",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "Layers are fingerprinted against the clusters they must match"
+      }
+    },
+    "u:packages.cli.src.fingerprints.docFingerprint": {
+      "fingerprint": "6f5b3596164b29cab8c7de4f8aaa4e830fbed833",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes its path and content",
+        "what": "Fingerprints one doc",
+        "when": "During evaluate for docs",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "A doc goes stale when its text changes"
+      }
+    },
+    "u:packages.cli.src.fingerprints.emptyAuthoredSet": {
+      "fingerprint": "0f517cb1fbfd69af27f1c2ed30a571b25450266d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates empty maps for every section",
+        "what": "Returns an authored set with no entries",
+        "when": "As a starting value",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "Avoids null handling"
+      }
+    },
+    "u:packages.cli.src.fingerprints.evaluate": {
+      "fingerprint": "54615c16531718882be3783c308c1b2089019c31",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Fingerprints functions, docs, layers, groups and flows, each reading the committed view of its upstream",
+        "what": "Recomputes every fingerprint and pairs it with authored entries",
+        "when": "In merge stamping, export, hydrate and check",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "One function defines staleness for every command"
+      }
+    },
+    "u:packages.cli.src.fingerprints.functionFingerprints": {
+      "fingerprint": "e4c5f9979c95a334ca6c772feb9f6c588cd1c9ab",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes own struct and text hashes, sorted caller and callee qualnames and a digest of direct callees' committed semantics, in SCC order",
+        "what": "Fingerprints every function and class unit from what Pass A sees",
+        "when": "During evaluate",
+        "where": "Fingerprints of every narrated item, driving staleness checks",
+        "why": "A unit goes stale when its code, neighbours or callee narration change"
+      }
+    }
+  }
+}

@@ -1,0 +1,587 @@
+{
+  "fingerprint": "2d2afb0f2f306a59286cf1cacec9fa41ee5d855a",
+  "layers": {
+    "u:layer:05f7b227b1c9": {
+      "confidence": 0.8,
+      "files": [
+        "packages/skins/tiles3d/src/index.ts",
+        "packages/skins/tiles3d/src/link.ts",
+        "packages/skins/tiles3d/src/node.ts",
+        "packages/skins/tiles3d/src/skin.ts",
+        "packages/skins/tiles3d/src/theme.ts"
+      ],
+      "how": "Implements the skin contract with three.js meshes, link geometry and a theme",
+      "name": "Tiles3D Skin",
+      "what": "three.js extrusion skin rendering scene nodes and links as 3D tiles",
+      "when": "When the UI's 3D canvas host renders a scene with the tiles3d skin",
+      "where": "packages/skins/tiles3d/src",
+      "why": "Gives the same layout a 3D presentation without forking layout"
+    },
+    "u:layer:0fa8a6de1d29": {
+      "confidence": 0.7,
+      "files": [
+        "fixtures/cluster-quality-adversarial/app/billing/invoice.py"
+      ],
+      "how": "Python fixture code whose imports cross folder boundaries",
+      "name": "Adversarial Billing Invoice",
+      "what": "Invoice module in the adversarial clustering fixture",
+      "when": "Only when clustering quality is evaluated",
+      "where": "fixtures/cluster-quality-adversarial/app/billing",
+      "why": "Exists to prove clustering follows real coupling rather than folder names"
+    },
+    "u:layer:10077413f402": {
+      "confidence": 0.85,
+      "files": [
+        "packages/design-system/components/display/Badge.jsx",
+        "packages/design-system/components/display/Card.jsx",
+        "packages/design-system/components/display/Dialog.jsx",
+        "packages/design-system/components/display/StatBlock.jsx",
+        "packages/design-system/components/display/Tag.jsx",
+        "packages/design-system/components/display/Tooltip.jsx"
+      ],
+      "how": "Presentational React components styled by design tokens",
+      "name": "Display Components",
+      "what": "CodeDream display components: badges, cards, dialogs, stat blocks, tags, tooltips",
+      "when": "Whenever the UI shows labelled or boxed information",
+      "where": "packages/design-system/components/display",
+      "why": "Shared visual vocabulary across UI screens"
+    },
+    "u:layer:253c79e16621": {
+      "confidence": 0.85,
+      "files": [
+        "packages/design-system/components/layout/Rail.jsx",
+        "packages/design-system/components/layout/StatusBar.jsx",
+        "packages/design-system/components/layout/Toolbar.jsx",
+        "packages/design-system/components/layout/Tray.jsx"
+      ],
+      "how": "React containers that frame the app's panels",
+      "name": "Layout Components",
+      "what": "CodeDream shell layout components: rail, status bar, toolbar, tray",
+      "when": "On every UI screen as the outer chrome",
+      "where": "packages/design-system/components/layout",
+      "why": "Keeps app shell structure consistent"
+    },
+    "u:layer:35a127fae018": {
+      "confidence": 0.8,
+      "files": [
+        "packages/ui/vite.config.ts",
+        "packages/ui/vitest.config.ts"
+      ],
+      "how": "Configures the React plugin, dev server and test environment",
+      "name": "UI Build Config",
+      "what": "Vite build and Vitest test configuration for the UI package",
+      "when": "When the UI is built, served in dev or tested",
+      "where": "packages/ui",
+      "why": "Separates UI tooling from source"
+    },
+    "u:layer:3cbda250c0cb": {
+      "confidence": 0.85,
+      "files": [
+        "packages/design-system/index.ts"
+      ],
+      "how": "Re-exports components and tokens from one module",
+      "name": "Design System Entry",
+      "what": "Barrel export of the CodeDream design system",
+      "when": "Whenever the UI imports design-system components",
+      "where": "packages/design-system/index.ts",
+      "why": "Gives consumers a single import surface"
+    },
+    "u:layer:3fbd5a5d1718": {
+      "confidence": 0.9,
+      "files": [
+        "packages/cli/src/analyze.ts",
+        "packages/cli/src/artifacts.ts",
+        "packages/cli/src/assemble-snapshot.ts",
+        "packages/cli/src/authored-record.ts",
+        "packages/cli/src/bin.ts",
+        "packages/cli/src/block-availability.ts",
+        "packages/cli/src/check.ts",
+        "packages/cli/src/checkout.ts",
+        "packages/cli/src/diff.ts",
+        "packages/cli/src/discover-docs.ts",
+        "packages/cli/src/docs-narration.ts",
+        "packages/cli/src/export.ts",
+        "packages/cli/src/fingerprints.ts",
+        "packages/cli/src/hydrate.ts",
+        "packages/cli/src/index.ts",
+        "packages/cli/src/init.ts",
+        "packages/cli/src/merge-semantics.ts",
+        "packages/cli/src/rev.ts",
+        "packages/cli/src/semantics-store.ts",
+        "packages/cli/src/snapshot.ts"
+      ],
+      "how": "Parses commands in bin.ts and drives extraction, interpreter passes, artifact cache, committed semantics store and snapshot assembly",
+      "name": "CLI Commands",
+      "what": "The scv command line: analyze, diff, export, hydrate, check, init and merge-semantics",
+      "when": "Whenever a user or CI runs scv",
+      "where": "packages/cli/src",
+      "why": "Single entry point that orchestrates every pipeline stage and the committed store"
+    },
+    "u:layer:43cd87a0170f": {
+      "confidence": 0.7,
+      "files": [
+        "fixtures/cluster-quality-adversarial/workers/billing_worker.py"
+      ],
+      "how": "Python worker importing billing code from another folder",
+      "name": "Adversarial Billing Worker",
+      "what": "Background billing worker in the adversarial clustering fixture",
+      "when": "Only when clustering quality is evaluated",
+      "where": "fixtures/cluster-quality-adversarial/workers",
+      "why": "Exists to prove clustering follows real coupling rather than folder names"
+    },
+    "u:layer:471b763e09a2": {
+      "confidence": 0.9,
+      "files": [
+        "packages/extractor/src/facts.ts",
+        "packages/extractor/src/git-ignored.ts",
+        "packages/extractor/src/hash.ts",
+        "packages/extractor/src/host.ts",
+        "packages/extractor/src/index.ts",
+        "packages/extractor/src/manifest.ts",
+        "packages/extractor/src/qualname.ts",
+        "packages/extractor/src/resolve.ts",
+        "packages/extractor/src/symbol-graph.ts",
+        "packages/extractor/src/vcs.ts",
+        "packages/extractor/src/walk-dir.ts",
+        "packages/extractor/src/walk-python.ts",
+        "packages/extractor/src/walk-typescript.ts"
+      ],
+      "how": "Walks contained, non-ignored files, parses TypeScript and Python with tree-sitter, resolves calls and imports, reads manifests and git",
+      "name": "Extractor",
+      "what": "Static analysis that turns a repo into a SymbolGraph of units, edges and externals",
+      "when": "First stage of every analyze run",
+      "where": "packages/extractor/src",
+      "why": "Static facts are the ground truth that interpretation builds on"
+    },
+    "u:layer:4afe7b1e1f73": {
+      "confidence": 0.85,
+      "files": [
+        "packages/viewer/src/bin.ts",
+        "packages/viewer/src/serve.ts",
+        "packages/viewer/src/ui.ts"
+      ],
+      "how": "bin dispatches serve (Fastify API) and ui (static UI with API proxy)",
+      "name": "Viewer",
+      "what": "scv-viewer entry points serving the API and the built UI",
+      "when": "When a user opens the visualizer locally",
+      "where": "packages/viewer/src",
+      "why": "Ships the visualizer separately from the analysis CLI"
+    },
+    "u:layer:4b0f408aad53": {
+      "confidence": 0.7,
+      "files": [
+        "fixtures/cluster-quality-adversarial/app/shared/money.py"
+      ],
+      "how": "Python utility imported across fixture folders",
+      "name": "Adversarial Shared Money",
+      "what": "Shared money helpers in the adversarial clustering fixture",
+      "when": "Only when clustering quality is evaluated",
+      "where": "fixtures/cluster-quality-adversarial/app/shared",
+      "why": "Exists to prove clustering follows real coupling rather than folder names"
+    },
+    "u:layer:4e59cecd92b8": {
+      "confidence": 0.8,
+      "files": [
+        "packages/skins/tiles/vitest.config.ts"
+      ],
+      "how": "Declares the test environment and include patterns for that package's tests",
+      "name": "Vitest Config (skins/tiles)",
+      "what": "Vitest configuration for the skins/tiles package",
+      "when": "When npm run test runs that workspace",
+      "where": "packages/skins/tiles/vitest.config.ts",
+      "why": "Lets each package configure its own test environment"
+    },
+    "u:layer:58b88ddecc95": {
+      "confidence": 0.9,
+      "files": [
+        "packages/layout/src/expand.ts",
+        "packages/layout/src/flowchart.ts",
+        "packages/layout/src/index.ts",
+        "packages/layout/src/layout.ts",
+        "packages/layout/src/nested.ts",
+        "packages/layout/src/order.ts",
+        "packages/layout/src/place.ts",
+        "packages/layout/src/rank.ts",
+        "packages/layout/src/route.ts",
+        "packages/layout/src/scene.ts",
+        "packages/layout/src/seed.ts"
+      ],
+      "how": "Computes ranks from edges, orders rows, places nodes with seeded positions and routes edges into lanes",
+      "name": "Layout Engine",
+      "what": "Pure layered layout: rank, order, place, route, nesting and flowchart layout producing a Scene",
+      "when": "Whenever the UI needs a scene for the current focus",
+      "where": "packages/layout/src",
+      "why": "One layout structure that every skin consumes"
+    },
+    "u:layer:6d5ef67de3ab": {
+      "confidence": 0.8,
+      "files": [
+        "packages/skins/cityscape/src/bounds.ts",
+        "packages/skins/cityscape/src/ground.ts",
+        "packages/skins/cityscape/src/index.ts",
+        "packages/skins/cityscape/src/minimap.ts",
+        "packages/skins/cityscape/src/skin.ts"
+      ],
+      "how": "Implements the skin contract as buildings on a ground plane with walk/fly camera support",
+      "name": "Cityscape Skin",
+      "what": "three.js city skin with ground, bounds and a minimap",
+      "when": "When the user switches to the cityscape view",
+      "where": "packages/skins/cityscape/src",
+      "why": "Navigable 3D presentation over the shared layout"
+    },
+    "u:layer:6eff7eaa5930": {
+      "confidence": 0.85,
+      "files": [
+        "packages/design-system/components/code/CommitTimeline.jsx",
+        "packages/design-system/components/code/DiffHunk.jsx",
+        "packages/design-system/components/code/EdgeDeltaList.jsx",
+        "packages/design-system/components/code/FileRow.jsx",
+        "packages/design-system/components/code/PathBreadcrumb.jsx"
+      ],
+      "how": "React components rendering revisions and diffs",
+      "name": "Code Components",
+      "what": "CodeDream code-review components: commit timeline, diff hunks, edge deltas, file rows, breadcrumbs",
+      "when": "In Delta, Replay and inspector views",
+      "where": "packages/design-system/components/code",
+      "why": "Reusable presentation for change data"
+    },
+    "u:layer:78784812238a": {
+      "confidence": 0.8,
+      "files": [
+        "eslint.config.js",
+        "vitest.config.ts",
+        "vitest.workspace.ts"
+      ],
+      "how": "Declares lint rules and the set of test workspaces",
+      "name": "Root Tooling Config",
+      "what": "Repo-wide ESLint and Vitest workspace configuration",
+      "when": "When npm run lint or npm run test runs at the root",
+      "where": "repo root",
+      "why": "One lint and test policy for the monorepo"
+    },
+    "u:layer:82afe0d8157b": {
+      "confidence": 0.85,
+      "files": [
+        "packages/skins/tiles/src/index.ts",
+        "packages/skins/tiles/src/link.ts",
+        "packages/skins/tiles/src/minimap.ts",
+        "packages/skins/tiles/src/node.tsx",
+        "packages/skins/tiles/src/region.tsx",
+        "packages/skins/tiles/src/skin.ts",
+        "packages/skins/tiles/src/svg.ts",
+        "packages/skins/tiles/src/theme.ts"
+      ],
+      "how": "Implements the skin contract with SVG primitives and a theme",
+      "name": "Tiles Skin",
+      "what": "SVG skin rendering nodes, links, regions and a minimap",
+      "when": "Default 2D rendering of every scene",
+      "where": "packages/skins/tiles/src",
+      "why": "The primary 2D presentation"
+    },
+    "u:layer:82f372df6937": {
+      "confidence": 0.8,
+      "files": [
+        "packages/skins/tiles3d/vitest.config.ts"
+      ],
+      "how": "Declares the test environment and include patterns for that package's tests",
+      "name": "Vitest Config (skins/tiles3d)",
+      "what": "Vitest configuration for the skins/tiles3d package",
+      "when": "When npm run test runs that workspace",
+      "where": "packages/skins/tiles3d/vitest.config.ts",
+      "why": "Lets each package configure its own test environment"
+    },
+    "u:layer:9ea2b7858f38": {
+      "confidence": 0.9,
+      "files": [
+        "packages/schema/src/index.ts",
+        "packages/schema/src/invariants.ts",
+        "packages/schema/src/json-schema.ts",
+        "packages/schema/src/normalize.ts",
+        "packages/schema/src/pending-semantics.ts"
+      ],
+      "how": "Defines scv/1 types, validates tree and edge invariants, normalizes and emits JSON Schema",
+      "name": "Schema",
+      "what": "Zod schemas and invariants for snapshots, deltas and pending semantics",
+      "when": "At every boundary that reads or writes pipeline data",
+      "where": "packages/schema/src",
+      "why": "The pipeline contract shared by every package"
+    },
+    "u:layer:a455347cbac7": {
+      "confidence": 0.8,
+      "files": [
+        "packages/cli/scripts/copy-skills.mjs"
+      ],
+      "how": "Copies .agents/skills into the package so init can install them",
+      "name": "CLI Skill Packaging",
+      "what": "Build script copying agent skills into the CLI package",
+      "when": "During the CLI build",
+      "where": "packages/cli/scripts",
+      "why": "Ships skills with the published CLI"
+    },
+    "u:layer:a4a99f7a0d0d": {
+      "confidence": 0.8,
+      "files": [
+        "packages/extractor/src/grammars/registry.ts"
+      ],
+      "how": "Registry lookup used by the extractor walkers",
+      "name": "Grammar Registry",
+      "what": "Maps file extensions to tree-sitter grammars",
+      "when": "When the extractor chooses a parser for a file",
+      "where": "packages/extractor/src/grammars",
+      "why": "Adding a language is one registry entry"
+    },
+    "u:layer:a5a2198bafbe": {
+      "confidence": 0.85,
+      "files": [
+        "packages/server/src/app.ts",
+        "packages/server/src/bin.ts",
+        "packages/server/src/index.ts",
+        "packages/server/src/store.ts"
+      ],
+      "how": "Routes read from a snapshot store backed by the repo's .scv directory",
+      "name": "API Server",
+      "what": "Fastify API serving snapshots, deltas and layouts from .scv",
+      "when": "Whenever the UI fetches data",
+      "where": "packages/server/src",
+      "why": "Separates data access from the UI"
+    },
+    "u:layer:a65fcbfd3bb1": {
+      "confidence": 0.85,
+      "files": [
+        "packages/design-system/components/core/Button.jsx",
+        "packages/design-system/components/core/Checkbox.jsx",
+        "packages/design-system/components/core/Icon.jsx",
+        "packages/design-system/components/core/IconButton.jsx",
+        "packages/design-system/components/core/Input.jsx",
+        "packages/design-system/components/core/SegmentedControl.jsx",
+        "packages/design-system/components/core/Select.jsx",
+        "packages/design-system/components/core/Switch.jsx"
+      ],
+      "how": "Token-styled React controls",
+      "name": "Core Components",
+      "what": "CodeDream form and control primitives: buttons, inputs, selects, switches, icons",
+      "when": "Throughout the UI for interaction",
+      "where": "packages/design-system/components/core",
+      "why": "Consistent controls across screens"
+    },
+    "u:layer:abd12da4ebad": {
+      "confidence": 0.85,
+      "files": [
+        "packages/design-system/components/viz/BubbleChart.jsx",
+        "packages/design-system/components/viz/ConnectorLayer.jsx",
+        "packages/design-system/components/viz/Facet.jsx",
+        "packages/design-system/components/viz/GraphCanvas.jsx",
+        "packages/design-system/components/viz/GroupFrame.jsx",
+        "packages/design-system/components/viz/HeatLegend.jsx",
+        "packages/design-system/components/viz/PolyNode.jsx",
+        "packages/design-system/components/viz/RiskMeter.jsx",
+        "packages/design-system/components/viz/RiskRadar.jsx",
+        "packages/design-system/components/viz/Solid3D.jsx",
+        "packages/design-system/components/viz/Sparkline.jsx",
+        "packages/design-system/components/viz/focus.js",
+        "packages/design-system/components/viz/temp.js"
+      ],
+      "how": "React and SVG components for graph and metric rendering",
+      "name": "Viz Components",
+      "what": "CodeDream visualization components: graph canvas, connectors, nodes, risk meters, legends, sparklines",
+      "when": "In canvas, legend and inspector views",
+      "where": "packages/design-system/components/viz",
+      "why": "Shared visual encoding for graph data"
+    },
+    "u:layer:ac5bbf3fcf6d": {
+      "confidence": 0.85,
+      "files": [
+        "packages/ui/src/App.tsx",
+        "packages/ui/src/Breadcrumb.tsx",
+        "packages/ui/src/Canvas3dHost.tsx",
+        "packages/ui/src/CanvasHost.tsx",
+        "packages/ui/src/ConnectedSiblingsTray.tsx",
+        "packages/ui/src/ControlsHelp.tsx",
+        "packages/ui/src/DependsOn.tsx",
+        "packages/ui/src/EntryPointsRail.tsx",
+        "packages/ui/src/Flowchart.tsx",
+        "packages/ui/src/Flows.tsx",
+        "packages/ui/src/InspectQueue.tsx",
+        "packages/ui/src/Inspector.tsx",
+        "packages/ui/src/Legend.tsx",
+        "packages/ui/src/Minimap.tsx",
+        "packages/ui/src/Replay.tsx",
+        "packages/ui/src/UnitSearch.tsx",
+        "packages/ui/src/autonav.ts",
+        "packages/ui/src/controls3d.ts",
+        "packages/ui/src/edge-budget.ts",
+        "packages/ui/src/index.ts",
+        "packages/ui/src/main.tsx",
+        "packages/ui/src/scene3d.ts",
+        "packages/ui/src/store.ts",
+        "packages/ui/src/usePanZoom.ts"
+      ],
+      "how": "Zustand store drives focus and mode; canvas hosts render layout scenes through skins",
+      "name": "UI App",
+      "what": "React app: canvas hosts, inspector, legend, search and the Depends-on, Flows, Flowchart and Replay views",
+      "when": "When a user explores a snapshot in the browser",
+      "where": "packages/ui/src",
+      "why": "The interactive surface over snapshots"
+    },
+    "u:layer:adf1ddf73bab": {
+      "confidence": 0.85,
+      "files": [
+        "packages/skin-contract/src/contract.ts",
+        "packages/skin-contract/src/index.ts"
+      ],
+      "how": "Type-level contract that hosts call to render nodes, links and regions",
+      "name": "Skin Contract",
+      "what": "Skin interface and camera/navigation model shared by all skins",
+      "when": "Whenever a canvas host mounts a skin",
+      "where": "packages/skin-contract/src",
+      "why": "Lets 2D and 3D skins swap over one layout"
+    },
+    "u:layer:ae56fe2966e5": {
+      "confidence": 0.8,
+      "files": [
+        "packages/viewer/scripts/bundle.mjs"
+      ],
+      "how": "Copies the built UI into the viewer distribution",
+      "name": "Viewer Bundling",
+      "what": "Build script bundling the UI into the viewer package",
+      "when": "During the viewer build",
+      "where": "packages/viewer/scripts",
+      "why": "Ships the UI with the viewer"
+    },
+    "u:layer:b1659ed4c951": {
+      "confidence": 0.7,
+      "files": [
+        "fixtures/cluster-quality-adversarial/app/shipping/carrier.py",
+        "fixtures/cluster-quality-adversarial/app/shipping/label.py"
+      ],
+      "how": "Python fixture modules",
+      "name": "Adversarial Shipping",
+      "what": "Shipping carrier and label modules in the adversarial clustering fixture",
+      "when": "Only when clustering quality is evaluated",
+      "where": "fixtures/cluster-quality-adversarial/app/shipping",
+      "why": "Exists to prove clustering follows real coupling rather than folder names"
+    },
+    "u:layer:b3fa07eec7a4": {
+      "confidence": 0.7,
+      "files": [
+        "fixtures/cluster-quality-adversarial/scripts/billing_backfill.py",
+        "fixtures/cluster-quality-adversarial/scripts/rotate_logs.py"
+      ],
+      "how": "Python scripts for billing backfill and log rotation",
+      "name": "Adversarial Scripts",
+      "what": "Maintenance scripts in the adversarial clustering fixture",
+      "when": "Only when clustering quality is evaluated",
+      "where": "fixtures/cluster-quality-adversarial/scripts",
+      "why": "Exists to prove clustering follows real coupling rather than folder names"
+    },
+    "u:layer:b7132ea52842": {
+      "confidence": 0.75,
+      "files": [
+        "docs/mock/tools/build.py",
+        "docs/mock/tools/extract.py",
+        "docs/mock/tools/render.py",
+        "docs/mock/tools/render_generic.py"
+      ],
+      "how": "Run the pipeline end to end on a fixture and render HTML",
+      "name": "Mock Prototype Tools",
+      "what": "Python tools behind the docs/mock prototype: extract, build, render",
+      "when": "When regenerating the mock",
+      "where": "docs/mock/tools",
+      "why": "Validates the schema by consuming it"
+    },
+    "u:layer:be48a3b12973": {
+      "confidence": 0.85,
+      "files": [
+        "packages/differ/src/diff-with-risk.ts",
+        "packages/differ/src/diff.ts",
+        "packages/differ/src/group-lineage.ts",
+        "packages/differ/src/index.ts"
+      ],
+      "how": "Matches units, classifies changes and computes blast radius and risk",
+      "name": "Differ",
+      "what": "Diffs two snapshots into a delta with risk and group lineage",
+      "when": "When diffing two revisions",
+      "where": "packages/differ/src",
+      "why": "Turns two snapshots into what changed and how risky it is"
+    },
+    "u:layer:bf103a92280a": {
+      "confidence": 0.85,
+      "files": [
+        "packages/interpreter/src/blocks.ts",
+        "packages/interpreter/src/cache.ts",
+        "packages/interpreter/src/cached-provider.ts",
+        "packages/interpreter/src/checker.ts",
+        "packages/interpreter/src/cluster.ts",
+        "packages/interpreter/src/config.ts",
+        "packages/interpreter/src/create-provider.ts",
+        "packages/interpreter/src/groups.ts",
+        "packages/interpreter/src/index.ts",
+        "packages/interpreter/src/json-response.ts",
+        "packages/interpreter/src/log.ts",
+        "packages/interpreter/src/orchestrate.ts",
+        "packages/interpreter/src/pass-a-blocks.ts",
+        "packages/interpreter/src/pass-a.ts",
+        "packages/interpreter/src/pass-b.ts",
+        "packages/interpreter/src/pass-c.ts",
+        "packages/interpreter/src/pass-d.ts",
+        "packages/interpreter/src/pass-docs.ts",
+        "packages/interpreter/src/provider.ts",
+        "packages/interpreter/src/rank.ts",
+        "packages/interpreter/src/retry.ts",
+        "packages/interpreter/src/topo-order.ts"
+      ],
+      "how": "orchestrate runs passes in topological order through a cached provider; clustering and grouping are deterministic",
+      "name": "Interpreter Passes",
+      "what": "Orchestration of interpreter passes A, Docs, B, C and D with cache, ranking and provider plumbing",
+      "when": "During every analyze run after extraction",
+      "where": "packages/interpreter/src",
+      "why": "Owns meaning on top of static facts"
+    },
+    "u:layer:e26cbf415283": {
+      "confidence": 0.85,
+      "files": [
+        "packages/interpreter/src/prompts/pass-a-blocks.ts",
+        "packages/interpreter/src/prompts/pass-a.ts",
+        "packages/interpreter/src/prompts/pass-c-flows.ts",
+        "packages/interpreter/src/prompts/pass-c-groups.ts",
+        "packages/interpreter/src/prompts/pass-c.ts",
+        "packages/interpreter/src/prompts/pass-d.ts",
+        "packages/interpreter/src/prompts/pass-docs.ts",
+        "packages/interpreter/src/prompts/rank.ts"
+      ],
+      "how": "Render pass inputs into provider prompts",
+      "name": "Interpreter Prompts",
+      "what": "Prompt builders for each interpreter pass",
+      "when": "Whenever a pass calls a provider",
+      "where": "packages/interpreter/src/prompts",
+      "why": "Keeps prompts versioned and separate from orchestration"
+    },
+    "u:layer:ee4db2a413ae": {
+      "confidence": 0.8,
+      "files": [
+        "packages/skins/cityscape/vitest.config.ts"
+      ],
+      "how": "Declares the test environment and include patterns for that package's tests",
+      "name": "Vitest Config (skins/cityscape)",
+      "what": "Vitest configuration for the skins/cityscape package",
+      "when": "When npm run test runs that workspace",
+      "where": "packages/skins/cityscape/vitest.config.ts",
+      "why": "Lets each package configure its own test environment"
+    },
+    "u:layer:f11a3d634d0f": {
+      "confidence": 0.85,
+      "files": [
+        "packages/interpreter/src/providers/anthropic.ts",
+        "packages/interpreter/src/providers/claude-cli.ts",
+        "packages/interpreter/src/providers/ollama.ts"
+      ],
+      "how": "Each implements the provider interface over its API or CLI",
+      "name": "LLM Providers",
+      "what": "Provider adapters for Anthropic, claude-cli and Ollama",
+      "when": "When a pass calls an LLM",
+      "where": "packages/interpreter/src/providers",
+      "why": "Pluggable providers behind one interface"
+    }
+  },
+  "storeVersion": 1
+}

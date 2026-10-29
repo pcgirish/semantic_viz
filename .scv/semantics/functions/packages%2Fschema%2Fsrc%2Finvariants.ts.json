@@ -1,0 +1,78 @@
+{
+  "file": "packages/schema/src/invariants.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.schema.src.invariants.formatFindings": {
+      "fingerprint": "8148ea12c717b4a83e4a57c0c7ed592e43120783",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sorts by severity and formats one line per finding",
+        "what": "Renders findings for logs or errors",
+        "when": "Called when reporting invariant failures",
+        "where": "Schema: snapshot referential invariants",
+        "why": "Most severe first is most useful"
+      }
+    },
+    "u:packages.schema.src.invariants.result": {
+      "fingerprint": "24963146cf433af742322f3eb6e556e6a36e43b0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sets valid to false only when an error finding exists",
+        "what": "Builds a validation result from findings",
+        "when": "Called by the validators",
+        "where": "Schema: snapshot referential invariants",
+        "why": "Warnings are logged, not refused"
+      }
+    },
+    "u:packages.schema.src.invariants.validateEdgeInvariants": {
+      "fingerprint": "d0edfad4271febbb2680964771b37a70c8047738",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reports unresolved endpoints except ext modules, and for rollups empty, duplicate, unsorted, nested or unresolved contributors and count or weight mismatches",
+        "what": "Checks edges resolve to units and rollup provenance is consistent",
+        "when": "Called by validateSnapshotInvariants",
+        "where": "Schema: snapshot referential invariants",
+        "why": "Rolled-up connectors must account exactly for the edges they stand for"
+      }
+    },
+    "u:packages.schema.src.invariants.validateSnapshotInvariants": {
+      "fingerprint": "04aa3a2c0ec699dd7928c3b50e029eb78df0a889",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Combines the findings of the two validators into one result",
+        "what": "Runs both tree and edge validators",
+        "when": "Called by the server store and CLI",
+        "where": "Schema: snapshot referential invariants",
+        "why": "One entry point for callers"
+      }
+    },
+    "u:packages.schema.src.invariants.validateTreeInvariants": {
+      "fingerprint": "eb43dd64beda480573ef1d7c6f05d9fef49147f9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reports a missing root, orphans, unresolved parents and children, parent and children disagreement, cycles and units unreachable from the root",
+        "what": "Checks the unit hierarchy is a well-formed tree rooted at the system unit",
+        "when": "Called by validateSnapshotInvariants",
+        "where": "Schema: snapshot referential invariants",
+        "why": "Catches broken hierarchies the schema cannot express"
+      }
+    },
+    "u:packages.schema.src.invariants.validateTreeInvariants.walk": {
+      "fingerprint": "672576b3735af7cd64237794c32228fef07cd5ea",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Marks visiting units and recurses into children, recording a cycle finding on revisit",
+        "what": "Walks the tree from one unit detecting cycles",
+        "when": "Called by validateTreeInvariants",
+        "where": "Schema: snapshot referential invariants",
+        "why": "Proves every unit is reachable without loops"
+      }
+    }
+  }
+}

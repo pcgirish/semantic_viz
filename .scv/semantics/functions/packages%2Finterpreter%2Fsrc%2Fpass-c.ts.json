@@ -1,0 +1,78 @@
+{
+  "file": "packages/interpreter/src/pass-c.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.pass-c.applyLayerMerges": {
+      "fingerprint": "a1b671a7a0514a31565ebce5dff55906678173c0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Combines listed layers under the merge name, drops unknown or duplicate layers and keeps the rest as singletons",
+        "what": "Applies proposed merges to the singleton layer partition",
+        "when": "Called by runPassCGroups",
+        "where": "Interpreter: Pass C layer, group and flow narration",
+        "why": "Repairs untrusted merge proposals into a valid partition"
+      }
+    },
+    "u:packages.interpreter.src.pass-c.isMergesWrapped": {
+      "fingerprint": "e505c558dbbebb55fe7bc9e48cef0d1c4686ea95",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks for an object with a merges property",
+        "what": "Tells whether a groups response is wrapped in a merges key",
+        "when": "Called by runPassCGroups",
+        "where": "Interpreter: Pass C layer, group and flow narration",
+        "why": "Accepts both response shapes models produce"
+      }
+    },
+    "u:packages.interpreter.src.pass-c.narrateFlow": {
+      "fingerprint": "629710f15678108575b80415a24fc923905adcfd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Prompts with the route, name and step summaries and validates the narration fields",
+        "what": "Narrates a traced flow's steps",
+        "when": "Called by runFlowsPass",
+        "where": "Interpreter: Pass C layer, group and flow narration",
+        "why": "Explains a flow whose steps come from real edges"
+      }
+    },
+    "u:packages.interpreter.src.pass-c.proposeFlowEntryPoints": {
+      "fingerprint": "0ef32f917c3e680c256391bc93a4f81799ea8ed5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Prompts with unit one-liners, call edges and route hints, then drops any unit id the model did not see",
+        "what": "Proposes api_flow entry points in one call",
+        "when": "Called by runFlowsPass",
+        "where": "Interpreter: Pass C layer, group and flow narration",
+        "why": "Propose then repair, so invented ids never become flows"
+      }
+    },
+    "u:packages.interpreter.src.pass-c.runPassC": {
+      "fingerprint": "5ce0001263f23f784407e9aeef47e04c2498a957",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Carries over records for clusters with a previous id and calls the provider once per new cluster in id order",
+        "what": "Names and narrates each cluster as a layer",
+        "when": "Called by runNarrationPass",
+        "where": "Interpreter: Pass C layer, group and flow narration",
+        "why": "Unchanged membership yields a byte-identical layer and fewer calls"
+      }
+    },
+    "u:packages.interpreter.src.pass-c.runPassCGroups": {
+      "fingerprint": "abaa5b1de8fcfd7f216b73ba8861d5ddc72588a2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Prompts with the layers and repo context, parses the merges and applies them",
+        "what": "Groups layers into named architectural groups",
+        "when": "Called by runGroupsPass",
+        "where": "Interpreter: Pass C layer, group and flow narration",
+        "why": "Adds the group level from model judgement"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/extractor/src/git-ignored.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.git-ignored.gitIgnoredPaths": {
+      "fingerprint": "3a1c045d6f4aae88f5bbba745e13373e4b79f57e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Pipes the paths NUL-separated into git check-ignore with a fixed argv and no shell, returning an empty set on any non-zero status",
+        "what": "Returns the subset of relative paths git ignores under a root",
+        "when": "Called by listFilesContained and docs discovery",
+        "where": "Extractor: git ignore filtering",
+        "why": "Ignored files exist locally but not in a clone, so analyzing them would make the committed store disagree with CI"
+      }
+    }
+  }
+}

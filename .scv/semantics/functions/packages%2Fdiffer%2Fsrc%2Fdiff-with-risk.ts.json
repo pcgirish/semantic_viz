@@ -1,0 +1,30 @@
+{
+  "file": "packages/differ/src/diff-with-risk.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.differ.src.diff-with-risk.needsRiskNarration": {
+      "fingerprint": "f9e98838e16c6d3d1287b3649fa9298db1b7e375",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns true for any changed module and for leaf units whose semantics field changed",
+        "what": "Decides whether a unit delta should get risk narration",
+        "when": "Called by runDifferWithRisk for each unit delta",
+        "where": "Differ: risk narration over the deterministic diff",
+        "why": "Modules never get a semantic hash, so gating them on semantics would skip text-only module edits worth narrating"
+      }
+    },
+    "u:packages.differ.src.diff-with-risk.runDifferWithRisk": {
+      "fingerprint": "14e2ac5e5b316f1197ba0a263137d4e6406a6e4e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs runDiffer, asks the provider for Pass D risk narration on each qualifying delta, overrides the formula floor with the narrated risk and ranks the inspect queue",
+        "what": "Diffs two snapshots and narrates risk for semantically changed units",
+        "when": "Called by analyze when a base snapshot exists and a provider is configured",
+        "where": "Differ: risk narration over the deterministic diff",
+        "why": "Adds the interpreter-in-the-loop half of the differ on top of deterministic change detection"
+      }
+    }
+  }
+}

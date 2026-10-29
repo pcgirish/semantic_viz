@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/viz/HeatLegend.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.HeatLegend.HeatLegend": {
+      "fingerprint": "70e4ac680b9e7984ab334e7575651dd36b42fb1f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders one swatch per temperature stop between the from and to labels, highlighting the current value and calling onPick when a stop is clicked",
+        "what": "Shows the temperature colour scale with optional marker and pick handler",
+        "when": "Shown wherever heat colouring is active",
+        "where": "Design-system viz primitive: temperature legend",
+        "why": "Lets readers decode node temperature colours and filter by them"
+      }
+    }
+  }
+}

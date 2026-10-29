@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/tiles/src/svg.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles.src.svg.el": {
+      "fingerprint": "3ec2c58b4e4b4beae8a302cb6e6ede631d7c0ab8",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates the namespaced element and sets each attribute",
+        "what": "Creates an SVG element with attributes",
+        "when": "Used by SVG-rendering skin code",
+        "where": "Tiles skin: SVG helper",
+        "why": "Removes namespace boilerplate"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/display/StatBlock.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.display.StatBlock.StatBlock": {
+      "fingerprint": "2da321a206d749afda41092162d55d698d5fa9bc",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders value, unit, label and toned delta",
+        "what": "Displays one number with its label and delta",
+        "when": "In trays and dashboards",
+        "where": "Design system: display components",
+        "why": "Uniform metrics"
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "file": "packages/design-system/components/code/EdgeDeltaList.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.code.EdgeDeltaList.DeltaRow": {
+      "fingerprint": "cc39ccd33076232d7a1f9394122950674a5114d2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Shows a status glyph, from and to names and an optional weight delta",
+        "what": "One relationship-change row",
+        "when": "Inside EdgeDeltaList",
+        "where": "Design system: code components",
+        "why": "Readable edge changes"
+      }
+    },
+    "u:packages.design-system.components.code.EdgeDeltaList.EdgeDeltaList": {
+      "fingerprint": "621bd2f44caf1ca158a690c99ffead9752a66be8",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps edges to DeltaRows with selection",
+        "what": "Stack of edge change rows",
+        "when": "In delta trays",
+        "where": "Design system: code components",
+        "why": "Lists changed relationships"
+      }
+    }
+  }
+}

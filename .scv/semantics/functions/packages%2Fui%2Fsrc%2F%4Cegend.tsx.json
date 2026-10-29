@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/Legend.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.Legend.Legend": {
+      "fingerprint": "efe61da48bd49ee811567ec10fa8d0793df57576",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders group headers with nested coloured layers, an other bucket and encoding keys",
+        "what": "Shows groups with their layers and the visual encodings",
+        "when": "Shown in the side rail",
+        "where": "UI: legend",
+        "why": "Explains colour, shape and size"
+      }
+    }
+  }
+}

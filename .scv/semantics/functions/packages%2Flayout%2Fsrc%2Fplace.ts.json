@@ -1,0 +1,42 @@
+{
+  "file": "packages/layout/src/place.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.layout.src.place.place": {
+      "fingerprint": "5549617f4ddfe1f3e2b5eab6ae6e438f182c5c81",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sizes each box by the square root of SLOC with caps, lays rows left to right centred and stacks rows vertically",
+        "what": "Places boxes row by row sized by SLOC",
+        "when": "Called by buildScene",
+        "where": "Layout: box placement",
+        "why": "Area carries size and caps leave room for edges"
+      }
+    },
+    "u:packages.layout.src.place.place.dimFor": {
+      "fingerprint": "96950ee7565fd349aa9bfd8f6a5e3b952c770184",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Gives dummies a small fixed size and others a capped square-root of SLOC",
+        "what": "Returns the box dimension for one id",
+        "when": "Called by place",
+        "where": "Layout: box placement",
+        "why": "Keeps sizing rules in one place"
+      }
+    },
+    "u:packages.layout.src.place.wrapRow": {
+      "fingerprint": "914e0d0766926df4a18da9bbfccae02c2f073a8a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Chunks ids into rows of the maximum width",
+        "what": "Splits a long row into several rows",
+        "when": "Called by place",
+        "where": "Layout: box placement",
+        "why": "Stops very wide rows overflowing the canvas"
+      }
+    }
+  }
+}

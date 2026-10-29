@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/core/Icon.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.core.Icon.Icon": {
+      "fingerprint": "9638f83a6024925f96ea041b20448f13a6640dec",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps the name to a Material Symbols ligature that inherits colour and scales with size",
+        "what": "Renders a named icon glyph",
+        "when": "Across components",
+        "where": "Design system: core controls",
+        "why": "One icon primitive"
+      }
+    }
+  }
+}

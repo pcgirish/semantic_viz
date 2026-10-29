@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/CanvasHost.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.CanvasHost.CanvasHost": {
+      "fingerprint": "29be3855b2be3d5f94d5b9a5b4131c8b78d7176f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds the scene with the layout engine, renders skin tiles, regions and connectors with pan and zoom, and handles select and drill",
+        "what": "2D canvas host drawing scene tiles and connectors",
+        "when": "Rendered for the 2D skin",
+        "where": "UI: 2D host",
+        "why": "Layout computes positions and the skin draws them"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/prompts/rank.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.prompts.rank.rankPrompt": {
+      "fingerprint": "911e7838d1da8bf3db6382568c9dea58a5185169",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists numbered candidates with their change and risk summaries and asks for an order of numbers",
+        "what": "Builds the prompt ordering changed units for review",
+        "when": "Called by rankInspectQueue",
+        "where": "Interpreter prompts: inspect queue ranking",
+        "why": "Ranking is human priority, not a sort by risk"
+      }
+    }
+  }
+}

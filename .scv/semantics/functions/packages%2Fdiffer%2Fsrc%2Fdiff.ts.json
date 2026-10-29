@@ -1,0 +1,114 @@
+{
+  "file": "packages/differ/src/diff.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.differ.src.diff.blastRadius": {
+      "fingerprint": "4a99f1966d3378251c5123d642e255eb4476c6b1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds a reverse edge index and walks it breadth-first from the unit, counting first-level and all reachable callers",
+        "what": "Counts direct and transitive callers of a unit",
+        "when": "Called by runDiffer for each changed unit",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Measures how far a change can propagate"
+      }
+    },
+    "u:packages.differ.src.diff.classify": {
+      "fingerprint": "9729e4e649a4c06d2d3792420bf89972bf5109b1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns added or removed when one side is missing, otherwise compares struct, text and semantic hashes and line counts to choose modified or unchanged",
+        "what": "Classifies a unit's change status, amount and changed fields",
+        "when": "Called by runDiffer per matched unit id",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Turns hash comparisons into a structured change record"
+      }
+    },
+    "u:packages.differ.src.diff.edgeDeltas": {
+      "fingerprint": "7730817ed4cec0e08c853ffc8eccb69d2f46986b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Keys edges by source, target and kind and set-differences the two sides",
+        "what": "Lists edges added and removed between two snapshots",
+        "when": "Called by runDiffer",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Shows dependency changes alongside unit changes"
+      }
+    },
+    "u:packages.differ.src.diff.exposureChanged": {
+      "fingerprint": "824f0fbd31e3b79730714f9b168ac0fe2262f26b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares caller counts and public API status of the unit on both sides",
+        "what": "Detects a change in a unit's exposure between snapshots",
+        "when": "Called by runDiffer for units whose own code did not change",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Flags units that became riskier to change without being edited"
+      }
+    },
+    "u:packages.differ.src.diff.formulaFloor": {
+      "fingerprint": "f034ae15d63187c13eda7983af2f3fe1892dc26a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Combines the change amount, transitive caller count and public API flag into a bounded score",
+        "what": "Computes the minimum risk for a change from its size and exposure",
+        "when": "Used by runDiffer before any narrated risk",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Gives every change a deterministic risk even without an LLM"
+      }
+    },
+    "u:packages.differ.src.diff.isPublicApi": {
+      "fingerprint": "f3708a9f257306f862cfca591a3833a4b5c905cb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks the unit's exported or public visibility flag",
+        "what": "Tells whether a unit is part of the public API",
+        "when": "Used by risk scoring and exposure checks",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Public units carry higher change risk"
+      }
+    },
+    "u:packages.differ.src.diff.rollup": {
+      "fingerprint": "ce44f748bdcee4824b3b61914f265d25546be421",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Visits each unit recursively, summing child amounts and SLOC and taking risk weighted by size, memoising results",
+        "what": "Rolls change amount and risk up to every ancestor unit",
+        "when": "Called by runDiffer after unit deltas are built",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Lets files, modules and layers show aggregate change"
+      }
+    },
+    "u:packages.differ.src.diff.rollup.visit": {
+      "fingerprint": "d95fe6681cc2488c476d0b236b613668d0402ed1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recurses into children, combines their totals with the unit's own delta and caches the result",
+        "what": "Computes the rolled-up amount, risk and SLOC for one unit",
+        "when": "Called by rollup for each unit",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Memoised recursion keeps the rollup linear"
+      }
+    },
+    "u:packages.differ.src.diff.runDiffer": {
+      "fingerprint": "0e416ef90ee15b64d38b928e7a67b97d3cf5fc57",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Matches units by id, classifies each change, computes blast radius and formula-floor risk, records exposure changes and group lineage, and rolls amount and risk up the tree",
+        "what": "Diffs two snapshots into a delta",
+        "when": "Called by analyze, the server and runDifferWithRisk",
+        "where": "Differ: deterministic snapshot comparison",
+        "why": "Deterministic core of change comparison, independent of any provider"
+      }
+    }
+  }
+}

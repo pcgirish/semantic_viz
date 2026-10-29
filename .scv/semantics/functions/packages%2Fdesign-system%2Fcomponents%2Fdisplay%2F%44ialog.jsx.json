@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/display/Dialog.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.display.Dialog.Dialog": {
+      "fingerprint": "322b0b1405c9b27c4d0a570df1e84f9b17c6d46b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders when open, closes on scrim click, with title, body and footer",
+        "what": "Centered modal over a scrim",
+        "when": "For focused tasks",
+        "where": "Design system: display components",
+        "why": "Consistent modal"
+      }
+    }
+  }
+}

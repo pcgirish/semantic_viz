@@ -1,0 +1,90 @@
+{
+  "file": "packages/cli/src/init.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.init.bundledSkillFiles": {
+      "fingerprint": "23589fc6b7f7300ddcc5f2c4d9b2908fb18bad1e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks agent-analyze-* directories, returning relative paths",
+        "what": "Lists every file in each bundled agent-analyze skill",
+        "when": "Before copying skills",
+        "where": "scv init: sets up a repo to commit its scv semantics",
+        "why": "Copies whole skills including refs"
+      }
+    },
+    "u:packages.cli.src.init.bundledTool": {
+      "fingerprint": "56ad16115ac3ef0026356ac6a4d6aa4307adb235",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads its manifest name, version and repo URL, plus git HEAD when run from a source checkout",
+        "what": "Describes the package init ships in",
+        "when": "When init chooses how CI installs scv",
+        "where": "scv init: sets up a repo to commit its scv semantics",
+        "why": "Pins CI to the tool that ran init"
+      }
+    },
+    "u:packages.cli.src.init.checkoutOf": {
+      "fingerprint": "2ff6ab8d98ffd08c51d22607ace9115c07eff6fe",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs git rev-parse in the package directory, returning nothing outside git",
+        "what": "Reads a source checkout's HEAD sha and a ref resolver",
+        "when": "Inside bundledTool",
+        "where": "scv init: sets up a repo to commit its scv semantics",
+        "why": "Supports git-pinned installs"
+      }
+    },
+    "u:packages.cli.src.init.defaultSkillsDir": {
+      "fingerprint": "1686fbc028ab59aeceb18cf05fe7168056a1bd0d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Prefers the built package's skills, else the repo's .agents/skills",
+        "what": "Locates the bundled skills directory",
+        "when": "When init copies skills",
+        "where": "scv init: sets up a repo to commit its scv semantics",
+        "why": "Works both from npm and from a source checkout"
+      }
+    },
+    "u:packages.cli.src.init.pinnedCommit": {
+      "fingerprint": "c74b9e71a56a89d220c86b9ee7792e1e4369940a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Accepts a full sha, resolves a branch or tag through the checkout, else returns undefined",
+        "what": "Resolves the immutable commit CI builds scv from",
+        "when": "When generating a git-install workflow",
+        "where": "scv init: sets up a repo to commit its scv semantics",
+        "why": "Movable refs could change what CI runs after init"
+      }
+    },
+    "u:packages.cli.src.init.runInit": {
+      "fingerprint": "33406d564f67b010f87ac1b1b3ddb874c8797383",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Copies skills, links .claude/skills, appends ignore rules and attributes, writes the workflow and AGENTS.md rule, keeping user-modified files",
+        "what": "Sets a repo up to commit its scv semantics",
+        "when": "On scv init",
+        "where": "scv init: sets up a repo to commit its scv semantics",
+        "why": "One idempotent command to adopt committed semantics"
+      }
+    },
+    "u:packages.cli.src.init.workflow": {
+      "fingerprint": "ffce1e4089d1e8230e24218e39c6f1c1cb76a6e5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds YAML installing scv via npx or a pinned git checkout, passing the base ref through env",
+        "what": "Renders the scv-check GitHub Actions workflow",
+        "when": "When init writes the workflow",
+        "where": "scv init: sets up a repo to commit its scv semantics",
+        "why": "CI fails PRs whose committed semantics are stale, without script injection"
+      }
+    }
+  }
+}

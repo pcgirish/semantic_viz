@@ -1,0 +1,18 @@
+{
+  "file": "packages/cli/src/assemble-snapshot.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.assemble-snapshot.assembleSnapshotFromCache": {
+      "fingerprint": "a4ad731fb0326ed4b3159350a57720bc1e1e50fb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Ensures each artifact with an empty provider allowance, merges functions, layers, groups and flows into the structural snapshot",
+        "what": "Assembles a full snapshot from cached artifacts without calling a provider",
+        "when": "After no-LLM analyze and after merge-semantics",
+        "where": "Snapshot assembly from cached artifacts",
+        "why": "Produces a complete snapshot from whatever is cached"
+      }
+    }
+  }
+}

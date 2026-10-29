@@ -1,0 +1,42 @@
+{
+  "file": "packages/cli/src/diff.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.diff.readSnapshot": {
+      "fingerprint": "789d382aae78262c8c45ccfbba47168dae4d822d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses the snapshot JSON with the schema, failing with a clear message when absent",
+        "what": "Reads and validates a persisted snapshot by sha",
+        "when": "Before diffing",
+        "where": "scv diff command",
+        "why": "Ensures both sides are valid snapshots"
+      }
+    },
+    "u:packages.cli.src.diff.reportInvariantFindings": {
+      "fingerprint": "b8541e8fa3f336940beca8ae756b5851bd97af32",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs invariant checks and warns per finding",
+        "what": "Logs referential-integrity findings without refusing to diff",
+        "when": "After loading each snapshot",
+        "where": "scv diff command",
+        "why": "Keeps old snapshots diffable"
+      }
+    },
+    "u:packages.cli.src.diff.runDiff": {
+      "fingerprint": "f4deedde154a61159bfe46418a1bcfdd50bdcbbd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Loads both snapshots, runs the differ with risk ranking and writes deltas/from__to.json",
+        "what": "Diffs two snapshots and writes the delta",
+        "when": "On scv diff",
+        "where": "scv diff command",
+        "why": "Produces the scv-delta the viewer shows"
+      }
+    }
+  }
+}

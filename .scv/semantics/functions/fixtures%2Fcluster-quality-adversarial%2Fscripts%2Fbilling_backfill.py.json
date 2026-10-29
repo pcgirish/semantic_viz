@@ -1,0 +1,18 @@
+{
+  "file": "fixtures/cluster-quality-adversarial/scripts/billing_backfill.py",
+  "storeVersion": 1,
+  "units": {
+    "u:fixtures.cluster-quality-adversarial.scripts.billing_backfill.backfill": {
+      "fingerprint": "06f601fc3a47e2b3e3441384dc501252d7311008",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps build_invoice over the order ids",
+        "what": "Rebuilds invoices for a list of orders",
+        "when": "During a one-off backfill",
+        "where": "Adversarial clustering fixture: billing backfill script",
+        "why": "Script coupled to billing across directories"
+      }
+    }
+  }
+}

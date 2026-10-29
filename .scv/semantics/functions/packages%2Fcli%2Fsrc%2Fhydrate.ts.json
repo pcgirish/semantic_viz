@@ -1,0 +1,30 @@
+{
+  "file": "packages/cli/src/hydrate.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.hydrate.freshPending": {
+      "fingerprint": "0539ba433919bdde76609470b4951bc50b5974b5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Collects entries whose fingerprints match and counts stale ones",
+        "what": "Converts fresh committed entries into a pending set",
+        "when": "During hydrate",
+        "where": "scv hydrate: seeds the local artifact cache from committed semantics",
+        "why": "Only fresh narration is seeded"
+      }
+    },
+    "u:packages.cli.src.hydrate.runHydrate": {
+      "fingerprint": "bad9010f74aeae6443aff85f26d9e0bcbf1c77fb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Extracts the revision in a checkout, evaluates the store at that revision and merges fresh entries without calling a provider",
+        "what": "Seeds .scv/artifacts for a revision from the committed store",
+        "when": "On scv hydrate, e.g. for HEAD~1 before a diff",
+        "where": "scv hydrate: seeds the local artifact cache from committed semantics",
+        "why": "Lets a clone view narrated snapshots and deltas with zero LLM calls"
+      }
+    }
+  }
+}

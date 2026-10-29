@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/prompts/pass-d.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.prompts.pass-d.passDPrompt": {
+      "fingerprint": "dd9cd13c092282b467610856e368636e0e6981b4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders before and after semantics, change fields, exposure and the five-axis risk schema",
+        "what": "Builds the risk narration prompt for one changed unit",
+        "when": "Called by runPassD",
+        "where": "Interpreter prompts: Pass D",
+        "why": "Grounds risk judgement in the concrete change"
+      }
+    }
+  }
+}

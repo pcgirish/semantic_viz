@@ -1,0 +1,30 @@
+{
+  "file": "packages/interpreter/src/prompts/pass-a-blocks.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.prompts.pass-a-blocks.blockSourceText": {
+      "fingerprint": "f0b8f5ce24857724671ec7beb41eef63e1d97ed0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Converts the block's start and end lines to offsets relative to the function start and joins those lines",
+        "what": "Slices one block's source span from the function source",
+        "when": "Called by passABlocksPrompt",
+        "where": "Interpreter prompts: Pass A blocks",
+        "why": "Shows the model exactly the code each block covers"
+      }
+    },
+    "u:packages.interpreter.src.prompts.pass-a-blocks.passABlocksPrompt": {
+      "fingerprint": "f009400111bd73638dcd53d60b3136c870e68e9e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists each block id, type, condition and source span with the function source and the output schema",
+        "what": "Builds the prompt that labels all blocks of a function",
+        "when": "Called by runPassABlocks",
+        "where": "Interpreter prompts: Pass A blocks",
+        "why": "Batches every block into one call"
+      }
+    }
+  }
+}

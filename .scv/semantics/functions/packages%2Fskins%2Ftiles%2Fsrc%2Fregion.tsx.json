@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/tiles/src/region.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles.src.region.region": {
+      "fingerprint": "e9ab9757e36d3e21874998db2d5a4c6e966d4aeb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Draws an uncoloured dashed rect with an uppercase tab label and no pointer events",
+        "what": "Renders a scene region as a dashed labelled box",
+        "when": "Called by the 2D host",
+        "where": "Tiles skin: group regions",
+        "why": "Shows architecture grouping without blocking clicks"
+      }
+    }
+  }
+}

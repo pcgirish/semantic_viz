@@ -1,0 +1,18 @@
+{
+  "file": "fixtures/cluster-quality-adversarial/app/shipping/carrier.py",
+  "storeVersion": 1,
+  "units": {
+    "u:fixtures.cluster-quality-adversarial.app.shipping.carrier.rate_for": {
+      "fingerprint": "503dfed5889e95d71030bf9a4afcd5aeb0c9e069",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Picks a fixed Money amount by destination",
+        "what": "Returns a shipping rate for a destination",
+        "when": "When pricing shipping",
+        "where": "Adversarial clustering fixture: shipping rates",
+        "why": "Shipping code that also depends on shared money"
+      }
+    }
+  }
+}

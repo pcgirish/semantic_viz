@@ -1,0 +1,30 @@
+{
+  "file": "packages/interpreter/src/prompts/pass-c-groups.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.prompts.pass-c-groups.formatRepoContext": {
+      "fingerprint": "6dc455205a840998374c7588450545f685243d97",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a headed section or an empty string",
+        "what": "Formats the optional repo context section",
+        "when": "Called by passCGroupsPrompt",
+        "where": "Interpreter prompts: Pass C groups",
+        "why": "Omits the section when there is no context"
+      }
+    },
+    "u:packages.interpreter.src.prompts.pass-c-groups.passCGroupsPrompt": {
+      "fingerprint": "cfcb10d3138d02e0f5e3cc1812d406d2fe903a41",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists each layer as a singleton with its narration plus repo context and the merges schema",
+        "what": "Builds the prompt proposing merges of layers into groups",
+        "when": "Called by runPassCGroups",
+        "where": "Interpreter prompts: Pass C groups",
+        "why": "Groups come from merges so unlisted layers stay valid"
+      }
+    }
+  }
+}

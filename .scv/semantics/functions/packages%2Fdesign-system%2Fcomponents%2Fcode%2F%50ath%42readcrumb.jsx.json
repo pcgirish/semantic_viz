@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/code/PathBreadcrumb.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.code.PathBreadcrumb.PathBreadcrumb": {
+      "fingerprint": "58370917a9ace4943c1201e9100b6e12bfd71c0f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders clickable mono segments with separators",
+        "what": "Repo, ref and path breadcrumb",
+        "when": "Above code views",
+        "where": "Design system: code components",
+        "why": "Shows and navigates location"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/interpreter/src/create-provider.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.interpreter.src.create-provider.createProvider": {
+      "fingerprint": "a5ed287a75583c7db946ed4a3e69aa42339e811f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Switches on the provider name to construct the anthropic, claude-cli or ollama provider with its model and options",
+        "what": "Builds a provider instance from the interpreter config",
+        "when": "Called by analyze",
+        "where": "Interpreter: provider factory",
+        "why": "Single place mapping config to provider classes"
+      }
+    }
+  }
+}

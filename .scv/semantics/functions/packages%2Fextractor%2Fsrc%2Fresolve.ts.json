@@ -1,0 +1,54 @@
+{
+  "file": "packages/extractor/src/resolve.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.resolve.resolveBlockGraph": {
+      "fingerprint": "1aec78cc640132d1d60989117e637ee00b7e8a89",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes function qualname plus local block id into a global id and collects blocks and control-flow edges per resolved function",
+        "what": "Mints stable block ids and groups block facts by function",
+        "when": "Called by resolveGraph",
+        "where": "Extractor: fact resolution into a symbol graph",
+        "why": "Backs the flowchart view with ids stable across runs"
+      }
+    },
+    "u:packages.extractor.src.resolve.resolveGraph": {
+      "fingerprint": "6f37a9e106009bcbbfff8cb94f5c7b48d902fd54",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates module, class and function units, resolves imports, calls and references to unit ids or externals, records routes and DI dependencies and attaches block graphs",
+        "what": "Resolves parsed facts into units and edges",
+        "when": "Called by extractRepo",
+        "where": "Extractor: fact resolution into a symbol graph",
+        "why": "Central step that turns per-file facts into a repo-wide graph"
+      }
+    },
+    "u:packages.extractor.src.resolve.resolveRelativeModule": {
+      "fingerprint": "eecb2a72fa5964de0a4e4f079c6f43b6a591a939",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Joins the specifier with the importing file's directory, normalises it and converts it with moduleQualname, returning null when it escapes the repo",
+        "what": "Resolves a relative TypeScript import to a module qualname",
+        "when": "Called while resolving import facts",
+        "where": "Extractor: fact resolution into a symbol graph",
+        "why": "Links relative imports to in-repo modules"
+      }
+    },
+    "u:packages.extractor.src.resolve.unitId": {
+      "fingerprint": "a7dac3738b1cc46b6b6d0d660e1bdb78508ab6db",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Prefixes the qualname with u:",
+        "what": "Builds a unit id from a qualname",
+        "when": "Used throughout graph resolution",
+        "where": "Extractor: fact resolution into a symbol graph",
+        "why": "Keeps id formatting in one place"
+      }
+    }
+  }
+}

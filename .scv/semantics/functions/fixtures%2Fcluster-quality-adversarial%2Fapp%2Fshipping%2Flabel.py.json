@@ -1,0 +1,18 @@
+{
+  "file": "fixtures/cluster-quality-adversarial/app/shipping/label.py",
+  "storeVersion": 1,
+  "units": {
+    "u:fixtures.cluster-quality-adversarial.app.shipping.label.make_label": {
+      "fingerprint": "50a8bcbc80e76ffd0fa4452295cd99ba87008a34",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a dict naming the destination",
+        "what": "Builds a shipping label for a destination",
+        "when": "When shipping an order",
+        "where": "Adversarial clustering fixture: shipping labels",
+        "why": "Keeps shipping as its own cohesive cluster"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/viz/PolyNode.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.PolyNode.PolyNode": {
+      "fingerprint": "6362a20f0259d95dfe967577558c8c000a7c8e73",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Picks a facet shape by object kind, tints it from the temperature palette, optionally extrudes it for the 3D skin, and lays out label and badges inside",
+        "what": "Renders one codebase object as a faceted, temperature-tinted node",
+        "when": "Used for file, module, symbol and package nodes on the canvas",
+        "where": "Design-system viz primitive: codebase object node",
+        "why": "Gives every object kind a distinct, consistent silhouette across skins"
+      }
+    }
+  }
+}

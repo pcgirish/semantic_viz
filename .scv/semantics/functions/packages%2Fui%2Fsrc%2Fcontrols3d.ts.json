@@ -1,0 +1,42 @@
+{
+  "file": "packages/ui/src/controls3d.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.controls3d.flyControls": {
+      "fingerprint": "ffde9c95d8e3df55fa94051f1a973e38feb5ea8a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Uses FlyControls for movement and replaces its looking with drag rotation",
+        "what": "Creates fly controls with drag to look",
+        "when": "Used by the fly view",
+        "where": "UI: 3D camera controls",
+        "why": "Stock cursor-rate looking is unusable"
+      }
+    },
+    "u:packages.ui.src.controls3d.orbitControls": {
+      "fingerprint": "a8a3ccbaa2d0cfced5ba160759b35eb79fc7d931",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Wraps OrbitControls and exposes its target",
+        "what": "Creates orbit controls for the city",
+        "when": "Used by the tiles3d skin",
+        "where": "UI: 3D camera controls",
+        "why": "Lets the host reframe by target"
+      }
+    },
+    "u:packages.ui.src.controls3d.walkControls": {
+      "fingerprint": "36c89d7027bdf4e9cea24bb72ada48bace0e4a8a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Uses pointer lock for looking and WASD movement confined to the ground plane",
+        "what": "Creates walk controls at eye height",
+        "when": "Used by the cityscape skin",
+        "where": "UI: 3D camera controls",
+        "why": "Feels like moving through a place"
+      }
+    }
+  }
+}

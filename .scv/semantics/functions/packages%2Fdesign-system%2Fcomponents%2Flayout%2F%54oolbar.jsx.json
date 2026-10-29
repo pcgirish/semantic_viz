@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/layout/Toolbar.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.layout.Toolbar.Toolbar": {
+      "fingerprint": "9576d16c8de8ce63631597f0493286689f81cca5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lays out left, flexible center and right clusters",
+        "what": "Horizontal toolbar",
+        "when": "At the top of views",
+        "where": "Design system: layout components",
+        "why": "Consistent toolbars"
+      }
+    }
+  }
+}

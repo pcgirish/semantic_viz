@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/Flowchart.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.Flowchart.Flowchart": {
+      "fingerprint": "6d0ad1e4c38b0119a24dd1fb800b05aa84e7b3c5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Filters block children and control_flow edges, lays them out with buildFlowchartScene and draws tiles and connectors with pan and zoom",
+        "what": "Renders a function's control-flow flowchart",
+        "when": "Shown when a function is opened",
+        "where": "UI: function flowchart",
+        "why": "Blocks are a detail view, not a drill level"
+      }
+    }
+  }
+}

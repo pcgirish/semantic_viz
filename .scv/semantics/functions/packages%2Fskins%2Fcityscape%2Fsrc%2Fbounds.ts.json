@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/cityscape/src/bounds.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.cityscape.src.bounds.bounds": {
+      "fingerprint": "3fb8fb0c32553fd9a1e73c4acb2696d6fcab1960",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Takes the min and max over node positions and sizes",
+        "what": "Computes a scene's bounding box",
+        "when": "Called by the ground and minimap",
+        "where": "Cityscape skin: scene bounds",
+        "why": "Derived the same way as the 2D view so both agree"
+      }
+    }
+  }
+}

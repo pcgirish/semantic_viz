@@ -1,0 +1,54 @@
+{
+  "file": "docs/mock/tools/build.py",
+  "storeVersion": 1,
+  "units": {
+    "u:docs.mock.tools.build.blast": {
+      "fingerprint": "a6275713c3765043f3b57176057e25b752b28d1a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Breadth-first walk over reverse edges up to a hop cap, collecting affected unit ids",
+        "what": "Computes the blast radius of a changed unit",
+        "when": "While building a mock delta between two revisions",
+        "where": "Design-mock build script that turns extracted symbol graphs into viewer demo data",
+        "why": "Gives the mock diff view an impact set to highlight"
+      }
+    },
+    "u:docs.mock.tools.build.diff": {
+      "fingerprint": "51c8c667bea691ceec5b926718bd22741a8bf2ff",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares unit hashes and edges across revisions, classifies changes, rolls changes up to parents and attaches blast radii",
+        "what": "Builds a mock delta between two interpreted snapshots",
+        "when": "When the design mock regenerates its Delta demo",
+        "where": "Design-mock build script that turns extracted symbol graphs into viewer demo data",
+        "why": "Feeds the prototype's change view with a plausible scv-delta shape"
+      }
+    },
+    "u:docs.mock.tools.build.diff.roll": {
+      "fingerprint": "6209c9d163d7eb12d52f7774342c0667b81e2cfb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recursively marks parents as changed when any child changed",
+        "what": "Rolls a unit's change status up to its ancestors",
+        "when": "During mock diff construction",
+        "where": "Design-mock build script that turns extracted symbol graphs into viewer demo data",
+        "why": "So container units reflect changes inside them"
+      }
+    },
+    "u:docs.mock.tools.build.interpret": {
+      "fingerprint": "92bf195d2e8469d93cb9f0890ef9bffcc771fc71",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks extracted units and edges, attaching hand-written interpretations and roll-up metrics per unit",
+        "what": "Converts a raw symbol graph into the mock UnitGraph the viewer prototype reads",
+        "when": "When the design mock data is rebuilt",
+        "where": "Design-mock build script that turns extracted symbol graphs into viewer demo data",
+        "why": "Lets the UI prototype be exercised on realistic data before the real interpreter existed"
+      }
+    }
+  }
+}

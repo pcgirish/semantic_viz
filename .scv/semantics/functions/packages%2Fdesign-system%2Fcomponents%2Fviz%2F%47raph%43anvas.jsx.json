@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/viz/GraphCanvas.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.GraphCanvas.GraphCanvas": {
+      "fingerprint": "581d4059361091508544984a78555d3d0d88ca9a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Wraps children in a positioned container with an optional grid background and the selected skin class, then layers the overlay content above",
+        "what": "Renders the grid canvas surface with optional floating overlays",
+        "when": "Used as the root surface of graph views",
+        "where": "Design-system viz primitive: graph canvas surface",
+        "why": "Gives every view a consistent canvas, grid and overlay slot for legends and trays"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/design-system/components/core/Switch.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.core.Switch.Switch": {
+      "fingerprint": "965ea7e31d22c56d8ca8c0fa783d77fec420864a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Renders a track and knob that turns accent when on",
+        "what": "Layer toggle switch",
+        "when": "For toggling layers",
+        "where": "Design system: core controls",
+        "why": "Clear on/off control"
+      }
+    }
+  }
+}

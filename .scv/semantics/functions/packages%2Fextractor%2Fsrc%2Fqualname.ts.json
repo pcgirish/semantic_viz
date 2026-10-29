@@ -1,0 +1,54 @@
+{
+  "file": "packages/extractor/src/qualname.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.qualname.flattenTestQualname": {
+      "fingerprint": "dc458bb9fbd1ab166804447200fb9b308ce96c01",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Truncates a test-owned qualname to one segment below its first test directory",
+        "what": "Collapses deep test module qualnames",
+        "when": "Called when building test module units",
+        "where": "Extractor: module naming and path classification",
+        "why": "Stops deep test trees from dominating the module graph"
+      }
+    },
+    "u:packages.extractor.src.qualname.isGeneratedPath": {
+      "fingerprint": "fc5f405acea1d32d3a47feefadbb4b4f396e5ae1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks for generated directories and generator filename suffixes",
+        "what": "Tells whether a file is machine generated",
+        "when": "Used to exclude generated code from the clustering graph",
+        "where": "Extractor: module naming and path classification",
+        "why": "Generated imports reflect a generator, not design"
+      }
+    },
+    "u:packages.extractor.src.qualname.isTestPath": {
+      "fingerprint": "e1ad94d895aff1a0cdfc057c6837968836c1eff9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks for test directories in the path or test filename patterns for Python and TypeScript",
+        "what": "Tells whether a file is a test file",
+        "when": "Used to flag and flatten test modules",
+        "where": "Extractor: module naming and path classification",
+        "why": "Keeps tests out of architecture clustering"
+      }
+    },
+    "u:packages.extractor.src.qualname.moduleQualname": {
+      "fingerprint": "87e3ddacd1201c0f79c037f9e2db95c20f157309",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Drops the extension, collapses __init__ and index files to their package and joins segments with dots",
+        "what": "Converts a relative file path into a module qualname",
+        "when": "Called when building units and resolving imports",
+        "where": "Extractor: module naming and path classification",
+        "why": "Gives every module a stable dotted identity"
+      }
+    }
+  }
+}

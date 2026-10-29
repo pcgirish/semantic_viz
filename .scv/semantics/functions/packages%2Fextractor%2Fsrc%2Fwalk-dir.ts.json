@@ -1,0 +1,30 @@
+{
+  "file": "packages/extractor/src/walk-dir.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.walk-dir.escapesRoot": {
+      "fingerprint": "d12aee914f4919a6b178da7a8b7d98ee9c757d01",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Realpaths the target and checks it is neither the root nor beneath it with a separator suffix",
+        "what": "Tells whether a path resolves outside the real root",
+        "when": "Called by listFilesContained for symlinks",
+        "where": "Extractor: contained directory walk",
+        "why": "Stops link chains from pulling outside files into analysis"
+      }
+    },
+    "u:packages.extractor.src.walk-dir.listFilesContained": {
+      "fingerprint": "d5ddaa99e462784fe00f2e10181770f7558a93f7",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks directories with lstat, skipping dotfiles and SKIP_DIRS, following only contained symlinks, tracking visited real paths, then drops files git ignores",
+        "what": "Lists every file under a root, sorted",
+        "when": "Called by parseRepoFiles and manifest discovery",
+        "where": "Extractor: contained directory walk",
+        "why": "The analyzed repo is untrusted input, so links must not escape it and ignored files must not differ from a clone"
+      }
+    }
+  }
+}

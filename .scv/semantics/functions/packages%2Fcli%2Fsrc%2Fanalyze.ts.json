@@ -1,0 +1,30 @@
+{
+  "file": "packages/cli/src/analyze.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.analyze.readSource": {
+      "fingerprint": "9ef67af77f01c24473c0bcff57d456c508f32258",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns a function reading repo-relative files as UTF-8",
+        "what": "Builds a source reader for a repo root",
+        "when": "When passes need function source text",
+        "where": "CLI analyze command: extraction plus artifact pipeline",
+        "why": "Lets interpreter passes read code lazily"
+      }
+    },
+    "u:packages.cli.src.analyze.runAnalyze": {
+      "fingerprint": "6f842fa8be090a65aafa537e80971663883e5833",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Extracts the tree, ensures every artifact through ensureArtifact, honouring no-LLM and skip options, then assembles and writes the merged scv/1 snapshot",
+        "what": "Runs the full analysis for a repo and writes the snapshot",
+        "when": "On scv analyze",
+        "where": "CLI analyze command: extraction plus artifact pipeline",
+        "why": "Central pipeline that only recomputes artifacts whose inputs changed"
+      }
+    }
+  }
+}

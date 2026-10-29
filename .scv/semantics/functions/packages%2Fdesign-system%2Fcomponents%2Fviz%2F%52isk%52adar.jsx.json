@@ -1,0 +1,30 @@
+{
+  "file": "packages/design-system/components/viz/RiskRadar.jsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.design-system.components.viz.RiskRadar.RiskRadar": {
+      "fingerprint": "421fca20e350384dd7c85ce513ab0b296c8c0f1b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Draws concentric rings and axis spokes, plots each value on the 0 to 7 scale as a polygon and labels axes, optionally listing reasons",
+        "what": "Renders a radar chart of risk values across several axes",
+        "when": "Used where risk has several dimensions rather than one",
+        "where": "Design-system viz primitive: multi-axis risk radar",
+        "why": "Multi-axis counterpart to RiskMeter on the shared temperature scale"
+      }
+    },
+    "u:packages.design-system.components.viz.RiskRadar.pt": {
+      "fingerprint": "d424eafa390330fa6cbf3aba32db199c5350f3f9",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns cx plus r times sin(angle) and cy minus r times cos(angle) so angle zero points up",
+        "what": "Converts a polar coordinate to an SVG point",
+        "when": "Called by RiskRadar for axes, rings and the value polygon",
+        "where": "Design-system viz primitive: multi-axis risk radar",
+        "why": "Keeps the radar's geometry in one helper"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "file": "packages/skins/cityscape/src/minimap.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.cityscape.src.minimap.minimapProjection": {
+      "fingerprint": "43a028a6335db6aafb9dbe959e5d3301bd910682",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Scales scene bounds to the minimap size and maps nodes and the viewer position and heading into it",
+        "what": "Projects the city and walker into a top-down map",
+        "when": "Called by the Minimap component",
+        "where": "Cityscape skin: minimap projection",
+        "why": "Rank is lost at street level, so the map restores it"
+      }
+    }
+  }
+}

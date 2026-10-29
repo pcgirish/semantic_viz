@@ -1,0 +1,306 @@
+{
+  "file": "packages/extractor/src/walk-python.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.walk-python.BlockBuilder": {
+      "fingerprint": "ab40aa97def7dfa12277115a0c0056e144ff9466",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints per-type block ids and walks statements, branching on if, loops, try and match",
+        "what": "Builds control-flow blocks and edges for one Python function body",
+        "when": "Used by collectControlFlow",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Mirrors the TypeScript builder so both languages produce the same flowchart shape"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.blockStatements": {
+      "fingerprint": "57e71708caa9b4ee72e46aa24488c13b90ca36d6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Filters the named children of the block",
+        "what": "Returns the child statements of a block node",
+        "when": "Used by the walkers for bodies",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Normalises body access"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.build": {
+      "fingerprint": "117876fcf111ea7893c48ecce763f21f5801df2a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Returns the internal arrays",
+        "what": "Returns the collected blocks and edges",
+        "when": "Called by collectControlFlow after walking",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Exposes the result"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.constructor": {
+      "fingerprint": "e0b7f13347ec34f1849d4e874aa8f843ce1b2d30",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores the source, file and function qualname and resets counters and output arrays",
+        "what": "Initialises the builder for one function",
+        "when": "Called by collectControlFlow",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Scopes block ids to one function"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.edge": {
+      "fingerprint": "6fe8c99b1fa56eedc571b9d085acb36028d71e10",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Appends from, to, edge type and optional raises flag",
+        "what": "Records a control-flow edge",
+        "when": "Called by the walk methods",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Captures how blocks connect"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.mint": {
+      "fingerprint": "4851fdd92f4ca516a8a8079c6238b45ff9c10ffe",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Increments the counter for the block type and records type, line range and optional condition",
+        "what": "Creates a block fact and returns its id",
+        "when": "Called by the walk methods",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Ids only need to be unique within the function"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.mintEntry": {
+      "fingerprint": "54c2b05b7b131421186da9ad6f1bc559dd8cc630",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints an entry block at the start line",
+        "what": "Creates the entry block for a function",
+        "when": "Called by collectControlFlow",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Gives every flowchart a single start"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.run": {
+      "fingerprint": "a7d2a6f9c14f39c6f658e767d6d076b015ad363f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Calls walkStatements on the statements starting at the entry id",
+        "what": "Walks the function body from the entry block",
+        "when": "Called by collectControlFlow",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Starts the walk"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.walkIf": {
+      "fingerprint": "5cfd71c68ea58e2f42204eea43d37f0897b77975",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints a condition block, walks the consequence on a true edge and each elif or else on false edges, then merges",
+        "what": "Builds blocks for an if, elif and else chain",
+        "when": "Called by walkStatements",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Python lays elif and else clauses flat, unlike TypeScript's nested chain"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.walkLoop": {
+      "fingerprint": "3ad378f6a9fb5fd0de6ef7a1bce8b72d50c049c3",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints a loop block, walks the body and adds a back edge to the loop",
+        "what": "Builds blocks for for and while loops",
+        "when": "Called by walkStatements",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Represents iteration in the flowchart"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.walkMatch": {
+      "fingerprint": "c40bdf0eb7329846dd6f3da5d4c4591f438bc40b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Mints a match block and walks each case body straight to a merge block",
+        "what": "Builds blocks for a match statement",
+        "when": "Called by walkStatements",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Python match has no fallthrough between cases"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.walkStatements": {
+      "fingerprint": "0da1eafd901db1b2307845d28d5db228755da8ce",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Dispatches compound statements to their walkers, groups simple statements into blocks, and returns the attach point or null when every path exits",
+        "what": "Walks a statement list and links its blocks",
+        "when": "Called recursively by the walk methods",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Core of the control-flow construction"
+      }
+    },
+    "u:packages.extractor.src.walk-python.BlockBuilder.walkTry": {
+      "fingerprint": "08d68c60763b36edd915a8deda149afba7b6f9cc",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks the try body, connects except handlers on exception edges and routes all paths through finally",
+        "what": "Builds blocks for try, except and finally",
+        "when": "Called by walkStatements",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Represents exception paths"
+      }
+    },
+    "u:packages.extractor.src.walk-python.calleeName": {
+      "fingerprint": "9fa60b882a3efe058e515187f4f6b9650d542688",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads the call's function node and returns its text only when it is a plain identifier",
+        "what": "Returns the bare identifier of a call's callee",
+        "when": "Used by collectDiRouters",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Identifies Depends and its wrapped dependency"
+      }
+    },
+    "u:packages.extractor.src.walk-python.collectControlFlow": {
+      "fingerprint": "1719fa040bb2b22d097fe680be9aa4dec0c04f6a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Creates a BlockBuilder, mints the entry, runs it over the body statements and pushes the facts",
+        "what": "Emits block and control-flow facts for a Python function body",
+        "when": "Called by walkDefs",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Powers the flowchart view for Python"
+      }
+    },
+    "u:packages.extractor.src.walk-python.collectDiRouters": {
+      "fingerprint": "c9627f08260275a447d268a78a06cdaf8538f327",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Finds APIRouter calls assigned to a variable and records each Depends callee in the dependencies list, unwrapping one call level",
+        "what": "Records router-level FastAPI dependencies",
+        "when": "Called by walkPythonFile",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Dependencies run before every route on the router, so flows must include them"
+      }
+    },
+    "u:packages.extractor.src.walk-python.collectImports": {
+      "fingerprint": "640828dd009d3ac0a675f52cf4d6214615f05045",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Handles import and from-import statements, including relative imports and aliases",
+        "what": "Emits import facts for a Python file",
+        "when": "Called by walkPythonFile",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Feeds import edges and module resolution"
+      }
+    },
+    "u:packages.extractor.src.walk-python.collectRefs": {
+      "fingerprint": "cadb41866af9e57955f6700356302a3902bc063d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks the subtree recording call targets and attribute or name references attributed to the enclosing definition",
+        "what": "Emits call and reference facts within a scope",
+        "when": "Called by walkDefs",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Feeds call and reference edges"
+      }
+    },
+    "u:packages.extractor.src.walk-python.collectRouteRegistrations": {
+      "fingerprint": "810bb72aeef79fe178eb84477c4649647d375df6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Matches the call form router.method(path)(handler) and the decorator form above a def, recording method, path and handler",
+        "what": "Binds handlers to the routers they are registered on",
+        "when": "Called by walkPythonFile",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Feeds API flow detection"
+      }
+    },
+    "u:packages.extractor.src.walk-python.dottedName": {
+      "fingerprint": "efab664ca2ee7ccf0d655022c95445dedfabf359",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recurses through attribute nodes joining segments, or returns a bare identifier, else null",
+        "what": "Returns the dotted name of an attribute chain",
+        "when": "Used for route handler resolution",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Resolves handlers referenced through modules"
+      }
+    },
+    "u:packages.extractor.src.walk-python.paramsOf": {
+      "fingerprint": "df3cca11b47a0a0b0ea8fa1e98abb646b67dd97d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Iterates parameter nodes, handling typed, default and splat forms",
+        "what": "Extracts parameter names and type annotations from a parameter list",
+        "when": "Called by walkDefs",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Records signatures for units"
+      }
+    },
+    "u:packages.extractor.src.walk-python.stringLiteralValue": {
+      "fingerprint": "239e9d6ed16eb331abb3a9eb874d2b52200d205d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads its single string_content child and returns null for f-strings or concatenations",
+        "what": "Returns the unquoted value of a plain Python string node",
+        "when": "Used to read route paths",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Only literal paths can be resolved statically"
+      }
+    },
+    "u:packages.extractor.src.walk-python.text": {
+      "fingerprint": "da83149204e4391ddcd962f6ea98db9c3329a20a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Slices the source between the node's start and end indices",
+        "what": "Returns the source text of a syntax node",
+        "when": "Used throughout the Python walker",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Shared helper for reading node text"
+      }
+    },
+    "u:packages.extractor.src.walk-python.walkDefs": {
+      "fingerprint": "3a429e1896c5f40f75b81c6ed6e15058e8fd9a3c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Recurses through the tree tracking the enclosing qualname and records each def or class with location, params, decorators and control flow",
+        "what": "Emits definition facts for Python classes and functions",
+        "when": "Called by walkPythonFile",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Produces the units of a Python file"
+      }
+    },
+    "u:packages.extractor.src.walk-python.walkPythonFile": {
+      "fingerprint": "39fbf876971a522eb842b47dfe76884722e139d2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs definition, import, route and DI collection over the tree",
+        "what": "Produces all facts for one Python file",
+        "when": "Called by parseRepoFiles for Python files",
+        "where": "Extractor: Python syntax tree walker",
+        "why": "Entry point of the Python walker"
+      }
+    }
+  }
+}

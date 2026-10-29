@@ -1,0 +1,174 @@
+{
+  "file": "packages/cli/src/merge-semantics.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.merge-semantics.globToRegExp": {
+      "fingerprint": "6c69e04c70ff10c0589e1aa424390996a808243a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Escapes regex characters and maps * to one dotted segment and ** to any depth",
+        "what": "Converts a scope glob to a unit-id matcher",
+        "when": "When --scope is a glob",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Lets users scope merges by id pattern"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.graphFromSnapshot": {
+      "fingerprint": "8156eac019db392a2c3b5d5e777acf43b977f1df",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Copies hashes, endpoints and kinds verbatim from units and edges",
+        "what": "Rebuilds a symbol graph from a persisted snapshot",
+        "when": "When merging against a --sha snapshot",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Graph hashes match the original extraction"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.inScope": {
+      "fingerprint": "b5acd0bbec97941672512c6cb45173c37e436161",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Matches all, the changed-file set or a glob against the id",
+        "what": "Tests whether a unit is in the requested scope",
+        "when": "For every pending entry",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Implements --scope"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.loadPersistedSnapshot": {
+      "fingerprint": "7cc002eb0abffef96ae931844cf63b2ce382b0d5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads and parses snapshots/<sha>.json",
+        "what": "Loads a persisted structural snapshot if present",
+        "when": "When --sha is given",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Enables merging against historical revisions"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.mergeBlockLabels": {
+      "fingerprint": "a16314960b6a0ba165ecc6bd236c2359072060e5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Maps readable block ids like decision:0 to hashed ids in walker order and validates label lengths",
+        "what": "Overlays authored block labels onto a function's block graph",
+        "when": "When function entries carry blockLabels",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Gives flowchart nodes intent-revealing names"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.mergeDocs": {
+      "fingerprint": "5367565541c2bf891d72a9595ad027ca48ba7907",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Checks each path is a discovered doc and validates the extract, warning per bad entry",
+        "what": "Merges agent-authored doc extracts into the docs artifact",
+        "when": "With --with-docs",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Zero-LLM stand-in for Pass Docs"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.mergeFlows": {
+      "fingerprint": "dd13a8cb6d7561b24a72d72d25f36ba774ac553b",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reuses the deterministic flow tracer to build steps and attaches the authored narration",
+        "what": "Merges agent-authored flow narration into the flows artifact",
+        "when": "With --with-flows",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Merged flows match what the real pipeline would trace"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.mergeGroups": {
+      "fingerprint": "30382058bba394dd6f2babf80b67162de4c7e295",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Screens unknown members, double ownership and empty groups per entry, then builds group units",
+        "what": "Merges agent-authored group narration into the groups artifact",
+        "when": "With --with-groups",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "One bad group must not discard the rest"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.mergeLayerClustering": {
+      "fingerprint": "0201dbfcc4c0dff29da69b1211f66cc7dc1df15f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs Pass B, requires each layer's files to match one cluster exactly, then builds layer units",
+        "what": "Merges agent-authored layers against the deterministic clusters",
+        "when": "With --with-clustering",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Layer names must describe the real clusters"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.mergeSemantics": {
+      "fingerprint": "0b0c8aa21aac11b2434a3b0935277d2de1709d38",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Validates the pending file, merges function semantics, block labels, docs, layers, groups and flows per flag, writes artifacts and reassembles the snapshot",
+        "what": "Merges a pending file into every relevant artifact",
+        "when": "Core of merge-semantics",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "One validated path for all agent-authored narration"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.noLlmContext": {
+      "fingerprint": "d85bd12b5116c4e68b220a59ba14e328bbad996c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Fills the context with a provider that throws and an empty allowance",
+        "what": "Builds an artifact context that can never reach a provider",
+        "when": "For merge-semantics and hydrate",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Guarantees zero LLM calls"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.readPendingFile": {
+      "fingerprint": "731a5375d9682c40d78544482bd4168fd6b76b5c",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses JSON with the pending schema, defaulting to empty",
+        "what": "Reads and validates the pending file",
+        "when": "At the start of a merge",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Rejects malformed input early"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.resolveChangedFiles": {
+      "fingerprint": "c060d949bf3d07db4996af5f45a6bfb71e54b11d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Calls changedFiles once and returns a set",
+        "what": "Resolves the files changed in HEAD's last commit",
+        "when": "When --scope changed is used",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "Avoids spawning git per unit"
+      }
+    },
+    "u:packages.cli.src.merge-semantics.runMergeSemantics": {
+      "fingerprint": "c26394af5968dcdec1cb71dc0100f03de9007295",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds a no-LLM context from the worktree or a persisted snapshot and runs mergeSemantics, then stamps the authored record",
+        "what": "CLI entry point for merge-semantics",
+        "when": "On scv merge-semantics",
+        "where": "scv merge-semantics: injects agent-authored narration into the artifact cache",
+        "why": "File-based merge of agent narration"
+      }
+    }
+  }
+}

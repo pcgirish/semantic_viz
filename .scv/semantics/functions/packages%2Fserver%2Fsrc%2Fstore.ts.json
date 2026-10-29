@@ -1,0 +1,198 @@
+{
+  "file": "packages/server/src/store.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.server.src.store.SnapshotStore": {
+      "fingerprint": "c6eb886f1f15d6ca1c5b6824824dfcfad2b4f2a9",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses snapshot files against the schema, caches by mtime and size, and answers rev, unit, search, delta and layout queries",
+        "what": "Reads, validates and caches scv snapshots from disk",
+        "when": "Used by the server app",
+        "where": "Server: snapshot store",
+        "why": "Validation at read time is the trust boundary"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.constructor": {
+      "fingerprint": "fcae1bd37c1fa3a2ef2abd94d6678d45a63e0551",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Stores the directory and creates the parse cache",
+        "what": "Initialises the store for an scv directory",
+        "when": "Called by buildApp",
+        "where": "Server: snapshot store",
+        "why": "Prepares per-directory state"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.containedPath": {
+      "fingerprint": "2dcecb6fda014b38867b19434883dc3fdac714cb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Resolves the join and checks the prefix, returning undefined otherwise",
+        "what": "Resolves a child path only if it stays inside a directory",
+        "when": "Called before reading snapshot and layout files",
+        "where": "Server: snapshot store",
+        "why": "Defence in depth behind isSafePathSegment"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.getDelta": {
+      "fingerprint": "d2712dd3b84116ed7785fdbe18758dd1a916e25d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Loads both snapshots and runs the differ",
+        "what": "Computes the delta between two revisions",
+        "when": "Served by the delta endpoint",
+        "where": "Server: snapshot store",
+        "why": "Powers delta mode"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.getLatestSnapshot": {
+      "fingerprint": "1985c943bec5b3a39a0429004064ba1a2e67527e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Takes the first revision from listRevs",
+        "what": "Returns the newest snapshot",
+        "when": "Served as the default snapshot",
+        "where": "Server: snapshot store",
+        "why": "Opens the viewer at the latest rev"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.getLayout": {
+      "fingerprint": "02b485ab746580fbf7cd1ba422568b5f2e592916",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Reads and validates the layout file at a contained path",
+        "what": "Returns saved seeded positions for a rev and skin",
+        "when": "Served by the layout endpoint",
+        "where": "Server: snapshot store",
+        "why": "Replay stability needs prior positions"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.getSnapshot": {
+      "fingerprint": "8e0c44d7bd47a02af03c90d840c6940a8adf6686",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Finds it among the parsed snapshots",
+        "what": "Returns the snapshot for a sha",
+        "when": "Served by the snapshot endpoint",
+        "where": "Server: snapshot store",
+        "why": "Lookup by revision"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.getUnit": {
+      "fingerprint": "17a6927e0ebef6c844907ae55a7f95b9848f28c0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Finds the unit and collects incoming and outgoing edges with their units",
+        "what": "Returns one unit with its neighbours",
+        "when": "Served by the unit endpoint",
+        "where": "Server: snapshot store",
+        "why": "Feeds the inspector"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.listRevs": {
+      "fingerprint": "d3c0c6a9a390f46e06169155decc3910b7d11f5f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Sorts by timestamp and summarises each rev with its mean unit delta amount against the previous rev",
+        "what": "Lists snapshot revisions newest first with change amounts",
+        "when": "Served by the revs endpoint",
+        "where": "Server: snapshot store",
+        "why": "Drives the replay timeline bars"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.readAll": {
+      "fingerprint": "2422e08f8592ae047a06c53507993344db3951de",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Lists snapshot files and re-parses only those whose mtime or size changed",
+        "what": "Reads every snapshot file, reusing unchanged parses",
+        "when": "Called by the query methods",
+        "where": "Server: snapshot store",
+        "why": "Avoids re-parsing the whole history per request"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.saveLayout": {
+      "fingerprint": "cb9ed81389b36b7fe03d6bb27bb0850bbd7c4886",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Validates the segments and writes the layout JSON to a contained path",
+        "what": "Persists positions for a rev and skin",
+        "when": "Called by the layout endpoint",
+        "where": "Server: snapshot store",
+        "why": "Lets the next revision seed from this one"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.search": {
+      "fingerprint": "160bf1594ee75c82c50acdf8dbef5d7f2d7f47a8",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Filters units whose lowercased qualname contains the lowercased query",
+        "what": "Searches a snapshot's units by qualname",
+        "when": "Served by the search endpoint",
+        "where": "Server: snapshot store",
+        "why": "Lets users find units by name"
+      }
+    },
+    "u:packages.server.src.store.SnapshotStore.withRepoName": {
+      "fingerprint": "377e7ae9f87d1d90c4dd5951f27d43e96cace4d1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Replaces a recorded dot repo name with the served directory name",
+        "what": "Repairs a placeholder repo name",
+        "when": "Applied to snapshots as they are read",
+        "where": "Server: snapshot store",
+        "why": "Old snapshots recorded a useless repo name"
+      }
+    },
+    "u:packages.server.src.store.isSafePathSegment": {
+      "fingerprint": "998c9728969a0ab72eef27d7530be156418da3d5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Matches it against a strict allowlist pattern",
+        "what": "Tells whether an identifier is safe to join into a path",
+        "when": "Called by the app and store",
+        "where": "Server: snapshot store",
+        "why": "An allowlist is the only reliable check after decoding"
+      }
+    },
+    "u:packages.server.src.store.parseOrThrow": {
+      "fingerprint": "2e942e04670074e7059666c0e1b89ccc23448f1e",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses JSON then runs safeParse and names the file and issue path on failure",
+        "what": "Parses raw JSON against a schema or throws a located error",
+        "when": "Called when reading snapshot and layout files",
+        "where": "Server: snapshot store",
+        "why": "Malformed files fail at the boundary with a useful message"
+      }
+    },
+    "u:packages.server.src.store.reportInvariantFindings": {
+      "fingerprint": "3355dbf875ae9c36cd44c5fe89e4cf6f724df0a6",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Runs validateSnapshotInvariants and writes formatted findings to stderr",
+        "what": "Logs a snapshot's invariant findings without rejecting it",
+        "when": "Called after parsing each snapshot",
+        "where": "Server: snapshot store",
+        "why": "Older snapshots break hierarchy rules but should still load"
+      }
+    }
+  }
+}

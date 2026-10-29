@@ -1,0 +1,18 @@
+{
+  "file": "packages/ui/src/main.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.main.boot": {
+      "fingerprint": "1134c848afe0060a007aeff905e8033e6a1e7880",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Fetches the revs, picks the newest snapshot URL and renders App",
+        "what": "Boots the viewer",
+        "when": "Runs on page load",
+        "where": "UI: entry point",
+        "why": "Opens the latest snapshot by default"
+      }
+    }
+  }
+}

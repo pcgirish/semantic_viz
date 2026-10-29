@@ -1,0 +1,234 @@
+{
+  "file": "packages/cli/src/artifacts.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.cli.src.artifacts.DefaultedArtifactsError": {
+      "fingerprint": "74bdbc1d5189e26fc2d7626b7fb72aea5419f3a6",
+      "kind": "class",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Carries the target artifact and the defaulted dependency names",
+        "what": "Error raised when a deterministic artifact would be built from empty-defaulted dependencies",
+        "when": "When requireFreshDependencies is set and a dependency was defaulted",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Prevents caching an artifact derived from empty inputs as if it were valid"
+      }
+    },
+    "u:packages.cli.src.artifacts.DefaultedArtifactsError.constructor": {
+      "fingerprint": "5e3aa0b04b80ebd104a044860aa9efde1b59299a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Calls super with a formatted message and stores both fields",
+        "what": "Builds the error message naming the target and defaulted dependencies",
+        "when": "When the error is thrown",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Gives an actionable message"
+      }
+    },
+    "u:packages.cli.src.artifacts.artifactFile": {
+      "fingerprint": "6e85b532b93caf9073e2a8034f248587f8edb400",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Joins scvDir, artifacts, sha and the artifact name",
+        "what": "Returns the path of an artifact file for the current sha",
+        "when": "Whenever an artifact is read or written",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Single source of the on-disk layout"
+      }
+    },
+    "u:packages.cli.src.artifacts.canonicalJson": {
+      "fingerprint": "4fd9970e5de705e880855c0aea9f1c6015b92a44",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "JSON.stringify with the sortKeys replacer",
+        "what": "Serialises a value deterministically",
+        "when": "When hashing or writing artifacts",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Equal payloads produce identical text"
+      }
+    },
+    "u:packages.cli.src.artifacts.computeArtifact": {
+      "fingerprint": "e476bb46cb0a318de9223ea62a060dbef16214bf",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Dispatches on artifact name to Pass A, docs, clustering, layers, groups or flows with its dependencies",
+        "what": "Computes one artifact by running its interpreter pass",
+        "when": "When an artifact is stale and providers are allowed",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Bridges the cache to the interpreter passes"
+      }
+    },
+    "u:packages.cli.src.artifacts.computeInputHash": {
+      "fingerprint": "74604f27eaf3abbaf150545a7f6798858c5d87eb",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Combines the graph hash, prompt revision, provider identity and dependency content hashes per artifact",
+        "what": "Computes the cache key for an artifact",
+        "when": "Before reusing or recomputing an artifact",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Reuses artifacts only when every input is unchanged"
+      }
+    },
+    "u:packages.cli.src.artifacts.contentHashOf": {
+      "fingerprint": "6716a4dbadfb7af04224a18e3b46807b2a4c1513",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes the canonical JSON of the data",
+        "what": "Hashes an artifact payload alone",
+        "when": "When comparing artifact contents",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Separates content identity from the input-hash cache key"
+      }
+    },
+    "u:packages.cli.src.artifacts.dependencyClosure": {
+      "fingerprint": "5419b3c6d18aa4f0f6544f0c03c94607d7b8709a",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Walks ARTIFACT_DEPENDENCIES depth-first collecting names",
+        "what": "Returns an artifact plus all its transitive dependencies",
+        "when": "When scoping allowProvider to one target",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Limits provider calls to what a target needs"
+      }
+    },
+    "u:packages.cli.src.artifacts.emptyArtifactDefault": {
+      "fingerprint": "b87113482530d7b3636cd6f77f136e760962504f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds empty functions, docs, clusters, layers, groups or flows payloads",
+        "what": "Returns the empty structural default for an artifact",
+        "when": "When an artifact cannot be computed without a provider",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Lets no-LLM runs still assemble a valid snapshot"
+      }
+    },
+    "u:packages.cli.src.artifacts.ensureArtifact": {
+      "fingerprint": "8252873e861d54ac2e2728673c61dbbd914f2de4",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Freshens dependencies recursively, compares input hashes, reuses, falls back or computes and persists",
+        "what": "Returns a fresh artifact, recomputing it only when needed",
+        "when": "For every artifact in analyze",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Core incremental cache logic"
+      }
+    },
+    "u:packages.cli.src.artifacts.ensureArtifactData": {
+      "fingerprint": "c2173fd83a53fa5c8411107e790451e90cc3ec86",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Awaits ensureArtifact and unwraps data",
+        "what": "Returns only the data of ensureArtifact",
+        "when": "At call sites that ignore defaulted info",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Convenience wrapper"
+      }
+    },
+    "u:packages.cli.src.artifacts.graphHash": {
+      "fingerprint": "68c72e5e8378125de7712061c6ebd4f052d6c2bd",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes sorted unit struct/text hashes and edge endpoints",
+        "what": "Hashes a symbol graph's structure",
+        "when": "When computing input hashes for passes",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Detects structural change cheaply"
+      }
+    },
+    "u:packages.cli.src.artifacts.hashOf": {
+      "fingerprint": "50d990721316c8454462e7fda93dc517757007c0",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "SHA-256 over the parts joined with separators",
+        "what": "Hashes a list of strings",
+        "when": "When building input hashes",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Shared hashing primitive"
+      }
+    },
+    "u:packages.cli.src.artifacts.loadPreviousLayers": {
+      "fingerprint": "1e52c10c864efa434ea4d9b8629bd777e1f31edc",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Scans first-parent ancestors for a layers artifact with a matching prompt revision",
+        "what": "Loads layers from the nearest previously analyzed ancestor",
+        "when": "Before Pass C names layers",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Carries layer names across commits to save calls and keep names stable"
+      }
+    },
+    "u:packages.cli.src.artifacts.noLlmFallback": {
+      "fingerprint": "0068288b9b82618c469dffd33085e58cf03346ae",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Overlays the durable Pass A unit store on a partial functions artifact, else returns the empty default",
+        "what": "Chooses what a no-LLM run reads for a stale artifact",
+        "when": "When an artifact is stale and providers are disallowed",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Uses every completed unit without calling a provider"
+      }
+    },
+    "u:packages.cli.src.artifacts.readArtifact": {
+      "fingerprint": "ba7b0829b4c8c3846650a301d9aa3c8b5edb5bf5",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Parses the JSON file at artifactFile, returning undefined when absent",
+        "what": "Reads a persisted artifact if present",
+        "when": "Before deciding whether to recompute",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Enables cache reuse"
+      }
+    },
+    "u:packages.cli.src.artifacts.sortKeys": {
+      "fingerprint": "acd54997312b6ed343ca2ebacd386858569f7b16",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Rebuilds plain objects with sorted keys, leaving arrays as is",
+        "what": "JSON replacer emitting object keys in sorted order",
+        "when": "During canonical serialisation",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Deterministic output regardless of insertion order"
+      }
+    },
+    "u:packages.cli.src.artifacts.unitsByFileFrom": {
+      "fingerprint": "939cc4ef52391dce5a1e34fb4bbeac061b5dbca2",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Builds a map from first loc file to units",
+        "what": "Groups units by their source file",
+        "when": "When passes need per-file unit lists",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Supports per-file processing"
+      }
+    },
+    "u:packages.cli.src.artifacts.writeArtifact": {
+      "fingerprint": "5cff99d3bcf80926350ab55266fcdab8ebfe1964",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Compares stored input hash, content hash and partial flag, else writes a temp file and renames it",
+        "what": "Persists an artifact atomically, only if it changed",
+        "when": "After computing or merging an artifact",
+        "where": "Artifact cache: hashing, persistence and freshness for interpreter passes",
+        "why": "Avoids needless writes and never leaves truncated files"
+      }
+    }
+  }
+}

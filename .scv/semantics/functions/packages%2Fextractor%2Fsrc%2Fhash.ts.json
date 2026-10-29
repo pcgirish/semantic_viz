@@ -1,0 +1,42 @@
+{
+  "file": "packages/extractor/src/hash.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.extractor.src.hash.normalizeSource": {
+      "fingerprint": "54e018c9294440b7f54f9d522028a997b45caf6d",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Strips comments or trailing whitespace and collapses blank lines so formatting-only edits hash the same",
+        "what": "Normalises source text before hashing",
+        "when": "Called before computing text hashes",
+        "where": "Extractor: hashing and source metrics",
+        "why": "Prevents whitespace edits from looking like changes"
+      }
+    },
+    "u:packages.extractor.src.hash.shortHash": {
+      "fingerprint": "c0ee61796f053d0bade1e30c1dd359cc390da458",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Hashes the input and slices the hex to the requested length",
+        "what": "Returns a truncated sha256 hex digest of a string",
+        "when": "Used for content, struct and id hashes",
+        "where": "Extractor: hashing and source metrics",
+        "why": "Short stable hashes keep ids and cache keys compact"
+      }
+    },
+    "u:packages.extractor.src.hash.sloc": {
+      "fingerprint": "6ce5461c2d7eddc2340bbe94405c770fa8bd9029",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Counts non-blank, non-comment lines in the text",
+        "what": "Counts source lines of code",
+        "when": "Called when building units",
+        "where": "Extractor: hashing and source metrics",
+        "why": "Gives a size measure for risk and rollups"
+      }
+    }
+  }
+}

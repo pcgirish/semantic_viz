@@ -1,0 +1,30 @@
+{
+  "file": "packages/ui/src/Replay.tsx",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.ui.src.Replay.Replay": {
+      "fingerprint": "f9cdd3f25eea620d86d537bb6d3413b3bd48d376",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Draws per-rev bars by change amount, marks human and agent commits and calls back on scrub",
+        "what": "Renders the revision timeline scrubber",
+        "when": "Shown at the bottom of the viewer",
+        "where": "UI: replay timeline",
+        "why": "Reviewers ask which changes a person wrote"
+      }
+    },
+    "u:packages.ui.src.Replay.shortSha": {
+      "fingerprint": "14b9828a62b57b2ad1270a70b813adaef7e46f08",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Takes the first seven characters",
+        "what": "Abbreviates a sha",
+        "when": "Used in the timeline and toolbar",
+        "where": "UI: replay timeline",
+        "why": "Git's default short length"
+      }
+    }
+  }
+}

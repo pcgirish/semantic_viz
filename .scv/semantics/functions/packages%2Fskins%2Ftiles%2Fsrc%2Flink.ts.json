@@ -1,0 +1,42 @@
+{
+  "file": "packages/skins/tiles/src/link.ts",
+  "storeVersion": 1,
+  "units": {
+    "u:packages.skins.tiles.src.link.link": {
+      "fingerprint": "a525a101235dc1a1285b2995763989800ff9f808",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Draws the path with density gating fading background edges and adds flow type styling and labels",
+        "what": "Renders a scene link as an SVG group",
+        "when": "Called by the 2D host",
+        "where": "Tiles skin: SVG links",
+        "why": "Keeps the graph complete without drowning the focused edges"
+      }
+    },
+    "u:packages.skins.tiles.src.link.midpoint": {
+      "fingerprint": "3606a5cafc2a23644f19e4f03ca4cfb6cd50d09f",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Picks the middle point or averages the two middle points",
+        "what": "Returns the middle point of a path",
+        "when": "Called by link for labels",
+        "where": "Tiles skin: SVG links",
+        "why": "Places edge labels on the line"
+      }
+    },
+    "u:packages.skins.tiles.src.link.pathD": {
+      "fingerprint": "b8efd6b970861940bc8954560947020a694475f1",
+      "kind": "function",
+      "semantics": {
+        "confidence": 0.75,
+        "how": "Joins the points into move and line commands",
+        "what": "Builds an SVG path string from points",
+        "when": "Called by link",
+        "where": "Tiles skin: SVG links",
+        "why": "Shared path formatting"
+      }
+    }
+  }
+}
