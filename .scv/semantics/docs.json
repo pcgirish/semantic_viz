@@ -4,9 +4,10 @@
       "architecture_notes": [
         "npm-workspace monorepo: each package under packages/* has its own src/ and test/",
         "Stack is TypeScript, Fastify and SQLite",
-        "Raw request data is validated with Zod at boundaries"
+        "Raw request data is validated with Zod at boundaries",
+        "Before opening a PR, agents run agent-analyze-pr to keep the committed .scv/semantics/ store fresh"
       ],
-      "fingerprint": "69fb77da54326e2feec8a6ab53f55263bcdfb2d9",
+      "fingerprint": "30564405024a5a471abc327b1e2f21194f5beede",
       "modules": [],
       "path": "AGENTS.md",
       "purpose": "Agent instructions for the repo: npm commands, TDD and security rules, branch/PR workflow, reviewer and auditor roles, and the shipped skills"
@@ -15,7 +16,7 @@
       "architecture_notes": [
         "A repo is turned into a SymbolGraph by static analysis, with an Interpreter and a Differ layered on top, then served as a drillable tile map in the browser"
       ],
-      "fingerprint": "78b19236bb1ed779db5c651efe24abc08cd96340",
+      "fingerprint": "47618307f9b025cace2df751ab48e0baa7c8d337",
       "modules": [
         {
           "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
@@ -68,7 +69,7 @@
         }
       ],
       "path": "README.md",
-      "purpose": "Entry point for users: what scv is, setup, commands, end-to-end walkthrough, PR review flow and committed semantics"
+      "purpose": "Entry point for users: what scv is, setup, commands, end-to-end walkthrough, PR review flow, committed semantics and how to adopt them in another repo (init, bootstrap, per-PR check, hydrate)"
     },
     "docs/analyze.md": {
       "architecture_notes": [
@@ -1069,7 +1070,7 @@
     },
     "docs/plans/publishable-committed-semantics.md": {
       "architecture_notes": [],
-      "fingerprint": "6ea83fda3891b12e760c46efd965ab9d840bc4e6",
+      "fingerprint": "529c7bbe53456bd7f3af3ba467cd53b84c296e49",
       "modules": [
         {
           "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
@@ -1373,10 +1374,10 @@
     },
     "docs/spec/roadmap.md": {
       "architecture_notes": [],
-      "fingerprint": "b78a20c448c68cab209d1576cf80b840d6c3e11b",
+      "fingerprint": "bbc14f80790733b0e0c3e6f092b2b21fdb050b23",
       "modules": [],
       "path": "docs/spec/roadmap.md",
-      "purpose": "Project status: done core pipeline, in-progress work, closed backlog, open issues and future work"
+      "purpose": "Project status: done core pipeline and committed semantics, in-progress work, closed backlog, open issues and future work"
     },
     "docs/spec/tech-stack.md": {
       "architecture_notes": [
