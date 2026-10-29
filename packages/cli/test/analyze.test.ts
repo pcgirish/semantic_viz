@@ -245,6 +245,14 @@ describe("runAnalyze", () => {
     );
   });
 
+  it("an unknown target artifact rejects with the valid names", async () => {
+    await expect(
+      runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "clustering" as never }),
+    ).rejects.toThrow(
+      /unknown artifact "clustering"; expected one of: extraction, functions, docs, clusters, layers, groups, flows/,
+    );
+  });
+
   it("--force layers leaves artifact files untouched when the recompute yields identical content", async () => {
     const first = await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "layers" });
     const sha = first.snapshot.rev.sha;
