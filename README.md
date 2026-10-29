@@ -311,6 +311,15 @@ fingerprint or committed entry changed since `git merge-base <ref> HEAD` —
 including callers made stale through the call chain outside the diff — while
 docs and global artifacts are always checked; an unresolvable base is an error.
 
+The agent skills write to that store: `agent-analyze-repo` ends its full
+bootstrap with `scv export` and a commit of `.scv/semantics/`, and
+`agent-analyze-pr` keeps it current per PR — on a clean worktree it hydrates
+HEAD, runs `scv check --base <base>` (defaulting to the upstream remote's HEAD),
+re-authors only the reported items in dependency order (functions bottom-up,
+docs, clusters, layers, groups, flows), exports, and repeats until check is
+clean, then commits the store in the same PR. A conflict on a global file
+(`layers.json`, `groups.json`, `flows.json`) is resolved by re-running it.
+
 Pass A is resumable. Every unit's result is persisted the moment it resolves,
 keyed by the unit's structural hash, so an interrupted `scv analyze` costs at
 most the units still in flight — a re-run reanalyzes only what is genuinely

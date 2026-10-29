@@ -56,14 +56,13 @@ reporting, because three different situations produce the same count:
 | `missing-input` | no `extraction.json` | The analysis did not complete |
 
 The distinction between `no-branching` and `failed-build` is not the presence of
-blocks in the extraction graph — `resolveBlockGraph` records entry and exit
-blocks even for straight-line functions. It is whether any control-flow edge has
-an `edgeType` other than `sequential`. `classifyBlockAvailability` in
-`packages/cli/src/block-availability.ts` implements exactly this; use its
-reasoning rather than eyeballing the counts.
+blocks in the extraction graph — extraction records entry and exit blocks even
+for straight-line functions. It is whether any control-flow edge has an
+`edgeType` other than `sequential`. Decide by that test rather than by
+eyeballing the counts.
 
-A historical `--sha` never has block data at all: `graphFromSnapshot` supplies
-an empty block graph regardless of what is on disk. Report that as a known
+A historical `--sha` never has block data at all: a graph rebuilt from a
+persisted snapshot has an empty block graph regardless of what is on disk. Report that as a known
 limit, not a failure.
 
 ## Next

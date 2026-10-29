@@ -53,7 +53,7 @@ Fixes `docs/backlog/unconditional-artifact-rewrites.md` by separating two identi
 - Exit code is non-zero on any of these. Output is machine-readable: each item names its kind (`function | docs | layers | groups | flows`), id, and the skill that fixes it (`agent-analyze-functions`, `-docs`, `-layers`, `-groups`, `-flows`).
 - `--base <ref>` limits function-level reporting to units whose fingerprint inputs changed since `git merge-base <ref> HEAD`: units in changed files plus everything stale through the caller chain, even when the caller's file is outside the diff. Global artifacts are always checked. An unresolvable base ref is an error (non-zero exit with a clear message), never a silent full or empty check.
 
-## Phase 3: Skills write to the committed store
+## Phase 3: Skills write to the committed store — done
 - **New skill `agent-analyze-pr`:** incremental, before opening a PR. Precondition: changes are committed and the worktree is clean (the skill stops and says so otherwise), so HEAD-keyed artifacts and the live check describe the same source.
   - **Input `base`** (optional): the ref the PR targets. Default: the remote HEAD of the current branch's upstream remote (`git symbolic-ref refs/remotes/<remote>/HEAD`); if there is no upstream, the only configured remote. If neither resolves, the skill asks for `base` rather than guessing.
   1. `scv hydrate` (HEAD) to seed the current sha's artifacts with every committed entry that is still fresh.
