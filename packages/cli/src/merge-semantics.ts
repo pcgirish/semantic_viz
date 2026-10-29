@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { extractRepo, isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
 import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type PendingBlockLabel, type Snapshot, type Unit } from "@scv/schema";
@@ -21,7 +21,7 @@ import {
   type Layer,
   type Provider,
 } from "@scv/interpreter";
-import { computeInputHash, ensureArtifact, type ArtifactContext, type ArtifactName } from "./artifacts.js";
+import { computeInputHash, ensureArtifact, readArtifact, writeArtifact, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
 import { discoverDocs } from "./discover-docs.js";
 import { changedFiles, headRev } from "./rev.js";
@@ -52,11 +52,6 @@ interface LayersData {
   promptRev: string;
 }
 
-interface StoredArtifact<T> {
-  inputHash: string;
-  data: T;
-}
-
 export interface MergeSemanticsOptions {
   pendingFile: string;
   ctx: ArtifactContext;
@@ -84,26 +79,6 @@ export interface RunMergeSemanticsResult extends MergeSemanticsResult {
   snapshot: Snapshot;
   path: string;
   emptyArtifacts: ArtifactName[];
-}
-
-function artifactFile(ctx: ArtifactContext, name: string): string {
-  return path.join(ctx.scvDir, "artifacts", ctx.sha, `${name}.json`);
-}
-
-function readArtifact<T>(ctx: ArtifactContext, name: string): StoredArtifact<T> | undefined {
-  const file = artifactFile(ctx, name);
-  if (!existsSync(file)) return undefined;
-  try {
-    return JSON.parse(readFileSync(file, "utf-8")) as StoredArtifact<T>;
-  } catch {
-    return undefined;
-  }
-}
-
-function writeArtifact<T>(ctx: ArtifactContext, name: string, inputHash: string, data: T): void {
-  const file = artifactFile(ctx, name);
-  mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify({ inputHash, data } satisfies StoredArtifact<T>));
 }
 
 /** Converts a `--scope` glob (`*` = one path segment, `**` = any depth) to a matcher against
@@ -859,7 +834,10 @@ async function mergeGroups(
   });
 
   const groupsByName: Record<string, string[]> = {};
-  for (const candidate of surviving) groupsByName[candidate.name] = candidate.memberIds;
+  // Built in name order, not pending-file key order, so reordering the pending file rewrites nothing.
+  for (const candidate of [...surviving].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+    groupsByName[candidate.name] = candidate.memberIds;
+  }
 
   const built = buildGroupUnits({
     layerUnits,
@@ -977,7 +955,8 @@ export async function mergeFlows(
   const flowsInputHash = await computeInputHash("flows", ctx, {
     functions: { units: functionUnits, blockUnits: [], blockEdges: [] },
   });
-  writeArtifact(ctx, "flows", flowsInputHash, flowUnits);
+  // Sorted by id, not pending-file key order, so reordering the pending file rewrites nothing.
+  writeArtifact(ctx, "flows", flowsInputHash, flowUnits.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)));
 
   return { merged, skipped: Object.keys(pendingFlows).length - merged };
 }

@@ -285,6 +285,11 @@ stops after extraction and writes a static-only snapshot. The on-disk/wire
 `.scv/snapshots/<sha>.json` contract is unchanged — server and UI need no
 changes.
 
+Artifact writes are write-if-changed: each artifact stores a canonical
+(sorted-key) content hash alongside its input hash, and a recompute or
+`merge-semantics` run that yields the same content under the same input hash
+leaves the file and its mtime untouched.
+
 Pass A is resumable. Every unit's result is persisted the moment it resolves,
 keyed by the unit's structural hash, so an interrupted `scv analyze` costs at
 most the units still in flight — a re-run reanalyzes only what is genuinely

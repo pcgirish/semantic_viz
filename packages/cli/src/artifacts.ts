@@ -131,7 +131,11 @@ export interface ArtifactDataMap {
 }
 
 interface StoredArtifact<T> {
+  /** Runtime cache key: the artifact's inputs plus `promptRev`/`scopeKey`. Decides freshness. */
   inputHash: string;
+  /** `contentHashOf(data)`: identifies the payload alone, independent of the runtime key. Absent
+   *  on files written before it existed; such a file is rewritten on its next write. */
+  contentHash?: string;
   /** True when this file was flushed mid-pass, or by a scoped/failed run. A partial artifact is
    *  readable but never fresh — the next run recomputes, which the per-unit store makes cheap. */
   partial?: boolean;
@@ -193,14 +197,42 @@ export function readArtifact<T>(ctx: ArtifactContext, name: ArtifactName): Store
   }
 }
 
-/** Writes via a sibling temp file + rename, so a kill mid-write leaves the previous file intact
- *  rather than a truncated one — the incremental Pass A flush depends on that. */
-function writeArtifact<T>(ctx: ArtifactContext, name: ArtifactName, inputHash: string, data: T, partial = false): void {
+/** JSON replacer that emits every object's keys in sorted order. Arrays keep their order — callers
+ *  that build arrays from unordered input sort them before writing. */
+function sortKeys(_key: string, value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(Object.keys(record).sort().map((key) => [key, record[key]]));
+}
+
+/** Deterministic serialization: equal payloads produce identical text regardless of key order. */
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, sortKeys);
+}
+
+/** Hash of an artifact payload alone, independent of the runtime cache key (`inputHash`). */
+export function contentHashOf(data: unknown): string {
+  return hashOf(canonicalJson(data));
+}
+
+/**
+ * Writes an artifact unless the stored file already holds the same runtime key, content and
+ * completeness — so a merge that changes nothing leaves the file and its mtime untouched.
+ *
+ * Writes via a sibling temp file + rename, so a kill mid-write leaves the previous file intact
+ * rather than a truncated one — the incremental Pass A flush depends on that.
+ */
+export function writeArtifact<T>(ctx: ArtifactContext, name: ArtifactName, inputHash: string, data: T, partial = false): void {
+  const contentHash = contentHashOf(data);
+  const existing = readArtifact<T>(ctx, name);
+  if (existing && existing.inputHash === inputHash && existing.contentHash === contentHash && Boolean(existing.partial) === partial) {
+    return;
+  }
   const file = artifactFile(ctx, name);
   mkdirSync(path.dirname(file), { recursive: true });
-  const stored: StoredArtifact<T> = partial ? { inputHash, partial: true, data } : { inputHash, data };
+  const stored: StoredArtifact<T> = partial ? { inputHash, contentHash, partial: true, data } : { inputHash, contentHash, data };
   const temp = `${file}.${process.pid}.tmp`;
-  writeFileSync(temp, JSON.stringify(stored));
+  writeFileSync(temp, canonicalJson(stored));
   renameSync(temp, file);
 }
 

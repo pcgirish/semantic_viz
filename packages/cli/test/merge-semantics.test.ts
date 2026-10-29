@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +8,7 @@ import { extractRepo } from "@scv/extractor";
 import { buildFlowTracingContext, traceFlowSteps } from "@scv/interpreter";
 import { semanticHashInput, type Unit } from "@scv/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { computeInputHash, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
+import { computeInputHash, contentHashOf, ensureArtifact, type ArtifactContext } from "../src/artifacts.js";
 import { discoverDocs } from "../src/discover-docs.js";
 import { assembleSnapshotFromCache } from "../src/assemble-snapshot.js";
 import { inScope, mergeFlows, mergeSemantics, runMergeSemantics } from "../src/merge-semantics.js";
@@ -1366,5 +1366,184 @@ describe("mergeSemantics docs", () => {
 
     await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, withDocs: true });
     expect(readFileSync(path.join(scvDir, "artifacts", sha, "docs.json"), "utf-8")).toBe(first);
+  });
+});
+
+describe("mergeSemantics write-if-changed", () => {
+  let scvDir: string;
+  const sha = "fixed-sha";
+  let ctx: ArtifactContext;
+  const narration = { what: "w", how: "h", when: "n", where: "e", why: "y", confidence: 0.7 };
+  const allFlags = { withDocs: true, withClustering: true, withGroups: true, withFlows: true };
+  const artifactNames = ["functions", "docs", "clusters", "layers", "groups", "flows"] as const;
+  const noProvider = { allowProvider: new Set<never>() };
+
+  beforeEach(async () => {
+    scvDir = mkdtempSync(path.join(tmpdir(), "scv-merge-churn-"));
+    const graph = await extractRepo(orderlyRoot);
+    ctx = {
+      scvDir,
+      sha,
+      snapshot: toSnapshot(graph, {
+        root: orderlyRoot,
+        rev: { sha, kind: "commit", ts: "2020-01-01T00:00:00Z", author: "test", author_kind: "human" },
+      }),
+      graph,
+      provider: {
+        interpret: () => {
+          throw new Error("merge-semantics must never call the provider");
+        },
+      } as never,
+      promptRev: "test-prompt-rev",
+      readSource: () => "",
+      docs: discoverDocs(orderlyRoot),
+      reportProgress: () => {},
+      force: new Set(),
+    };
+  });
+
+  afterEach(() => {
+    rmSync(scvDir, { recursive: true, force: true });
+  });
+
+  function artifactPath(name: string): string {
+    return path.join(scvDir, "artifacts", sha, `${name}.json`);
+  }
+
+  function writePending(pending: unknown, name = "semantics.json"): string {
+    const file = path.join(scvDir, "pending", sha, name);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify(pending));
+    return file;
+  }
+
+  /** Two flow entry points that each trace a real flow, so ordering tests have something to reorder. */
+  function twoFlowEntries(): [string, string] {
+    const tracing = buildFlowTracingContext({ snapshot: ctx.snapshot, graph: ctx.graph, units: ctx.snapshot.units });
+    const known = new Set(ctx.snapshot.units.map((u) => u.id));
+    const tracable = tracing.flowUnitSummaries.map((u) => u.id).filter((id) => traceFlowSteps(id, known, tracing));
+    expect(tracable.length).toBeGreaterThanOrEqual(2);
+    return [tracable[0]!, tracable[1]!];
+  }
+
+  /** A pending file touching every artifact merge-semantics writes. Key order is reversible so a
+   *  test can prove output does not depend on it. */
+  async function fullPending(reversed = false): Promise<unknown> {
+    await mergeSemantics({ pendingFile: writePending({ units: {} }, "seed.json"), ctx, root: orderlyRoot, withClustering: true });
+    const layers = (JSON.parse(readFileSync(artifactPath("layers"), "utf-8")) as StoredLayers).data.layers;
+    expect(layers.length).toBeGreaterThan(1);
+    const fnId = ctx.graph.units.find((u) => u.kind === "function")!.id;
+    const [entryA, entryB] = twoFlowEntries();
+    const order = <T>(entries: [string, T][]): Record<string, T> => Object.fromEntries(reversed ? [...entries].reverse() : entries);
+    return {
+      units: { [fnId]: { kind: "function", semantics: narration } },
+      docs: { d: { path: ctx.docs[0]!.path, purpose: "p", modules: [], architecture_notes: [] } },
+      layers: { l: { name: "Narrated", files: layers[0]!.files, ...narration } },
+      groups: order([
+        ["g1", { name: "Core", layers: ["Narrated"], ...narration }],
+        ["g2", { name: "Edge", layers: [layers[1]!.name], ...narration }],
+      ]),
+      flows: order([
+        ["f1", { name: "A", route: "GET /a", entryUnit: entryA, tags: [], ...narration }],
+        ["f2", { name: "B", route: "GET /b", entryUnit: entryB, tags: [], ...narration }],
+      ]),
+    };
+  }
+
+  /** Backdates every artifact so a rewrite is detectable regardless of filesystem mtime resolution. */
+  function backdateArtifacts(): Map<string, { bytes: string; mtimeMs: number }> {
+    const past = new Date("2001-01-01T00:00:00Z");
+    const before = new Map<string, { bytes: string; mtimeMs: number }>();
+    for (const name of artifactNames) {
+      utimesSync(artifactPath(name), past, past);
+      before.set(name, { bytes: readFileSync(artifactPath(name), "utf-8"), mtimeMs: statSync(artifactPath(name)).mtimeMs });
+    }
+    return before;
+  }
+
+  function expectUntouched(before: Map<string, { bytes: string; mtimeMs: number }>): void {
+    for (const [name, { bytes, mtimeMs }] of before) {
+      expect(statSync(artifactPath(name)).mtimeMs, `${name}.json mtime`).toBe(mtimeMs);
+      expect(readFileSync(artifactPath(name), "utf-8"), `${name}.json bytes`).toBe(bytes);
+    }
+  }
+
+  it("re-merging an identical pending file leaves every artifact's bytes and mtime untouched", async () => {
+    const pendingFile = writePending(await fullPending());
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, ...allFlags });
+    const before = backdateArtifacts();
+
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, ...allFlags });
+
+    expectUntouched(before);
+  });
+
+  it("a merge with nothing to merge leaves functions.json untouched", async () => {
+    await mergeSemantics({ pendingFile: writePending(await fullPending()), ctx, root: orderlyRoot, ...allFlags });
+    const before = backdateArtifacts();
+
+    await mergeSemantics({ pendingFile: writePending({ units: {} }, "empty.json"), ctx, root: orderlyRoot });
+
+    expectUntouched(before);
+  });
+
+  it("keeps the assembled snapshot populated, flows included, after a no-op re-merge", async () => {
+    const pendingFile = writePending(await fullPending());
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, ...allFlags });
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot, ...allFlags });
+    await mergeSemantics({ pendingFile: writePending({ units: {} }, "empty.json"), ctx, root: orderlyRoot });
+
+    const assembled = await assembleSnapshotFromCache({ ctx, rev: ctx.snapshot.rev, scvDir });
+    expect(assembled.emptyArtifacts).toEqual([]);
+    expect(assembled.snapshot.units.filter((u) => u.kind === "api_flow").length).toBe(2);
+    expect(assembled.snapshot.units.some((u) => u.kind === "layer" && u.name === "Narrated")).toBe(true);
+    expect(assembled.snapshot.units.some((u) => u.kind === "group" && u.name === "Core")).toBe(true);
+  });
+
+  it("writes groups and flows identically regardless of pending-file key order", async () => {
+    await mergeSemantics({ pendingFile: writePending(await fullPending()), ctx, root: orderlyRoot, ...allFlags });
+    const before = backdateArtifacts();
+
+    await mergeSemantics({ pendingFile: writePending(await fullPending(true), "reversed.json"), ctx, root: orderlyRoot, ...allFlags });
+
+    expectUntouched(before);
+  });
+
+  it("stores a content hash of the payload alone, independent of key order and of the runtime key", async () => {
+    await mergeSemantics({ pendingFile: writePending(await fullPending()), ctx, root: orderlyRoot, ...allFlags });
+    for (const name of artifactNames) {
+      const stored = JSON.parse(readFileSync(artifactPath(name), "utf-8")) as { inputHash: string; contentHash: string; data: unknown };
+      expect(stored.contentHash, name).toBe(contentHashOf(stored.data));
+    }
+    expect(contentHashOf({ a: 1, b: [{ c: 2, d: 3 }] })).toBe(contentHashOf({ b: [{ d: 3, c: 2 }], a: 1 }));
+    expect(contentHashOf([1, 2])).not.toBe(contentHashOf([2, 1]));
+  });
+
+  it("a promptRev bump still rewrites functions under the new runtime key, keeping the content hash", async () => {
+    const pendingFile = writePending(await fullPending());
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot });
+    const first = JSON.parse(readFileSync(artifactPath("functions"), "utf-8")) as { inputHash: string; contentHash: string };
+
+    const bumped: ArtifactContext = { ...ctx, promptRev: "bumped-prompt-rev" };
+    expect((await ensureArtifact("functions", bumped, noProvider)).defaultedArtifacts.has("functions")).toBe(true);
+
+    await mergeSemantics({ pendingFile, ctx: bumped, root: orderlyRoot });
+    const second = JSON.parse(readFileSync(artifactPath("functions"), "utf-8")) as { inputHash: string; contentHash: string };
+    expect(second.inputHash).not.toBe(first.inputHash);
+    expect(second.inputHash).toBe(await computeInputHash("functions", bumped, {}));
+    expect(second.contentHash).toBe(first.contentHash);
+    expect((await ensureArtifact("functions", bumped, noProvider)).defaultedArtifacts.has("functions")).toBe(false);
+  });
+
+  it("a scoped artifact is never taken for a full run's, even with identical content", async () => {
+    const pendingFile = writePending(await fullPending());
+    const scoped: ArtifactContext = { ...ctx, scopeKey: "u:src.**" };
+    await mergeSemantics({ pendingFile, ctx: scoped, root: orderlyRoot });
+    expect((await ensureArtifact("functions", ctx, noProvider)).defaultedArtifacts.has("functions")).toBe(true);
+
+    await mergeSemantics({ pendingFile, ctx, root: orderlyRoot });
+    const stored = JSON.parse(readFileSync(artifactPath("functions"), "utf-8")) as { inputHash: string };
+    expect(stored.inputHash).toBe(await computeInputHash("functions", ctx, {}));
+    expect((await ensureArtifact("functions", scoped, noProvider)).defaultedArtifacts.has("functions")).toBe(true);
   });
 });

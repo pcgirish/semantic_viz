@@ -1,7 +1,8 @@
 # Unconditional artifact rewrites invalidate downstream work that nothing re-blesses
 
-**Status:** open — filed for the record; the fix approach below is unsettled and
-to be revisited before any of it is implemented
+**Status:** resolved 2026-10-29 by Phase 0 of `docs/plans/publishable-committed-semantics.md`:
+artifact writes now go through write-if-changed (`writeArtifact` in `packages/cli/src/artifacts.ts`),
+skipping when the stored `inputHash`, canonical `contentHash` and `partial` flag all match
 **Found:** 2026-08-27 (investigating lost API-flow data in `../eq_to_word_problem` after an agent-based cluster run)
 **Filed here:** 2026-08-27
 
