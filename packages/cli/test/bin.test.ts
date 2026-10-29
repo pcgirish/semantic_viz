@@ -26,6 +26,21 @@ describe("bin", () => {
     }
   });
 
+  it("runs init against a repo and prints each file's outcome and the bootstrap step", () => {
+    const fx = gitFixture({ files: { "m.py": "def a():\n    return 1\n" } });
+    try {
+      const result = spawnSync("npx", ["tsx", binPath, "init", "--install", "npm"], { encoding: "utf-8", cwd: fx.root });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toMatch(/^created\t\.github\/workflows\/scv-check\.yml$/m);
+      expect(result.stdout).toContain("agent-analyze-repo");
+      const bad = spawnSync("npx", ["tsx", binPath, "init", "--install", "pip"], { encoding: "utf-8", cwd: fx.root });
+      expect(bad.status).not.toBe(0);
+      expect(bad.stderr).toContain("error:");
+    } finally {
+      fx.cleanup();
+    }
+  });
+
   it("runs export then hydrate against a repo, and rejects an unknown rev cleanly", () => {
     const fx = gitFixture({ files: { "m.py": "def a():\n    return 1\n" } });
     try {

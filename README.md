@@ -253,7 +253,7 @@ packages/
   interpreter/   # Pass A, Pass Docs, Pass B-D, Provider interface, content cache, checker, ranking
   differ/        # match, classify, blast radius, rollup
   schema/        # shared Zod/JSON schemas for the pipeline contract
-  cli/           # `scv analyze` / `scv diff` / `scv export` / `scv hydrate` / `scv check`
+  cli/           # `scv analyze` / `scv diff` / `scv export` / `scv hydrate` / `scv check` / `scv init`
   viewer/        # `scv-viewer serve` / `scv-viewer ui`
   server/        # Fastify API serving snapshots
   layout/        # pure layered layout engine (rank/order/place/route)
@@ -333,6 +333,26 @@ only workspace dependency is `@semviz/schema`. The libraries are
 `@semviz/schema`, `@semviz/extractor`, `@semviz/interpreter` and
 `@semviz/differ`; everything else stays private. The npm name `scv` and the
 `@scv` scope are taken, hence `semviz`. Publishing needs the npm org `semviz`.
+Nothing is published yet; until then, use the tool from a clone:
+`npm install && npm run build && npm link --workspace packages/cli --workspace packages/viewer`.
+
+`scv init [root] [--install npm|git] [--git-ref <ref>]` sets a repo up to
+commit its semantics: it copies the bundled `agent-analyze-*` skills into
+`.agents/skills/` (linking `.claude/skills` to them if absent), adds the
+`.gitignore` rules that leave only `.scv/semantics/` commit-eligible, marks the
+store `linguist-generated` in `.gitattributes`, writes a pull-request workflow
+`.github/workflows/scv-check.yml` running `scv check --base origin/<base>`, and
+appends an `AGENTS.md` rule to run `agent-analyze-pr` before opening a PR. It
+then prints the bootstrap step (run `agent-analyze-repo`, commit
+`.scv/semantics/`). The workflow installs scv with `npx` at the version that
+ran init (`--install npm`), or builds it from this repo at a pinned ref
+(`--install git`, the default when run from a source checkout). The git ref is
+always an immutable commit: HEAD by default, or `--git-ref` — a full sha, or a
+branch or tag of the checkout resolved to its sha; that commit must be pushed.
+Init is idempotent: it prints `created`, `updated`, `unchanged` or `kept` per
+file, never overwrites a file it owns that you changed, only appends missing
+lines to `.gitignore`, `.gitattributes` and `AGENTS.md`, and never writes
+outside the repo through a symlink.
 
 Pass A is resumable. Every unit's result is persisted the moment it resolves,
 keyed by the unit's structural hash, so an interrupted `scv analyze` costs at
@@ -493,7 +513,7 @@ cache-fresh and indistinguishable from a good one on the next run.
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
 | `packages/interpreter` | Pass A (leaf semantics + branch labels, with scoped retry on incomplete blocks), Pass Docs (repo README/docs structural extraction), Pass B (deterministic agglomerative single-linkage file clustering over the import graph — no LLM), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps; Pass C-groups uses a layer baseline plus LLM-proposed merges), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking. Emits `added`/`removed`/`modified`/`risk_changed`; `moved` and `renamed` are deliberately unsupported — they need rename-detection heuristics this differ does not implement | Implemented |
-| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv merge-semantics` — injects agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache, zero LLM calls; `scv export` / `scv hydrate [rev]` — publish authored semantics to the committed `.scv/semantics/` store and seed any revision's artifacts from it; `scv check [--base <ref>]` — list stale, missing and orphaned committed entries with the skill that fixes each | Implemented |
+| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv merge-semantics` — injects agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache, zero LLM calls; `scv export` / `scv hydrate [rev]` — publish authored semantics to the committed `.scv/semantics/` store and seed any revision's artifacts from it; `scv check [--base <ref>]` — list stale, missing and orphaned committed entries with the skill that fixes each; `scv init` — set a repo up to commit its semantics (skills, ignore/attribute rules, PR check workflow, AGENTS.md rule) | Implemented |
 | `packages/viewer` | `scv-viewer serve` — serves the JSON API for a repo's `.scv` dir; `scv-viewer ui` — serves the bundled SPA, proxying `/api/*` to a running `scv-viewer serve`. Published as `@semviz/viewer`, self-contained: the UI ships as prebuilt assets and `@semviz/server` is bundled in | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |

@@ -7,6 +7,7 @@ import { runCheck } from "./check.js";
 import { runDiff } from "./diff.js";
 import { runExport } from "./export.js";
 import { runHydrate } from "./hydrate.js";
+import { runInit, type InitOptions } from "./init.js";
 import { runMergeSemantics } from "./merge-semantics.js";
 
 const program = new Command();
@@ -146,6 +147,19 @@ program
     if (opts.json) console.log(JSON.stringify(result, null, 2));
     else for (const item of result.items) console.log([item.status, item.kind, item.id, item.skill].join("\t"));
     if (!result.ok) process.exitCode = 1;
+  });
+
+program
+  .command("init")
+  .description("set a repo up to commit its scv semantics: agent-analyze-* skills, .gitignore/.gitattributes rules, a pull-request scv check workflow and an AGENTS.md rule — never overwrites a modified file")
+  .argument("[root]", "repo root", ".")
+  .option("--install <method>", "how CI installs scv: npm (published package) | git (build from source at --git-ref); defaults to git from a source checkout, else npm")
+  .option("--git-ref <ref>", "commit CI builds scv from with --install git: a full sha, or a branch/tag of this checkout (pinned to its sha); defaults to HEAD")
+  .action((root: string, opts: { install?: string; gitRef?: string }) => {
+    const result = runInit({ root, install: opts.install as InitOptions["install"], gitRef: opts.gitRef });
+    for (const action of result.actions) console.log(`${action.outcome}\t${action.path}`);
+    for (const warning of result.warnings) console.error(`[WARN] ${warning}`);
+    console.log(`\n${result.next}`);
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {
