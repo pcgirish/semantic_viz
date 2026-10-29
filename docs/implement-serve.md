@@ -33,7 +33,7 @@ All of them own layout, and layout is the product. They would be adopted to rend
 
 ```
 packages/
-  server/          Fastify: snapshot/delta API, unit search (wired into the CLI as `scv serve`)
+  server/          Fastify: snapshot/delta API, unit search (bundled into the viewer as `scv-viewer serve`)
   viewer/          `scv-viewer serve` (JSON API) / `scv-viewer ui` (static SPA + /api proxy) entrypoints
   layout/           ← pure, no DOM, no React
     rank.ts         longest-path ranking
