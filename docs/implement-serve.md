@@ -6,7 +6,7 @@
 
 | Concern | Choice | Why |
 |---|---|---|
-| Server | **Fastify** on Node 24+ | Same runtime as the analyzer. In practice split into two `scv` CLI commands — `scv serve` (JSON API) and `scv ui` (static SPA + `/api/*` proxy) — rather than one merged process |
+| Server | **Fastify** on Node 24+ | Same runtime as the analyzer. In practice split into two `scv-viewer` commands — `scv-viewer serve` (JSON API) and `scv-viewer ui` (static SPA + `/api/*` proxy) — rather than one merged process |
 | Index | `better-sqlite3` | Shared with the analyzer — `.scv/index.sqlite`, one file, no daemon |
 | UI | **React 18 + TypeScript + Vite** | |
 | 2D rendering | **SVG** to ~800 nodes, **Canvas 2D** above | SVG gives free hit-testing and CSS transitions; Canvas is the escape valve. Both consume `Scene`, so the switch is invisible |
@@ -34,7 +34,7 @@ All of them own layout, and layout is the product. They would be adopted to rend
 ```
 packages/
   server/          Fastify: snapshot/delta API, unit search (wired into the CLI as `scv serve`)
-  cli/             `scv serve` (JSON API) / `scv ui` (static SPA + /api proxy) entrypoints
+  viewer/          `scv-viewer serve` (JSON API) / `scv-viewer ui` (static SPA + /api proxy) entrypoints
   layout/           ← pure, no DOM, no React
     rank.ts         longest-path ranking
     order.ts        barycentre sweeps + deterministic tiebreak

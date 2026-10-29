@@ -19,7 +19,7 @@ Status as of 2026-08-26. Source of truth for granular history: `docs/plans/`
 - **Differ** — match/classify/blast-radius/rollup; `added`/`removed`/
   `modified`/`risk_changed` (rename/move detection deliberately
   unsupported)
-- **CLI** — `scv analyze` / `scv diff` / `scv serve` / `scv ui`, incremental
+- **CLI** — `scv analyze` / `scv diff` (package `semviz`); `scv-viewer serve` / `scv-viewer ui` (package `@semviz/viewer`), incremental
   and artifact-aware (per-stage caching under `.scv/artifacts/<sha>/`);
   `scv merge-semantics` injects agent-authored semantics into that cache
 - **Agent-analyze skill suite** (`.agents/skills/agent-analyze-*`) — one

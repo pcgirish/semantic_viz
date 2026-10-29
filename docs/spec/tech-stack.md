@@ -63,7 +63,8 @@ packages/
     tiles/         # SVG rendering skin
     tiles3d/       # three.js skin, orbit camera
     cityscape/     # three.js skin, walk/fly camera + minimap
-  cli/             # `scv analyze` / `scv diff` / `scv serve` / `scv ui`
+  cli/             # `scv analyze` / `scv diff` / `scv export` / `scv hydrate` / `scv check`
+  viewer/          # `scv-viewer serve` / `scv-viewer ui`
   server/          # Fastify API serving snapshots
   ui/              # React app: canvas + inspector + Delta/Replay/Depends-on/API Flow/Flowchart
   design-system/   # CodeDream design tokens + shared components

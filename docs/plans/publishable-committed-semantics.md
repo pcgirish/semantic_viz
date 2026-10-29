@@ -69,7 +69,10 @@ Fixes `docs/backlog/unconditional-artifact-rewrites.md` by separating two identi
 - **Existing `agent-analyze-repo`:** for the first full bootstrap, end with `scv export`.
 - **Skill wording:** replace monorepo source citations in the skills (e.g. `packages/interpreter/src/pass-b.ts`) with behavior descriptions, so the skills read correctly outside this repo.
 
-## Phase 4: Package split and npm publish
+## Phase 4: Package split and npm publish — done
+
+> Done: npm `scv` and the `@scv` scope are taken, so everything is published under `semviz` — CLI package `semviz` (bin `scv`), libraries `@semviz/{schema,extractor,interpreter,differ}`, viewer `@semviz/viewer` (bin `scv-viewer`); all workspaces were renamed `@scv/*` → `@semviz/*`. Publishing requires creating the npm org `semviz`. Phase 5's `init` uses `semviz`, i.e. `npx semviz@<version> check`.
+
 - **Lean `scv`:** move `serve`/`ui` and the Fastify/`@scv/ui`/`@scv/server` dependencies out of `packages/cli` into new `packages/viewer` (`@scv/viewer`, bin `scv-viewer`). `packages/cli` keeps analyze, diff, merge-semantics, export, hydrate, check and init.
 - **Viewer is self-contained:** `@scv/viewer` bundles its runtime instead of depending on private workspaces. The browser app (`@scv/ui` and its private deps: `@scv/design-system`, `@scv/layout`, `@scv/skin-contract`, `@scv/skin-tiles`, `@scv/skin-tiles3d`) ships as prebuilt static assets; `@scv/server` is bundled into the viewer's JS. Its npm runtime deps are only third-party packages plus `@scv/schema`. Those UI/server packages stay private.
 - **Publish config:** make `scv`, `@scv/schema`, `@scv/extractor`, `@scv/interpreter`, `@scv/differ` and `@scv/viewer` publishable: drop `private`, add `files`/`exports`/`engines`, `publishConfig.access: public` for scoped packages, and replace `*` versions with real ones. The root stays private.

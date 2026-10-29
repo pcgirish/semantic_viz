@@ -8,7 +8,7 @@ description: Produce a complete scv snapshot for a repo — structure, function 
 `scv analyze` has seven stages. One is structural, two are deterministic, and
 four are normally LLM passes. This chain replaces those four with agent-authored
 narration merged straight into the artifact cache, producing a complete snapshot
-for `scv ui` without a single provider call.
+for `scv-viewer ui` without a single provider call.
 
 Each step's merge writes an artifact whose `inputHash` a later `scv analyze`
 matches, so nothing recomputes and the final confirming run costs nothing.
@@ -64,8 +64,8 @@ Confirm `usage: ... calls=0` — no provider call anywhere — and that no `[WAR
 snapshot merged without:` line appears. Then:
 
 ```sh
-scv serve <root>   # and, in another shell
-scv ui
+scv-viewer serve <root>   # and, in another shell
+scv-viewer ui
 ```
 
 Layers, groups and flows render with your narration, and double-clicking a

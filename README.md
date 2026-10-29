@@ -41,7 +41,10 @@ This runs `tsc -b` at the repo root, which builds **every package in
 dependency order** in one pass (schema → extractor/layout → interpreter/
 differ → cli/server/skins → ui) — you never need to build packages one at a
 time. Re-running it is incremental: only packages whose inputs changed
-rebuild.
+rebuild. It then builds the UI (Vite), bundles the viewer (esbuild: the
+compiled `@semviz/server` is inlined and the UI copied to
+`packages/viewer/dist/ui/`), and copies the `agent-analyze-*` skills into
+`packages/cli/skills/` so they ship with the CLI.
 
 To force a full rebuild from clean:
 
@@ -83,11 +86,11 @@ node packages/cli/dist/bin.js analyze /path/to/repo
 node packages/cli/dist/bin.js diff <from-sha> <to-sha> --scv-dir /path/to/repo/.scv
 
 # 3. serve the JSON API (defaults: repo = cwd, port 3000)
-node packages/cli/dist/bin.js serve /path/to/repo
+node packages/viewer/dist/bin.js serve /path/to/repo
 
 # 4. serve the built UI, proxying /api/* to the server from step 3
 #    (defaults: port 5173, --api-port 3000)
-node packages/cli/dist/bin.js ui
+node packages/viewer/dist/bin.js ui
 ```
 
 Open `http://127.0.0.1:5173` in a browser. You get a layered tile map of the
@@ -138,8 +141,8 @@ git checkout <head-sha> && node packages/cli/dist/bin.js analyze /path/to/repo
 node packages/cli/dist/bin.js diff <base-sha> <head-sha> --scv-dir /path/to/repo/.scv
 
 # 3. serve the API and UI
-node packages/cli/dist/bin.js serve /path/to/repo
-node packages/cli/dist/bin.js ui
+node packages/viewer/dist/bin.js serve /path/to/repo
+node packages/viewer/dist/bin.js ui
 ```
 
 Open `http://127.0.0.1:5173`, switch the top bar to **Delta**, and pick the
@@ -250,7 +253,8 @@ packages/
   interpreter/   # Pass A, Pass Docs, Pass B-D, Provider interface, content cache, checker, ranking
   differ/        # match, classify, blast radius, rollup
   schema/        # shared Zod/JSON schemas for the pipeline contract
-  cli/           # `scv analyze` / `scv diff` / `scv serve` / `scv ui`
+  cli/           # `scv analyze` / `scv diff` / `scv export` / `scv hydrate` / `scv check`
+  viewer/        # `scv-viewer serve` / `scv-viewer ui`
   server/        # Fastify API serving snapshots
   layout/        # pure layered layout engine (rank/order/place/route)
   skins/
@@ -319,6 +323,16 @@ re-authors only the reported items in dependency order (functions bottom-up,
 docs, clusters, layers, groups, flows), exports, and repeats until check is
 clean, then commits the store in the same PR. A conflict on a global file
 (`layers.json`, `groups.json`, `flows.json`) is resolved by re-running it.
+
+The tool ships as npm packages. `scv` (analyze, diff, merge-semantics, export,
+hydrate, check) is the `semviz` package, bundling the `agent-analyze-*` skills
+under `skills/`; it carries no web server. The viewer is the separate
+`@semviz/viewer` package (bin `scv-viewer`), self-contained: the browser app
+ships as prebuilt static assets and the server is bundled into its JS, so its
+only workspace dependency is `@semviz/schema`. The libraries are
+`@semviz/schema`, `@semviz/extractor`, `@semviz/interpreter` and
+`@semviz/differ`; everything else stays private. The npm name `scv` and the
+`@scv` scope are taken, hence `semviz`. Publishing needs the npm org `semviz`.
 
 Pass A is resumable. Every unit's result is persisted the moment it resolves,
 keyed by the unit's structural hash, so an interrupted `scv analyze` costs at
@@ -479,7 +493,8 @@ cache-fresh and indistinguishable from a good one on the next run.
 | `packages/schema` | Zod schemas (+ generated JSON Schema) for the `SymbolGraph`/`UnitGraph` contract | Implemented |
 | `packages/interpreter` | Pass A (leaf semantics + branch labels, with scoped retry on incomplete blocks), Pass Docs (repo README/docs structural extraction), Pass B (deterministic agglomerative single-linkage file clustering over the import graph — no LLM), Pass C (architecture narration + branch-preserving API flow tracing, including framework DI/middleware steps; Pass C-groups uses a layer baseline plus LLM-proposed merges), Pass D (five-axis risk narration) + inspect-queue ranking, all via `Provider` (`ollama`, `anthropic`, `claude-cli`) + content cache | Implemented |
 | `packages/differ` | Matches units across snapshots, classifies changes from hashes, computes blast radius and formula-floor risk, rolls amount/risk up to every ancestor; overrides risk with Pass D + ranking. Emits `added`/`removed`/`modified`/`risk_changed`; `moved` and `renamed` are deliberately unsupported — they need rename-detection heuristics this differ does not implement | Implemented |
-| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv serve` — serves the JSON API for a repo's `.scv` dir; `scv ui` — serves the built SPA, proxying `/api/*` to a running `scv serve`; `scv merge-semantics` — injects agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache, zero LLM calls; `scv export` / `scv hydrate [rev]` — publish authored semantics to the committed `.scv/semantics/` store and seed any revision's artifacts from it; `scv check [--base <ref>]` — list stale, missing and orphaned committed entries with the skill that fixes each | Implemented |
+| `packages/cli` | `scv analyze` — extracts + lifts a repo into a `scv/1` snapshot; `scv diff <from> <to>` — diffs two snapshots into a `scv-delta/1` file with a ranked inspect queue; `scv merge-semantics` — injects agent-authored Pass A/C semantics from a pending-semantics file into the artifact cache, zero LLM calls; `scv export` / `scv hydrate [rev]` — publish authored semantics to the committed `.scv/semantics/` store and seed any revision's artifacts from it; `scv check [--base <ref>]` — list stale, missing and orphaned committed entries with the skill that fixes each | Implemented |
+| `packages/viewer` | `scv-viewer serve` — serves the JSON API for a repo's `.scv` dir; `scv-viewer ui` — serves the bundled SPA, proxying `/api/*` to a running `scv-viewer serve`. Published as `@semviz/viewer`, self-contained: the UI ships as prebuilt assets and `@semviz/server` is bundled in | Implemented |
 | `packages/server` | Fastify API serving snapshots (`/api/revs`, `/api/snapshot/:sha`, `/api/search`, `/api/delta/:from/:to`, ...) | Implemented |
 | `packages/layout` | Pure Sugiyama-style layered layout engine (rank → order → place → route), dummy-node expansion, port spreading, recursive mini-maps | Implemented |
 | `packages/skins/tiles` | SVG rendering skin: chamfered tiles colored by semantic layer, complexity glyphs + numeric labels, dependency-highlight links. Wired into `packages/ui` today | Implemented |
