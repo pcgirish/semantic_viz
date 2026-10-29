@@ -1,10 +1,22 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { extractRepo, isGeneratedPath, isTestPath, type SymbolGraph } from "@scv/extractor";
-import { PendingSemanticsSchema, SnapshotSchema, semanticHashInput, type Edge, type PendingBlockLabel, type Snapshot, type Unit } from "@scv/schema";
+import { extractRepo, type SymbolGraph } from "@scv/extractor";
 import {
-  runPassB,
+  PendingSemanticsSchema,
+  SnapshotSchema,
+  semanticHashInput,
+  type Edge,
+  type PendingBlockLabel,
+  type PendingDoc,
+  type PendingFlow,
+  type PendingGroup,
+  type PendingLayer,
+  type PendingSemantics,
+  type Snapshot,
+  type Unit,
+} from "@scv/schema";
+import {
   layerIdFor,
   buildGroupUnits,
   buildBlockUnits,
@@ -17,14 +29,16 @@ import {
   CLUSTERING_VERSION,
   type BlockLabelWithProvenance,
   type DocExtract,
-  type ImportEdge,
   type Layer,
   type Provider,
 } from "@scv/interpreter";
 import { computeInputHash, ensureArtifact, readArtifact, writeArtifact, type ArtifactContext, type ArtifactName } from "./artifacts.js";
 import { assembleSnapshotFromCache } from "./assemble-snapshot.js";
+import { readAuthoredRecord, stampAuthored, writeAuthoredRecord } from "./authored-record.js";
 import { discoverDocs } from "./discover-docs.js";
+import { authoredFromStore, computeClusters, emptyAuthoredSet } from "./fingerprints.js";
 import { changedFiles, headRev } from "./rev.js";
+import { STORE_REL_DIR, readStoreFromDisk, type StoreContents } from "./semantics-store.js";
 import { toSnapshot } from "./snapshot.js";
 
 interface FunctionsData {
@@ -53,7 +67,10 @@ interface LayersData {
 }
 
 export interface MergeSemanticsOptions {
-  pendingFile: string;
+  /** Exactly one of `pendingFile` / `pending` is given; `pending` is how `scv hydrate` merges
+   *  committed entries without staging a file. */
+  pendingFile?: string;
+  pending?: PendingSemantics;
   ctx: ArtifactContext;
   /** Filesystem repo root, used by `--scope changed` to run `git diff` against. `ctx.snapshot.repo.root`
    *  is a display name (`path.basename`), not a usable path, so this must be passed separately. */
@@ -67,6 +84,9 @@ export interface MergeSemanticsOptions {
    *  call. Such a graph has no `via: "di"` edges and an empty `blockGraph`, so flow merging must
    *  refuse rather than emit a silently degraded flow. */
   fromPersistedSnapshot?: boolean;
+  /** The committed store merged entries are stamped against. Defaults to the working tree's
+   *  `.scv/semantics/` under `root`; hydrate passes the store read at the hydrated rev. */
+  committedStore?: StoreContents;
 }
 
 export interface MergeSemanticsResult {
@@ -140,6 +160,19 @@ const noopProvider: Provider = {
     throw new Error("merge-semantics must never call the provider");
   },
 };
+
+/** The artifact context for a merge that must never reach a provider (`merge-semantics`, `hydrate`). */
+export function noLlmContext(fields: Pick<ArtifactContext, "scvDir" | "sha" | "snapshot" | "graph" | "docs">): ArtifactContext {
+  return {
+    ...fields,
+    provider: noopProvider,
+    promptRev: "p4",
+    readSource: () => "",
+    reportProgress: () => {},
+    force: new Set(),
+    noLlm: true,
+  };
+}
 
 const STRUCTURAL_KINDS = new Set(["module", "class", "function"]);
 const STRUCTURAL_EDGE_KINDS = new Set(["imports", "calls", "inherits"]);
@@ -219,19 +252,7 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
   const graph = persisted ? graphFromSnapshot(persisted) : extractRepo(options.root, path.join(scvDir, "artifacts", "extraction-files"));
   const snapshot = persisted ?? toSnapshot(graph, { root: options.root, rev });
 
-  const ctx: ArtifactContext = {
-    scvDir,
-    sha: rev.sha,
-    snapshot,
-    graph,
-    provider: noopProvider,
-    promptRev: "p4",
-    readSource: () => "",
-    docs: discoverDocs(options.root),
-    reportProgress: () => {},
-    force: new Set(),
-    noLlm: true,
-  };
+  const ctx = noLlmContext({ scvDir, sha: rev.sha, snapshot, graph, docs: discoverDocs(options.root) });
 
   const mergeResult = await mergeSemantics({
     pendingFile: options.pendingFile,
@@ -250,11 +271,11 @@ export async function runMergeSemantics(options: RunMergeSemanticsOptions): Prom
 }
 
 export async function mergeSemantics(options: MergeSemanticsOptions): Promise<MergeSemanticsResult> {
-  const { pendingFile, ctx, root, scope, withClustering, withGroups, withFlows, withDocs, fromPersistedSnapshot } = options;
+  const { ctx, root, scope, withClustering, withGroups, withFlows, withDocs, fromPersistedSnapshot } = options;
   const warnings: string[] = [];
 
-  const raw = JSON.parse(readFileSync(pendingFile, "utf-8"));
-  const pending = PendingSemanticsSchema.parse(raw);
+  const pending = options.pending ?? readPendingFile(options.pendingFile);
+  const now = emptyAuthoredSet();
 
   const functionsStored = readArtifact<FunctionsData>(ctx, "functions");
 
@@ -333,6 +354,7 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
     };
 
     unitById.set(id, mergedUnit);
+    now.functions[id] = { entry };
     merged++;
   }
 
@@ -371,69 +393,59 @@ export async function mergeSemantics(options: MergeSemanticsOptions): Promise<Me
     const docsResult = await mergeDocs(ctx, pending.docs, warnings);
     merged += docsResult.merged;
     skipped += docsResult.skipped;
+    for (const doc of docsResult.authored) now.docs[doc.path] = { entry: doc };
   }
 
   if (withClustering) {
     const clusterResult = await mergeLayerClustering(ctx, pending.layers, functionsData.units, warnings);
     merged += clusterResult.merged;
     skipped += clusterResult.skipped;
+    if (clusterResult.merged > 0) now.layers = { entry: clusterResult.authored };
   }
 
   if (withGroups) {
     const groupResult = await mergeGroups(ctx, pending.groups, warnings);
     merged += groupResult.merged;
     skipped += groupResult.skipped;
+    now.groups = { entry: groupResult.authored };
   }
 
   if (withFlows) {
     const flowResult = await mergeFlows(ctx, pending.flows, Boolean(fromPersistedSnapshot), warnings);
     merged += flowResult.merged;
     skipped += flowResult.skipped;
+    now.flows = { entry: flowResult.authored };
+  }
+
+  // A graph rebuilt from a persisted snapshot lacks the live structure fingerprints are computed
+  // over, so a historical `--sha` merge records nothing rather than minting wrong stamps.
+  if (!fromPersistedSnapshot) {
+    const store = options.committedStore ?? readStoreFromDisk(path.join(root, STORE_REL_DIR));
+    const inputs = { graph: ctx.graph, snapshot: ctx.snapshot, docs: ctx.docs };
+    const record = stampAuthored(inputs, readAuthoredRecord(ctx.scvDir, ctx.sha), now, authoredFromStore(store));
+    writeAuthoredRecord(ctx.scvDir, ctx.sha, record);
   }
 
   return { merged, skipped, warnings };
 }
 
+function readPendingFile(pendingFile: string | undefined): PendingSemantics {
+  if (pendingFile === undefined) throw new Error("mergeSemantics needs a pendingFile or an in-memory pending set");
+  return PendingSemanticsSchema.parse(JSON.parse(readFileSync(pendingFile, "utf-8")));
+}
+
 async function mergeLayerClustering(
   ctx: ArtifactContext,
-  pendingLayers: Record<string, { name: string; files: string[]; what: string; how: string; when: string; where: string; why: string; confidence: number }>,
+  pendingLayers: Record<string, PendingLayer>,
   functionUnits: Unit[],
   warnings: string[],
-): Promise<{ merged: number; skipped: number }> {
-  const unitsByFile = new Map<string, Unit[]>();
-  for (const unit of functionUnits) {
-    if (unit.kind !== "module") continue;
-    const file = unit.loc.files[0];
-    if (!file || isTestPath(file) || isGeneratedPath(file)) continue;
-    (unitsByFile.get(file) ?? unitsByFile.set(file, []).get(file)!).push(unit);
-  }
-  const files = [...unitsByFile.keys()];
-
-  const fileOfUnit = new Map<string, string>();
-  for (const unit of functionUnits) {
-    if (unit.loc.files[0]) fileOfUnit.set(unit.id, unit.loc.files[0]);
-  }
-
-  const importEdges: ImportEdge[] = [];
-  const edgeWeightByFilePair = new Map<string, number>();
-  for (const edge of ctx.snapshot.edges) {
-    const fromFile = fileOfUnit.get(edge.from);
-    const toFile = fileOfUnit.get(edge.to);
-    if (!fromFile || !toFile || fromFile === toFile) continue;
-    const key = `${fromFile} ${toFile}`;
-    edgeWeightByFilePair.set(key, (edgeWeightByFilePair.get(key) ?? 0) + edge.weight);
-  }
-  for (const [key, weight] of edgeWeightByFilePair) {
-    const [from, to] = key.split(" ") as [string, string];
-    importEdges.push({ from, to, weight });
-  }
-
-  const passB = runPassB({ files, edges: importEdges });
+): Promise<{ merged: number; skipped: number; authored: Record<string, PendingLayer> }> {
+  const { groups: clusterGroups, unitsByFile, modularity, directoryModularity } = computeClusters(functionUnits, ctx.snapshot.edges);
 
   const pendingByRealId = new Map<string, (typeof pendingLayers)[string]>();
   for (const [pendingId, entry] of Object.entries(pendingLayers)) {
     const realId = layerIdFor(entry.files);
-    if (!passB.groups.has(realId)) {
+    if (!clusterGroups.has(realId)) {
       warnings.push(`layer ${pendingId} (files: ${entry.files.join(", ")}) does not match any real cluster — skipped`);
       continue;
     }
@@ -456,8 +468,11 @@ async function mergeLayerClustering(
   const parentOverride: [string, string][] = [];
   const layerIdByName: [string, string][] = [];
   const layerUnits: Unit[] = [];
+  // Every narrated layer, carried or new, keyed by cluster id: the record holds the full set the
+  // layers artifact now narrates, since export publishes it as one unit.
+  const authored: Record<string, PendingLayer> = {};
 
-  for (const [realId, realFiles] of passB.groups) {
+  for (const [realId, realFiles] of clusterGroups) {
     const entry = pendingByRealId.get(realId);
     const layer: Layer = entry
       ? {
@@ -484,6 +499,10 @@ async function mergeLayerClustering(
         });
     layers.push(layer);
     layerIdByName.push([layer.name, realId]);
+    if (layer.source !== "static") {
+      const { name, files, what, how, when, where, why, confidence } = layer;
+      authored[realId] = { name, files, what, how, when, where, why, confidence };
+    }
     for (const file of realFiles) {
       for (const unit of unitsByFile.get(file) ?? []) parentOverride.push([unit.id, realId]);
     }
@@ -535,11 +554,11 @@ async function mergeLayerClustering(
   };
 
   const clustersData: ClustersData = {
-    groups: [...passB.groups],
+    groups: [...clusterGroups],
     unitsByFile: [...unitsByFile].map(([file, units]) => [file, units.map((u) => u.id)]),
     repoContextText: undefined,
-    modularity: passB.modularity,
-    directoryModularity: passB.directoryModularity,
+    modularity,
+    directoryModularity,
     clusteringVersion: CLUSTERING_VERSION,
   };
 
@@ -572,7 +591,7 @@ async function mergeLayerClustering(
   });
   writeArtifact(ctx, "layers", layersInputHash, layersData);
 
-  return { merged, skipped };
+  return { merged, skipped, authored };
 }
 
 /** Never lets a stale artifact trigger a provider call — everything stale is empty-defaulted, and
@@ -595,9 +614,9 @@ const NO_PROVIDER = { allowProvider: new Set<ArtifactName>() };
  */
 async function mergeDocs(
   ctx: ArtifactContext,
-  pendingDocs: Record<string, { path: string; purpose: string; modules: { name: string; description: string; paths: string[] }[]; architecture_notes: string[] }>,
+  pendingDocs: Record<string, PendingDoc>,
   warnings: string[],
-): Promise<{ merged: number; skipped: number }> {
+): Promise<{ merged: number; skipped: number; authored: PendingDoc[] }> {
   const discovered = new Set(ctx.docs.map((d) => d.path));
 
   // Seed from whatever a previous merge already wrote, so authoring docs across several passes
@@ -609,6 +628,7 @@ async function mergeDocs(
     if (discovered.has(cached.path)) byPath.set(cached.path, cached);
   }
   const claimed = new Set<string>();
+  const authored: PendingDoc[] = [];
   let merged = 0;
   let skipped = 0;
 
@@ -624,18 +644,15 @@ async function mergeDocs(
       continue;
     }
     claimed.add(entry.path);
-    byPath.set(entry.path, {
-      path: entry.path,
-      purpose: entry.purpose,
-      modules: entry.modules,
-      architecture_notes: entry.architecture_notes,
-    });
+    const doc = { path: entry.path, purpose: entry.purpose, modules: entry.modules, architecture_notes: entry.architecture_notes };
+    byPath.set(entry.path, doc);
+    authored.push(doc);
     merged++;
   }
 
   const docs = [...byPath.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   writeArtifact(ctx, "docs", await computeInputHash("docs", ctx, {}), docs);
-  return { merged, skipped };
+  return { merged, skipped, authored };
 }
 
 /**
@@ -757,9 +774,9 @@ function mergeBlockLabels(
  */
 async function mergeGroups(
   ctx: ArtifactContext,
-  pendingGroups: Record<string, { name: string; layers: string[]; what: string; how: string; when: string; where: string; why: string; confidence: number }>,
+  pendingGroups: Record<string, PendingGroup>,
   warnings: string[],
-): Promise<{ merged: number; skipped: number }> {
+): Promise<{ merged: number; skipped: number; authored: Record<string, PendingGroup> }> {
   // Checked transitively: `ensureArtifact` resolves each dependency through its own recursive
   // call before hashing, so `clusters`/`functions`/`extraction` staleness propagates up into this
   // one set. A shallow "does layers.json's stored hash match a fresh computeInputHash" check would
@@ -871,7 +888,8 @@ async function mergeGroups(
   const groupsInputHash = await computeInputHash("groups", ctx, { layers: layersData });
   writeArtifact(ctx, "groups", groupsInputHash, { groupUnits, layerParent: [...built.layerParent] });
 
-  return { merged, skipped: Object.keys(pendingGroups).length - merged };
+  const authored = Object.fromEntries(surviving.map((candidate) => [candidate.key, candidate.entry]));
+  return { merged, skipped: Object.keys(pendingGroups).length - merged, authored };
 }
 
 /**
@@ -884,10 +902,10 @@ async function mergeGroups(
  */
 export async function mergeFlows(
   ctx: ArtifactContext,
-  pendingFlows: Record<string, { name: string; route: string; entryUnit: string; tags: string[]; what: string; how: string; when: string; where: string; why: string; confidence: number }>,
+  pendingFlows: Record<string, PendingFlow>,
   fromPersistedSnapshot: boolean,
   warnings: string[],
-): Promise<{ merged: number; skipped: number }> {
+): Promise<{ merged: number; skipped: number; authored: Record<string, PendingFlow> }> {
   if (fromPersistedSnapshot) {
     // A persisted snapshot carries neither `via: "di"` edges nor a block graph (see
     // `graphFromSnapshot`), so every flow merged from one would have an empty DI prefix and no
@@ -915,6 +933,7 @@ export async function mergeFlows(
 
   const flowUnits: Unit[] = [];
   const flowIds = new Set<string>();
+  const authored: Record<string, PendingFlow> = {};
   let merged = 0;
 
   for (const [key, entry] of Object.entries(pendingFlows)) {
@@ -949,6 +968,7 @@ export async function mergeFlows(
     }
     flowIds.add(flowUnit.id);
     flowUnits.push(flowUnit);
+    authored[key] = entry;
     merged++;
   }
 
@@ -958,5 +978,5 @@ export async function mergeFlows(
   // Sorted by id, not pending-file key order, so reordering the pending file rewrites nothing.
   writeArtifact(ctx, "flows", flowsInputHash, flowUnits.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)));
 
-  return { merged, skipped: Object.keys(pendingFlows).length - merged };
+  return { merged, skipped: Object.keys(pendingFlows).length - merged, authored };
 }
