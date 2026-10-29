@@ -224,6 +224,8 @@ export interface Evaluation {
   layers: Choice<Record<string, PendingLayer>>;
   groups: Choice<Record<string, PendingGroup>>;
   flows: Choice<Record<string, PendingFlow>>;
+  /** Whether Pass B finds any layer, i.e. whether layers, groups and flows are expected at all. */
+  clustered: boolean;
 }
 
 export interface FingerprintInputs {
@@ -287,5 +289,5 @@ export function evaluate(inputs: FingerprintInputs, primary: AuthoredSet, store:
 
   const flows = choose(hashOf(FINGERPRINT_VERSION, unitNarration, graphHash(graph)), primary.flows, store.flows);
 
-  return { functions, docs, layers, groups, flows };
+  return { functions, docs, layers, groups, flows, clustered: clusterEntries.length > 0 };
 }

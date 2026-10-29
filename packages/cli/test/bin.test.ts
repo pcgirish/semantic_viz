@@ -48,4 +48,31 @@ describe("bin", () => {
       fx.cleanup();
     }
   });
+
+  it("runs check: findings exit non-zero as tab-separated lines or JSON, a clean store exits zero, a bad base errors", () => {
+    const fx = gitFixture({ files: { "m.py": "def a():\n    return 1\n" } });
+    try {
+      const run = (...args: string[]) => spawnSync("npx", ["tsx", binPath, ...args], { encoding: "utf-8", cwd: fx.root });
+
+      const text = run("check");
+      expect(text.status).toBe(1);
+      expect(text.stdout).toMatch(/^missing\tfunction\tu:\S+\tagent-analyze-functions$/m);
+      const json = run("check", "--json");
+      expect(json.status).toBe(1);
+      expect(JSON.parse(json.stdout)).toMatchObject({ ok: false, items: expect.arrayContaining([expect.objectContaining({ status: "missing", kind: "function" })]) });
+
+      const bad = run("check", "--base", "no-such-branch");
+      expect(bad.status).not.toBe(0);
+      expect(bad.stderr).toContain("error:");
+      expect(bad.stderr).toContain("--base");
+
+      fx.git("rm", "-q", "m.py");
+      fx.commit("nothing to narrate");
+      const clean = run("check", "--base", "HEAD");
+      expect(clean.status).toBe(0);
+      expect(clean.stdout).toBe("");
+    } finally {
+      fx.cleanup();
+    }
+  });
 });

@@ -45,7 +45,7 @@ Fixes `docs/backlog/unconditional-artifact-rewrites.md` by separating two identi
 - **Path safety:** containment checks on `.scv/semantics` resolve symlinks before reading or writing; for new files, the nearest existing ancestor is resolved and checked.
 - **Ignore rules:** narrow `.gitignore` from `.scv/` to all local/generated paths: `cache.sqlite`, `artifacts/`, `snapshots/`, `deltas/`, `layouts/` (viewer, `packages/server/src/store.ts`), `pending/` (agent skills), `config.yaml`. Only `.scv/semantics/` is commit-eligible.
 
-## Phase 2: `scv check`
+## Phase 2: `scv check` — done
 - `scv check [--base <ref>]` runs a `--no-llm` extraction and recomputes every fingerprint from Phase 1, then compares against the committed store. It reports:
   - stale: the fingerprint differs (functions, docs, layers, groups, flows)
   - missing: a new unit or document has no entry
