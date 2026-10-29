@@ -458,3 +458,7 @@ result's parent before selecting it, fully migrated onto `packages/design-system
 A disposable Python prototype of the *full* pipeline (extract → interpret →
 diff → render) lives at [`docs/mock/`](docs/mock/README.md) and is useful for
 seeing the end-to-end shape of the product before the LLM stages catch up.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
