@@ -245,7 +245,7 @@ describe("runAnalyze", () => {
     );
   });
 
-  it("--force layers recomputes layers's artifact file without touching functions's, even though inputs are unchanged", async () => {
+  it("--force layers leaves artifact files untouched when the recompute yields identical content", async () => {
     const first = await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "layers" });
     const sha = first.snapshot.rev.sha;
     const functionsFile = path.join(scvDir, "artifacts", sha, "functions.json");
@@ -258,7 +258,7 @@ describe("runAnalyze", () => {
     await runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), artifact: "layers", force: true });
 
     expect(statSync(functionsFile).mtimeMs).toBe(functionsBefore);
-    expect(statSync(layersFile).mtimeMs).toBeGreaterThan(layersBefore);
+    expect(statSync(layersFile).mtimeMs).toBe(layersBefore);
   });
 
   it("'scv analyze <root> clusters' writes clusters.json without recomputing layers.json's cached content, once functions/docs are cached", async () => {

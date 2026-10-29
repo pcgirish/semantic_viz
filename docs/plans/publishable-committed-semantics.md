@@ -18,7 +18,7 @@ Decisions (confirmed):
 
 Each phase below is its own branch and PR, following the CLAUDE.md code flow and TDD.
 
-## Phase 0: Stop artifact churn (prerequisite)
+## Phase 0: Stop artifact churn (prerequisite) — done
 Committed files must not change when nothing semantic changed.
 Fixes `docs/backlog/unconditional-artifact-rewrites.md` by separating two identities that are currently conflated:
 - **Runtime cache key** (unchanged): `computeInputHash` keeps `promptRev` and `scopeKey` (`artifacts.ts:222`), so a prompt-revision bump still invalidates narration and a scoped artifact is never taken for a whole-repo one.
