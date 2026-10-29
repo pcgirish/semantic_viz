@@ -16,7 +16,7 @@
       "architecture_notes": [
         "A repo is turned into a SymbolGraph by static analysis, with an Interpreter and a Differ layered on top, then served as a drillable tile map in the browser"
       ],
-      "fingerprint": "47618307f9b025cace2df751ab48e0baa7c8d337",
+      "fingerprint": "1deffabf8c44511a80009510d8891d313ca2681f",
       "modules": [
         {
           "description": "scv command line: analyze, diff, export, hydrate, check, init, merge-semantics",
@@ -69,7 +69,7 @@
         }
       ],
       "path": "README.md",
-      "purpose": "Entry point for users: what scv is, setup, commands, end-to-end walkthrough, PR review flow, committed semantics and how to adopt them in another repo (init, bootstrap, per-PR check, hydrate)"
+      "purpose": "Entry point for users: what scv is, setup, commands, end-to-end walkthrough, PR review flow, committed semantics and how to adopt them in another repo (init, bootstrap, per-PR check, hydrate, diff for Delta)"
     },
     "docs/analyze.md": {
       "architecture_notes": [
