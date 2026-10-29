@@ -1,6 +1,6 @@
 # Roadmap
 
-Status as of 2026-08-26. Source of truth for granular history: `docs/plans/`
+Status as of 2026-10-29. Source of truth for granular history: `docs/plans/`
 (implemented, chronological) and `docs/backlog/` (deferred/closed items).
 
 ## Done — core pipeline (all packages "Implemented")
@@ -41,7 +41,7 @@ Status as of 2026-08-26. Source of truth for granular history: `docs/plans/`
   Replay timeline, search, fully migrated to `packages/design-system`
   (CodeDream)
 
-## In progress
+## Done — hierarchy correctness & clustering redesign
 
 **Hierarchy correctness & clustering redesign**
 (`docs/plans/hierarchy-correctness-and-clustering-redesign.md`) —
@@ -74,6 +74,12 @@ merged" in `README.md`.
   layout-axis (left-to-right) change remains open, tracked separately
 
 ## Known open issues
+
+- Nothing is published to npm yet: the packages are publish-ready, but
+  publishing needs an npm account and the `semviz` org; until then scv is
+  used from a clone (`npm link`)
+- `scv init --install git` generates a workflow that clones scv at a pinned
+  ref, which only works in other repos while this repo is publicly cloneable
 
 - Layout ranks stack top-to-bottom; the left-to-right rank axis change from
   PR #80 (deferred alongside canvas pan/zoom, which has since shipped) never

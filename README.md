@@ -297,7 +297,8 @@ packages/
     cityscape/   # three.js rendering skin, walk/fly camera + minimap (wired into packages/ui)
   ui/            # React app: canvas + inspector tray + Delta/Replay/Depends-on/API Flow views
 docs/            # design docs, milestone plans, and the disposable Python mock
-fixtures/        # sample repos used by tests (gitignored except small TS fixtures)
+fixtures/        # sample repos used by tests (gitignored except small TS fixtures; orderly is
+                 # restored from the committed orderly.bundle before `npm run test`)
 ```
 
 ## Contributing
@@ -315,11 +316,14 @@ ranked inspect queue. Point `scv` at a real repo, extract it, serve it, and
 browse it as a live tile map today.
 
 `scv analyze` is now incremental and artifact-aware: extraction is cached
-per-file by content hash, and each interpreter stage (functions/docs/layers/
-groups/flows) is persisted under `.scv/artifacts/<sha>/` and only recomputed
-when its actual upstream inputs changed. `scv analyze [artifact]` computes a
-single named artifact (freshening its dependencies first); `scv analyze --no-llm`
-stops after extraction and writes a static-only snapshot. The on-disk/wire
+per-file by content hash, and each stage (extraction/functions/docs/clusters/
+layers/groups/flows) is persisted under `.scv/artifacts/<sha>/` and only
+recomputed when its actual upstream inputs changed. `scv analyze [root]
+[artifact]` computes a single named artifact (freshening its dependencies
+first); an unknown artifact name is rejected with the list of valid ones.
+`scv analyze --no-llm` never calls a provider: it merges from the cache with
+empty defaults, and with an `[artifact]` also computes that stage when it is
+deterministic (`clusters`). The on-disk/wire
 `.scv/snapshots/<sha>.json` contract is unchanged — server and UI need no
 changes.
 
@@ -388,8 +392,9 @@ Init is idempotent: it prints `created`, `updated`, `unchanged` or `kept` per
 file, never overwrites a file it owns that you changed, only appends missing
 lines to `.gitignore`, `.gitattributes` and `AGENTS.md`, and never writes
 outside the repo through a symlink. This repo dogfoods the whole loop: its own
-`.scv/semantics/` is committed and its PRs run the generated `scv-check`
-workflow (see [Use in your repo](#use-in-your-repo)).
+`.scv/semantics/` is committed and its PRs run an `scv-check` workflow adapted
+from the generated one — it builds scv from the PR's own checkout instead of
+cloning it at a pinned ref (see [Use in your repo](#use-in-your-repo)).
 
 Pass A is resumable. Every unit's result is persisted the moment it resolves,
 keyed by the unit's structural hash, so an interrupted `scv analyze` costs at
