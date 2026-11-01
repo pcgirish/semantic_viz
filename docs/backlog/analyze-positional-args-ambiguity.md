@@ -1,6 +1,6 @@
 # `scv analyze` positional args are ambiguous
 
-**Status:** open
+**Status:** closed (2026-10-29) — resolved by rejecting the ambiguity; see Resolution
 **Found:** 2026-08-26
 
 ## Problem
@@ -62,3 +62,17 @@ that triggered this report.
 - `packages/cli/src/bin.ts` (argument definition and the `emptyArtifacts` hint)
 - `packages/cli/test/bin.test.ts` (argument-parsing coverage)
 - `.agents/skills/agent-analyze-*/SKILL.md` (any documented invocations)
+
+## Resolution
+Chose **reject the ambiguity**. A lone argument that is an artifact name now
+fails before any work, naming both explicit forms:
+
+```
+error: "functions" is ambiguous: it is an artifact name, but a single argument is read as the repo root to analyze.
+  to compute the functions artifact of the current repo:  scv analyze . functions
+  to analyze the directory ./functions as a repo:          scv analyze ./functions
+```
+
+The meaning never depends on which directories exist. The `[WARN] ... run
+'scv analyze ...'` hint now prints the root it was given
+(`scv analyze . layers`), so it no longer suggests the ambiguous form.

@@ -3,6 +3,7 @@ import path from "node:path";
 import { Command } from "commander";
 import { fmtElapsed } from "@semviz/interpreter";
 import { runAnalyze, type RunAnalyzeOptions } from "./analyze.js";
+import { ARTIFACT_NAMES } from "./artifacts.js";
 import { runCheck } from "./check.js";
 import { runDiff } from "./diff.js";
 import { runExport } from "./export.js";
@@ -36,6 +37,17 @@ program
     "restrict Pass A to: everything (default/'all'), files changed vs HEAD~1 ('changed'), or unit-id globs (e.g. 'u:src.handlers.**', 'u:src.*.create_order')",
   )
   .action(async (root: string, artifact: string | undefined, opts: { provider?: string; model?: string; effort?: string; logLevel?: string; llm: boolean; force?: boolean; scope?: string[] }) => {
+    // A lone positional is always [root], so `scv analyze functions` would silently analyze a
+    // ./functions directory; refuse to guess which one was meant.
+    if (artifact === undefined && (ARTIFACT_NAMES as string[]).includes(root)) {
+      throw new Error(
+        [
+          `"${root}" is ambiguous: it is an artifact name, but a single argument is read as the repo root to analyze.`,
+          `  to compute the ${root} artifact of the current repo:  scv analyze . ${root}`,
+          `  to analyze the directory ./${root} as a repo:          scv analyze ./${root}`,
+        ].join("\n"),
+      );
+    }
     const { path: outPath, snapshot, usage, elapsedMs, emptyArtifacts } = await runAnalyze({
       root,
       providerName: opts.provider as RunAnalyzeOptions["providerName"],
@@ -58,7 +70,7 @@ program
     );
     if (emptyArtifacts.length > 0) {
       console.error(
-        `[WARN] snapshot merged without: ${emptyArtifacts.join(", ")} — run ${emptyArtifacts.map((a) => `'scv analyze ${a}'`).join(" / ")} for full narration`,
+        `[WARN] snapshot merged without: ${emptyArtifacts.join(", ")} — run ${emptyArtifacts.map((a) => `'scv analyze ${root} ${a}'`).join(" / ")} for full narration`,
       );
     }
   });

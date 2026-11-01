@@ -575,7 +575,7 @@ async function mergeLayerClustering(
     const docsInputHash = await computeInputHash("docs", ctx, {});
     writeArtifact(ctx, "docs", docsInputHash, []);
     docsStored = { inputHash: docsInputHash, data: [] };
-    warnings.push("cached an empty docs artifact: doc files were discovered but no docs narration was available to merge — docs will show no summary until `scv analyze docs --force` is run with an LLM provider");
+    warnings.push("cached an empty docs artifact: doc files were discovered but no docs narration was available to merge — docs will show no summary until `scv analyze <root> docs --force` is run with an LLM provider");
   }
   // computeInputHash reads only `functions.units` for clusters/layers/flows — the block fields
   // are structurally required by FunctionsData but never hashed, so they stay empty here.

@@ -241,7 +241,7 @@ describe("runAnalyze", () => {
 
   it("--force without a target artifact rejects with a clear error", async () => {
     await expect(runAnalyze({ root: orderlyRoot, scvDir, provider: fakeProvider(), force: true })).rejects.toThrow(
-      /--force requires a target artifact/,
+      `--force requires a target artifact (e.g. \`scv analyze ${orderlyRoot} layers --force\`)`,
     );
   });
 

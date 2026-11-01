@@ -47,6 +47,8 @@ export const ARTIFACT_DEPENDENCIES: Record<ArtifactName, ArtifactName[]> = {
   flows: ["functions", "extraction"],
 };
 
+export const ARTIFACT_NAMES = Object.keys(ARTIFACT_DEPENDENCIES) as ArtifactName[];
+
 /**
  * Stages whose own pass never calls a provider. They are always computed for real, regardless of
  * `allowProvider`, which gates only provider-backed stages. Their provider-backed *dependencies*

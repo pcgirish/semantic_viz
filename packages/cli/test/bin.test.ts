@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { gitFixture } from "./git-fixture.js";
@@ -80,6 +82,27 @@ describe("bin", () => {
       const clean = run("check", "--base", "HEAD");
       expect(clean.status).toBe(0);
       expect(clean.stdout).toBe("");
+    } finally {
+      fx.cleanup();
+    }
+  });
+
+  it("rejects a lone artifact name as ambiguous with both explicit forms, and analyzes ./<name> as a directory", () => {
+    const fx = gitFixture({ files: { "m.py": "def a():\n    return 1\n", "functions/f.py": "def f():\n    return 2\n" } });
+    try {
+      const run = (...args: string[]) => spawnSync("npx", ["tsx", binPath, ...args], { encoding: "utf-8", cwd: fx.root });
+
+      const ambiguous = run("analyze", "functions", "--no-llm");
+      expect(ambiguous.status).not.toBe(0);
+      expect(ambiguous.stderr).toContain(`"functions" is ambiguous`);
+      expect(ambiguous.stderr).toContain("scv analyze . functions");
+      expect(ambiguous.stderr).toContain("scv analyze ./functions");
+      expect(existsSync(path.join(fx.root, "functions", ".scv"))).toBe(false);
+
+      const directory = run("analyze", "./functions", "--no-llm");
+      expect(directory.status).toBe(0);
+      expect(directory.stderr).not.toMatch(/'scv analyze [a-z]+'/);
+      expect(directory.stderr).toContain("'scv analyze ./functions functions'");
     } finally {
       fx.cleanup();
     }

@@ -379,7 +379,7 @@ describe("mergeSemantics", () => {
 
       const emptyPendingFile = writePending({ units: {}, layers: {} });
       const baselineResult = await mergeSemantics({ pendingFile: emptyPendingFile, ctx: docsCtx, root: orderlyRoot, withClustering: true });
-      expect(baselineResult.warnings.some((w) => w.includes("cached an empty docs artifact"))).toBe(true);
+      expect(baselineResult.warnings.some((w) => w.includes("cached an empty docs artifact") && w.includes("`scv analyze <root> docs --force`"))).toBe(true);
       const layersArtifactFile = path.join(docsScvDir, "artifacts", sha, "layers.json");
       const baseline = JSON.parse(readFileSync(layersArtifactFile, "utf-8")) as StoredLayers;
       const targetLayer = baseline.data.layers[0]!;
