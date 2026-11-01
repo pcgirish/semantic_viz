@@ -2,7 +2,7 @@
 
 ## Context
 
-Two prior inventory passes (`docs/design-system-inventory.md`, `docs/ui-schema-inventory.md`, merged to main) established that CodeDream (37 components, 302 tokens, sibling repo at `/Users/girishpc/projects/claude_projects/code-viz-design-system`) has full component coverage for every screen in `packages/ui`, with no remaining "no matching component" gaps. This plan sequences the actual rebuild.
+Two prior inventory passes (`docs/design-system-inventory.md`, `docs/ui-schema-inventory.md`, merged to main) established that CodeDream (37 components, 302 tokens, sibling repo `code-viz-design-system`) has full component coverage for every screen in `packages/ui`, with no remaining "no matching component" gaps. This plan sequences the actual rebuild.
 
 `packages/ui` today: React 18 + TS + Vite SPA, Zustand store, **no component library** — every button/panel/card is a hand-styled `<div>`/`<button>` against `app.css` (913 lines, 26 custom properties). 10 screens wired into `App.tsx`, one test file per screen in `packages/ui/test/`.
 

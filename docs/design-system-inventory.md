@@ -4,7 +4,7 @@ Read-only inventory of the CodeDream design system, cross-referenced against the
 
 **Refresh pass:** this update reflects design-system commit `796a91f` ("updated design system"). Since the original inventory was written, commit `49f6021` ("Pull latest CodeDream design system") added three components — `BubbleChart`, `RiskRadar`, `EdgeDeltaList`/`DeltaRow` — that close every gap flagged in section 6 below. `796a91f` itself only touched `Icon` (ligature-name fixes, three new glyph aliases) and lint config; no new components, no token changes.
 
-**Source:** `/Users/girishpc/projects/claude_projects/code-viz-design-system` (external claude.ai Design export, not part of the semantic_viz repo). React + CSS custom properties, 302 tokens, 37 components, 19 guideline specimens, 2 full UI kits (app + marketing site).
+**Source:** the sibling repo `code-viz-design-system` (external claude.ai Design export, not part of the semantic_viz repo). React + CSS custom properties, 302 tokens, 37 components, 19 guideline specimens, 2 full UI kits (app + marketing site).
 
 ## 1. Source location
 
