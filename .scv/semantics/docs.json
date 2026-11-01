@@ -338,7 +338,7 @@
     },
     "docs/design-system-inventory.md": {
       "architecture_notes": [],
-      "fingerprint": "5ea6193d788e425a820efa5ce05fdde6008a4ebd",
+      "fingerprint": "0abdd1f7dd1687dc5ba65d7546de0f1b7b9af974",
       "modules": [
         {
           "description": "CodeDream design tokens and shared components",
@@ -765,7 +765,7 @@
     },
     "docs/plans/codedream-ui-migration.md": {
       "architecture_notes": [],
-      "fingerprint": "0cb6d1d3197660b667c19681309e74df2c7a36c1",
+      "fingerprint": "ee00629e60c17a28626c2fe15d6320b5a4b8eefa",
       "modules": [
         {
           "description": "React app: canvas, inspector and Delta/Replay/Depends-on/API Flow/Flowchart views",
